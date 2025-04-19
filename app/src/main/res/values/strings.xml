@@ -1,0 +1,136 @@
+<resources>
+    <string name="app_name">Sagip</string>
+    <string name="welcome_to">WELCOME TO</string>
+    <string name="enter_number_prompt">Enter your mobile number\nand get started</string>
+    <string name="country_code">+63</string>
+    <string name="mobile_hint">Mobile Number</string>
+    <string name="invalid_mobile_error">Please enter a valid mobile number</string>
+    <string name="login_with_email">Log-in using email</string>
+    <string name="continue_btn">Continue</string>
+    <string name="senior_title">Senior Citizen</string>
+    <string name="senior_description">Call for help</string>
+    <string name="barangay_title">Barangay</string>
+    <string name="barangay_description">Monitor your Area</string>
+    <string name="rescue_title">Rescue</string>
+    <string name="rescue_description">Optimized saving life</string>
+    <string name="hospital_title">Hospital</string>
+    <string name="hospital_description">Post your ER status</string>
+
+    <!-- OTP Page Strings -->
+    <string name="text_instruction">Enter the 6-digit code sent to</string>
+    <string name="mobile_number">+639****5015</string>
+    <string name="otp_hint">Enter OTP</string>
+    <string name="instruction_text_otp">Enter the 6-digit code sent to your mobile number below to verify your identity.</string>
+    <string name="timer_text">Code expires in 59s</string>
+    <string name="resend_code_text">Resend Code</string>
+    <string name="verify_button">Verify</string>
+    <string name="security_note">This verification helps us keep your account secure</string>
+    <string name="instruction_text_email">Enter your email address below to verify your identity.</string>
+
+    <string name="back_arrow">Back</string>
+    <string name="checkmark">Submit</string>
+    <string name="account_information">Account Information</string>
+    <string name="mobile_info">We’ll use your mobile number for verification and updates.</string>
+    <string name="instruction_text">Please provide your full name and birthday as shown on your ID.</string>
+    <string name="first_name_hint">First Name</string>
+    <string name="middle_name_hint">Middle Name (Optional)</string>
+    <string name="last_name_hint">Last Name</string>
+    <string name="birthday_hint">Birthday (MM/DD/YYYY)</string>
+    <string name="email_hint">Address</string>
+    <string name="terms_conditions">I agree to the Terms and Conditions</string>
+    <string name="privacy_policy">I agree to the Privacy Policy</string>
+    <string name="submit_button_text">Continue</string>
+
+    <string name="rescuer_hospital">Rescuer Hospital</string>
+    <string name="rescuer_dashboard">Rescuer Dashboard</string>
+    <string name="rescuer_profile">Rescuer Profile</string>\
+    <string name="hospital_home">Home</string>
+
+    <string name="hospital_profile">Profile</string>
+    <string name="hospital_list">List</string>
+
+    <string name="barangay_list">List</string>
+    <string name="barangay_dashboard">Barangay Dashboard</string>
+    <string name="barangay_profile">Barangay Profile</string>
+
+    <string name="barangay_name">Barangay Name</string>
+    <string name="barangay_email">barangay@example.com</string>
+
+    <string name="hospital_name">Hospital Name</string>
+    <string name="hospital_email">hospital@gmail.com</string>
+
+    <string name="senior_name">Senior Name</string>
+    <string name="senior_email">senior@gmail.com</string>
+    <string name="senior_number">+639****5015</string>
+    <string name="change_number">Changer Number</string>
+
+    <string name="rescuer_name">Rescue Team Name</string>
+    <string name="rescuer_email">rescue@gmail.com</string>
+    <string name="rescuer_number">+639****5015</string>
+
+    <!-- Settings -->
+    <string name="account_settings">Account Settings</string>
+    <string name="change_password">Change Password</string>
+    <string name="change_Info">Update Account Info</string>
+    <string name="change_email">Change Email</string>
+    <string name="notification_settings">Notification Settings</string>
+
+    <string name="password_icon_description">Password icon</string>
+    <string name="toggle_password_visibility">Toggle password visibility</string>
+    <string name="email_hint_login">Enter your email address</string>
+    <string name="password_hint">Enter your password</string>
+    <string name="invalid_credentials_error">Invalid email or password</string>
+    <string name="login_with_phone">Login with phone number instead</string>
+    <string name="forgot_password">Forgot password?</string>
+    <string name="sign_in">Sign In</string>
+    <string name="enter_credentials_prompt">Please enter your email and password to continue</string>
+    <string name="registration_options">Registration Options</string>
+    <string name="email_icon_description">Email icon</string>
+    <string name="more_options">More Options</string>
+    <string name="help_support">Help &amp; Support</string>
+    <string name="logout">Logout</string>
+
+    <!-- Identity Verification Screen -->
+    <string name="identity_verification">Identity Verification</string>
+    <string name="id_type_hint">ID Type</string>
+    <string name="id_document_photo">ID Document Photo</string>
+    <string name="upload_button">Upload</string>
+    <string name="capture_button">Capture</string>
+    <string name="verify_identity">Verify Identity</string>
+    <string name="privacy_text">Your information is secure and will only be used for verification purposes.</string>
+    <string name="title_selfie_verification">Selfie Verification</string>
+    <string name="selfie_instructions">Please take a clear selfie or upload an image for identity verification. Ensure your face is clearly visible and centered.</string>
+    <string name="selfie_step_indicator">Step 2 of 3</string>
+    <string name="selfie_photo_label">Your Selfie</string>
+    <string name="selfie_photo_placeholder">No selfie selected</string>
+
+    <string name="button_upload_selfie">Upload Selfie</string>
+    <string name="button_take_selfie">Take Selfie</string>
+    <string name="button_verify_selfie">Verify Selfie</string>
+    <string name="selfie_guidelines">Selfie Guidelines</string>
+    <string name="guideline_face_visible">Make sure your face is clearly visible</string>
+    <string name="guideline_good_lighting">Take the photo in good lighting</string>
+    <string name="guideline_remove_glasses">Remove glasses or accessories</string>
+    <string name="content_description_face_outline">Face outline placeholder</string>
+    <string name="selfie_privacy_info">Your photo will only be used for verification purposes and will be kept private and secure.</string>
+
+    <string name="contact_name">Contact Name</string>
+    <string name="relationship">Relationship</string>
+    <string name="phone_number">Phone Number</string>
+    <string name="call_contact">Call contact</string>
+    <string name="contact_options">Contact options</string>
+    <string name="update">Update</string>
+    <string name="delete">Delete</string>
+
+
+    // SOS Button
+    <string name="emegencysignalcode">SOS</string>
+    <string name="emergencynote">Need Emergency Help?</string>
+    <string name="emergencyguide">Just hold the SOS button to alert.</string>
+
+    // Senior Dashboard
+    <string name="senior_home">Home</string>
+    <string name="senior_location">Location</string>
+    <string name="senior_profile">Profile</string>
+
+</resources>

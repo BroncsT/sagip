@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera.autofocus"
+        android:required="false" />
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.SAGIP_prototype"
+        tools:targetApi="31">
+        <activity
+            android:name=".Senior_Update_Profile"
+            android:exported="false" />
+        <activity
+            android:name=".Senior_Profile"
+            android:exported="false" />
+        <activity
+            android:name=".Senior_Emergency_Contact"
+            android:exported="false" /> <!-- File provider declaration - MOVED INSIDE application tag -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.yourapplication.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <activity
+            android:name=".Barangay_Dashboard"
+            android:exported="false" />
+        <activity
+            android:name=".Hospital_Dashboard"
+            android:exported="false" />
+        <activity
+            android:name=".Rescuer_Dashboard"
+            android:exported="false" />
+        <activity
+            android:name=".Senior_Dashboard"
+            android:exported="false" />
+        <activity
+            android:name=".Selfie_verification"
+            android:exported="false" />
+        <activity
+            android:name=".Verification_Page"
+            android:exported="false" />
+        <activity
+            android:name=".Senior_Registration"
+            android:exported="false" />
+        <activity
+            android:name=".Log_in_Via_Email"
+            android:exported="false" />
+        <activity
+            android:name=".OTP_PAGE"
+            android:exported="false" />
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    // Primary Color
+    <color name="primaryRed">#FF0000</color>
+    <color name="secondaryRed">#E83d31</color>
+    <color name="lightRed">#F06767</color>
+    <color name="backgroundRed">#C62828</color>
+
+
+    // Secondary Color
+
+    // Other Color
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>

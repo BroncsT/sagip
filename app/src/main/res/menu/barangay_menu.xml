@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/barangay_list"
+        android:title="@string/barangay_list"
+        android:icon="@drawable/list"/>
+    />
+    <item
+        android:id="@+id/barangay_dashboard"
+        android:title="@string/barangay_dashboard"
+        android:icon="@drawable/senior_dashboard"/>
+    />
+    <item
+        android:id="@+id/barangay_profile"
+        android:title="@string/barangay_profile"
+        android:icon="@drawable/senior_profile"/>
+    />
+</menu>

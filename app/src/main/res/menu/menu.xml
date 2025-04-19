@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/senior_location"
+        android:title="@string/senior_location"
+        android:icon="@drawable/baseline_location_pin_24"
+        />
+    <item
+        android:id="@+id/senior_home"
+        android:title="@string/senior_home"
+        android:icon="@drawable/senior_dashboard"
+
+    />
+    <item
+        android:id="@+id/senior_profile"
+        android:title="@string/senior_profile"
+        android:icon="@drawable/baseline_account_circle_24"
+        />
+</menu>

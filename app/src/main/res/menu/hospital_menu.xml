@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/hospital_list"
+        android:title="@string/hospital_list"
+        android:icon="@drawable/ic_bed"/>
+
+    <item
+        android:id="@+id/hospital_home"
+        android:title="@string/hospital_home"
+        android:icon="@drawable/hospital_home"/>
+
+    <item
+        android:id="@+id/hospital_profile"
+        android:title="@string/hospital_profile"
+        android:icon="@drawable/senior_profile"/>
+
+
+
+</menu>

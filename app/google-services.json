@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "808075390380",
+    "project_id": "sagip-b6bc3",
+    "storage_bucket": "sagip-b6bc3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:808075390380:android:eae1aeb3a618036fc09e09",
+        "android_client_info": {
+          "package_name": "com.example.sagip_prototype"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCFvVWMkqbmIbUbz61HxDEXwf8bbxDYXiA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:808075390380:android:cff02b7156d23feac09e09",
+        "android_client_info": {
+          "package_name": "com.example.sagippp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCFvVWMkqbmIbUbz61HxDEXwf8bbxDYXiA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:808075390380:android:ae98128a73ed5e7ac09e09",
+        "android_client_info": {
+          "package_name": "com.example.saip_pre_oral"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCFvVWMkqbmIbUbz61HxDEXwf8bbxDYXiA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
