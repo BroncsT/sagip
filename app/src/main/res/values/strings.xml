@@ -128,9 +128,15 @@
     <string name="emergencynote">Need Emergency Help?</string>
     <string name="emergencyguide">Just hold the SOS button to alert.</string>
 
-    // Senior Dashboard
+    // Senior Dashboard - Navigation Bar Icon Label
     <string name="senior_home">Home</string>
     <string name="senior_location">Location</string>
     <string name="senior_profile">Profile</string>
+
+    // Senior Dashboard - Profile
+    <string name="top">Profile</string>
+
+
+
 
 </resources>

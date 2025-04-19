@@ -1,37 +1,70 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="#F5F5F5"
     tools:context=".Senior_Profile">
 
-    <!-- Profile Header Section -->
+    <!-- Senior Profile Section -->
+
+    <TextView
+        android:id="@+id/labelProfile"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="@string/top"
+        android:textAlignment="center"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical3"
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical4"
+        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1"
+        app:layout_constraintBottom_toTopOf="@id/guidelineHorizontal2"/>
+
+    <ImageView
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:contextClickable="true"
+        app:srcCompat="@drawable/baseline_arrow_back_24"
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical3"
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
+        app:layout_constraintBottom_toBottomOf="@id/guidelineHorizontal2"
+        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1"/>
+
+    <!-- Senior ViewCard -->
+
     <androidx.cardview.widget.CardView
         android:id="@+id/profileHeader"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="20dp"
-        android:layout_marginEnd="16dp"
         app:cardCornerRadius="8dp"
-        app:cardElevation="4dp">
+        app:cardElevation="4dp"
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical5"
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical6"
+        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal2">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:layout_margin="15dp">
+
+            <ImageView
+                android:id="@+id/imageView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                tools:srcCompat="@tools:sample/avatars" />
 
             <TextView
                 android:id="@+id/profileName"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
                 android:gravity="center"
-                android:text="@string/senior_name"
-                android:textSize="20sp"
+                android:hint="@string/senior_name"
+                android:textSize="26sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -39,23 +72,24 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:text="@string/senior_number"
-                android:textSize="14sp" />
+                android:hint="@string/senior_number"
+                android:textSize="16sp" />
 
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
-    <!-- Settings Section -->
+    <!-- Senior ViewCard Account Settings -->
+
     <androidx.cardview.widget.CardView
         android:id="@+id/settingsCard"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_below="@id/profileHeader"
-        android:layout_marginStart="16dp"
         android:layout_marginTop="20dp"
-        android:layout_marginEnd="16dp"
         app:cardCornerRadius="8dp"
-        app:cardElevation="4dp">
+        app:cardElevation="4dp"
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical5"
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical6"
+        app:layout_constraintTop_toBottomOf="@id/profileHeader">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -65,10 +99,11 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="#EFEFEF"
+                android:background="@color/lightRed"
                 android:padding="10dp"
                 android:text="@string/account_settings"
                 android:textSize="16sp"
+                android:textColor="@color/white"
                 android:textStyle="bold" />
 
             <LinearLayout
@@ -126,17 +161,18 @@
 
     </androidx.cardview.widget.CardView>
 
-    <!-- Additional Settings Section -->
+    <!-- Senior ViewCard More Options -->
+
     <androidx.cardview.widget.CardView
         android:id="@+id/additionalSettingsCard"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_below="@id/settingsCard"
-        android:layout_marginStart="16dp"
         android:layout_marginTop="20dp"
-        android:layout_marginEnd="16dp"
         app:cardCornerRadius="8dp"
-        app:cardElevation="4dp">
+        app:cardElevation="4dp"
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical5"
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical6"
+        app:layout_constraintTop_toBottomOf="@id/settingsCard">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -146,10 +182,11 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="#EFEFEF"
+                android:background="@color/lightRed"
                 android:padding="10dp"
                 android:text="@string/more_options"
                 android:textSize="16sp"
+                android:textColor="@color/white"
                 android:textStyle="bold" />
 
             <LinearLayout
@@ -237,6 +274,20 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         app:layout_constraintGuide_percent="0.75" />
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guidelineVertical5"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_percent="0.05" />
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guidelineVertical6"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_percent="0.95" />
 
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guidelineHorizontal1"
