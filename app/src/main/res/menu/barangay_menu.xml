@@ -2,18 +2,18 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
 
     <item
-        android:id="@+id/barangay_list"
-        android:title="@string/barangay_list"
-        android:icon="@drawable/list"/>
-    />
+        android:id="@+id/barangay_seniorList"
+        android:title="List"
+        android:icon="@drawable/baseline_view_list_24"/>
+
     <item
         android:id="@+id/barangay_dashboard"
-        android:title="@string/barangay_dashboard"
-        android:icon="@drawable/senior_dashboard"/>
-    />
+        android:title="Geolocation"
+        android:icon="@drawable/baseline_location_pin_24"/>
+
     <item
         android:id="@+id/barangay_profile"
-        android:title="@string/barangay_profile"
-        android:icon="@drawable/senior_profile"/>
-    />
+        android:title="Profile"
+        android:icon="@drawable/baseline_account_circle_24"/>
+
 </menu>

@@ -1,24 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/main"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    xmlns:tools="http://schemas.android.com/tools"
     android:background="#F5F5F5"
-    tools:context=".Senior_Profile">
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <!-- Senior Profile Section -->
+    <!-- Barangay Profile Section -->
     <TextView
         android:id="@+id/labelProfile"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="@string/top"
+        android:text="Profile"
         android:textAlignment="center"
         android:textSize="24sp"
         android:textStyle="bold"
-        app:layout_constraintStart_toStartOf="@id/guidelineVertical3"
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical2"
         app:layout_constraintEnd_toEndOf="@id/guidelineVertical4"
         app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1"
         app:layout_constraintBottom_toTopOf="@id/guidelineHorizontal2"/>
@@ -28,7 +25,7 @@
         android:layout_height="30dp"
         android:contextClickable="true"
         app:srcCompat="@drawable/baseline_arrow_back_24"
-        app:layout_constraintEnd_toEndOf="@id/guidelineVertical3"
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical2"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
         app:layout_constraintBottom_toBottomOf="@id/guidelineHorizontal2"
         app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1"/>
@@ -40,8 +37,8 @@
         android:layout_height="wrap_content"
         app:cardCornerRadius="8dp"
         app:cardElevation="4dp"
-        app:layout_constraintStart_toStartOf="@id/guidelineVertical5"
-        app:layout_constraintEnd_toEndOf="@id/guidelineVertical6"
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical5"
         app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal2">
 
         <LinearLayout
@@ -51,26 +48,26 @@
             android:layout_margin="15dp">
 
             <ImageView
-                android:id="@+id/seniorProfileImgView"
+                android:id="@+id/imageView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 tools:srcCompat="@tools:sample/avatars" />
 
             <TextView
-                android:id="@+id/seniorProfileName"
+                android:id="@+id/profileName"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:hint="@string/senior_name"
+                android:hint="Rescuer Name"
                 android:textSize="26sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/seniorProfileNumber"
+                android:id="@+id/profileEmail"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:hint="@string/senior_number"
+                android:hint="email address"
                 android:textSize="16sp" />
 
         </LinearLayout>
@@ -85,8 +82,8 @@
         android:layout_marginTop="20dp"
         app:cardCornerRadius="8dp"
         app:cardElevation="4dp"
-        app:layout_constraintStart_toStartOf="@id/guidelineVertical5"
-        app:layout_constraintEnd_toEndOf="@id/guidelineVertical6"
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical5"
         app:layout_constraintTop_toBottomOf="@id/profileHeader">
 
         <LinearLayout
@@ -168,8 +165,8 @@
         android:layout_marginTop="20dp"
         app:cardCornerRadius="8dp"
         app:cardElevation="4dp"
-        app:layout_constraintStart_toStartOf="@id/guidelineVertical5"
-        app:layout_constraintEnd_toEndOf="@id/guidelineVertical6"
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical5"
         app:layout_constraintTop_toBottomOf="@id/settingsCard">
 
         <LinearLayout
@@ -250,38 +247,32 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        app:layout_constraintGuide_percent="0.10" />
+        app:layout_constraintGuide_percent="0.05" />
 
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guidelineVertical2"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        app:layout_constraintGuide_percent="0.90" />
+        app:layout_constraintGuide_percent="0.20" />
 
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guidelineVertical3"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        app:layout_constraintGuide_percent="0.25" />
+        app:layout_constraintGuide_percent="0.50" />
+
 
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guidelineVertical4"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        app:layout_constraintGuide_percent="0.75" />
+        app:layout_constraintGuide_percent="0.80" />
 
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guidelineVertical5"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        app:layout_constraintGuide_percent="0.05" />
-
-    <androidx.constraintlayout.widget.Guideline
-        android:id="@+id/guidelineVertical6"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
@@ -299,6 +290,21 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        app:layout_constraintGuide_percent="0.11" />
+        app:layout_constraintGuide_percent="0.12" />
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guidelineHorizontal3"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_percent="0.15" />
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guidelineHorizontal4"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_percent="0.25" />
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>
