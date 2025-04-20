@@ -134,7 +134,15 @@
     <string name="senior_profile">Profile</string>
 
     // Senior Dashboard - Profile
-    <string name="top">Profile</string>
+    <string name="profile_section">Profile</string>
+
+    // Senior Dashboard - Emergency Contact
+    <string name="emergencyContact_section">Emergency Contact List</string>
+    <string name="emergencyHintContactName">Emergency Contact Name</string>
+    <string name="emergencyHintRelationship">Relationship</string>
+    <string name="emergencyHintPhoneNumber">Phone Number</string>
+
+
 
 
 
