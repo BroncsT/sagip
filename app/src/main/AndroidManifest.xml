@@ -27,6 +27,9 @@
         android:theme="@style/Theme.SAGIP_prototype"
         tools:targetApi="31">
         <activity
+            android:name=".Barangay_Registration"
+            android:exported="false" />
+        <activity
             android:name=".Hospital_List"
             android:exported="false" />
         <activity
