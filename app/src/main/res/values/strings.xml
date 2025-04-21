@@ -43,11 +43,7 @@
 
     <string name="rescuer_hospital">Rescuer Hospital</string>
     <string name="rescuer_dashboard">Rescuer Dashboard</string>
-    <string name="rescuer_profile">Rescuer Profile</string>\
-    <string name="hospital_home">Home</string>
-
-    <string name="hospital_profile">Profile</string>
-    <string name="hospital_list">List</string>
+    <string name="rescuer_profile">Rescuer Profile</string>
 
     <string name="barangay_list">List</string>
     <string name="barangay_dashboard">Barangay Dashboard</string>
@@ -123,6 +119,8 @@
     <string name="delete">Delete</string>
 
 
+
+
     // SOS Button
     <string name="emegencysignalcode">SOS</string>
     <string name="emergencynote">Need Emergency Help?</string>
@@ -142,8 +140,12 @@
     <string name="emergencyHintRelationship">Relationship</string>
     <string name="emergencyHintPhoneNumber">Phone Number</string>
 
-    // Rescuer Registration
+    // Hospital Navbar
+    <string name="hospital_dashboard">Dashboard</string>
+    <string name="hospital_profile">Profile</string>
+    <string name="hospital_list">List</string>
 
+    // Rescuer Registration
     <string name="title_rescue_group_registration">Rescue Group Registration</string>
     <string name="instruction_registration">Please complete the following details to register your rescue group.</string>
 
@@ -157,7 +159,7 @@
     <string name="hint_contact_number">Contact Number*</string>
 
     <string name="section_areas_of_coverage">Areas of Coverage</string>
-    <string name="hint_select_barangays">Select Barangays*</string>
+    <string name="hint_select_barangays">Select Barangay*</string>
     <string name="content_description_status">Status</string>
     <string name="checkbox_privacy_policy">I have read, understood, and accepted the Privacy Policy</string>
     <string name="button_register_rescue_group">Register Rescue Group</string>
