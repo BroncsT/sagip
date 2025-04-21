@@ -3,6 +3,7 @@ package com.example.sagip_prototype;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.activity.EdgeToEdge;
@@ -31,8 +32,19 @@ public class Senior_Profile extends AppCompatActivity {
         db = FirebaseFirestore.getInstance();
 
         TextView gotoupdate = findViewById(R.id.gotoupdate);
-        TextView tvFullName = findViewById(R.id.profileName);
-        TextView tvnumber = findViewById(R.id.profileEmail);
+        TextView tvFullName = findViewById(R.id.seniorProfileName);
+        TextView tvnumber = findViewById(R.id.seniorProfileNumber);
+        LinearLayout logOut = findViewById(R.id.logoutLayout);
+
+        logOut.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mAuth.signOut();
+                Intent intent = new Intent(Senior_Profile.this, MainActivity.class);
+                startActivity(intent);
+                finish();
+            }
+        });
 
         gotoupdate.setOnClickListener(new View.OnClickListener() {
             @Override

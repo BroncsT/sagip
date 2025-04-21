@@ -9,7 +9,6 @@ import android.location.Location;
 import android.os.Bundle;
 import android.os.Looper;
 import android.util.Log;
-import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -18,7 +17,6 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.app.ActivityCompat;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
@@ -37,7 +35,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.SortedMap;
 
 public class Senior_Dashboard extends AppCompatActivity {
 
@@ -47,12 +44,10 @@ public class Senior_Dashboard extends AppCompatActivity {
 
     TextView tvFullName, tvBirthday, tvAge, tvMobile, tvAddress, tvCurrentLocation, tvSOSStatus;
 
-    // Location related variables
     private FusedLocationProviderClient fusedLocationClient;
     private LocationCallback locationCallback;
     private boolean locationUpdatesActive = false;
 
-    // Permission launcher
     private ActivityResultLauncher<String[]> locationPermissionRequest;
 
     @Override
@@ -64,22 +59,13 @@ public class Senior_Dashboard extends AppCompatActivity {
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
 
-        // 🔥 Check if user is logged in
         if (mAuth.getCurrentUser() == null) {
             startActivity(new Intent(Senior_Dashboard.this, MainActivity.class));
             finish();
             return;
         }
-
-        // Initialize views
-//        tvFullName = findViewById(R.id.tvFullName);
-//        tvBirthday = findViewById(R.id.tvBirthday);
-//        tvAge = findViewById(R.id.tvAge);
-//        tvMobile = findViewById(R.id.tvMobile);
-//        tvAddress = findViewById(R.id.tvAddress);
+        tvFullName = findViewById(R.id.seniorName);
         tvCurrentLocation = findViewById(R.id.tvCurrentLocation);
-//        tvSOSStatus = findViewById(R.id.tvSOSStatus);
-
         initializeLocationServices();
         registerLocationPermissionLauncher();
         loadUserData();
@@ -97,7 +83,7 @@ public class Senior_Dashboard extends AppCompatActivity {
                 overridePendingTransition(0, 0);
                 finish();
                 return true;
-            } else if (itemId == R.id.senior_profile) {
+            } else if (itemId == R.id.senior_location) {
                 startActivity(new Intent(getApplicationContext(), Senior_Emergency_Contact.class));
                 overridePendingTransition(0, 0);
                 finish();
@@ -195,7 +181,7 @@ public class Senior_Dashboard extends AppCompatActivity {
 
             List<Address> addresses = geocoder.getFromLocation(latitude, longitude, 1);
 
-            if (addresses != null && addresses.size() > 0) {
+            if (addresses != null && !addresses.isEmpty()) {
                 Address address = addresses.get(0);
 
                 StringBuilder addressText = new StringBuilder();
@@ -260,12 +246,8 @@ public class Senior_Dashboard extends AppCompatActivity {
                 .collection(userType)
                 .document(uid)
                 .update(locationData)
-                .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "Location saved to database");
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error saving location to database", e);
-                });
+                .addOnSuccessListener(aVoid -> Log.d(TAG, "Location saved to database"))
+                .addOnFailureListener(e -> Log.e(TAG, "Error saving location to database", e));
     }
 
     private void loadUserData() {
@@ -282,17 +264,14 @@ public class Senior_Dashboard extends AppCompatActivity {
                         String firstName = documentSnapshot.getString("firstName");
                         String middleName = documentSnapshot.getString("middleName");
                         String lastName = documentSnapshot.getString("lastName");
-                        String birthday = documentSnapshot.getString("birthday");
-                        String address = documentSnapshot.getString("address");
-                        String mobileNumber = documentSnapshot.getString("mobileNumber");
                         String currentLocation = documentSnapshot.getString("currentLocation");
 
-                        String fullName = firstName + " " + middleName + " " + lastName;
-
-                        tvFullName.setText(fullName);
-                        tvBirthday.setText(birthday);
-                        tvAddress.setText(address);
-                        tvMobile.setText(mobileNumber);
+                        if (firstName != null && middleName != null && lastName != null) {
+                            String fullName = firstName + " " + middleName + " " + lastName;
+                            tvFullName.setText(fullName);
+                        } else {
+                            tvFullName.setText("Full Name Not Available");
+                        }
 
                         if (currentLocation != null && !currentLocation.isEmpty()) {
                             tvCurrentLocation.setText(currentLocation);
@@ -300,12 +279,6 @@ public class Senior_Dashboard extends AppCompatActivity {
                             tvCurrentLocation.setText("Waiting for location update...");
                         }
 
-                        if (birthday != null && !birthday.isEmpty()) {
-                            int age = calculateAgeFromBirthday(birthday);
-                            tvAge.setText(String.valueOf(age));
-                        } else {
-                            tvAge.setText("-");
-                        }
                     } else {
                         tvFullName.setText("User data not found.");
                         Log.d(TAG, "Document doesn't exist");
@@ -314,7 +287,6 @@ public class Senior_Dashboard extends AppCompatActivity {
                 .addOnFailureListener(e -> {
                     tvFullName.setText("Failed to load data.");
                     Log.e(TAG, "Error fetching user data", e);
-                    e.printStackTrace();
                 });
     }
 

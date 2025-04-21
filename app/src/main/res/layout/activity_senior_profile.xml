@@ -14,7 +14,6 @@
         android:id="@+id/labelProfile"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="@string/top"
         android:textAlignment="center"
         android:textSize="24sp"
         android:textStyle="bold"

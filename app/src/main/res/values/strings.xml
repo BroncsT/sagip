@@ -142,9 +142,26 @@
     <string name="emergencyHintRelationship">Relationship</string>
     <string name="emergencyHintPhoneNumber">Phone Number</string>
 
+    // Rescuer Registration
 
+    <string name="title_rescue_group_registration">Rescue Group Registration</string>
+    <string name="instruction_registration">Please complete the following details to register your rescue group.</string>
 
+    <string name="section_basic_information">Basic Information</string>
+    <string name="hint_rescue_group_name">Rescue Group Name*</string>
+    <string name="hint_organization_type">Organization Type*</string>
 
+    <string name="section_contact_details">Contact Details</string>
+    <string name="hint_headquarters_address">Headquarters/Office Address*</string>
+    <string name="hint_primary_contact_person">Primary Contact Person*</string>
+    <string name="hint_contact_number">Contact Number*</string>
+
+    <string name="section_areas_of_coverage">Areas of Coverage</string>
+    <string name="hint_select_barangays">Select Barangays*</string>
+    <string name="content_description_status">Status</string>
+    <string name="checkbox_privacy_policy">I have read, understood, and accepted the Privacy Policy</string>
+    <string name="button_register_rescue_group">Register Rescue Group</string>
+    <string name="checkbox_terms_conditions">I have read, understood, and accepted the Terms and Conditions</string>
 
 
 </resources>
