@@ -31,7 +31,7 @@ public class Senior_Profile extends AppCompatActivity {
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
 
-        TextView gotoupdate = findViewById(R.id.gotoupdate);
+        LinearLayout gotoupdate = findViewById(R.id.gotoupdate);
         TextView tvFullName = findViewById(R.id.seniorProfileName);
         TextView tvnumber = findViewById(R.id.seniorProfileNumber);
         LinearLayout logOut = findViewById(R.id.logoutLayout);
@@ -51,7 +51,6 @@ public class Senior_Profile extends AppCompatActivity {
             public void onClick(View v) {
                 Intent intent = new Intent(Senior_Profile.this, Senior_Update_Profile.class);
                 startActivity(intent);
-                finish();
             }
         });
 

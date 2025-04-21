@@ -8,9 +8,10 @@
     android:background="#F5F5F5"
     tools:context=".Rescuer_Dashboard">
 
+    <!-- Header Section -->
     <TextView
         android:id="@+id/greetings"
-        android:layout_width="70dp"
+        android:layout_width="wrap_content"
         android:layout_height="30dp"
         android:text="Hello, "
         android:textAlignment="center"
@@ -37,22 +38,42 @@
         android:layout_width="30dp"
         android:layout_height="30dp"
         app:srcCompat="@drawable/baseline_notifications_active_24"
-        app:layout_constraintEnd_toEndOf="@id/guidelineVertical5"
-        app:layout_constraintStart_toStartOf="@id/guidelineVertical4"
+        app:layout_constraintEnd_toStartOf="@id/guidelineVertical5"
         app:layout_constraintBottom_toBottomOf="@id/guidelineHorizontal2"
         app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1"/>
 
-    <!--Senior Info & Current Location CardView-->
+    <!-- Current Location Section -->
+    <TextView
+        android:id="@+id/currentLocationLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Current Location: "
+        android:textColor="@color/black"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
+        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal2" />
+
+    <TextView
+        android:id="@+id/currentLocationValue"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        app:layout_constraintStart_toEndOf="@id/currentLocationLabel"
+        app:layout_constraintEnd_toStartOf="@id/guidelineVertical5"
+        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal2" />
+
+    <!-- Senior Info CardView -->
     <androidx.cardview.widget.CardView
         android:id="@+id/currentLocationCard"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="50dp"
+        android:layout_marginTop="16dp"
         app:cardCornerRadius="16dp"
         app:cardElevation="10dp"
         app:layout_constraintEnd_toEndOf="@id/guidelineVertical5"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
-        app:layout_constraintBottom_toTopOf="@id/bottomNavBar">
+        app:layout_constraintTop_toBottomOf="@id/currentLocationLabel">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -72,7 +93,8 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp">
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -92,7 +114,8 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:layout_marginTop="4dp">
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -112,26 +135,39 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:layout_marginTop="4dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Current Location: "
+                    android:text="Location: "
                     android:textColor="@color/black"
                     android:textSize="16sp"
                     android:textStyle="bold" />
 
                 <TextView
-                    android:id="@+id/tvCurrentLocation"
+                    android:id="@+id/tvSeniorLocation"
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
-                    android:textSize="16sp"
-                    tools:ignore="DuplicateIds" />
+                    android:textSize="16sp" />
             </LinearLayout>
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
+    <!-- Navigation Button -->
+    <Button
+        android:id="@+id/navigateToHospitalButton"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:text="Navigate to Nearest Hospital"
+        android:textAllCaps="false"
+        android:padding="12dp"
+        android:background="@drawable/rounded_button"
+        app:layout_constraintBottom_toTopOf="@id/bottomNavBar"
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical5"
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical1" />
 
     <!-- Bottom Navigation -->
     <com.google.android.material.bottomnavigation.BottomNavigationView

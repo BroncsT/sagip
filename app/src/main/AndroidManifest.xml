@@ -27,6 +27,9 @@
         android:theme="@style/Theme.SAGIP_prototype"
         tools:targetApi="31">
         <activity
+            android:name=".Rescuer_List"
+            android:exported="false" />
+        <activity
             android:name=".Rescuer_Profile"
             android:exported="false" />
         <activity

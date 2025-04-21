@@ -102,7 +102,7 @@
                 android:textStyle="bold" />
 
             <LinearLayout
-                android:id="@+id/change_Number"
+                android:id="@+id/gotoupdate1"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
@@ -239,7 +239,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:menu="@menu/menu" />
+        app:menu="@menu/rescue_menu" />
 
     <!--GRID GUIDELINE-->
     <androidx.constraintlayout.widget.Guideline

@@ -104,7 +104,7 @@
                 android:textStyle="bold" />
 
             <LinearLayout
-                android:id="@+id/change_Number"
+                android:id="@+id/gotoupdate"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
