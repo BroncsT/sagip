@@ -6,9 +6,12 @@ import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Looper;
 import android.util.Log;
+import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -43,10 +46,13 @@ public class Senior_Dashboard extends AppCompatActivity {
     FirebaseFirestore db;
 
     TextView tvFullName, tvBirthday, tvAge, tvMobile, tvAddress, tvCurrentLocation, tvSOSStatus;
+    Button btnFindHospital; // Added Button for finding nearest hospital
 
     private FusedLocationProviderClient fusedLocationClient;
     private LocationCallback locationCallback;
     private boolean locationUpdatesActive = false;
+    private double currentLat = 0.0;
+    private double currentLong = 0.0;
 
     private ActivityResultLauncher<String[]> locationPermissionRequest;
 
@@ -64,8 +70,19 @@ public class Senior_Dashboard extends AppCompatActivity {
             finish();
             return;
         }
+
         tvFullName = findViewById(R.id.seniorName);
         tvCurrentLocation = findViewById(R.id.tvCurrentLocation);
+
+        // Initialize Find Hospital button
+        btnFindHospital = findViewById(R.id.findhospital);
+        btnFindHospital.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                navigateToNearestHospital();
+            }
+        });
+
         initializeLocationServices();
         registerLocationPermissionLauncher();
         loadUserData();
@@ -93,6 +110,35 @@ public class Senior_Dashboard extends AppCompatActivity {
         });
 
         requestLocationPermissions();
+    }
+
+    // Add method to navigate to nearest hospital
+    private void navigateToNearestHospital() {
+        if (currentLat == 0.0 && currentLong == 0.0) {
+            Toast.makeText(this, "Current location not available. Please wait or check permissions.",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Format coordinates for Google Maps
+        String source = currentLat + "," + currentLong;
+        // Use "hospital" as destination to find nearest hospitals
+        String destination = "hospital";
+
+        // Create Google Maps intent
+        Uri uri = Uri.parse("https://www.google.com/maps/dir/" + source + "/" + destination);
+        Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+        intent.setPackage("com.google.android.apps.maps");
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+        // Check if Google Maps is installed
+        if (intent.resolveActivity(getPackageManager()) != null) {
+            startActivity(intent);
+        } else {
+            // Google Maps app is not installed, open in browser instead
+            intent = new Intent(Intent.ACTION_VIEW, uri);
+            startActivity(intent);
+        }
     }
 
     private void registerLocationPermissionLauncher() {
@@ -123,9 +169,12 @@ public class Senior_Dashboard extends AppCompatActivity {
             @Override
             public void onLocationResult(@NonNull LocationResult locationResult) {
                 for (Location location : locationResult.getLocations()) {
+                    // Store the current location coordinates
+                    currentLat = location.getLatitude();
+                    currentLong = location.getLongitude();
+
                     updateLocationUI(location);
                     saveLocationToDatabase(location);
-                    stopLocationUpdates();
                 }
             }
         };
@@ -265,6 +314,13 @@ public class Senior_Dashboard extends AppCompatActivity {
                         String middleName = documentSnapshot.getString("middleName");
                         String lastName = documentSnapshot.getString("lastName");
                         String currentLocation = documentSnapshot.getString("currentLocation");
+
+                        // Check if there's stored location data in case we need it
+                        if (documentSnapshot.getDouble("latitude") != null &&
+                                documentSnapshot.getDouble("longitude") != null) {
+                            currentLat = documentSnapshot.getDouble("latitude");
+                            currentLong = documentSnapshot.getDouble("longitude");
+                        }
 
                         if (firstName != null && middleName != null && lastName != null) {
                             String fullName = firstName + " " + middleName + " " + lastName;

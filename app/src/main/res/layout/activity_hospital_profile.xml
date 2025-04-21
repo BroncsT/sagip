@@ -122,7 +122,7 @@
                     android:src="@drawable/ic_number" />
 
                 <TextView
-                    android:id="@+id/gotoupdate"
+                    android:id="@+id/gotoupdate3"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="16dp"
@@ -247,7 +247,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:menu="@menu/barangay_menu" />
+        app:menu="@menu/hospital_menu" />
 
     <!--GRID GUIDELINE-->
     <androidx.constraintlayout.widget.Guideline

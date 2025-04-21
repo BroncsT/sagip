@@ -7,6 +7,7 @@
     android:background="#F5F5F5"
     tools:context=".Senior_Dashboard">
 
+    <!-- Greetings -->
     <TextView
         android:id="@+id/greetings"
         android:layout_width="70dp"
@@ -17,7 +18,7 @@
         android:textStyle="bold"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
         app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1"
-        app:layout_constraintBottom_toTopOf="@id/guidelineHorizontal2"/>
+        app:layout_constraintBottom_toTopOf="@id/guidelineHorizontal2" />
 
     <TextView
         android:id="@+id/seniorName"
@@ -29,8 +30,9 @@
         android:textStyle="bold"
         app:layout_constraintStart_toEndOf="@id/greetings"
         app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1"
-        app:layout_constraintBottom_toTopOf="@id/guidelineHorizontal2"/>
+        app:layout_constraintBottom_toTopOf="@id/guidelineHorizontal2" />
 
+    <!-- Notification Icon -->
     <ImageView
         android:id="@+id/notification"
         android:layout_width="30dp"
@@ -39,8 +41,9 @@
         app:layout_constraintEnd_toEndOf="@id/guidelineVertical2"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical4"
         app:layout_constraintBottom_toBottomOf="@id/guidelineHorizontal2"
-        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1"/>
+        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1" />
 
+    <!-- Background SOS Graphic -->
     <ImageView
         android:id="@+id/backgroundSOS"
         android:layout_width="0dp"
@@ -48,12 +51,13 @@
         android:alpha="0.3"
         android:scaleType="center"
         android:adjustViewBounds="true"
+        android:background="@drawable/sosbackgroundloc"
         app:layout_constraintBottom_toTopOf="@id/bottomNavBar"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal2"
-        android:background="@drawable/sosbackgroundloc"/>
+        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal2" />
 
+    <!-- Emergency Note -->
     <TextView
         android:id="@+id/textNote"
         android:layout_width="310dp"
@@ -79,7 +83,6 @@
         app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
         app:layout_constraintTop_toBottomOf="@id/textNote" />
 
-
     <!-- SOS Button -->
     <Button
         android:id="@+id/sosButton"
@@ -103,7 +106,7 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="0.448" />
 
-    <!--Senior Current Location CardView-->
+    <!-- Current Location Card -->
     <androidx.cardview.widget.CardView
         android:id="@+id/currentLocationCard"
         android:layout_width="0dp"
@@ -113,7 +116,7 @@
         app:cardElevation="10dp"
         app:layout_constraintEnd_toEndOf="@id/guidelineVertical2"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
-        app:layout_constraintTop_toBottomOf="@+id/sosButton">
+        app:layout_constraintTop_toBottomOf="@id/sosButton">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -121,7 +124,6 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <!-- Current Location Text -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -144,6 +146,17 @@
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
+    <!-- Button below Current Location -->
+    <Button
+        android:id="@+id/findhospital"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="locate nearest Hospital"
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical2"
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
+        app:layout_constraintTop_toBottomOf="@id/currentLocationCard" />
+
     <!-- Bottom Navigation -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNavBar"
@@ -154,8 +167,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:menu="@menu/menu" />
 
-
-    <!--GRID GUIDELINE-->
+    <!-- Guidelines -->
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guidelineVertical1"
         android:layout_width="wrap_content"
