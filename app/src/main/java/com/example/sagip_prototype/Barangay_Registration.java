@@ -35,6 +35,9 @@ public class Barangay_Registration extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_barangay_registration);
 
+        mAuth = FirebaseAuth.getInstance();
+        db = FirebaseFirestore.getInstance();
+
         EditText barangayName = findViewById(R.id.barangayName);
         EditText address = findViewById(R.id.address);
         EditText captain = findViewById(R.id.captain);
@@ -58,7 +61,7 @@ public class Barangay_Registration extends AppCompatActivity {
                 }
                 String uid = user.getUid();
 
-                // Prepare user data
+
                 Map<String, Object> usrData = new HashMap<>();
                 usrData.put("barangayName", barangayNameText);
                 usrData.put("address", address);

@@ -39,7 +39,7 @@ public class Hospital_Profile extends AppCompatActivity {
         UpdateProfile.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent gotoUpdate = new Intent(Hospital_Profile.this, Rescuer_Registration.class);
+                Intent gotoUpdate = new Intent(Hospital_Profile.this, Hospital_Registration.class);
                 startActivity(gotoUpdate);
 
             }
