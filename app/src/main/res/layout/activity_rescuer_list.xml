@@ -10,16 +10,17 @@
         android:id="@+id/labelProfile"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Hospital List"
+        android:text="hehee"
         android:textAlignment="center"
         android:textSize="20sp"
         android:textStyle="bold"
-        app:layout_constraintStart_toStartOf="@id/guidelineVertical2"
+        app:layout_constraintBottom_toTopOf="@id/guidelineHorizontal2"
         app:layout_constraintEnd_toEndOf="@id/guidelineVertical4"
-        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1"
-        app:layout_constraintBottom_toTopOf="@id/guidelineHorizontal2"/>
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical2"
+        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1" />
 
     <ImageView
+        android:id="@+id/backButton"
         android:layout_width="25dp"
         android:layout_height="25dp"
         android:contextClickable="true"
@@ -39,70 +40,20 @@
         app:layout_constraintBottom_toBottomOf="@id/guidelineHorizontal2"
         app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1"/>
 
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/hospitalCard1"
+    <!-- RecyclerView for hospital list -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerViewHospitals"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        app:cardCornerRadius="8dp"
-        app:cardElevation="6dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp"
+        android:clipToPadding="false"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
         app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal3"
+        app:layout_constraintBottom_toTopOf="@id/bottomNavBar"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
-        app:layout_constraintEnd_toEndOf="@id/guidelineVertical5">
-
-        <androidx.constraintlayout.widget.ConstraintLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:padding="16dp">
-
-            <ImageView
-                android:id="@+id/hospitalImgView"
-                android:layout_width="50dp"
-                android:layout_height="50dp"
-                android:foregroundGravity="center"
-                app:srcCompat="@drawable/ic_hospital"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintStart_toStartOf="parent" />
-
-            <TextView
-                android:id="@+id/hospitalName"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:hint="Hospital Name"
-                android:layout_marginStart="10dp"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                app:layout_constraintStart_toEndOf="@id/hospitalImgView"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintBottom_toTopOf="@id/hospitalType"/>
-
-            <TextView
-                android:id="@+id/hospitalType"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:hint="Hospital Type"
-                android:layout_marginStart="10dp"
-                android:textSize="16sp"
-                app:layout_constraintStart_toEndOf="@id/hospitalImgView"
-                app:layout_constraintTop_toBottomOf="@id/hospitalName"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintBottom_toTopOf="@id/hospitalAddress"/>
-
-            <TextView
-                android:id="@+id/hospitalAddress"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:hint="Address"
-                android:layout_marginStart="10dp"
-                android:textSize="16sp"
-                app:layout_constraintStart_toEndOf="@id/hospitalImgView"
-                app:layout_constraintTop_toBottomOf="@id/hospitalType"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent"/>
-
-        </androidx.constraintlayout.widget.ConstraintLayout>
-    </com.google.android.material.card.MaterialCardView>
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical5" />
 
     <!-- Bottom Navigation -->
     <com.google.android.material.bottomnavigation.BottomNavigationView

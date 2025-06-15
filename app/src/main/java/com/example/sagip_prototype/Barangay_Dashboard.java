@@ -168,12 +168,12 @@ public class Barangay_Dashboard extends AppCompatActivity {
                             DocumentSnapshot document = task.getResult();
                             if (document.exists()) {
                                 // Check for rescuegroup field first as that should be in your rescuer documents
-                                String rescueGroup = document.getString("rescuegroup");
+                                String rescueGroup = document.getString("barangayName");
                                 if (rescueGroup != null) {
                                     brgyName.setText(rescueGroup);
                                 } else {
                                     // Fallback to firstName if rescuegroup doesn't exist
-                                    String firstName = document.getString("firstName");
+                                    String firstName = document.getString("barangayName");
                                     if (firstName != null) {
                                         brgyName.setText(firstName);
                                     } else {

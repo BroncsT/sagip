@@ -391,12 +391,10 @@ public class Rescuer_Dashboard extends AppCompatActivity {
             } else if (itemId == R.id.rescuer_hospital) {
                 startActivity(new Intent(getApplicationContext(), Rescuer_List.class));
                 overridePendingTransition(0, 0);
-                finish();
                 return true;
             } else if (itemId == R.id.rescuer_profile) {
                 startActivity(new Intent(getApplicationContext(), Rescuer_Profile.class));
                 overridePendingTransition(0, 0);
-                finish();
                 return true;
             }
             return false;
