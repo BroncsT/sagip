@@ -294,12 +294,10 @@ public class Hospital_Dashboard extends AppCompatActivity {
             } else if (itemId == R.id.hospital_profile) {
                 startActivity(new Intent(getApplicationContext(), Hospital_Profile.class));
                 overridePendingTransition(0, 0);
-                finish();
                 return true;
             } else if (itemId == R.id.hospital_list) {
                 startActivity(new Intent(getApplicationContext(), Hospital_List.class));
                 overridePendingTransition(0, 0);
-                finish();
                 return true;
             }
             return false;

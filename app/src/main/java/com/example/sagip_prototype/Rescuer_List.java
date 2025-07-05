@@ -93,12 +93,10 @@ public class Rescuer_List extends AppCompatActivity {
             } else if (itemId == R.id.rescuer_profile) {
                 startActivity(new Intent(getApplicationContext(), Rescuer_Profile.class));
                 overridePendingTransition(0, 0);
-                finish();
                 return true;
             } else if (itemId == R.id.rescuer_dashboard) {
                 startActivity(new Intent(getApplicationContext(), Rescuer_Dashboard.class));
                 overridePendingTransition(0, 0);
-                finish();
                 return true;
             }
             return false;

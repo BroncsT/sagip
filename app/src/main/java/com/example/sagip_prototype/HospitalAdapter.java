@@ -33,7 +33,7 @@ public class HospitalAdapter extends RecyclerView.Adapter<HospitalAdapter.Hospit
     public void onBindViewHolder(@NonNull HospitalAdapter.HospitalViewHolder holder, int position) {
         HospitalLIst hospital = hospitalList.get(position);
         holder.hospitalNameTextView.setText(hospital.getHospitalName());
-        holder.currentLocationTextView.setText(hospital.getCurrentLocation());
+
 
     }
 
@@ -43,12 +43,11 @@ public class HospitalAdapter extends RecyclerView.Adapter<HospitalAdapter.Hospit
     }
 
     public static class HospitalViewHolder extends RecyclerView.ViewHolder {
-        TextView hospitalNameTextView, currentLocationTextView;
+        TextView hospitalNameTextView;
         CardView cardView;
         public HospitalViewHolder(@NonNull View itemView) {
             super(itemView);
             hospitalNameTextView = itemView.findViewById(R.id.hospitalName);
-            currentLocationTextView = itemView.findViewById(R.id.hospitalAddress);
             cardView = itemView.findViewById(R.id.hospitalCardView);
         }
     }

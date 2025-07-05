@@ -1,15 +1,13 @@
 package com.example.sagip_prototype;
 
 public class HospitalLIst {
-    String hospitalName ;
-    Geopoint currentLocation;
+    String hospitalName;
 
     public HospitalLIst() {
     }
 
-    public HospitalLIst(String hospitalName, Geopoint currentLocation) {
+    public HospitalLIst(String hospitalName) {
         this.hospitalName = hospitalName;
-        this,
     }
 
     public String getHospitalName() {
@@ -20,7 +18,6 @@ public class HospitalLIst {
         this.hospitalName = hospitalName;
     }
 
-}
 
-
+    }
 
