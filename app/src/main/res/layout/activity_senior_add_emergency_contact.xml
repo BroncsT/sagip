@@ -11,6 +11,7 @@
         android:orientation="vertical">
 
         <!-- Back Arrow and Checkmark -->
+
         <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
@@ -19,17 +20,11 @@
                 android:id="@+id/backArrow"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:contentDescription="@string/back_arrow"
                 android:layout_alignParentStart="true"
-                android:layout_marginTop="8dp" />
+                android:layout_marginTop="8dp"
+                android:contentDescription="@string/back_arrow"
+                android:src="@drawable/baseline_arrow_back_24" />
 
-            <ImageView
-                android:id="@+id/checkMark"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:contentDescription="@string/checkmark"
-                android:layout_alignParentEnd="true"
-                android:layout_marginTop="8dp" />
         </RelativeLayout>
 
         <!-- Title -->
@@ -44,14 +39,24 @@
             android:textColor="#333333" />
 
         <!-- Mobile Number Information -->
+
         <TextView
             android:id="@+id/user_information"
             android:layout_width="wrap_content"
+            android:layout_height="12dp"
+            android:layout_marginTop="8dp"
+            android:text="hi user"
+            android:textColor="#777777"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/mobileInfo2"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="@string/mobile_info"
-            android:textSize="14sp"
-            android:textColor="#777777" />
+            android:textColor="#777777"
+            android:textSize="14sp" />
 
         <TextView
             android:id="@+id/mobileNumber"
@@ -67,82 +72,43 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="@string/instruction_text"
+            android:text="@string/instruction_add_contact"
             android:textSize="14sp"
             android:textColor="#777777" />
 
         <!-- Input Fields -->
         <EditText
-            android:id="@+id/firstName"
+            android:id="@+id/barangayName"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:hint="@string/first_name_hint"
+            android:hint="@string/emergency_contact_name"
             android:background="@drawable/input_field_background"
-            android:padding="12dp"
-            android:textSize="14sp" />
-
-        <EditText
-            android:id="@+id/middleName"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:hint="@string/middle_name_hint"
-            android:background="@drawable/input_field_background"
-            android:padding="12dp"
-            android:textSize="14sp" />
-
-        <EditText
-            android:id="@+id/lastName"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:hint="@string/last_name_hint"
-            android:background="@drawable/input_field_background"
-            android:padding="12dp"
-            android:textSize="14sp" />
-
-        <EditText
-            android:id="@+id/birthday"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/input_field_background"
-            android:drawablePadding="8dp"
-            android:hint="@string/birthday_hint"
             android:padding="12dp"
             android:textSize="14sp"
-            android:inputType="date" />
-
+            android:inputType="textPersonName" />
 
         <EditText
             android:id="@+id/address"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
+            android:hint="@string/phone_number"
             android:background="@drawable/input_field_background"
-            android:hint="@string/email_hint"
             android:padding="12dp"
-            android:textSize="14sp" />
-
-        <!-- Checkboxes -->
-        <CheckBox
-            android:id="@+id/termsConditionsCheckbox"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/terms_conditions"
             android:textSize="14sp"
-            android:textColor="#777777" />
+            android:inputType="textPostalAddress" />
 
-        <CheckBox
-            android:id="@+id/privacyPolicyCheckbox"
-            android:layout_width="wrap_content"
+        <EditText
+            android:id="@+id/captain"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="@string/privacy_policy"
-            android:textSize="14sp"
-            android:textColor="#777777" />
+            android:hint="@string/emergency_address"
+            android:background="@drawable/input_field_background"
+            android:inputType="textPersonName"
+            android:padding="12dp"
+            android:textSize="14sp" />
 
         <!-- Submit Button -->
         <Button
