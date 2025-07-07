@@ -26,7 +26,6 @@
         android:id="@+id/backButton"
         android:layout_width="30dp"
         android:layout_height="30dp"
-        android:contentDescription="@string/back"
         android:clickable="true"
         android:focusable="true"
         app:srcCompat="@drawable/baseline_arrow_back_24"
@@ -36,19 +35,18 @@
 
     <!-- RecyclerView (Emergency Contacts List) -->
     <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/emergencyRecyclerView"
+        android:id="@+id/emergencyRecycler"
         android:layout_width="0dp"
         android:layout_height="0dp"
         app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal2"
-        app:layout_constraintBottom_toTopOf="@id/floatingActionButton"
+        app:layout_constraintBottom_toTopOf="@id/senior_add_btn"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
         app:layout_constraintEnd_toEndOf="@id/guidelineVertical2"
-        android:padding="8dp"
-        tools:listitem="@layout/item_emergency_contact" />
+        android:padding="8dp"/>
 
     <!-- Floating Action Button -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/floatingActionButton"
+        android:id="@+id/senior_add_btn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginEnd="8dp"

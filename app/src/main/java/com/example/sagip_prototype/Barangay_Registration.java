@@ -9,9 +9,6 @@ import android.widget.Toast;
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
@@ -38,11 +35,11 @@ public class Barangay_Registration extends AppCompatActivity {
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
 
-        EditText barangayName = findViewById(R.id.barangayName);
-        EditText address = findViewById(R.id.address);
-        EditText captain = findViewById(R.id.captain);
+        EditText barangayName = findViewById(R.id.emerContact_name);
+        EditText address = findViewById(R.id.emerContact_Number);
+        EditText captain = findViewById(R.id.emerContact_add);
 
-        Button continueButton = findViewById(R.id.continueButton);
+        Button continueButton = findViewById(R.id.addEmerContact);
 
         continueButton.setOnClickListener(new View.OnClickListener() {
             @Override

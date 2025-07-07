@@ -18,7 +18,6 @@ import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.example.sagip_prototype.OTP_PAGE;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
@@ -64,7 +63,7 @@ public class MainActivity extends AppCompatActivity {
 
         Button loginButton = findViewById(R.id.login_btn);
         EditText loginNumber = findViewById(R.id.user_number);
-        TextView LoginViaEmail = findViewById(R.id.address);
+        TextView LoginViaEmail = findViewById(R.id.emerContact_Number);
         TextView errorTextView = findViewById(R.id.errorTextView);
         errorTextView.setVisibility(View.GONE);
 
@@ -165,7 +164,7 @@ public class MainActivity extends AppCompatActivity {
     private void setupLoginUI() {
         Button loginButton = findViewById(R.id.login_btn);
         EditText loginNumber = findViewById(R.id.user_number);
-        TextView LoginViaEmail = findViewById(R.id.address);
+        TextView LoginViaEmail = findViewById(R.id.emerContact_Number);
         TextView errorTextView = findViewById(R.id.errorTextView);
         errorTextView.setVisibility(View.GONE);
 

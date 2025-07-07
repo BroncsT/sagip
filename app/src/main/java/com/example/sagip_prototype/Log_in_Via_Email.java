@@ -115,3 +115,4 @@ public class Log_in_Via_Email extends AppCompatActivity {
         finish(); // Close the current activity
     }
 }
+

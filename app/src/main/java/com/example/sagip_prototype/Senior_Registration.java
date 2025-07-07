@@ -39,9 +39,9 @@ public class Senior_Registration extends AppCompatActivity {
         EditText getFirstName = findViewById(R.id.firstName);
         EditText getMiddleName = findViewById(R.id.middleName);
         EditText getLastName = findViewById(R.id.lastName);
-        EditText getAddress = findViewById(R.id.address);
+        EditText getAddress = findViewById(R.id.emerContact_Number);
         TextView getMobileNumber = findViewById(R.id.mobileNumber);
-        Button continueButton = findViewById(R.id.continueButton);
+        Button continueButton = findViewById(R.id.addEmerContact);
 
         // Firebase initialization
         auth = FirebaseAuth.getInstance();

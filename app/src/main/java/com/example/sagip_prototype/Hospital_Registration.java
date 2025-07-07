@@ -33,9 +33,9 @@ public class Hospital_Registration extends AppCompatActivity {
 
         // View references
         EditText getHospitalName = findViewById(R.id.hospitalName);
-        EditText getAddress = findViewById(R.id.address);
+        EditText getAddress = findViewById(R.id.emerContact_Number);
         TextView getMobileNumber = findViewById(R.id.mobileNumber);
-        Button continueButton = findViewById(R.id.continueButton);
+        Button continueButton = findViewById(R.id.addEmerContact);
 
         // Firebase initialization
         auth = FirebaseAuth.getInstance();

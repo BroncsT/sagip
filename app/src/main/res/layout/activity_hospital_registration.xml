@@ -45,7 +45,7 @@
 
         <!-- Mobile Number Information -->
         <TextView
-            android:id="@+id/user_information"
+            android:id="@+id/senior_name"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
@@ -83,7 +83,7 @@
             android:textSize="14sp" />
 
         <EditText
-            android:id="@+id/address"
+            android:id="@+id/emerContact_Number"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
@@ -133,7 +133,7 @@
 
         <!-- Submit Button -->
         <Button
-            android:id="@+id/continueButton"
+            android:id="@+id/addEmerContact"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"

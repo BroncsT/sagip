@@ -99,8 +99,8 @@
     <string name="selfie_step_indicator">Step 2 of 3</string>
     <string name="selfie_photo_label">Your Selfie</string>
     <string name="selfie_photo_placeholder">No selfie selected</string>
-    <string name="instruction_add_contact">Please provide the  full name of you're emergency contact.</string>
-    <string name="mobile_info_contacts">We’ll use the mobile number for sending alert to you're contact person.</string>
+    <string name="instruction_add_contact">Please provide the  full name of you\'re emergency contact.</string>
+    <string name="mobile_info_contacts">We’ll use the mobile number for sending alert to you\'re contact person.</string>
     <string name="emergency_contact_name">Enter contacts full name</string>
     <string name="phone_number"> Enter Mobile phone number</string>
     <string name="emergency_address">Emergency contact address.</string>
@@ -118,7 +118,6 @@
 
     <string name="contact_name">Contact Name</string>
     <string name="relationship">Relationship</string>
-    <string name="phone_number">Phone Number</string>
     <string name="call_contact">Call contact</string>
     <string name="contact_options">Contact options</string>
     <string name="update">Update</string>
