@@ -21,13 +21,13 @@ import java.util.Map;
 
 public class Senior_Emergency_Contact extends AppCompatActivity {
 
-
     FirebaseFirestore db;
     FirebaseAuth mAuth;
 
     RecyclerView recyclerView;
     EmergencyContactAdapter adapter;
     List<Emergency_Contacts> emergencyContacts;
+    TextView labelProfile;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,9 +45,7 @@ public class Senior_Emergency_Contact extends AppCompatActivity {
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
 
-        fetchEmergencyContacts();
-
-        TextView labelProfile = findViewById(R.id.labelProfile);
+        labelProfile = findViewById(R.id.labelProfile);
         BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavBar);
         FloatingActionButton addEmergencyContact = findViewById(R.id.senior_add_btn);
 
@@ -55,7 +53,6 @@ public class Senior_Emergency_Contact extends AppCompatActivity {
             Intent intent = new Intent(Senior_Emergency_Contact.this, Senior_add_Emergency_Contact.class);
             startActivity(intent);
         });
-
 
         // Bottom nav logic
         bottomNavigationView.setSelectedItemId(R.id.senior_location);
@@ -77,6 +74,18 @@ public class Senior_Emergency_Contact extends AppCompatActivity {
             return false;
         });
 
+        // Load user profile and initial contacts
+        loadUserProfile();
+        fetchEmergencyContacts();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        fetchEmergencyContacts();
+    }
+
+    private void loadUserProfile() {
         String uid = mAuth.getCurrentUser().getUid();
         String userType = "seniors";
 
@@ -92,14 +101,11 @@ public class Senior_Emergency_Contact extends AppCompatActivity {
                         String lastName = documentSnapshot.getString("lastName");
 
                         String fullName = firstName + " " + middleName + " " + lastName + "\n\nEmergency contact list";
-
                         labelProfile.setText(fullName);
                     }
                 });
-
-
-
     }
+
     private void fetchEmergencyContacts() {
         String uid = mAuth.getCurrentUser().getUid();
         String userType = "seniors";
@@ -123,14 +129,12 @@ public class Senior_Emergency_Contact extends AppCompatActivity {
                                 Emergency_Contacts contact = new Emergency_Contacts(name, number);
                                 emergencyContacts.add(contact);
                             }
-                            adapter.notifyDataSetChanged();
                         }
+                        adapter.notifyDataSetChanged();
                     }
                 })
                 .addOnFailureListener(e -> {
                     Toast.makeText(this, "Failed to load contacts: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
     }
-
-
 }
