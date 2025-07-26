@@ -1,12 +1,8 @@
 package com.example.sagip_prototype;
 
 import android.Manifest;
-import android.app.Activity;
-import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
-import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
@@ -14,10 +10,7 @@ import android.location.Location;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Looper;
-import android.telephony.SmsManager;
-import android.telephony.TelephonyManager;
 import android.util.Log;
-import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -26,6 +19,7 @@ import androidx.activity.EdgeToEdge;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
@@ -40,8 +34,6 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -64,15 +56,6 @@ public class Senior_Dashboard extends AppCompatActivity {
     private String currentLocationAddress = "";
 
     private ActivityResultLauncher<String[]> locationPermissionRequest;
-    private ActivityResultLauncher<String> smsPermissionRequest;
-
-    // SMS tracking variables
-    private BroadcastReceiver smsSentReceiver;
-    private BroadcastReceiver smsDeliveredReceiver;
-    private boolean receiversRegistered = false;
-    private int totalSMSToSend = 0;
-    private int smsSentCount = 0;
-    private int smsFailedCount = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -92,12 +75,9 @@ public class Senior_Dashboard extends AppCompatActivity {
         initializeViews();
         initializeLocationServices();
         registerLocationPermissionLauncher();
-        registerSMSPermissionLauncher();
-        initializeSMSReceivers();
         loadUserData();
         setupBottomNavigation();
         requestLocationPermissions();
-        requestSMSPermission();
     }
 
     private void initializeViews() {
@@ -107,7 +87,7 @@ public class Senior_Dashboard extends AppCompatActivity {
         btnHelp = findViewById(R.id.sosButton);
 
         btnFindHospital.setOnClickListener(v -> navigateToNearestHospital());
-        btnHelp.setOnClickListener(v -> sendEmergencySMS());
+        btnHelp.setOnClickListener(v -> showHelpConfirmationDialog());
     }
 
     private void setupBottomNavigation() {
@@ -134,170 +114,15 @@ public class Senior_Dashboard extends AppCompatActivity {
         });
     }
 
-    // Initialize SMS broadcast receivers
-    private void initializeSMSReceivers() {
-        smsSentReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                String result = "";
-                switch (getResultCode()) {
-                    case Activity.RESULT_OK:
-                        result = "SMS sent successfully";
-                        smsSentCount++;
-                        Log.d(TAG, result + " (" + smsSentCount + "/" + totalSMSToSend + ")");
-                        break;
-                    case SmsManager.RESULT_ERROR_GENERIC_FAILURE:
-                        result = "Generic failure - Check network/carrier settings";
-                        smsFailedCount++;
-                        Log.e(TAG, result);
-                        break;
-                    case SmsManager.RESULT_ERROR_NO_SERVICE:
-                        result = "No service - Check cellular signal";
-                        smsFailedCount++;
-                        Log.e(TAG, result);
-                        break;
-                    case SmsManager.RESULT_ERROR_NULL_PDU:
-                        result = "Null PDU - Message format error";
-                        smsFailedCount++;
-                        Log.e(TAG, result);
-                        break;
-                    case SmsManager.RESULT_ERROR_RADIO_OFF:
-                        result = "Radio off - Check airplane mode";
-                        smsFailedCount++;
-                        Log.e(TAG, result);
-                        break;
-                    default:
-                        result = "Unknown error: " + getResultCode();
-                        smsFailedCount++;
-                        Log.e(TAG, result);
-                        break;
-                }
+    private void sendHelpRequest() {
+        Log.d(TAG, "Help button pressed - Creating help request");
 
-                // Show status update
-                if (smsSentCount + smsFailedCount == totalSMSToSend) {
-                    String finalResult = "SMS Results: " + smsSentCount + " sent, " + smsFailedCount + " failed";
-                    Toast.makeText(context, finalResult, Toast.LENGTH_LONG).show();
-                    Log.d(TAG, "Final SMS results: " + finalResult);
-                }
-            }
-        };
-
-        smsDeliveredReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                switch (getResultCode()) {
-                    case Activity.RESULT_OK:
-                        Log.d(TAG, "SMS delivered");
-                        break;
-                    case Activity.RESULT_CANCELED:
-                        Log.w(TAG, "SMS not delivered");
-                        break;
-                }
-            }
-        };
-    }
-
-    private void registerSMSReceivers() {
-        if (!receiversRegistered) {
-            registerReceiver(smsSentReceiver, new IntentFilter("SMS_SENT"));
-            registerReceiver(smsDeliveredReceiver, new IntentFilter("SMS_DELIVERED"));
-            receiversRegistered = true;
-            Log.d(TAG, "SMS receivers registered");
-        }
-    }
-
-    private void unregisterSMSReceivers() {
-        if (receiversRegistered) {
-            try {
-                unregisterReceiver(smsSentReceiver);
-                unregisterReceiver(smsDeliveredReceiver);
-                receiversRegistered = false;
-                Log.d(TAG, "SMS receivers unregistered");
-            } catch (Exception e) {
-                Log.e(TAG, "Error unregistering SMS receivers", e);
-            }
-        }
-    }
-
-    private void registerSMSPermissionLauncher() {
-        smsPermissionRequest = registerForActivityResult(
-                new ActivityResultContracts.RequestPermission(), isGranted -> {
-                    if (isGranted) {
-                        Log.d(TAG, "SMS permission granted");
-                        Toast.makeText(this, "SMS permission granted. You can now send emergency messages.", Toast.LENGTH_SHORT).show();
-                    } else {
-                        Toast.makeText(this, "SMS permission denied. Emergency messages cannot be sent.", Toast.LENGTH_LONG).show();
-                        Log.w(TAG, "SMS permission denied");
-                    }
-                }
-        );
-    }
-
-    private void requestSMSPermission() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
-            smsPermissionRequest.launch(Manifest.permission.SEND_SMS);
-        }
-    }
-
-    // Check if device can send SMS
-    private boolean canSendSMS() {
-        // Check if device has telephony
-        PackageManager pm = getPackageManager();
-        if (!pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
-            Log.e(TAG, "Device does not support telephony");
-            return false;
-        }
-
-        // Check if SMS permission is granted
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
-            Log.e(TAG, "SEND_SMS permission not granted");
-            return false;
-        }
-
-        // Check telephony manager
-        TelephonyManager tm = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
-        if (tm == null || tm.getPhoneType() == TelephonyManager.PHONE_TYPE_NONE) {
-            Log.e(TAG, "No telephony service available");
-            return false;
-        }
-
-        // Check SIM state
-        int simState = tm.getSimState();
-        if (simState != TelephonyManager.SIM_STATE_READY) {
-            Log.e(TAG, "SIM not ready. State: " + getSimStateString(simState));
-            return false;
-        }
-
-        Log.d(TAG, "SMS capability check passed");
-        return true;
-    }
-
-    private String getSimStateString(int simState) {
-        switch (simState) {
-            case TelephonyManager.SIM_STATE_ABSENT: return "ABSENT";
-            case TelephonyManager.SIM_STATE_CARD_IO_ERROR: return "CARD_IO_ERROR";
-            case TelephonyManager.SIM_STATE_CARD_RESTRICTED: return "CARD_RESTRICTED";
-            case TelephonyManager.SIM_STATE_NETWORK_LOCKED: return "NETWORK_LOCKED";
-            case TelephonyManager.SIM_STATE_NOT_READY: return "NOT_READY";
-            case TelephonyManager.SIM_STATE_PERM_DISABLED: return "PERM_DISABLED";
-            case TelephonyManager.SIM_STATE_PIN_REQUIRED: return "PIN_REQUIRED";
-            case TelephonyManager.SIM_STATE_PUK_REQUIRED: return "PUK_REQUIRED";
-            case TelephonyManager.SIM_STATE_READY: return "READY";
-            case TelephonyManager.SIM_STATE_UNKNOWN: return "UNKNOWN";
-            default: return "UNDEFINED: " + simState;
-        }
-    }
-
-    private void sendEmergencySMS() {
-        Log.d(TAG, "Emergency button pressed");
-
-        // First check if we can send SMS
-        if (!canSendSMS()) {
-            Toast.makeText(this, "Cannot send SMS. Please check permissions and network.", Toast.LENGTH_LONG).show();
+        if (currentLat == 0.0 && currentLong == 0.0) {
+            Toast.makeText(this, "Current location not available. Please wait or check location permissions.", Toast.LENGTH_LONG).show();
             return;
         }
 
-        Toast.makeText(this, "Sending emergency SMS...", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Creating help request...", Toast.LENGTH_SHORT).show();
 
         // Get current user info first
         String uid = mAuth.getCurrentUser().getUid();
@@ -314,175 +139,127 @@ public class Senior_Dashboard extends AppCompatActivity {
                         String lastName = documentSnapshot.getString("lastName");
                         String seniorName = (firstName != null && lastName != null) ?
                                 firstName + " " + lastName : "Senior User";
+                        String phoneNumber = documentSnapshot.getString("phoneNumber");
 
-                        fetchEmergencyContactsAndSendSMS(seniorName);
+                        // Create help request
+                        createHelpRequest(seniorName, phoneNumber, uid);
+
+                        // Open current location in Google Maps for the senior
+                        openCurrentLocationInGoogleMaps();
                     } else {
-                        fetchEmergencyContactsAndSendSMS("Senior User");
+                        createHelpRequest("Senior User", "", uid);
+                        openCurrentLocationInGoogleMaps();
                     }
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error getting user info", e);
-                    fetchEmergencyContactsAndSendSMS("Senior User");
+                    createHelpRequest("Senior User", "", uid);
+                    openCurrentLocationInGoogleMaps();
                 });
     }
 
-    private void fetchEmergencyContactsAndSendSMS(String seniorName) {
-        String uid = mAuth.getCurrentUser().getUid();
-        String userType = "seniors";
+    private void createHelpRequest(String seniorName, String phoneNumber, String seniorUid) {
+        Map<String, Object> helpRequest = new HashMap<>();
+        helpRequest.put("seniorUid", seniorUid);
+        helpRequest.put("seniorName", seniorName);
+        helpRequest.put("seniorPhone", phoneNumber != null ? phoneNumber : "");
+        helpRequest.put("latitude", currentLat);
+        helpRequest.put("longitude", currentLong);
+        helpRequest.put("locationAddress", currentLocationAddress);
+        helpRequest.put("timestamp", System.currentTimeMillis());
+        helpRequest.put("status", "active"); // active, responded, resolved
+        helpRequest.put("type", "emergency_help");
+        helpRequest.put("description", "Senior needs immediate assistance");
 
-        Log.d(TAG, "Fetching emergency contacts for user: " + uid);
-
+        // Add to help requests collection
         db.collection("Sagip")
-                .document("users")
-                .collection(userType)
-                .document(uid)
-                .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    if (documentSnapshot.exists()) {
-                        List<String> phoneNumbers = new ArrayList<>();
-
-                        List<HashMap<String, Object>> emergencyContacts =
-                                (List<HashMap<String, Object>>) documentSnapshot.get("emergencyContacts");
-
-                        Log.d(TAG, "Emergency contacts from database: " + emergencyContacts);
-
-                        if (emergencyContacts != null && !emergencyContacts.isEmpty()) {
-                            for (HashMap<String, Object> contact : emergencyContacts) {
-                                String phoneNumber = (String) contact.get("number");
-                                String contactName = (String) contact.get("name");
-                                Log.d(TAG, "Processing contact: " + contactName + " - " + phoneNumber);
-
-                                if (phoneNumber != null && !phoneNumber.trim().isEmpty()) {
-                                    phoneNumbers.add(phoneNumber.trim());
-                                }
-                            }
-                        }
-
-                        Log.d(TAG, "Phone numbers to send SMS: " + phoneNumbers);
-
-                        if (phoneNumbers.isEmpty()) {
-                            Toast.makeText(this, "No emergency contacts with phone numbers found", Toast.LENGTH_LONG).show();
-                            return;
-                        }
-
-                        // Create emergency message
-                        String emergencyMessage = createEmergencyMessage(seniorName);
-
-                        // Register SMS receivers before sending
-                        registerSMSReceivers();
-
-                        // Initialize counters
-                        totalSMSToSend = phoneNumbers.size();
-                        smsSentCount = 0;
-                        smsFailedCount = 0;
-
-                        // Send SMS to all contacts
-                        sendSMSToContacts(phoneNumbers, emergencyMessage);
-
-                    } else {
-                        Toast.makeText(this, "User document not found", Toast.LENGTH_SHORT).show();
-                        Log.e(TAG, "User document does not exist");
-                    }
+                .document("helpRequests")
+                .collection("activeRequests")
+                .add(helpRequest)
+                .addOnSuccessListener(documentReference -> {
+                    String requestId = documentReference.getId();
+                    Log.d(TAG, "Help request created: " + requestId);
+                    Toast.makeText(this, "Help request created successfully!", Toast.LENGTH_LONG).show();
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error fetching emergency contacts", e);
-                    Toast.makeText(this, "Failed to fetch emergency contacts: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    Log.e(TAG, "Error creating help request", e);
+                    Toast.makeText(this, "Failed to create help request. Please try again.", Toast.LENGTH_LONG).show();
                 });
     }
 
-    private String createEmergencyMessage(String seniorName) {
-        StringBuilder message = new StringBuilder();
-        message.append("🚨 EMERGENCY ALERT 🚨\n\n");
-        message.append(seniorName).append(" needs immediate help!\n\n");
+    private void showHelpConfirmationDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("🚨 Emergency Help Request");
+        builder.setMessage("Are you sure you need help?\n\nThis will:\n• Open your current location in Google Maps\n• Create a help request record\n\nOnly use this if you really need help!");
 
-        if (!currentLocationAddress.isEmpty()) {
-            message.append("📍 Location: ").append(currentLocationAddress).append("\n");
-        }
+        builder.setIcon(android.R.drawable.ic_dialog_alert);
 
-        message.append("⏰ Time: ").append(java.text.DateFormat.getDateTimeInstance().format(new java.util.Date())).append("\n\n");
-        message.append("Please check on them immediately or contact emergency services if needed.");
+        // Positive button - Confirm help request
+        builder.setPositiveButton("YES, I NEED HELP", (dialog, which) -> {
+            dialog.dismiss();
+            sendHelpRequest();
+        });
 
-        String finalMessage = message.toString();
-        Log.d(TAG, "Emergency message created (length: " + finalMessage.length() + "): " + finalMessage);
+        // Negative button - Cancel
+        builder.setNegativeButton("Cancel", (dialog, which) -> {
+            dialog.dismiss();
+            Toast.makeText(Senior_Dashboard.this, "Help request cancelled", Toast.LENGTH_SHORT).show();
+        });
 
-        return finalMessage;
-    }
+        // Make dialog non-cancelable by back button or outside touch for safety
+        builder.setCancelable(false);
 
-    private void sendSMSToContacts(List<String> phoneNumbers, String message) {
-        SmsManager smsManager = SmsManager.getDefault();
+        AlertDialog dialog = builder.create();
 
-        for (int i = 0; i < phoneNumbers.size(); i++) {
-            String phoneNumber = phoneNumbers.get(i);
-
+        // Style the buttons for better visibility
+        dialog.setOnShowListener(dialogInterface -> {
             try {
-                // Clean phone number (remove spaces, dashes, etc.)
-                String cleanPhoneNumber = phoneNumber.replaceAll("[^+\\d]", "");
-
-                Log.d(TAG, "Sending SMS to: " + cleanPhoneNumber + " (original: " + phoneNumber + ")");
-
-                // Create pending intents with unique request codes
-                PendingIntent sentPI = PendingIntent.getBroadcast(
-                        this, i,
-                        new Intent("SMS_SENT"),
-                        PendingIntent.FLAG_IMMUTABLE
-                );
-
-                PendingIntent deliveredPI = PendingIntent.getBroadcast(
-                        this, i + 1000,
-                        new Intent("SMS_DELIVERED"),
-                        PendingIntent.FLAG_IMMUTABLE
-                );
-
-                // Check if message needs to be split
-                ArrayList<String> messageParts = smsManager.divideMessage(message);
-
-                if (messageParts.size() == 1) {
-                    smsManager.sendTextMessage(cleanPhoneNumber, null, message, sentPI, deliveredPI);
-                    Log.d(TAG, "Single SMS sent to: " + cleanPhoneNumber);
+                // Make the positive button red to indicate emergency
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark, null));
+                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.darker_gray, null));
                 } else {
-                    ArrayList<PendingIntent> sentPIs = new ArrayList<>();
-                    ArrayList<PendingIntent> deliveredPIs = new ArrayList<>();
-
-                    for (int j = 0; j < messageParts.size(); j++) {
-                        sentPIs.add(sentPI);
-                        deliveredPIs.add(deliveredPI);
-                    }
-
-                    smsManager.sendMultipartTextMessage(cleanPhoneNumber, null, messageParts, sentPIs, deliveredPIs);
-                    Log.d(TAG, "Multipart SMS (" + messageParts.size() + " parts) sent to: " + cleanPhoneNumber);
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.darker_gray));
                 }
-
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextSize(16);
             } catch (Exception e) {
-                Log.e(TAG, "Failed to send SMS to " + phoneNumber, e);
-                smsFailedCount++;
+                Log.e(TAG, "Error styling dialog buttons", e);
             }
-        }
+        });
 
-        // Log the emergency event
-        logEmergencyEvent(phoneNumbers.size());
+        dialog.show();
     }
 
-    private void logEmergencyEvent(int contactCount) {
-        String uid = mAuth.getCurrentUser().getUid();
+    private void openCurrentLocationInGoogleMaps() {
+        try {
+            // Create a URI with current location coordinates
+            String locationLabel = !currentLocationAddress.isEmpty() ?
+                    currentLocationAddress : "Senior Location - Help Needed";
 
-        Map<String, Object> emergencyLog = new HashMap<>();
-        emergencyLog.put("timestamp", System.currentTimeMillis());
-        emergencyLog.put("latitude", currentLat);
-        emergencyLog.put("longitude", currentLong);
-        emergencyLog.put("location", currentLocationAddress);
-        emergencyLog.put("contactsNotified", contactCount);
-        emergencyLog.put("type", "help_button_pressed");
+            // Use geo: URI scheme to pin the current location
+            Uri geoUri = Uri.parse("geo:" + currentLat + "," + currentLong + "?q=" +
+                    currentLat + "," + currentLong + "(" + Uri.encode(locationLabel) + ")");
 
-        db.collection("Sagip")
-                .document("users")
-                .collection("seniors")
-                .document(uid)
-                .collection("emergencyLogs")
-                .add(emergencyLog)
-                .addOnSuccessListener(documentReference ->
-                        Log.d(TAG, "Emergency event logged: " + documentReference.getId()))
-                .addOnFailureListener(e ->
-                        Log.e(TAG, "Error logging emergency event", e));
+            Intent mapIntent = new Intent(Intent.ACTION_VIEW, geoUri);
+            mapIntent.setPackage("com.google.android.apps.maps");
+
+            // Check if Google Maps is installed
+            if (mapIntent.resolveActivity(getPackageManager()) != null) {
+                startActivity(mapIntent);
+                Log.d(TAG, "Opened senior location in Google Maps");
+            } else {
+                // Fallback to web browser if Google Maps app is not installed
+                String mapsUrl = "https://www.google.com/maps?q=" + currentLat + "," + currentLong +
+                        "&z=16&t=m&markers=color:red%7Clabel:HELP%7C" + currentLat + "," + currentLong;
+                Intent webIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(mapsUrl));
+                startActivity(webIntent);
+                Log.d(TAG, "Opened senior location in web browser");
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error opening Google Maps for senior", e);
+        }
     }
 
     private void navigateToNearestHospital() {
@@ -507,9 +284,6 @@ public class Senior_Dashboard extends AppCompatActivity {
         }
     }
 
-    // ... [Location and other methods remain the same as in your original code] ...
-    // I'll include just the essential parts for brevity
-
     private void registerLocationPermissionLauncher() {
         locationPermissionRequest = registerForActivityResult(
                 new ActivityResultContracts.RequestMultiplePermissions(), result -> {
@@ -521,7 +295,7 @@ public class Senior_Dashboard extends AppCompatActivity {
                     } else if (coarseLocationGranted != null && coarseLocationGranted) {
                         startLocationUpdates();
                     } else {
-                        Toast.makeText(this, "Location permission needed for emergency location sharing", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, "Location permission needed for location services", Toast.LENGTH_SHORT).show();
                         tvCurrentLocation.setText("Location permission denied");
                     }
                 }
@@ -716,6 +490,6 @@ public class Senior_Dashboard extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        unregisterSMSReceivers();
+        // Cleanup resources
     }
 }
