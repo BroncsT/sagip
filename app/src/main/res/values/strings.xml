@@ -170,5 +170,5 @@
     <string name="update_btn"> Update</string>
     <string name="delete_btn"> Delete</string>
 
-
+    <string name="gmap_api_key">AIzaSyBkf_blEJ4wc5Q_CNxABKK6-LFxDF-gWv0</string>
 </resources>

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <fragment
+        android:id="@+id/map"
+        android:name="com.google.android.gms.maps.SupportMapFragment"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Optional: Add a back button -->
+    <ImageButton
+        android:id="@+id/btnBack"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentStart="true"
+        android:layout_margin="16dp"
+        android:background="@drawable/circle_background"
+        android:src="@drawable/ic_arrow_back"
+        android:contentDescription="Back"
+        android:elevation="4dp" />
+
+    <!-- Optional: Add emergency info card -->
+    <LinearLayout
+        android:id="@+id/emergencyInfoCard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_margin="16dp"
+        android:background="@drawable/card_background"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:elevation="4dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/tvEmergencyTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🚨 EMERGENCY LOCATION"
+            android:textColor="@android:color/holo_red_dark"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:gravity="center" />
+
+        <TextView
+            android:id="@+id/tvEmergencyAddress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Location address will appear here"
+            android:textSize="14sp"
+            android:gravity="center" />
+
+    </LinearLayout>
+
+</RelativeLayout>

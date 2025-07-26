@@ -144,18 +144,38 @@ public class Senior_Dashboard extends AppCompatActivity {
                         // Create help request
                         createHelpRequest(seniorName, phoneNumber, uid);
 
-                        // Open current location in Google Maps for the senior
-                        openCurrentLocationInGoogleMaps();
+                        // Open MyGoogleMAp with current location instead of Google Maps
+                        openMyGoogleMapWithLocation();
                     } else {
                         createHelpRequest("Senior User", "", uid);
-                        openCurrentLocationInGoogleMaps();
+                        openMyGoogleMapWithLocation();
                     }
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error getting user info", e);
                     createHelpRequest("Senior User", "", uid);
-                    openCurrentLocationInGoogleMaps();
+                    openMyGoogleMapWithLocation();
                 });
+    }
+
+    // New method to open MyGoogleMAp with current location
+    private void openMyGoogleMapWithLocation() {
+        try {
+            Intent mapIntent = new Intent(Senior_Dashboard.this, MyGoogleMAp.class);
+
+            // Pass current location data to MyGoogleMAp
+            mapIntent.putExtra("latitude", currentLat);
+            mapIntent.putExtra("longitude", currentLong);
+            mapIntent.putExtra("locationAddress", currentLocationAddress);
+            mapIntent.putExtra("isEmergency", true);
+
+            startActivity(mapIntent);
+            Log.d(TAG, "Opened MyGoogleMAp with current location");
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error opening MyGoogleMAp", e);
+            Toast.makeText(this, "Error opening map", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void createHelpRequest(String seniorName, String phoneNumber, String seniorUid) {
@@ -190,7 +210,7 @@ public class Senior_Dashboard extends AppCompatActivity {
     private void showHelpConfirmationDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("🚨 Emergency Help Request");
-        builder.setMessage("Are you sure you need help?\n\nThis will:\n• Open your current location in Google Maps\n• Create a help request record\n\nOnly use this if you really need help!");
+        builder.setMessage("Are you sure you need help?\n\nThis will:\n• Open your current location in the app map\n• Create a help request record\n\nOnly use this if you really need help!");
 
         builder.setIcon(android.R.drawable.ic_dialog_alert);
 
@@ -229,37 +249,6 @@ public class Senior_Dashboard extends AppCompatActivity {
         });
 
         dialog.show();
-    }
-
-    private void openCurrentLocationInGoogleMaps() {
-        try {
-            // Create a URI with current location coordinates
-            String locationLabel = !currentLocationAddress.isEmpty() ?
-                    currentLocationAddress : "Senior Location - Help Needed";
-
-            // Use geo: URI scheme to pin the current location
-            Uri geoUri = Uri.parse("geo:" + currentLat + "," + currentLong + "?q=" +
-                    currentLat + "," + currentLong + "(" + Uri.encode(locationLabel) + ")");
-
-            Intent mapIntent = new Intent(Intent.ACTION_VIEW, geoUri);
-            mapIntent.setPackage("com.google.android.apps.maps");
-
-            // Check if Google Maps is installed
-            if (mapIntent.resolveActivity(getPackageManager()) != null) {
-                startActivity(mapIntent);
-                Log.d(TAG, "Opened senior location in Google Maps");
-            } else {
-                // Fallback to web browser if Google Maps app is not installed
-                String mapsUrl = "https://www.google.com/maps?q=" + currentLat + "," + currentLong +
-                        "&z=16&t=m&markers=color:red%7Clabel:HELP%7C" + currentLat + "," + currentLong;
-                Intent webIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(mapsUrl));
-                startActivity(webIntent);
-                Log.d(TAG, "Opened senior location in web browser");
-            }
-
-        } catch (Exception e) {
-            Log.e(TAG, "Error opening Google Maps for senior", e);
-        }
     }
 
     private void navigateToNearestHospital() {
