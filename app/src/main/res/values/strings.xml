@@ -167,6 +167,8 @@
     <string name="checkbox_privacy_policy">I have read, understood, and accepted the Privacy Policy</string>
     <string name="button_register_rescue_group">Register Rescue Group</string>
     <string name="checkbox_terms_conditions">I have read, understood, and accepted the Terms and Conditions</string>
+    <string name="update_btn"> Update</string>
+    <string name="delete_btn"> Delete</string>
 
 
 </resources>

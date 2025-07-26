@@ -7,6 +7,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.activity.EdgeToEdge;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -18,8 +19,8 @@ import com.google.firebase.firestore.FirebaseFirestore;
 
 public class Senior_Profile extends AppCompatActivity {
 
-        FirebaseAuth mAuth;
-        FirebaseFirestore db;
+    FirebaseAuth mAuth;
+    FirebaseFirestore db;
 
 
     @Override
@@ -39,10 +40,7 @@ public class Senior_Profile extends AppCompatActivity {
         logOut.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mAuth.signOut();
-                Intent intent = new Intent(Senior_Profile.this, MainActivity.class);
-                startActivity(intent);
-                finish();
+                showLogoutConfirmationDialog();
             }
         });
 
@@ -101,5 +99,25 @@ public class Senior_Profile extends AppCompatActivity {
             return false;
         });
 
+    }
+
+    private void showLogoutConfirmationDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Logout")
+                .setMessage("Are you sure you want to log out?")
+                .setPositiveButton("Yes", (dialog, which) -> {
+                    // Proceed with logout
+                    mAuth.signOut();
+                    Intent intent = new Intent(Senior_Profile.this, MainActivity.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(intent);
+                    finish();
+                })
+                .setNegativeButton("Cancel", (dialog, which) -> {
+                    // Dismiss dialog, do nothing
+                    dialog.dismiss();
+                })
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .show();
     }
 }
