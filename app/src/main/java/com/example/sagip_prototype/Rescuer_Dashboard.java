@@ -10,6 +10,7 @@ import android.location.Location;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Looper;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -44,10 +45,13 @@ import java.util.Map;
 
 public class Rescuer_Dashboard extends AppCompatActivity {
 
+    private static final String TAG = "RescuerDashboard";
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1001;
     private static final String PREF_NAME = "SagipAppPrefs";
     private static final String KEY_USER_ID = "userId";
     private static final String KEY_USER_TYPE = "userType";
+    private static final String KEY_IS_LOGGED_IN = "isLoggedIn";
+    private static final String KEY_USER_PHONE = "userPhone";
 
     private FirebaseAuth mAuth;
     private FirebaseFirestore db;
@@ -118,37 +122,57 @@ public class Rescuer_Dashboard extends AppCompatActivity {
     }
 
     private void checkAuthState() {
-        // First check if we have stored user credentials
-        userId = sharedPreferences.getString(KEY_USER_ID, null);
-        String storedUserType = sharedPreferences.getString(KEY_USER_TYPE, null);
+        Log.d(TAG, "Checking authentication state...");
 
-        if (userId != null && storedUserType != null) {
-            // We have stored credentials, update userType if needed
-            this.userType = storedUserType;
-            loadUserData(userId);
-        } else {
-            // No stored credentials, check Firebase Auth
-            FirebaseUser currentUser = mAuth.getCurrentUser();
-            if (currentUser == null) {
-                // User is not logged in, redirect to login
-                navigateToLogin();
-            } else {
-                // User is logged in but not stored in SharedPreferences
-                userId = currentUser.getUid();
+        // Always check Firebase Auth first to ensure user is still authenticated
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        Log.d(TAG, "Firebase currentUser: " + (currentUser != null ? currentUser.getUid() : "null"));
 
-                // Save to SharedPreferences for persistence
-                SharedPreferences.Editor editor = sharedPreferences.edit();
-                editor.putString(KEY_USER_ID, userId);
-                editor.putString(KEY_USER_TYPE, userType);
-                editor.apply();
+        if (currentUser != null) {
+            // User is authenticated in Firebase
+            userId = currentUser.getUid();
+            String phoneNumber = currentUser.getPhoneNumber();
 
+            // Check if we have stored user type, otherwise detect it
+            String storedUserType = sharedPreferences.getString(KEY_USER_TYPE, null);
+
+            if (storedUserType != null) {
+                Log.d(TAG, "Using stored user type: " + storedUserType);
+                this.userType = storedUserType;
                 loadUserData(userId);
+            } else {
+                Log.d(TAG, "No stored user type, detecting from database...");
+                // User type not stored, need to detect it from database
+                detectAndLoadUserType(userId, phoneNumber);
             }
+        } else {
+            // No Firebase user, check if we have any stored credentials to clear
+            boolean wasLoggedIn = sharedPreferences.getBoolean(KEY_IS_LOGGED_IN, false);
+            if (wasLoggedIn) {
+                Log.d(TAG, "User was logged in but Firebase session expired, clearing data...");
+                clearStoredCredentials();
+            }
+
+            Log.d(TAG, "No authenticated user found, redirecting to login...");
+            navigateToLogin();
         }
     }
 
+    private void saveUserToPreferences(String userId, String userType, String phoneNumber) {
+        Log.d(TAG, "Saving user to SharedPreferences: " + userId + ", " + userType);
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putBoolean(KEY_IS_LOGGED_IN, true);
+        editor.putString(KEY_USER_ID, userId);
+        editor.putString(KEY_USER_TYPE, userType);
+        if (phoneNumber != null) {
+            editor.putString(KEY_USER_PHONE, phoneNumber);
+        }
+        editor.apply();
+    }
+
     private void navigateToLogin() {
-        Intent intent = new Intent(Rescuer_Dashboard.this, Log_in_Via_Email.class);
+        Log.d(TAG, "Navigating to login screen...");
+        Intent intent = new Intent(Rescuer_Dashboard.this, MainActivity.class);
         // Clear the back stack so user can't press back to return after logging out
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
@@ -156,6 +180,8 @@ public class Rescuer_Dashboard extends AppCompatActivity {
     }
 
     private void loadUserData(String uid) {
+        Log.d(TAG, "Loading user data for: " + uid + " in collection: " + userType);
+
         db.collection("Sagip")
                 .document("users")
                 .collection(userType)
@@ -167,43 +193,158 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                         if (task.isSuccessful()) {
                             DocumentSnapshot document = task.getResult();
                             if (document.exists()) {
-                                // Check for rescuegroup field first as that should be in your rescuer documents
-                                String rescueGroup = document.getString("rescuegroup");
-                                if (rescueGroup != null) {
-                                    brgyName.setText(rescueGroup);
-                                } else {
-                                    // Fallback to firstName if rescuegroup doesn't exist
-                                    String firstName = document.getString("firstName");
-                                    if (firstName != null) {
-                                        brgyName.setText(firstName);
-                                    } else {
-                                        brgyName.setText("Rescue Group Not Available");
-                                    }
-                                }
+                                Log.d(TAG, "User document found, loading data...");
+                                loadUserDataFromDocument(document);
 
-                                // Check if there's stored location data
-                                GeoPoint geoPoint = document.getGeoPoint("currentLocation");
-                                if (geoPoint != null) {
-                                    currentLat = geoPoint.getLatitude();
-                                    currentLong = geoPoint.getLongitude();
-                                    updateLocationDisplay(currentLat, currentLong);
+                                // Ensure user credentials are saved
+                                FirebaseUser currentUser = mAuth.getCurrentUser();
+                                if (currentUser != null) {
+                                    saveUserToPreferences(uid, userType, currentUser.getPhoneNumber());
                                 }
                             } else {
-                                Toast.makeText(Rescuer_Dashboard.this,
-                                        "User document does not exist",
-                                        Toast.LENGTH_SHORT).show();
+                                Log.e(TAG, "User document does not exist for UID: " + uid + " in collection: " + userType);
 
-                                // Clear stored credentials and redirect to login
-                                clearStoredCredentials();
-                                navigateToLogin();
+                                // Document doesn't exist, try to detect correct user type
+                                FirebaseUser currentUser = mAuth.getCurrentUser();
+                                if (currentUser != null) {
+                                    detectAndLoadUserType(uid, currentUser.getPhoneNumber());
+                                } else {
+                                    Toast.makeText(Rescuer_Dashboard.this,
+                                            "User profile not found. Please login again.",
+                                            Toast.LENGTH_LONG).show();
+                                    clearStoredCredentials();
+                                    navigateToLogin();
+                                }
                             }
                         } else {
+                            Log.e(TAG, "Error loading user data: " + task.getException().getMessage());
                             Toast.makeText(Rescuer_Dashboard.this,
-                                    "Error loading user data: " + task.getException().getMessage(),
-                                    Toast.LENGTH_SHORT).show();
+                                    "Error loading user data. Please check your connection and try again.",
+                                    Toast.LENGTH_LONG).show();
                         }
                     }
                 });
+    }
+
+    private void detectAndLoadUserType(String uid, String phoneNumber) {
+        Log.d(TAG, "Detecting user type for UID: " + uid);
+
+        // Check for phone-based users first (seniors, user, rescuer, admin)
+        String[] phoneUserTypes = {"rescuer", "seniors", "user", "admin"};
+
+        if (phoneNumber != null) {
+            Log.d(TAG, "Phone number available: " + phoneNumber + ", checking phone-based collections...");
+            checkPhoneBasedUserTypes(uid, phoneNumber, phoneUserTypes, 0);
+        } else {
+            Log.d(TAG, "No phone number, checking UID-based collections...");
+            // Check UID-based users (hospital, barangay, etc.)
+            String[] uidUserTypes = {"rescuer", "hospital", "barangay", "senior"};
+            checkUIDBasedUserTypes(uid, uidUserTypes, 0);
+        }
+    }
+
+    private void checkPhoneBasedUserTypes(String uid, String phoneNumber, String[] userTypes, int index) {
+        if (index >= userTypes.length) {
+            Log.d(TAG, "Phone-based user not found, checking UID-based collections...");
+            // Not found in phone-based collections, try UID-based
+            String[] uidUserTypes = {"rescuer", "hospital", "barangay", "senior"};
+            checkUIDBasedUserTypes(uid, uidUserTypes, 0);
+            return;
+        }
+
+        String currentUserType = userTypes[index];
+        Log.d(TAG, "Checking phone-based user type: " + currentUserType);
+
+        db.collection("Sagip")
+                .document("users")
+                .collection(currentUserType)
+                .whereEqualTo("mobileNumber", phoneNumber)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    if (!querySnapshot.isEmpty()) {
+                        Log.d(TAG, "User found in phone-based collection: " + currentUserType);
+                        this.userType = currentUserType;
+                        saveUserToPreferences(uid, currentUserType, phoneNumber);
+                        loadUserData(uid);
+                    } else {
+                        // Try next user type
+                        checkPhoneBasedUserTypes(uid, phoneNumber, userTypes, index + 1);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error checking phone-based user type " + currentUserType + ": " + e.getMessage());
+                    // Try next user type
+                    checkPhoneBasedUserTypes(uid, phoneNumber, userTypes, index + 1);
+                });
+    }
+
+    private void checkUIDBasedUserTypes(String uid, String[] userTypes, int index) {
+        if (index >= userTypes.length) {
+            Log.e(TAG, "User not found in any collection");
+            Toast.makeText(this, "User profile not found. Please login again.", Toast.LENGTH_LONG).show();
+            clearStoredCredentials();
+            mAuth.signOut();
+            navigateToLogin();
+            return;
+        }
+
+        String currentUserType = userTypes[index];
+        Log.d(TAG, "Checking UID-based user type: " + currentUserType);
+
+        db.collection("Sagip")
+                .document("users")
+                .collection(currentUserType)
+                .document(uid)
+                .get()
+                .addOnSuccessListener(document -> {
+                    if (document.exists()) {
+                        Log.d(TAG, "User found in UID-based collection: " + currentUserType);
+                        this.userType = currentUserType;
+                        FirebaseUser currentUser = mAuth.getCurrentUser();
+                        String phoneNumber = currentUser != null ? currentUser.getPhoneNumber() : null;
+                        saveUserToPreferences(uid, currentUserType, phoneNumber);
+                        loadUserDataFromDocument(document);
+                    } else {
+                        // Try next user type
+                        checkUIDBasedUserTypes(uid, userTypes, index + 1);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error checking UID-based user type " + currentUserType + ": " + e.getMessage());
+                    // Try next user type
+                    checkUIDBasedUserTypes(uid, userTypes, index + 1);
+                });
+    }
+
+    private void loadUserDataFromDocument(DocumentSnapshot document) {
+        // Check for different name fields based on user type
+        String displayName = null;
+
+        if (userType.equals("rescuer")) {
+            displayName = document.getString("rescuegroup");
+        }
+
+        if (displayName == null) {
+            displayName = document.getString("firstName");
+        }
+
+        if (displayName == null) {
+            displayName = document.getString("name");
+        }
+
+        if (displayName != null) {
+            brgyName.setText(displayName);
+        } else {
+            brgyName.setText("User Name Not Available");
+        }
+
+        // Check if there's stored location data
+        GeoPoint geoPoint = document.getGeoPoint("currentLocation");
+        if (geoPoint != null) {
+            currentLat = geoPoint.getLatitude();
+            currentLong = geoPoint.getLongitude();
+            updateLocationDisplay(currentLat, currentLong);
+        }
     }
 
     private void checkLocationPermission() {
@@ -343,11 +484,10 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                 .update(locationData)
                 .addOnSuccessListener(aVoid -> {
                     // Location saved successfully
+                    Log.d(TAG, "Location updated successfully");
                 })
                 .addOnFailureListener(e -> {
-                    Toast.makeText(Rescuer_Dashboard.this,
-                            "Failed to update location: " + e.getMessage(),
-                            Toast.LENGTH_SHORT).show();
+                    Log.e(TAG, "Failed to update location: " + e.getMessage());
                 });
     }
 
@@ -403,6 +543,7 @@ public class Rescuer_Dashboard extends AppCompatActivity {
 
     // Method to handle logout - clears stored credentials and signs out from Firebase
     public void logoutUser() {
+        Log.d(TAG, "Logging out user...");
         // Clear stored credentials
         clearStoredCredentials();
 
@@ -415,9 +556,12 @@ public class Rescuer_Dashboard extends AppCompatActivity {
 
     // Helper method to clear stored credentials
     private void clearStoredCredentials() {
+        Log.d(TAG, "Clearing stored credentials...");
         SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.remove(KEY_IS_LOGGED_IN);
         editor.remove(KEY_USER_ID);
         editor.remove(KEY_USER_TYPE);
+        editor.remove(KEY_USER_PHONE);
         editor.apply();
     }
 }

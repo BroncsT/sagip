@@ -48,6 +48,9 @@ public class Barangay_Dashboard extends AppCompatActivity {
     private static final String PREF_NAME = "SagipAppPrefs";
     private static final String KEY_USER_ID = "userId";
     private static final String KEY_USER_TYPE = "userType";
+    private static final String KEY_IS_LOGGED_IN = "isLoggedIn";
+    private static final String KEY_USER_EMAIL = "userEmail";
+    private static final String KEY_LOGIN_TIMESTAMP = "loginTimestamp";
 
     private FirebaseAuth mAuth;
     private FirebaseFirestore db;
@@ -98,8 +101,8 @@ public class Barangay_Dashboard extends AppCompatActivity {
         // Check for location permissions
         checkLocationPermission();
 
-        // Check authentication state
-        checkAuthState();
+        // Check authentication state with improved persistence
+        checkAuthStateWithPersistence();
     }
 
     @Override
@@ -109,6 +112,8 @@ public class Barangay_Dashboard extends AppCompatActivity {
                 == PackageManager.PERMISSION_GRANTED) {
             startLocationUpdates();
         }
+        // Verify login state when app resumes
+        verifyLoginState();
     }
 
     @Override
@@ -117,17 +122,34 @@ public class Barangay_Dashboard extends AppCompatActivity {
         stopLocationUpdates();
     }
 
-    private void checkAuthState() {
-        // First check if we have stored user credentials
+    private void checkAuthStateWithPersistence() {
+        // Check if user was previously logged in
+        boolean isLoggedIn = sharedPreferences.getBoolean(KEY_IS_LOGGED_IN, false);
         userId = sharedPreferences.getString(KEY_USER_ID, null);
         String storedUserType = sharedPreferences.getString(KEY_USER_TYPE, null);
+        String storedEmail = sharedPreferences.getString(KEY_USER_EMAIL, null);
 
-        if (userId != null && storedUserType != null) {
-            // We have stored credentials, update userType if needed
+        if (isLoggedIn && userId != null && storedUserType != null) {
+            // User was previously logged in, restore session
             this.userType = storedUserType;
-            loadUserData(userId);
+
+            // Verify Firebase Auth state
+            FirebaseUser currentUser = mAuth.getCurrentUser();
+            if (currentUser != null) {
+                // Firebase user is still authenticated
+                loadUserData(userId);
+            } else if (storedEmail != null) {
+                // Firebase session expired but we have stored credentials
+                // In a production app, you might want to re-authenticate silently here
+                // For now, just load the cached user data
+                loadUserData(userId);
+            } else {
+                // No valid authentication, redirect to login
+                clearStoredCredentials();
+                navigateToLogin();
+            }
         } else {
-            // No stored credentials, check Firebase Auth
+            // No stored login, check Firebase Auth
             FirebaseUser currentUser = mAuth.getCurrentUser();
             if (currentUser == null) {
                 // User is not logged in, redirect to login
@@ -135,21 +157,38 @@ public class Barangay_Dashboard extends AppCompatActivity {
             } else {
                 // User is logged in but not stored in SharedPreferences
                 userId = currentUser.getUid();
-
-                // Save to SharedPreferences for persistence
-                SharedPreferences.Editor editor = sharedPreferences.edit();
-                editor.putString(KEY_USER_ID, userId);
-                editor.putString(KEY_USER_TYPE, userType);
-                editor.apply();
-
+                saveLoginState(userId, userType, currentUser.getEmail());
                 loadUserData(userId);
             }
         }
     }
 
+    private void verifyLoginState() {
+        // This method can be called periodically to ensure login state is maintained
+        boolean isLoggedIn = sharedPreferences.getBoolean(KEY_IS_LOGGED_IN, false);
+        if (!isLoggedIn) {
+            // User is not marked as logged in, redirect to login
+            navigateToLogin();
+        }
+    }
+
+    private void saveLoginState(String uid, String userType, String email) {
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putString(KEY_USER_ID, uid);
+        editor.putString(KEY_USER_TYPE, userType);
+        editor.putBoolean(KEY_IS_LOGGED_IN, true);
+        editor.putLong(KEY_LOGIN_TIMESTAMP, System.currentTimeMillis());
+
+        if (email != null) {
+            editor.putString(KEY_USER_EMAIL, email);
+        }
+
+        // Use commit() instead of apply() for immediate persistence
+        editor.commit();
+    }
+
     private void navigateToLogin() {
         Intent intent = new Intent(Barangay_Dashboard.this, Log_in_Via_Email.class);
-        // Clear the back stack so user can't press back to return after logging out
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
@@ -167,12 +206,13 @@ public class Barangay_Dashboard extends AppCompatActivity {
                         if (task.isSuccessful()) {
                             DocumentSnapshot document = task.getResult();
                             if (document.exists()) {
-                                // Check for rescuegroup field first as that should be in your rescuer documents
+                                // Document exists, update login timestamp to keep session fresh
+                                updateLoginTimestamp();
+
                                 String rescueGroup = document.getString("barangayName");
                                 if (rescueGroup != null) {
                                     brgyName.setText(rescueGroup);
                                 } else {
-                                    // Fallback to firstName if rescuegroup doesn't exist
                                     String firstName = document.getString("barangayName");
                                     if (firstName != null) {
                                         brgyName.setText(firstName);
@@ -198,12 +238,27 @@ public class Barangay_Dashboard extends AppCompatActivity {
                                 navigateToLogin();
                             }
                         } else {
+                            // Handle network errors gracefully - don't log out on temporary failures
                             Toast.makeText(Barangay_Dashboard.this,
-                                    "Error loading user data: " + task.getException().getMessage(),
+                                    "Unable to load user data. Check your internet connection.",
                                     Toast.LENGTH_SHORT).show();
+
+                            // Only log out if it's an authentication error
+                            Exception exception = task.getException();
+                            if (exception != null && exception.getMessage() != null &&
+                                    exception.getMessage().toLowerCase().contains("permission")) {
+                                clearStoredCredentials();
+                                navigateToLogin();
+                            }
                         }
                     }
                 });
+    }
+
+    private void updateLoginTimestamp() {
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putLong(KEY_LOGIN_TIMESTAMP, System.currentTimeMillis());
+        editor.commit();
     }
 
     private void checkLocationPermission() {
@@ -345,9 +400,8 @@ public class Barangay_Dashboard extends AppCompatActivity {
                     // Location saved successfully
                 })
                 .addOnFailureListener(e -> {
-                    Toast.makeText(Barangay_Dashboard.this,
-                            "Failed to update location: " + e.getMessage(),
-                            Toast.LENGTH_SHORT).show();
+                    // Handle failure silently for location updates
+                    // Don't show toast for every location update failure
                 });
     }
 
@@ -420,6 +474,15 @@ public class Barangay_Dashboard extends AppCompatActivity {
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.remove(KEY_USER_ID);
         editor.remove(KEY_USER_TYPE);
-        editor.apply();
+        editor.remove(KEY_IS_LOGGED_IN);
+        editor.remove(KEY_USER_EMAIL);
+        editor.remove(KEY_LOGIN_TIMESTAMP);
+        editor.commit(); // Use commit() for immediate persistence
+    }
+    private boolean isLoginExpired() {
+        long loginTimestamp = sharedPreferences.getLong(KEY_LOGIN_TIMESTAMP, 0);
+        long currentTime = System.currentTimeMillis();
+        long EXPIRATION_TIME = 30L * 24 * 60 * 60 * 1000; // 30 days
+        return (currentTime - loginTimestamp) > EXPIRATION_TIME;
     }
 }

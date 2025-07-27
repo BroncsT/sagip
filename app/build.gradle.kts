@@ -44,6 +44,7 @@ dependencies {
     implementation (libs.picasso)
     implementation (libs.play.services.location)
     implementation(libs.play.services.maps)
+    implementation(libs.material.v190)
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
