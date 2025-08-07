@@ -9,7 +9,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- Optional: Add a back button -->
+    <!-- Back button -->
     <ImageButton
         android:id="@+id/btnBack"
         android:layout_width="48dp"
@@ -22,7 +22,7 @@
         android:contentDescription="Back"
         android:elevation="4dp" />
 
-    <!-- Optional: Add emergency info card -->
+    <!-- Emergency info card -->
     <LinearLayout
         android:id="@+id/emergencyInfoCard"
         android:layout_width="match_parent"
@@ -39,7 +39,7 @@
             android:id="@+id/tvEmergencyTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="🚨 EMERGENCY LOCATION"
+            android:text="�� EMERGENCY LOCATION"
             android:textColor="@android:color/holo_red_dark"
             android:textSize="18sp"
             android:textStyle="bold"
@@ -53,6 +53,59 @@
             android:text="Location address will appear here"
             android:textSize="14sp"
             android:gravity="center" />
+
+        <TextView
+            android:id="@+id/tvDistanceTime"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text=""
+            android:textSize="12sp"
+            android:textColor="@android:color/holo_blue_dark"
+            android:gravity="center"
+            android:textStyle="bold" />
+
+        <!-- Action buttons for rescuers -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <Button
+                android:id="@+id/btnNavigate"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:text="@string/btn_navigate"
+                android:textSize="12sp"
+                android:background="@drawable/button_background"
+                android:textColor="@android:color/white" />
+
+            <Button
+                android:id="@+id/btnCallSenior"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:text="@string/btn_call_senior"
+                android:textSize="12sp"
+                android:background="@drawable/button_background"
+                android:textColor="@android:color/white" />
+
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnShowRoute"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/btn_show_route"
+            android:textSize="14sp"
+            android:background="@drawable/button_background"
+            android:textColor="@android:color/white" />
 
     </LinearLayout>
 

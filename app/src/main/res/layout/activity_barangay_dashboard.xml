@@ -16,9 +16,9 @@
         android:textAlignment="center"
         android:textSize="25sp"
         android:textStyle="bold"
+        app:layout_constraintBottom_toTopOf="@id/guidelineHorizontal2"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
-        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1"
-        app:layout_constraintBottom_toTopOf="@id/guidelineHorizontal2"/>
+        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1" />
 
     <TextView
         android:id="@+id/barangayStaffName"
@@ -28,19 +28,19 @@
         android:textAlignment="center"
         android:textSize="25sp"
         android:textStyle="bold"
+        app:layout_constraintBottom_toTopOf="@id/guidelineHorizontal2"
         app:layout_constraintStart_toEndOf="@id/greetings"
-        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1"
-        app:layout_constraintBottom_toTopOf="@id/guidelineHorizontal2"/>
+        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1" />
 
     <ImageView
         android:id="@+id/notification"
         android:layout_width="30dp"
         android:layout_height="30dp"
-        app:srcCompat="@drawable/baseline_notifications_active_24"
+        app:layout_constraintBottom_toBottomOf="@id/guidelineHorizontal2"
         app:layout_constraintEnd_toEndOf="@id/guidelineVertical5"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical4"
-        app:layout_constraintBottom_toBottomOf="@id/guidelineHorizontal2"
-        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1"/>
+        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1"
+        app:srcCompat="@drawable/baseline_notifications_active_24" />
 
     <!-- Current Location Section -->
     <TextView
@@ -59,8 +59,8 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:textSize="16sp"
-        app:layout_constraintStart_toEndOf="@id/currentLocationLabel"
         app:layout_constraintEnd_toStartOf="@id/guidelineVertical5"
+        app:layout_constraintStart_toEndOf="@id/currentLocationLabel"
         app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal2" />
 
     <!-- Senior Info CardView -->
@@ -73,87 +73,7 @@
         app:cardElevation="10dp"
         app:layout_constraintEnd_toEndOf="@id/guidelineVertical5"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
-        app:layout_constraintTop_toBottomOf="@id/currentLocationLabel">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:padding="16dp">
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Senior Information"
-                android:textAlignment="center"
-                android:textColor="@color/black"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginTop="8dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Name: "
-                    android:textColor="@color/black"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/seniorFullName"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textSize="16sp" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginTop="4dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Age: "
-                    android:textColor="@color/black"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/seniorAge"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textSize="16sp" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginTop="4dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Location: "
-                    android:textColor="@color/black"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tvSeniorLocation"
-                    android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:textSize="16sp" />
-            </LinearLayout>
-        </LinearLayout>
-    </androidx.cardview.widget.CardView>
+        app:layout_constraintTop_toBottomOf="@id/currentLocationLabel" />
 
     <!-- Navigation Button -->
     <Button
@@ -161,18 +81,18 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp"
+        android:background="@drawable/rounded_button"
+        android:padding="12dp"
         android:text="Navigate to Nearest Hospital"
         android:textAllCaps="false"
-        android:padding="12dp"
-        android:background="@drawable/rounded_button"
-        app:layout_constraintBottom_toTopOf="@id/bottomNavBar"
+        app:layout_constraintBottom_toTopOf="@id/bottomNavBar2"
         app:layout_constraintEnd_toEndOf="@id/guidelineVertical5"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical1" />
 
 
     <!-- Bottom Navigation -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
-        android:id="@+id/bottomNavBar"
+        android:id="@+id/bottomNavBar2"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -243,5 +163,14 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         app:layout_constraintGuide_percent="0.25" />
+
+    <TextView
+        android:id="@+id/textView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="256dp"
+        android:text="hellloooo"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:layout_editor_absoluteX="145dp" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

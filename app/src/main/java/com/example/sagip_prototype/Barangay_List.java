@@ -5,9 +5,6 @@ import android.os.Bundle;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
@@ -18,7 +15,7 @@ public class Barangay_List extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_barangay_list);
-        BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavBar);
+        BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavBar2);
         bottomNavigationView.setSelectedItemId(R.id.barangay_seniorList);
 
         bottomNavigationView.setOnItemSelectedListener(item -> {

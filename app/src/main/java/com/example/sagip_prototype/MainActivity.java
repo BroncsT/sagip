@@ -9,6 +9,7 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
+import android.util.Patterns;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -69,6 +70,26 @@ public class MainActivity extends AppCompatActivity {
         auth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
         sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+
+        // Check if this is a logout action
+        Bundle extras = getIntent().getExtras();
+        boolean isLogoutAction = false;
+        if (extras != null) {
+            isLogoutAction = extras.getBoolean("LOGOUT_ACTION", false);
+        }
+
+        // If it's a logout action, clear stored credentials and force logout
+        if (isLogoutAction) {
+            Log.d(TAG, "Logout action detected, clearing credentials and signing out");
+            auth.signOut();
+            clearStoredCredentials();
+            // Set content view and show login screen
+            setContentView(R.layout.activity_main);
+            initializeUI();
+            setupPhoneLogin();
+            setupEmailLogin();
+            return;
+        }
 
         // Check if user is already logged in
         if (isUserLoggedIn()) {
@@ -245,18 +266,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupEmailLogin() {
-        // Email login is handled in the same button click listener above
-        // Add password visibility toggle functionality
         View passwordToggle = findViewById(R.id.passwordToggle);
         if (passwordToggle != null) {
             passwordToggle.setOnClickListener(v -> {
                 if (passwordInput.getInputType() == (android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD)) {
                     passwordInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
-                    // You'll need to add these drawable resources or use existing ones
-                    // passwordToggle.setImageResource(R.drawable.ic_visibility);
                 } else {
                     passwordInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
-                    // passwordToggle.setImageResource(R.drawable.ic_visibility_off);
                 }
                 passwordInput.setSelection(passwordInput.getText().length());
             });
@@ -266,35 +282,213 @@ public class MainActivity extends AppCompatActivity {
         TextView forgotPassword = findViewById(R.id.forgotPasswordText);
         if (forgotPassword != null) {
             forgotPassword.setOnClickListener(v -> {
-                // TODO: Implement forgot password functionality
-                Toast.makeText(MainActivity.this, "Forgot password feature coming soon", Toast.LENGTH_SHORT).show();
+                showForgotPasswordDialog();
             });
         }
     }
 
+    private void showForgotPasswordDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Reset Password");
+        builder.setMessage("Enter your email address to receive a password reset link:");
+
+        // Create an EditText for email input
+        final EditText emailEditText = new EditText(this);
+        emailEditText.setHint("Enter your email");
+        emailEditText.setInputType(android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+
+        // Add some padding to the EditText
+        int padding = (int) (16 * getResources().getDisplayMetrics().density);
+        emailEditText.setPadding(padding, padding, padding, padding);
+
+        builder.setView(emailEditText);
+
+        builder.setPositiveButton("Send Reset Link", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                String email = emailEditText.getText().toString().trim();
+                if (isValidEmail(email)) {
+                    sendPasswordResetEmail(email);
+                } else {
+                    Toast.makeText(MainActivity.this, "Please enter a valid email address", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
+        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.dismiss();
+            }
+        });
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
+
+        // Pre-fill with current email if available
+        String currentEmail = emailInput.getText().toString().trim();
+        if (!currentEmail.isEmpty() && isValidEmail(currentEmail)) {
+            emailEditText.setText(currentEmail);
+            emailEditText.setSelection(currentEmail.length());
+        }
+    }
+
+    private void sendPasswordResetEmail(String email) {
+        // Show progress
+        showProgressBar(true);
+
+        auth.sendPasswordResetEmail(email)
+                .addOnCompleteListener(new OnCompleteListener<Void>() {
+                    @Override
+                    public void onComplete(@NonNull Task<Void> task) {
+                        showProgressBar(false);
+
+                        if (task.isSuccessful()) {
+                            Log.d(TAG, "Password reset email sent successfully to: " + email);
+                            showPasswordResetSuccessDialog(email);
+                        } else {
+                            Log.e(TAG, "Failed to send password reset email", task.getException());
+                            String errorMessage = getPasswordResetErrorMessage(task.getException());
+                            showPasswordResetErrorDialog(errorMessage);
+                        }
+                    }
+                });
+    }
+
+    private void showPasswordResetSuccessDialog(String email) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Password Reset Email Sent");
+        builder.setMessage("A password reset link has been sent to:\n\n" + email +
+                "\n\nPlease check your email and follow the instructions to reset your password. " +
+                "Don't forget to check your spam/junk folder if you don't see the email in your inbox.");
+        builder.setIcon(android.R.drawable.ic_dialog_info);
+
+        builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.dismiss();
+                // Optionally switch to email login tab
+                if (isPhoneLoginMode) {
+                    TextView emailTabButton = findViewById(R.id.emailTabButton);
+                    TextView phoneTabButton = findViewById(R.id.phoneTabButton);
+                    showEmailLogin();
+                    updateTabAppearance(emailTabButton, phoneTabButton);
+                }
+            }
+        });
+
+        builder.setCancelable(false);
+        builder.show();
+    }
+
+    private void showPasswordResetErrorDialog(String errorMessage) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Password Reset Failed");
+        builder.setMessage(errorMessage);
+        builder.setIcon(android.R.drawable.ic_dialog_alert);
+
+        builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.dismiss();
+            }
+        });
+
+        builder.setNegativeButton("Try Again", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.dismiss();
+                showForgotPasswordDialog();
+            }
+        });
+
+        builder.show();
+    }
+
+    private String getPasswordResetErrorMessage(Exception exception) {
+        if (exception == null) {
+            return "An unknown error occurred. Please try again.";
+        }
+
+        String errorMessage = exception.getMessage();
+        if (errorMessage == null) {
+            return "An unknown error occurred. Please try again.";
+        }
+
+        // Handle common Firebase Auth error codes
+        if (errorMessage.contains("There is no user record")) {
+            return "No account found with this email address. Please check your email or create a new account.";
+        } else if (errorMessage.contains("The email address is badly formatted")) {
+            return "Please enter a valid email address.";
+        } else if (errorMessage.contains("too-many-requests")) {
+            return "Too many requests. Please wait a moment before trying again.";
+        } else if (errorMessage.contains("network-request-failed")) {
+            return "Network error. Please check your internet connection and try again.";
+        } else {
+            return "Failed to send password reset email. Please try again or contact support if the problem persists.";
+        }
+    }
+
+    private boolean isValidEmail(String email) {
+        return !TextUtils.isEmpty(email) && Patterns.EMAIL_ADDRESS.matcher(email).matches();
+    }
+
     // Email Login Methods
     private void loginWithEmail(String email, String password) {
+        showProgressBar(true);
+
         auth.signInWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
                     @Override
                     public void onComplete(@NonNull Task<AuthResult> task) {
+                        showProgressBar(false);
+
                         if (task.isSuccessful()) {
                             FirebaseUser user = auth.getCurrentUser();
                             if (user != null) {
+                                Log.d(TAG, "Email login successful for: " + email);
                                 checkUserTypeAndRedirect(user.getUid(), false);
                             }
                         } else {
-                            Toast.makeText(MainActivity.this, "Authentication failed.", Toast.LENGTH_SHORT).show();
+                            Log.e(TAG, "Email login failed", task.getException());
+                            String errorMessage = getLoginErrorMessage(task.getException());
+                            Toast.makeText(MainActivity.this, errorMessage, Toast.LENGTH_LONG).show();
                         }
                     }
                 });
+    }
+
+    private String getLoginErrorMessage(Exception exception) {
+        if (exception == null) {
+            return "Authentication failed. Please try again.";
+        }
+
+        String errorMessage = exception.getMessage();
+        if (errorMessage == null) {
+            return "Authentication failed. Please try again.";
+        }
+
+        // Handle common Firebase Auth error codes
+        if (errorMessage.contains("There is no user record")) {
+            return "No account found with this email. Please check your email or register.";
+        } else if (errorMessage.contains("The password is invalid")) {
+            return "Incorrect password. Please try again or use 'Forgot Password'.";
+        } else if (errorMessage.contains("The email address is badly formatted")) {
+            return "Please enter a valid email address.";
+        } else if (errorMessage.contains("too-many-requests")) {
+            return "Too many failed attempts. Please try again later.";
+        } else if (errorMessage.contains("user-disabled")) {
+            return "This account has been disabled. Please contact support.";
+        } else {
+            return "Authentication failed. Please check your credentials and try again.";
+        }
     }
 
     // Phone Login Methods
     private void checkUserTypeAndRedirect(String identifier, boolean isPhoneNumber) {
         if (isPhoneNumber) {
             // Check all possible user type collections for phone number
-            String[] userTypes = {"seniors", "user", "rescuer", "admin"};
+            String[] userTypes = {"seniors", "user", "rescuer", "barangay"};
             checkAuthenticatedUserTypeByPhone(identifier, userTypes, 0);
         } else {
             // Check all possible user type collections for UID (email users)
@@ -391,7 +585,6 @@ public class MainActivity extends AppCompatActivity {
             case "rescuer":
                 dashboardIntent = new Intent(MainActivity.this, Rescuer_Dashboard.class);
                 break;
-            case "admin":
             case "hospital":
                 dashboardIntent = new Intent(MainActivity.this, Hospital_Dashboard.class);
                 break;
@@ -408,7 +601,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void checkUserExistsByPhoneNumber(String formattedNumber) {
-        String[] userTypes = {"seniors", "user", "rescuer", "admin"};
+        String[] userTypes = {"seniors", "user", "rescuer", "barangay"};
         checkPhoneNumberInCollections(formattedNumber, userTypes, 0);
     }
 

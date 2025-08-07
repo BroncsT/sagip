@@ -82,7 +82,7 @@ public class Rescuer_List extends AppCompatActivity {
 
 
     private void setupBottomNavigation() {
-        BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavBar);
+        BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavBar2);
         bottomNavigationView.setSelectedItemId(R.id.rescuer_hospital);
 
         bottomNavigationView.setOnItemSelectedListener(item -> {

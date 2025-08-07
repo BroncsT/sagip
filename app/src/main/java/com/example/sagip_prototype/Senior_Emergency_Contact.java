@@ -52,7 +52,7 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
         db = FirebaseFirestore.getInstance();
 
         labelProfile = findViewById(R.id.labelProfile);
-        BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavBar);
+        BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavBar2);
         FloatingActionButton addEmergencyContact = findViewById(R.id.senior_add_btn);
 
         addEmergencyContact.setOnClickListener(v -> {

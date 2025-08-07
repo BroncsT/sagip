@@ -197,7 +197,7 @@ public class OTP_PAGE extends AppCompatActivity {
                 intent = new Intent(OTP_PAGE.this, Barangay_Dashboard.class);
                 break;
             default:
-                intent = new Intent(OTP_PAGE.this, Log_in_Via_Email.class);
+                intent = new Intent(OTP_PAGE.this, MainActivity.class);
                 break;
         }
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);

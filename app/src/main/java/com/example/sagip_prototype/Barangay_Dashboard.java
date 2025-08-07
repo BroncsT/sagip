@@ -71,9 +71,8 @@ public class Barangay_Dashboard extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
-        setContentView(R.layout.activity_rescuer_dashboard);
+        setContentView(R.layout.activity_barangay_dashboard);
 
-        // Initialize SharedPreferences
         sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
 
         mAuth = FirebaseAuth.getInstance();
@@ -188,7 +187,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
     }
 
     private void navigateToLogin() {
-        Intent intent = new Intent(Barangay_Dashboard.this, Log_in_Via_Email.class);
+        Intent intent = new Intent(Barangay_Dashboard.this, MainActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
@@ -434,7 +433,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
     }
 
     private void setupBottomNavigation() {
-        BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavBar);
+        BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavBar2);
         bottomNavigationView.setSelectedItemId(R.id.barangay_dashboard);
 
         bottomNavigationView.setOnItemSelectedListener(item -> {
@@ -442,15 +441,13 @@ public class Barangay_Dashboard extends AppCompatActivity {
 
             if (itemId == R.id.barangay_dashboard) {
                 return true;
-            } else if (itemId == R.id.barangay_seniorList) {
-                startActivity(new Intent(getApplicationContext(), Barangay_List.class));
-                overridePendingTransition(0, 0);
-                finish();
-                return true;
             } else if (itemId == R.id.barangay_profile) {
                 startActivity(new Intent(getApplicationContext(), Barangay_Profile.class));
                 overridePendingTransition(0, 0);
-                finish();
+                return true;
+            } else if (itemId == R.id.barangay_seniorList) {
+                startActivity(new Intent(getApplicationContext(), Barangay_List.class));
+                overridePendingTransition(0, 0);
                 return true;
             }
             return false;

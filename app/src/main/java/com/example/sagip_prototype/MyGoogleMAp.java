@@ -4,9 +4,17 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.net.Uri;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import android.os.Bundle;
 import android.os.Looper;
 import android.util.Log;
+import android.view.View;
+import android.widget.Button;
+import android.widget.ImageButton;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
@@ -28,6 +36,20 @@ import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.PolylineOptions;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.LatLngBounds;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
+
+import com.google.android.gms.maps.model.Marker;
+import com.google.firebase.firestore.ListenerRegistration;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.QuerySnapshot;
 
 public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback {
 
@@ -51,11 +73,49 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
     private String helpRequestId = "";
     private String emergencyDescription = "";
 
+    // Variables for senior tracking mode (senior viewing rescuers)
+    private boolean isSeniorTrackingMode = false;
+    private String helpRequestIdForTracking = "";
+    private ListenerRegistration rescuerLocationListener = null;
+    private Map<String, Marker> rescuerMarkers = new HashMap<>();
+
+    // Routing variables
+    private LatLng currentLocation = null;
+    private LatLng destinationLocation = null;
+    private Polyline currentRoute = null;
+    private List<LatLng> routePoints = new ArrayList<>();
+    private boolean routeDisplayed = false;
+
+    // UI Elements
+    private LinearLayout emergencyInfoCard;
+    private TextView tvEmergencyTitle;
+    private TextView tvEmergencyAddress;
+    private TextView tvDistanceTime; // New TextView for distance and time
+    private Button btnNavigate;
+    private Button btnCallSenior;
+    private Button btnShowRoute;
+    private ImageButton btnBack;
+
+    // Distance and time estimation
+    private String estimatedDistance = "";
+    private String estimatedTime = "";
+    private boolean isCalculatingRoute = false;
+    private ExecutorService executorService;
+    
+    // Firebase Firestore for tracking rescuers
+    private FirebaseFirestore db;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_my_google_map);
+
+        // Initialize Firebase Firestore
+        db = FirebaseFirestore.getInstance();
+
+        // Initialize UI elements
+        initializeUI();
 
         // Get location data from Intent (from Senior_Dashboard or Rescuer)
         Intent intent = getIntent();
@@ -72,13 +132,34 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
             helpRequestId = intent.getStringExtra("helpRequestId");
             emergencyDescription = intent.getStringExtra("emergencyDescription");
 
+            // Additional data for senior tracking mode
+            isSeniorTrackingMode = intent.getBooleanExtra("isSeniorTrackingMode", false);
+            helpRequestIdForTracking = intent.getStringExtra("helpRequestIdForTracking");
+
             Log.d(TAG, "Received location: " + receivedLat + ", " + receivedLong);
             Log.d(TAG, "Emergency mode: " + isEmergencyMode);
             Log.d(TAG, "Rescuer mode: " + isRescuerMode);
+            Log.d(TAG, "Senior tracking mode: " + isSeniorTrackingMode);
+        }
+
+        // Set destination location for routing
+        if (receivedLat != 0.0 && receivedLong != 0.0) {
+            destinationLocation = new LatLng(receivedLat, receivedLong);
         }
 
         // Initialize location services
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+        
+        // Ensure fusedLocationClient is properly initialized
+        if (fusedLocationClient == null) {
+            Log.e(TAG, "Failed to initialize fusedLocationClient");
+            Toast.makeText(this, "Error initializing location services", Toast.LENGTH_LONG).show();
+        } else {
+            Log.d(TAG, "fusedLocationClient initialized successfully");
+        }
+
+        // Initialize executor service
+        executorService = Executors.newSingleThreadExecutor();
 
         // Register permission launcher
         registerLocationPermissionLauncher();
@@ -87,35 +168,422 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
         mapFragment.getMapAsync(this);
     }
 
-    @Override
-    public void onMapReady(@NonNull GoogleMap googleMap) {
-        Log.d(TAG, "onMapReady called");
-        myMap = googleMap;
+    private void initializeUI() {
+        Log.d(TAG, "initializeUI called");
 
-        if (myMap == null) {
-            Log.e(TAG, "GoogleMap is null in onMapReady!");
-            Toast.makeText(this, "Error initializing map", Toast.LENGTH_LONG).show();
+        emergencyInfoCard = findViewById(R.id.emergencyInfoCard);
+        tvEmergencyTitle = findViewById(R.id.tvEmergencyTitle);
+        tvEmergencyAddress = findViewById(R.id.tvEmergencyAddress);
+        tvDistanceTime = findViewById(R.id.tvDistanceTime); // New TextView
+        btnNavigate = findViewById(R.id.btnNavigate);
+        btnCallSenior = findViewById(R.id.btnCallSenior);
+        btnShowRoute = findViewById(R.id.btnShowRoute);
+        btnBack = findViewById(R.id.btnBack);
+
+        Log.d(TAG, "UI Elements found - emergencyInfoCard: " + (emergencyInfoCard != null) +
+                ", btnNavigate: " + (btnNavigate != null) +
+                ", tvDistanceTime: " + (tvDistanceTime != null));
+
+        if (btnNavigate != null) {
+            btnNavigate.setOnClickListener(v -> {
+                Log.d(TAG, "Navigate button clicked!");
+                startInternalNavigation();
+            });
+            Log.d(TAG, "Navigate button click listener set");
+        } else {
+            Log.e(TAG, "btnNavigate is null in initializeUI!");
+        }
+
+        if (btnCallSenior != null) {
+            btnCallSenior.setOnClickListener(v -> callSenior());
+        }
+
+        if (btnShowRoute != null) {
+            btnShowRoute.setOnClickListener(v -> toggleRouteDisplay());
+        }
+
+        if (btnBack != null) {
+            btnBack.setOnClickListener(v -> finish());
+        }
+
+        // Show emergency info card for rescuer mode
+        if (isRescuerMode && emergencyInfoCard != null) {
+            emergencyInfoCard.setVisibility(View.VISIBLE);
+            updateEmergencyInfo();
+            Log.d(TAG, "Emergency info card made visible for rescuer mode");
+            
+            // Auto-show route if both locations are available
+            if (currentLocation != null && destinationLocation != null) {
+                // Delay slightly to ensure map is fully loaded
+                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                    if (!routeDisplayed) {
+                        showRoute();
+                    }
+                }, 1000);
+            }
+        } else {
+            Log.d(TAG, "isRescuerMode: " + isRescuerMode + ", emergencyInfoCard: " + (emergencyInfoCard != null));
+        }
+    }
+
+    private void updateEmergencyInfo() {
+        Log.d(TAG, "updateEmergencyInfo called - currentLocation: " + (currentLocation != null) + 
+              ", destinationLocation: " + (destinationLocation != null));
+        
+        if (tvEmergencyTitle != null) {
+            String title = getString(R.string.senior_needs_help, seniorName != null ? seniorName : "Senior");
+            tvEmergencyTitle.setText(title);
+        }
+
+        if (tvEmergencyAddress != null && receivedAddress != null) {
+            tvEmergencyAddress.setText("📍 " + receivedAddress);
+        }
+        
+        // If we have distance/time data, update it
+        if (tvDistanceTime != null && !estimatedDistance.isEmpty() && !estimatedTime.isEmpty()) {
+            String displayText = "📍 " + estimatedDistance + " • ⏱️ " + estimatedTime;
+            tvDistanceTime.setText(displayText);
+            Log.d(TAG, "Distance/time updated: " + displayText);
+        } else if (tvDistanceTime != null) {
+            if (currentLocation == null) {
+                tvDistanceTime.setText("📍 Getting your location...");
+                Log.d(TAG, "Showing 'Getting your location...' message");
+            } else if (destinationLocation == null) {
+                tvDistanceTime.setText("📍 Getting destination...");
+                Log.d(TAG, "Showing 'Getting destination...' message");
+            } else {
+                tvDistanceTime.setText("📍 Calculating distance...");
+                Log.d(TAG, "Showing 'Calculating distance...' message");
+            }
+        }
+        
+        // Make sure the emergency info card is visible
+        if (emergencyInfoCard != null) {
+            emergencyInfoCard.setVisibility(View.VISIBLE);
+            Log.d(TAG, "Emergency info card made visible");
+        }
+    }
+
+    private void startInternalNavigation() {
+        Log.d(TAG, "startInternalNavigation called");
+
+        if (destinationLocation == null) {
+            Log.e(TAG, "Destination location is null");
+            Toast.makeText(this, "Destination not available", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Always set up location callback first
-        setupLocationCallback();
+        Log.d(TAG, "Starting internal navigation to: " + destinationLocation.latitude + ", " + destinationLocation.longitude);
 
-        Log.d(TAG, "Checking received location: " + receivedLat + ", " + receivedLong);
+        // Show route on the map
+        showRoute();
 
-        // Check if location data was passed from Senior_Dashboard or Rescuer
-        if (receivedLat != 0.0 && receivedLong != 0.0) {
-            Log.d(TAG, "Displaying received location");
-            // Display the received location immediately
-            displayReceivedLocation();
+        // Calculate simple distance and time
+        calculateSimpleDistanceAndTime();
+
+        // Center camera on destination with zoom
+        myMap.animateCamera(CameraUpdateFactory.newLatLngZoom(destinationLocation, 18f));
+
+        // Show navigation mode message
+        Toast.makeText(this, "🗺️ Navigation started - Follow the blue route line", Toast.LENGTH_LONG).show();
+
+        // Update button text to indicate navigation mode
+        if (btnNavigate != null) {
+            btnNavigate.setText("📍 Stop Navigation");
+            btnNavigate.setOnClickListener(v -> stopInternalNavigation());
+            Log.d(TAG, "Navigation button updated to Stop Navigation");
         } else {
-            Log.d(TAG, "No received location, starting normal mode");
-            // Enable location layer if permission is granted (normal mode)
-            enableMyLocation();
-
-            // Request location permissions for normal mode
-            requestLocationPermissions();
+            Log.e(TAG, "btnNavigate is null!");
         }
+    }
+
+    private void stopInternalNavigation() {
+        // Clear the route
+        clearRoute();
+
+        // Reset button
+        if (btnNavigate != null) {
+            btnNavigate.setText(getString(R.string.btn_navigate));
+            btnNavigate.setOnClickListener(v -> startInternalNavigation());
+        }
+
+        // Clear distance and time
+        if (tvDistanceTime != null) {
+            tvDistanceTime.setText("");
+        }
+
+        Toast.makeText(this, "Navigation stopped", Toast.LENGTH_SHORT).show();
+    }
+
+    // Calculate simple distance and time (no API required)
+    private void calculateSimpleDistanceAndTime() {
+        Log.d(TAG, "calculateSimpleDistanceAndTime called");
+        Log.d(TAG, "currentLocation: " + (currentLocation != null) + 
+              ", destinationLocation: " + (destinationLocation != null));
+
+        if (currentLocation == null || destinationLocation == null) {
+            Log.d(TAG, "Cannot calculate distance - missing location data");
+            return;
+        }
+
+        // Calculate straight-line distance
+        float[] results = new float[1];
+        android.location.Location.distanceBetween(
+                currentLocation.latitude, currentLocation.longitude,
+                destinationLocation.latitude, destinationLocation.longitude,
+                results
+        );
+
+        float distanceInMeters = results[0];
+        float distanceInKm = distanceInMeters / 1000;
+
+        // Estimate time (assuming 30 km/h average speed)
+        float estimatedTimeInMinutes = (distanceInKm / 30) * 60;
+
+        // Format distance
+        if (distanceInKm < 1) {
+            estimatedDistance = String.format("%.0f m", distanceInMeters);
+        } else {
+            estimatedDistance = String.format("%.1f km", distanceInKm);
+        }
+
+        // Format time
+        if (estimatedTimeInMinutes < 1) {
+            estimatedTime = "Less than 1 min";
+        } else if (estimatedTimeInMinutes < 60) {
+            estimatedTime = String.format("%.0f min", estimatedTimeInMinutes);
+        } else {
+            float hours = estimatedTimeInMinutes / 60;
+            estimatedTime = String.format("%.1f hours", hours);
+        }
+
+        Log.d(TAG, "Distance calculated: " + estimatedDistance + ", Time: " + estimatedTime);
+
+        // Update the display
+        updateDistanceTimeDisplay();
+    }
+
+    // Calculate distance and time using Google Directions API (modern implementation)
+    private void calculateDistanceAndTime() {
+        Log.d(TAG, "calculateDistanceAndTime called");
+        Log.d(TAG, "currentLocation: " + (currentLocation != null) +
+                ", destinationLocation: " + (destinationLocation != null) +
+                ", isCalculatingRoute: " + isCalculatingRoute);
+
+        if (currentLocation == null || destinationLocation == null || isCalculatingRoute) {
+            Log.d(TAG, "Skipping distance calculation - conditions not met");
+            return;
+        }
+
+        Log.d(TAG, "Starting route calculation...");
+        isCalculatingRoute = true;
+
+        // Use ExecutorService instead of deprecated AsyncTask
+        executorService.execute(() -> {
+            try {
+                // This is where you would implement Google Directions API call
+                // For now, we'll just simulate some work
+                Thread.sleep(100); // Simulate network delay
+
+                // Run UI updates on main thread
+                runOnUiThread(() -> {
+                    isCalculatingRoute = false;
+                    // Fallback to simple calculation
+                    calculateStraightLineDistance();
+                });
+            } catch (InterruptedException e) {
+                runOnUiThread(() -> {
+                    isCalculatingRoute = false;
+                    Log.e(TAG, "Route calculation interrupted", e);
+                });
+            }
+        });
+    }
+
+    // Fallback method for straight line distance (single implementation)
+    private void calculateStraightLineDistance() {
+        if (currentLocation != null && destinationLocation != null) {
+            float[] results = new float[1];
+            android.location.Location.distanceBetween(
+                    currentLocation.latitude, currentLocation.longitude,
+                    destinationLocation.latitude, destinationLocation.longitude,
+                    results
+            );
+
+            estimatedDistance = String.format("%.1f km", results[0] / 1000);
+            estimatedTime = "~" + String.format("%.0f min", results[0] / 1000 * 2); // Rough estimate
+
+            updateDistanceTimeDisplay();
+        }
+    }
+
+    // Update the distance and time display
+    private void updateDistanceTimeDisplay() {
+        Log.d(TAG, "updateDistanceTimeDisplay called");
+        Log.d(TAG, "tvDistanceTime: " + (tvDistanceTime != null) +
+                ", estimatedDistance: '" + estimatedDistance + "'" +
+                ", estimatedTime: '" + estimatedTime + "'");
+
+        if (tvDistanceTime != null && !estimatedDistance.isEmpty() && !estimatedTime.isEmpty()) {
+            String displayText = "📍 " + estimatedDistance + " • ⏱️ " + estimatedTime;
+            tvDistanceTime.setText(displayText);
+            Log.d(TAG, "Distance and time display updated: " + displayText);
+            
+            // Make sure the emergency info card is visible if we have distance/time data
+            if (isRescuerMode && emergencyInfoCard != null) {
+                emergencyInfoCard.setVisibility(View.VISIBLE);
+            }
+        } else {
+            Log.d(TAG, "Cannot update distance/time display - missing data");
+            if (tvDistanceTime != null) {
+                if (currentLocation == null) {
+                    tvDistanceTime.setText("📍 Getting your location...");
+                } else if (destinationLocation == null) {
+                    tvDistanceTime.setText("📍 Getting destination...");
+                } else {
+                    tvDistanceTime.setText("📍 Calculating distance...");
+                }
+            }
+        }
+    }
+
+    // Simple route update (no API required)
+    private void updateRouteWithDirections() {
+        // For now, just use the simple straight line route
+        // This can be enhanced later with actual road routing
+        Log.d(TAG, "Using simple straight line route");
+    }
+
+    private void openExternalNavigation() {
+        if (destinationLocation != null) {
+            // Open Google Maps with navigation
+            String uri = "google.navigation:q=" + destinationLocation.latitude + "," + destinationLocation.longitude;
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(uri));
+            intent.setPackage("com.google.android.apps.maps");
+
+            if (intent.resolveActivity(getPackageManager()) != null) {
+                startActivity(intent);
+            } else {
+                // Fallback to web browser
+                String webUri = "https://www.google.com/maps/dir/?api=1&destination=" +
+                        destinationLocation.latitude + "," + destinationLocation.longitude;
+                Intent webIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(webUri));
+                startActivity(webIntent);
+            }
+        } else {
+            Toast.makeText(this, getString(R.string.destination_not_available), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void callSenior() {
+        if (seniorPhone != null && !seniorPhone.isEmpty()) {
+            Intent callIntent = new Intent(Intent.ACTION_DIAL);
+            callIntent.setData(Uri.parse("tel:" + seniorPhone));
+            startActivity(callIntent);
+        } else {
+            Toast.makeText(this, getString(R.string.phone_not_available), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void toggleRouteDisplay() {
+        Log.d(TAG, "toggleRouteDisplay called - currentLocation: " + (currentLocation != null) + 
+              ", destinationLocation: " + (destinationLocation != null));
+        
+        if (currentLocation == null) {
+            Toast.makeText(this, "Getting your location... Please wait a moment.", Toast.LENGTH_SHORT).show();
+            Log.d(TAG, "Cannot toggle route - current location not available");
+            
+            // Try to get location again
+            if (fusedLocationClient != null && 
+                (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                 ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED)) {
+                getLastKnownLocation();
+                startLocationUpdates();
+            } else {
+                Log.d(TAG, "Cannot start location updates - fusedLocationClient is null or no permissions");
+            }
+            return;
+        }
+        
+        if (destinationLocation == null) {
+            Toast.makeText(this, "Emergency location not available", Toast.LENGTH_SHORT).show();
+            Log.d(TAG, "Cannot toggle route - destination location not available");
+            return;
+        }
+
+        if (routeDisplayed) {
+            clearRoute();
+        } else {
+            showRoute();
+        }
+    }
+
+    private void showRoute() {
+        Log.d(TAG, "showRoute called - currentLocation: " + (currentLocation != null) + 
+              ", destinationLocation: " + (destinationLocation != null));
+        
+        if (currentLocation == null || destinationLocation == null) {
+            Toast.makeText(this, getString(R.string.location_data_not_available), Toast.LENGTH_SHORT).show();
+            Log.d(TAG, "Cannot show route - missing location data");
+            return;
+        }
+
+        // Clear existing route
+        clearRoute();
+
+        // Create a simple straight line route (for demonstration)
+        // In a real app, you would use Google Directions API for actual routing
+        routePoints.clear();
+        routePoints.add(currentLocation);
+        routePoints.add(destinationLocation);
+
+        Log.d(TAG, "Drawing route from " + currentLocation + " to " + destinationLocation);
+
+        // Draw the route
+        PolylineOptions polylineOptions = new PolylineOptions()
+                .addAll(routePoints)
+                .color(getResources().getColor(android.R.color.holo_blue_dark))
+                .width(8);
+
+        currentRoute = myMap.addPolyline(polylineOptions);
+
+        // Fit camera to show both locations
+        LatLngBounds.Builder builder = new LatLngBounds.Builder();
+        builder.include(currentLocation);
+        builder.include(destinationLocation);
+        LatLngBounds bounds = builder.build();
+
+        myMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
+
+        routeDisplayed = true;
+        if (btnShowRoute != null) {
+            btnShowRoute.setText(getString(R.string.btn_hide_route));
+        }
+
+        // Calculate distance and time when route is shown
+        calculateSimpleDistanceAndTime();
+
+        Toast.makeText(this, getString(R.string.route_displayed), Toast.LENGTH_SHORT).show();
+        Log.d(TAG, "Route displayed successfully");
+    }
+
+    private void clearRoute() {
+        Log.d(TAG, "clearRoute called");
+        
+        if (currentRoute != null) {
+            currentRoute.remove();
+            currentRoute = null;
+            Log.d(TAG, "Route polyline removed");
+        }
+        
+        routePoints.clear();
+        routeDisplayed = false;
+        
+        if (btnShowRoute != null) {
+            btnShowRoute.setText(getString(R.string.btn_show_route));
+        }
+        
+        Log.d(TAG, "Route cleared successfully");
     }
 
     private void registerLocationPermissionLauncher() {
@@ -145,8 +613,16 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
                     Manifest.permission.ACCESS_COARSE_LOCATION
             });
         } else {
-            enableMyLocation();
-            startLocationUpdates();
+            // Only proceed if fusedLocationClient is initialized
+            if (fusedLocationClient != null) {
+                enableMyLocation();
+                startLocationUpdates();
+                
+                // Try to get last known location immediately
+                getLastKnownLocation();
+            } else {
+                Log.d(TAG, "fusedLocationClient is null, cannot start location services");
+            }
         }
     }
 
@@ -164,16 +640,49 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
         locationCallback = new LocationCallback() {
             @Override
             public void onLocationResult(@NonNull LocationResult locationResult) {
+                Log.d(TAG, "Location callback triggered with " + locationResult.getLocations().size() + " locations");
+                
                 for (Location location : locationResult.getLocations()) {
+                    Log.d(TAG, "Location update received: " + location.getLatitude() + ", " + location.getLongitude());
+                    
+                    // Update current location
+                    currentLocation = new LatLng(location.getLatitude(), location.getLongitude());
                     updateMapLocation(location);
+                    
+                    // If we have both current and destination locations, calculate distance
+                    if (destinationLocation != null) {
+                        Log.d(TAG, "Both locations available, calculating distance");
+                        calculateSimpleDistanceAndTime();
+                        
+                        // Auto-show route in rescuer mode if not already displayed
+                        if (isRescuerMode && !routeDisplayed && myMap != null) {
+                            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                                if (!routeDisplayed) {
+                                    Log.d(TAG, "Auto-showing route in rescuer mode");
+                                    showRoute();
+                                }
+                            }, 500);
+                        }
+                    } else {
+                        Log.d(TAG, "Destination location not available yet");
+                    }
                 }
             }
         };
     }
 
     private void startLocationUpdates() {
+        Log.d(TAG, "startLocationUpdates called");
+        
+        // Ensure locationCallback is initialized
+        if (locationCallback == null) {
+            Log.d(TAG, "LocationCallback is null, setting it up");
+            setupLocationCallback();
+        }
+        
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
                 ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            Log.d(TAG, "No location permissions granted");
             return;
         }
 
@@ -184,22 +693,57 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
 
         fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
         locationUpdatesActive = true;
+        Log.d(TAG, "Location updates started successfully");
     }
 
     private void updateMapLocation(Location location) {
         if (myMap != null && location != null) {
-            LatLng currentLatLng = new LatLng(location.getLatitude(), location.getLongitude());
+            currentLocation = new LatLng(location.getLatitude(), location.getLongitude());
 
-            // Clear previous markers (optional - remove this line if you want to keep all markers)
+            // Clear previous markers
             myMap.clear();
 
-            // Add a marker at current location
-            myMap.addMarker(new MarkerOptions()
-                    .position(currentLatLng)
-                    .title("My Current Location"));
+            // Add destination marker back if in rescuer mode
+            if (isRescuerMode && destinationLocation != null) {
+                MarkerOptions destinationMarker = new MarkerOptions()
+                        .position(destinationLocation)
+                        .title(getString(R.string.emergency_location_title))
+                        .snippet(receivedAddress);
+                myMap.addMarker(destinationMarker);
+            }
 
-            // Move camera to current location with zoom level 15
-            myMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 15f));
+            // Add current location marker
+            MarkerOptions currentMarker = new MarkerOptions()
+                    .position(currentLocation)
+                    .title(getString(R.string.your_location))
+                    .snippet(getString(R.string.rescuer_position));
+            myMap.addMarker(currentMarker);
+
+            // Calculate distance and time when we have both locations
+            if (destinationLocation != null) {
+                calculateSimpleDistanceAndTime();
+            }
+
+            // If route is displayed, update it
+            if (routeDisplayed) {
+                showRoute();
+            }
+
+            // If in navigation mode, keep camera centered on current location
+            if (btnNavigate != null && btnNavigate.getText().toString().contains("Stop")) {
+                myMap.animateCamera(CameraUpdateFactory.newLatLng(currentLocation));
+            } else {
+                // Normal mode - fit both locations
+                if (isRescuerMode && destinationLocation != null) {
+                    LatLngBounds.Builder builder = new LatLngBounds.Builder();
+                    builder.include(currentLocation);
+                    builder.include(destinationLocation);
+                    LatLngBounds bounds = builder.build();
+                    myMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
+                } else {
+                    myMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 15f));
+                }
+            }
 
             Log.d(TAG, "Map updated with location: " + location.getLatitude() + ", " + location.getLongitude());
         }
@@ -207,8 +751,16 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
 
     // Enhanced method to display location for both senior and rescuer modes
     private void displayReceivedLocation() {
+        Log.d(TAG, "displayReceivedLocation called - receivedLat: " + receivedLat + ", receivedLong: " + receivedLong);
+        
         if (myMap != null && receivedLat != 0.0 && receivedLong != 0.0) {
             LatLng emergencyLocation = new LatLng(receivedLat, receivedLong);
+
+            // Set destination location for rescuer mode
+            if (isRescuerMode) {
+                destinationLocation = emergencyLocation;
+                Log.d(TAG, "Destination location set for rescuer mode: " + destinationLocation);
+            }
 
             // Clear any existing markers
             myMap.clear();
@@ -218,30 +770,86 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
 
             if (isRescuerMode) {
                 // Rescuer viewing senior's emergency location
-                markerTitle = "🆘 " + (seniorName != null ? seniorName : "Senior") + " NEEDS HELP";
+                markerTitle = "🚨 " + (seniorName != null ? seniorName : "Senior") + " NEEDS HELP";
                 markerSnippet = buildRescuerSnippet();
+
+                // Add destination marker
+                MarkerOptions destinationMarker = new MarkerOptions()
+                        .position(emergencyLocation)
+                        .title(markerTitle)
+                        .snippet(markerSnippet);
+                myMap.addMarker(destinationMarker);
+
+                // If we have current location, add it as well
+                if (currentLocation != null) {
+                    Log.d(TAG, "Current location available, adding marker");
+                    MarkerOptions currentMarker = new MarkerOptions()
+                            .position(currentLocation)
+                            .title(getString(R.string.your_location))
+                            .snippet(getString(R.string.rescuer_position));
+                    myMap.addMarker(currentMarker);
+
+                    // Calculate distance and time when both locations are available
+                    calculateSimpleDistanceAndTime();
+
+                    // Fit camera to show both locations
+                    LatLngBounds.Builder builder = new LatLngBounds.Builder();
+                    builder.include(currentLocation);
+                    builder.include(emergencyLocation);
+                    LatLngBounds bounds = builder.build();
+                    myMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
+                } else {
+                    Log.d(TAG, "Current location not available yet, showing only destination");
+                    // Just show destination if current location not available
+                    myMap.animateCamera(CameraUpdateFactory.newLatLngZoom(emergencyLocation, 18f));
+                }
+            } else if (isSeniorTrackingMode) {
+                // Senior viewing their own location and tracking rescuers
+                markerTitle = "📍 Your Location";
+                markerSnippet = receivedAddress != null && !receivedAddress.isEmpty() ? receivedAddress : "Your current location";
+
+                // Add senior's location marker in blue
+                MarkerOptions seniorMarker = new MarkerOptions()
+                        .position(emergencyLocation)
+                        .title(markerTitle)
+                        .snippet(markerSnippet)
+                        .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(
+                                com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_BLUE));
+                myMap.addMarker(seniorMarker);
+
+                // Start tracking rescuers
+                startRescuerTracking();
+
+                // Fit camera to show senior's location
+                myMap.animateCamera(CameraUpdateFactory.newLatLngZoom(emergencyLocation, 15f));
+                
+                Log.d(TAG, "Senior tracking mode activated - showing blue location marker");
             } else if (isEmergencyMode) {
                 // Senior viewing their own emergency location
-                markerTitle = "🚨 EMERGENCY LOCATION 🚨";
+                markerTitle = "🆘 EMERGENCY LOCATION 🚨";
                 markerSnippet = receivedAddress != null && !receivedAddress.isEmpty() ?
                         receivedAddress : "Emergency Help Needed";
+
+                MarkerOptions markerOptions = new MarkerOptions()
+                        .position(emergencyLocation)
+                        .title(markerTitle)
+                        .snippet(markerSnippet);
+                myMap.addMarker(markerOptions);
+
+                myMap.animateCamera(CameraUpdateFactory.newLatLngZoom(emergencyLocation, 18f));
             } else {
                 // Regular location display
                 markerTitle = "Current Location";
                 markerSnippet = receivedAddress != null ? receivedAddress : "";
+
+                MarkerOptions markerOptions = new MarkerOptions()
+                        .position(emergencyLocation)
+                        .title(markerTitle)
+                        .snippet(markerSnippet);
+                myMap.addMarker(markerOptions);
+
+                myMap.animateCamera(CameraUpdateFactory.newLatLngZoom(emergencyLocation, 15f));
             }
-
-            // Add marker with appropriate styling
-            MarkerOptions markerOptions = new MarkerOptions()
-                    .position(emergencyLocation)
-                    .title(markerTitle)
-                    .snippet(markerSnippet);
-
-            myMap.addMarker(markerOptions);
-
-            // Move camera to location with appropriate zoom level
-            float zoomLevel = isRescuerMode || isEmergencyMode ? 18f : 15f;
-            myMap.animateCamera(CameraUpdateFactory.newLatLngZoom(emergencyLocation, zoomLevel));
 
             // Enable additional UI elements for emergency situations
             if (isEmergencyMode || isRescuerMode) {
@@ -287,15 +895,277 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
         }
     }
 
+    private void startRescuerTracking() {
+        if (helpRequestIdForTracking == null || helpRequestIdForTracking.isEmpty()) {
+            Log.d(TAG, "No help request ID for tracking");
+            return;
+        }
+
+        Log.d(TAG, "Starting rescuer tracking for help request: " + helpRequestIdForTracking);
+
+        // Listen for rescuers responding to this help request
+        rescuerLocationListener = db.collection("Sagip")
+                .document("helpRequests")
+                .collection("activeRequests")
+                .document(helpRequestIdForTracking)
+                .addSnapshotListener((documentSnapshot, e) -> {
+                    if (e != null) {
+                        Log.e(TAG, "Error listening for rescuer updates", e);
+                        return;
+                    }
+
+                    if (documentSnapshot != null && documentSnapshot.exists()) {
+                        String status = documentSnapshot.getString("status");
+                        String respondedBy = documentSnapshot.getString("respondedBy");
+                        
+                        Log.d(TAG, "Help request status: " + status + ", responded by: " + respondedBy);
+
+                        if ("responded".equals(status) && respondedBy != null) {
+                            // A rescuer has responded, start tracking their location
+                            trackRespondingRescuer(respondedBy);
+                        }
+                    }
+                });
+    }
+
+    private void trackRespondingRescuer(String rescuerId) {
+        Log.d(TAG, "Tracking responding rescuer: " + rescuerId);
+
+        // Listen for the responding rescuer's location updates
+        db.collection("Sagip")
+                .document("users")
+                .collection("rescuer")
+                .document(rescuerId)
+                .addSnapshotListener((documentSnapshot, e) -> {
+                    if (e != null) {
+                        Log.e(TAG, "Error listening for rescuer location", e);
+                        return;
+                    }
+
+                    if (documentSnapshot != null && documentSnapshot.exists()) {
+                        Double latitude = documentSnapshot.getDouble("latitude");
+                        Double longitude = documentSnapshot.getDouble("longitude");
+                        String rescuerName = documentSnapshot.getString("rescuegroup");
+                        
+                        if (latitude != null && longitude != null) {
+                            updateRescuerMarker(rescuerId, rescuerName, latitude, longitude);
+                        }
+                    } else {
+                        // Rescuer document doesn't exist or was deleted, remove marker
+                        removeRescuerMarker(rescuerId);
+                    }
+                });
+    }
+
+    private void removeRescuerMarker(String rescuerId) {
+        if (rescuerMarkers.containsKey(rescuerId)) {
+            rescuerMarkers.get(rescuerId).remove();
+            rescuerMarkers.remove(rescuerId);
+            updateTrackingInfo();
+            Log.d(TAG, "Removed rescuer marker: " + rescuerId);
+        }
+    }
+
+    private void updateRescuerMarker(String rescuerId, String rescuerName, double latitude, double longitude) {
+        LatLng rescuerLocation = new LatLng(latitude, longitude);
+        
+        if (myMap == null) return;
+
+        // Remove existing marker for this rescuer
+        if (rescuerMarkers.containsKey(rescuerId)) {
+            rescuerMarkers.get(rescuerId).remove();
+        }
+
+        // Create new marker with ambulance icon
+        MarkerOptions rescuerMarker = new MarkerOptions()
+                .position(rescuerLocation)
+                .title("🚑 " + (rescuerName != null ? rescuerName : "Rescuer"))
+                .snippet("Coming to help you")
+                .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.fromResource(R.drawable.ic_ambulance));
+
+        Marker marker = myMap.addMarker(rescuerMarker);
+        rescuerMarkers.put(rescuerId, marker);
+
+        // Update tracking info
+        updateTrackingInfo();
+
+        Log.d(TAG, "Updated rescuer marker: " + rescuerId + " at " + latitude + ", " + longitude);
+    }
+
+    private void updateTrackingInfo() {
+        if (tvEmergencyTitle != null) {
+            tvEmergencyTitle.setText("🚑 Tracking Rescuers");
+        }
+
+        if (tvEmergencyAddress != null && receivedAddress != null) {
+            tvEmergencyAddress.setText("📍 " + receivedAddress);
+        }
+        
+        // Show tracking status
+        if (tvDistanceTime != null) {
+            if (rescuerMarkers.isEmpty()) {
+                tvDistanceTime.setText("⏳ Waiting for rescuers to respond...");
+            } else {
+                tvDistanceTime.setText("🚑 " + rescuerMarkers.size() + " rescuer(s) coming to help");
+            }
+        }
+        
+        // Make sure the emergency info card is visible
+        if (emergencyInfoCard != null) {
+            emergencyInfoCard.setVisibility(View.VISIBLE);
+            Log.d(TAG, "Tracking info card made visible");
+        }
+    }
+
+    @Override
+    public void onMapReady(@NonNull GoogleMap googleMap) {
+        Log.d(TAG, "onMapReady called");
+        myMap = googleMap;
+
+        if (myMap == null) {
+            Log.e(TAG, "GoogleMap is null in onMapReady!");
+            Toast.makeText(this, "Error initializing map", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        // Always set up location callback first
+        setupLocationCallback();
+
+        Log.d(TAG, "Checking received location: " + receivedLat + ", " + receivedLong);
+
+        // Check if location data was passed from Senior_Dashboard or Rescuer
+        if (receivedLat != 0.0 && receivedLong != 0.0) {
+            Log.d(TAG, "Displaying received location");
+            // Display the received location immediately
+            displayReceivedLocation();
+            
+            // ALWAYS start location updates in rescuer mode to get current location
+            if (isRescuerMode) {
+                Log.d(TAG, "Starting location updates for rescuer mode");
+                enableMyLocation();
+                requestLocationPermissions();
+                
+                // Try to get last known location immediately
+                getLastKnownLocation();
+                
+                // Set up a delayed check for distance calculation
+                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                    Log.d(TAG, "Delayed check - currentLocation: " + (currentLocation != null) + 
+                          ", destinationLocation: " + (destinationLocation != null));
+                    if (currentLocation != null && destinationLocation != null) {
+                        Log.d(TAG, "Both locations available in delayed check, calculating distance");
+                        calculateSimpleDistanceAndTime();
+                        if (!routeDisplayed) {
+                            showRoute();
+                        }
+                    }
+                }, 2000); // Check after 2 seconds
+            } else if (isSeniorTrackingMode) {
+                Log.d(TAG, "Senior tracking mode - no location updates needed");
+                // For senior tracking mode, we don't need location updates
+                // The senior's location is already set and we're tracking rescuers
+            }
+            
+            // If we already have current location, calculate distance immediately
+            if (currentLocation != null && destinationLocation != null) {
+                calculateSimpleDistanceAndTime();
+            }
+        } else {
+            Log.d(TAG, "No received location, starting normal mode");
+            // Enable location layer if permission is granted (normal mode)
+            enableMyLocation();
+
+            // Request location permissions for normal mode
+            requestLocationPermissions();
+        }
+
+        // Show emergency info card for rescuer mode
+        if (isRescuerMode && emergencyInfoCard != null) {
+            emergencyInfoCard.setVisibility(View.VISIBLE);
+            updateEmergencyInfo();
+            
+            // Auto-show route if both locations are available
+            if (currentLocation != null && destinationLocation != null) {
+                // Delay slightly to ensure map is fully loaded
+                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                    if (!routeDisplayed) {
+                        showRoute();
+                    }
+                }, 1000);
+            }
+        } else if (isSeniorTrackingMode && emergencyInfoCard != null) {
+            // Show tracking info card for senior tracking mode
+            emergencyInfoCard.setVisibility(View.VISIBLE);
+            updateTrackingInfo();
+        } else {
+            Log.d(TAG, "isRescuerMode: " + isRescuerMode + ", isSeniorTrackingMode: " + isSeniorTrackingMode + 
+                  ", emergencyInfoCard: " + (emergencyInfoCard != null));
+        }
+    }
+
+    private void getLastKnownLocation() {
+        Log.d(TAG, "getLastKnownLocation called");
+        
+        // Check if fusedLocationClient is initialized
+        if (fusedLocationClient == null) {
+            Log.d(TAG, "fusedLocationClient is null, cannot get last known location");
+            return;
+        }
+        
+        // Check if we have location permissions first
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            Log.d(TAG, "No location permissions granted, requesting permissions");
+            requestLocationPermissions();
+            return;
+        }
+        
+        fusedLocationClient.getLastLocation()
+                .addOnSuccessListener(this, location -> {
+                    if (location != null) {
+                        Log.d(TAG, "Last known location received: " + location.getLatitude() + ", " + location.getLongitude());
+                        currentLocation = new LatLng(location.getLatitude(), location.getLongitude());
+                        updateMapLocation(location);
+                        // If we have current and destination, calculate distance
+                        if (destinationLocation != null) {
+                            calculateSimpleDistanceAndTime();
+                        }
+                    } else {
+                        Log.d(TAG, "No last known location available, starting location updates");
+                        // If no last known location, start location updates to get current location
+                        startLocationUpdates();
+                    }
+                })
+                .addOnFailureListener(this, e -> {
+                    Log.e(TAG, "Failed to get last known location", e);
+                    // Fallback to starting location updates
+                    startLocationUpdates();
+                });
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
 
-        // Only start location updates if we're not in emergency/rescuer mode and don't have received location
-        if (receivedLat == 0.0 && receivedLong == 0.0 && !locationUpdatesActive) {
+        // Only proceed if fusedLocationClient is initialized
+        if (fusedLocationClient == null) {
+            Log.d(TAG, "fusedLocationClient is null in onResume, skipping location updates");
+            return;
+        }
+
+        // Start location updates if we have permissions and not already active
+        if (!locationUpdatesActive) {
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
                     ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                startLocationUpdates();
+                
+                // Always start location updates in rescuer mode to get current location
+                if (isRescuerMode) {
+                    Log.d(TAG, "Starting location updates in onResume for rescuer mode");
+                    startLocationUpdates();
+                } else if (receivedLat == 0.0 && receivedLong == 0.0) {
+                    // Only start in normal mode if no received location
+                    startLocationUpdates();
+                }
             }
         }
     }
@@ -304,5 +1174,21 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
     protected void onPause() {
         super.onPause();
         stopLocationUpdates();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        
+        // Clean up rescuer tracking listener
+        if (rescuerLocationListener != null) {
+            rescuerLocationListener.remove();
+            rescuerLocationListener = null;
+        }
+        
+        // Clean up executor service
+        if (executorService != null && !executorService.isShutdown()) {
+            executorService.shutdown();
+        }
     }
 }

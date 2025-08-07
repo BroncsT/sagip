@@ -171,4 +171,24 @@
     <string name="delete_btn"> Delete</string>
 
     <string name="gmap_api_key">AIzaSyBkf_blEJ4wc5Q_CNxABKK6-LFxDF-gWv0</string>
+
+    <!-- Map Navigation Strings -->
+    <string name="btn_navigate">🚗 Navigate</string>
+    <string name="btn_call_senior">📞 Call</string>
+    <string name="btn_show_route">📍 Show Route</string>
+    <string name="btn_hide_route">Hide Route</string>
+    <string name="emergency_location_title">🚨 EMERGENCY LOCATION</string>
+    <string name="senior_needs_help">🆘 %1$s NEEDS HELP</string>
+    <string name="your_location">📍 Your Location</string>
+    <string name="rescuer_position">Rescuer\'s current position</string>
+    <string name="route_displayed">Route displayed</string>
+    <string name="route_hidden">Route hidden</string>
+    <string name="location_not_available">Location not available</string>
+    <string name="phone_not_available">Senior\'s phone number not available</string>
+    <string name="destination_not_available">Destination location not available</string>
+    <string name="current_location_not_available">Current location not available yet</string>
+    <string name="location_data_not_available">Location data not available</string>
+
+
+
 </resources>

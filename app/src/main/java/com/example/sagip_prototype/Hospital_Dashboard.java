@@ -129,7 +129,7 @@ public class Hospital_Dashboard extends AppCompatActivity {
     }
 
     private void navigateToLogin() {
-        Intent intent = new Intent(Hospital_Dashboard.this, Log_in_Via_Email.class);
+        Intent intent = new Intent(Hospital_Dashboard.this, MainActivity.class);
         // Clear the back stack so user can't press back to return after logging out
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
@@ -283,7 +283,7 @@ public class Hospital_Dashboard extends AppCompatActivity {
     }
 
     private void setupBottomNavigation() {
-        BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavBar);
+        BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavBar2);
         bottomNavigationView.setSelectedItemId(R.id.hospital_home);
 
         bottomNavigationView.setOnItemSelectedListener(item -> {

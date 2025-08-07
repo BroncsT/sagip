@@ -7,10 +7,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.activity.EdgeToEdge;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
@@ -27,8 +25,8 @@ public class Rescuer_Profile extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_rescuer_profile);
 
-         mAuth = FirebaseAuth.getInstance();
-         db = FirebaseFirestore.getInstance();
+        mAuth = FirebaseAuth.getInstance();
+        db = FirebaseFirestore.getInstance();
 
         LinearLayout UpdateProfile = findViewById(R.id.gotoupdate1);
         TextView rescueProfile = findViewById(R.id.profileName);
@@ -45,13 +43,11 @@ public class Rescuer_Profile extends AppCompatActivity {
 
             }
         });
+
         logout.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mAuth.signOut();
-                Intent intent = new Intent(Rescuer_Profile.this, MainActivity.class);
-                startActivity(intent);
-                finish();
+                showLogoutConfirmationDialog();
             }
         });
 
@@ -75,8 +71,35 @@ public class Rescuer_Profile extends AppCompatActivity {
                 });
     }
 
+    private void showLogoutConfirmationDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Logout")
+                .setMessage("Are you sure you want to logout?")
+                .setPositiveButton("Yes", (dialog, which) -> {
+                    // User confirmed logout - use the proper logout method
+                    handleLogout();
+                })
+                .setNegativeButton("No", (dialog, which) -> {
+                    // User cancelled logout
+                    dialog.dismiss();
+                })
+                .show();
+    }
+
+    // Method to handle logout and clear emergency state
+    private void handleLogout() {
+        // Sign out from Firebase
+        mAuth.signOut();
+        
+        // Navigate to login screen
+        Intent intent = new Intent(Rescuer_Profile.this, MainActivity.class);
+        intent.putExtra("LOGOUT_ACTION", true); // Signal that this is a logout action
+        startActivity(intent);
+        finish();
+    }
+
     private void setupBottomNavigation() {
-        BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavBar);
+        BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavBar2);
         bottomNavigationView.setSelectedItemId(R.id.rescuer_profile);
 
         bottomNavigationView.setOnItemSelectedListener(item -> {
@@ -97,6 +120,3 @@ public class Rescuer_Profile extends AppCompatActivity {
         });
     }
 }
-
-
-

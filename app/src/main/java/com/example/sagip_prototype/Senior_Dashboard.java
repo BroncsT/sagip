@@ -1,7 +1,6 @@
 package com.example.sagip_prototype;
 
 import android.Manifest;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Address;
@@ -31,6 +30,7 @@ import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.io.IOException;
@@ -91,7 +91,7 @@ public class Senior_Dashboard extends AppCompatActivity {
     }
 
     private void setupBottomNavigation() {
-        BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavBar);
+        BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavBar2);
         bottomNavigationView.setSelectedItemId(R.id.senior_home);
 
         bottomNavigationView.setOnItemSelectedListener(item -> {
@@ -178,6 +178,27 @@ public class Senior_Dashboard extends AppCompatActivity {
         }
     }
 
+    // New method to open MyGoogleMAp in tracking mode
+    private void openMyGoogleMapWithTracking(String helpRequestId) {
+        try {
+            Intent mapIntent = new Intent(Senior_Dashboard.this, MyGoogleMAp.class);
+
+            // Pass current location data to MyGoogleMAp
+            mapIntent.putExtra("latitude", currentLat);
+            mapIntent.putExtra("longitude", currentLong);
+            mapIntent.putExtra("locationAddress", currentLocationAddress);
+            mapIntent.putExtra("isSeniorTrackingMode", true);
+            mapIntent.putExtra("helpRequestIdForTracking", helpRequestId);
+
+            startActivity(mapIntent);
+            Log.d(TAG, "Opened MyGoogleMAp in tracking mode with help request ID: " + helpRequestId);
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error opening MyGoogleMAp in tracking mode", e);
+            Toast.makeText(this, "Error opening map", Toast.LENGTH_SHORT).show();
+        }
+    }
+
     private void createHelpRequest(String seniorName, String phoneNumber, String seniorUid) {
         Map<String, Object> helpRequest = new HashMap<>();
         helpRequest.put("seniorUid", seniorUid);
@@ -187,7 +208,7 @@ public class Senior_Dashboard extends AppCompatActivity {
         helpRequest.put("longitude", currentLong);
         helpRequest.put("locationAddress", currentLocationAddress);
         helpRequest.put("timestamp", System.currentTimeMillis());
-        helpRequest.put("status", "active"); // active, responded, resolved
+        helpRequest.put("status", "active");
         helpRequest.put("type", "emergency_help");
         helpRequest.put("description", "Senior needs immediate assistance");
 
@@ -199,7 +220,14 @@ public class Senior_Dashboard extends AppCompatActivity {
                 .addOnSuccessListener(documentReference -> {
                     String requestId = documentReference.getId();
                     Log.d(TAG, "Help request created: " + requestId);
-                    Toast.makeText(this, "Help request created successfully!", Toast.LENGTH_LONG).show();
+
+                    // Notify all rescuers
+                    notifyAllRescuers(helpRequest, requestId);
+
+                    // Open map in tracking mode with the help request ID
+                    openMyGoogleMapWithTracking(requestId);
+
+                    Toast.makeText(this, "Help request sent to rescuers!", Toast.LENGTH_LONG).show();
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error creating help request", e);
@@ -207,10 +235,41 @@ public class Senior_Dashboard extends AppCompatActivity {
                 });
     }
 
+    // New method to notify all rescuers
+    private void notifyAllRescuers(Map<String, Object> helpRequest, String requestId) {
+        // Create a simple notification document that rescuers will listen to
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("type", "emergency_help");
+        notification.put("title", "🚨 Emergency Help Request");
+        notification.put("message", helpRequest.get("seniorName") + " needs help!");
+        notification.put("helpRequestId", requestId);
+        notification.put("seniorUid", helpRequest.get("seniorUid"));
+        notification.put("seniorName", helpRequest.get("seniorName"));
+        notification.put("seniorPhone", helpRequest.get("seniorPhone"));
+        notification.put("latitude", helpRequest.get("latitude"));
+        notification.put("longitude", helpRequest.get("longitude"));
+        notification.put("locationAddress", helpRequest.get("locationAddress"));
+        notification.put("timestamp", System.currentTimeMillis());
+        notification.put("isActive", true);
+
+        // Add to global emergency notifications that rescuers will listen to
+        db.collection("Sagip")
+                .document("emergencyNotifications")
+                .collection("activeEmergencies")
+                .document(requestId) // Use same ID as help request
+                .set(notification)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Emergency notification sent to all rescuers");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to send emergency notification", e);
+                });
+    }
+
     private void showHelpConfirmationDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("🚨 Emergency Help Request");
-        builder.setMessage("Are you sure you need help?\n\nThis will:\n• Open your current location in the app map\n• Create a help request record\n\nOnly use this if you really need help!");
+        builder.setMessage("Are you sure you need help?\n\nThis will:\n• Alert all nearby rescuers immediately\n• Send your location to them\n• Open your location on the map\n\nOnly use this if you really need help!");
 
         builder.setIcon(android.R.drawable.ic_dialog_alert);
 
@@ -243,6 +302,7 @@ public class Senior_Dashboard extends AppCompatActivity {
                     dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.darker_gray));
                 }
                 dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextSize(16);
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setText("🚨 YES, I NEED HELP");
             } catch (Exception e) {
                 Log.e(TAG, "Error styling dialog buttons", e);
             }
@@ -480,5 +540,8 @@ public class Senior_Dashboard extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         // Cleanup resources
+        if (locationUpdatesActive) {
+            stopLocationUpdates();
+        }
     }
 }
