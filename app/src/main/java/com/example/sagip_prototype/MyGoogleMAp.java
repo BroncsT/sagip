@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.net.Uri;
+import android.provider.Settings;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import android.os.Bundle;
@@ -23,6 +24,14 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
+
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.Notification;
+import android.content.Context;
+import android.os.Build;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
@@ -50,6 +59,15 @@ import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.QuerySnapshot;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback {
 
@@ -101,9 +119,20 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
     private String estimatedTime = "";
     private boolean isCalculatingRoute = false;
     private ExecutorService executorService;
+    private boolean isDestroyed = false;
     
     // Firebase Firestore for tracking rescuers
     private FirebaseFirestore db;
+    
+    // Google Directions API constants
+    private static final String DIRECTIONS_API_KEY = "AIzaSyBkf_blEJ4wc5Q_CNxABKK6-LFxDF-gWv0";
+    private static final String DIRECTIONS_API_URL = "https://maps.googleapis.com/maps/api/directions/json";
+    
+    // Notification constants
+    private static final String CHANNEL_ID = "SAGIPP_EMERGENCY_CHANNEL";
+    private static final int NOTIFICATION_ID = 1001;
+    private static final String CHANNEL_NAME = "Emergency Alerts";
+    private static final String CHANNEL_DESCRIPTION = "Notifications for emergency responses";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -140,6 +169,7 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
             Log.d(TAG, "Emergency mode: " + isEmergencyMode);
             Log.d(TAG, "Rescuer mode: " + isRescuerMode);
             Log.d(TAG, "Senior tracking mode: " + isSeniorTrackingMode);
+            Log.d(TAG, "Help request ID for tracking: " + helpRequestIdForTracking);
         }
 
         // Set destination location for routing
@@ -160,6 +190,12 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
 
         // Initialize executor service
         executorService = Executors.newSingleThreadExecutor();
+
+        // Create notification channel for emergency alerts
+        createNotificationChannel();
+
+        // Check and request notification permissions for Android 13+
+        checkNotificationPermissions();
 
         // Register permission launcher
         registerLocationPermissionLauncher();
@@ -522,49 +558,34 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
         Log.d(TAG, "showRoute called - currentLocation: " + (currentLocation != null) + 
               ", destinationLocation: " + (destinationLocation != null));
         
+        // Check if activity is destroyed
+        if (isDestroyed) {
+            Log.d(TAG, "Activity is destroyed, skipping route display");
+            return;
+        }
+        
         if (currentLocation == null || destinationLocation == null) {
             Toast.makeText(this, getString(R.string.location_data_not_available), Toast.LENGTH_SHORT).show();
             Log.d(TAG, "Cannot show route - missing location data");
             return;
         }
 
+        // Check if already calculating route to avoid multiple toasts
+        if (isCalculatingRoute) {
+            Log.d(TAG, "Route calculation already in progress, skipping");
+            return;
+        }
+
         // Clear existing route
         clearRoute();
 
-        // Create a simple straight line route (for demonstration)
-        // In a real app, you would use Google Directions API for actual routing
-        routePoints.clear();
-        routePoints.add(currentLocation);
-        routePoints.add(destinationLocation);
-
-        Log.d(TAG, "Drawing route from " + currentLocation + " to " + destinationLocation);
-
-        // Draw the route
-        PolylineOptions polylineOptions = new PolylineOptions()
-                .addAll(routePoints)
-                .color(getResources().getColor(android.R.color.holo_blue_dark))
-                .width(8);
-
-        currentRoute = myMap.addPolyline(polylineOptions);
-
-        // Fit camera to show both locations
-        LatLngBounds.Builder builder = new LatLngBounds.Builder();
-        builder.include(currentLocation);
-        builder.include(destinationLocation);
-        LatLngBounds bounds = builder.build();
-
-        myMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
-
-        routeDisplayed = true;
-        if (btnShowRoute != null) {
-            btnShowRoute.setText(getString(R.string.btn_hide_route));
+        // Show loading message only if not already calculating
+        if (!isCalculatingRoute) {
+            Toast.makeText(this, "Calculating route...", Toast.LENGTH_SHORT).show();
         }
 
-        // Calculate distance and time when route is shown
-        calculateSimpleDistanceAndTime();
-
-        Toast.makeText(this, getString(R.string.route_displayed), Toast.LENGTH_SHORT).show();
-        Log.d(TAG, "Route displayed successfully");
+        // Get actual road route using Google Directions API
+        getDirectionsRoute(currentLocation, destinationLocation);
     }
 
     private void clearRoute() {
@@ -578,6 +599,9 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
         
         routePoints.clear();
         routeDisplayed = false;
+        
+        // Reset calculating flag when clearing route
+        isCalculatingRoute = false;
         
         if (btnShowRoute != null) {
             btnShowRoute.setText(getString(R.string.btn_show_route));
@@ -642,6 +666,12 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
             public void onLocationResult(@NonNull LocationResult locationResult) {
                 Log.d(TAG, "Location callback triggered with " + locationResult.getLocations().size() + " locations");
                 
+                // Check if activity is destroyed before processing location updates
+                if (isDestroyed) {
+                    Log.d(TAG, "Activity is destroyed, ignoring location updates");
+                    return;
+                }
+                
                 for (Location location : locationResult.getLocations()) {
                     Log.d(TAG, "Location update received: " + location.getLatitude() + ", " + location.getLongitude());
                     
@@ -655,9 +685,9 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
                         calculateSimpleDistanceAndTime();
                         
                         // Auto-show route in rescuer mode if not already displayed
-                        if (isRescuerMode && !routeDisplayed && myMap != null) {
+                        if (isRescuerMode && !routeDisplayed && myMap != null && !isDestroyed) {
                             new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                                if (!routeDisplayed) {
+                                if (!routeDisplayed && !isDestroyed) {
                                     Log.d(TAG, "Auto-showing route in rescuer mode");
                                     showRoute();
                                 }
@@ -697,6 +727,12 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
     }
 
     private void updateMapLocation(Location location) {
+        // Check if activity is destroyed before updating map
+        if (isDestroyed) {
+            Log.d(TAG, "Activity is destroyed, skipping map location update");
+            return;
+        }
+        
         if (myMap != null && location != null) {
             currentLocation = new LatLng(location.getLatitude(), location.getLongitude());
 
@@ -716,7 +752,9 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
             MarkerOptions currentMarker = new MarkerOptions()
                     .position(currentLocation)
                     .title(getString(R.string.your_location))
-                    .snippet(getString(R.string.rescuer_position));
+                    .snippet(getString(R.string.rescuer_position))
+                    .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(
+                            com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_GREEN));
             myMap.addMarker(currentMarker);
 
             // Calculate distance and time when we have both locations
@@ -725,7 +763,7 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
             }
 
             // If route is displayed, update it
-            if (routeDisplayed) {
+            if (routeDisplayed && !isDestroyed) {
                 showRoute();
             }
 
@@ -786,7 +824,9 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
                     MarkerOptions currentMarker = new MarkerOptions()
                             .position(currentLocation)
                             .title(getString(R.string.your_location))
-                            .snippet(getString(R.string.rescuer_position));
+                            .snippet(getString(R.string.rescuer_position))
+                            .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(
+                                    com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_GREEN));
                     myMap.addMarker(currentMarker);
 
                     // Calculate distance and time when both locations are available
@@ -808,13 +848,13 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
                 markerTitle = "📍 Your Location";
                 markerSnippet = receivedAddress != null && !receivedAddress.isEmpty() ? receivedAddress : "Your current location";
 
-                // Add senior's location marker in blue
+                // Add senior's location marker in light blue
                 MarkerOptions seniorMarker = new MarkerOptions()
                         .position(emergencyLocation)
                         .title(markerTitle)
                         .snippet(markerSnippet)
                         .icon(com.google.android.gms.maps.model.BitmapDescriptorFactory.defaultMarker(
-                                com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_BLUE));
+                                com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_AZURE));
                 myMap.addMarker(seniorMarker);
 
                 // Start tracking rescuers
@@ -971,6 +1011,9 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
         
         if (myMap == null) return;
 
+        // Check if this is a new rescuer (first time seeing this rescuer)
+        boolean isNewRescuer = !rescuerMarkers.containsKey(rescuerId);
+
         // Remove existing marker for this rescuer
         if (rescuerMarkers.containsKey(rescuerId)) {
             rescuerMarkers.get(rescuerId).remove();
@@ -989,7 +1032,29 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
         // Update tracking info
         updateTrackingInfo();
 
-        Log.d(TAG, "Updated rescuer marker: " + rescuerId + " at " + latitude + ", " + longitude);
+        // Send notification alert if this is a new rescuer and we're in senior tracking mode
+        Log.d(TAG, "Checking notification conditions - isNewRescuer: " + isNewRescuer + ", isSeniorTrackingMode: " + isSeniorTrackingMode);
+        
+        if (isNewRescuer && isSeniorTrackingMode) {
+            String displayName = rescuerName != null ? rescuerName : "A Rescuer";
+            Log.d(TAG, "Sending notification for new rescuer: " + displayName + " (rescuerMarkers.size: " + rescuerMarkers.size() + ")");
+            
+            // Check if this is the first rescuer to respond
+            if (rescuerMarkers.size() == 1) {
+                // This is the first rescuer - send special notification
+                Log.d(TAG, "Sending FIRST rescuer notification");
+                sendFirstRescuerAlertNotification(displayName);
+            } else {
+                // Additional rescuers - send regular notification
+                Log.d(TAG, "Sending additional rescuer notification");
+                sendRescuerAlertNotification(displayName);
+            }
+        } else {
+            Log.d(TAG, "Notification conditions not met - isNewRescuer: " + isNewRescuer + ", isSeniorTrackingMode: " + isSeniorTrackingMode);
+        }
+
+        Log.d(TAG, "Updated rescuer marker: " + rescuerId + " at " + latitude + ", " + longitude + 
+              " (New rescuer: " + isNewRescuer + ")");
     }
 
     private void updateTrackingInfo() {
@@ -1180,15 +1245,487 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
     protected void onDestroy() {
         super.onDestroy();
         
+        // Mark activity as destroyed to prevent new operations
+        isDestroyed = true;
+        
         // Clean up rescuer tracking listener
         if (rescuerLocationListener != null) {
             rescuerLocationListener.remove();
             rescuerLocationListener = null;
         }
         
+        // Clear emergency notifications
+        clearEmergencyNotifications();
+        
         // Clean up executor service
         if (executorService != null && !executorService.isShutdown()) {
             executorService.shutdown();
+        }
+    }
+
+    private void getDirectionsRoute(LatLng origin, LatLng destination) {
+        Log.d(TAG, "Getting directions route from " + origin + " to " + destination);
+        
+        // Check if activity is destroyed
+        if (isDestroyed) {
+            Log.d(TAG, "Activity is destroyed, skipping route calculation");
+            return;
+        }
+        
+        // Check if executor service is available and not terminated
+        if (executorService == null || executorService.isShutdown() || executorService.isTerminated()) {
+            Log.d(TAG, "Executor service is not available or terminated, skipping route calculation");
+            return;
+        }
+        
+        // Set calculating flag
+        isCalculatingRoute = true;
+        
+        // Build the URL for Google Directions API
+        String url = DIRECTIONS_API_URL + "?" +
+                "origin=" + origin.latitude + "," + origin.longitude +
+                "&destination=" + destination.latitude + "," + destination.longitude +
+                "&key=" + DIRECTIONS_API_KEY +
+                "&mode=driving";
+
+        Log.d(TAG, "Directions API URL: " + url);
+
+        // Execute the API call in background thread
+        try {
+            executorService.execute(() -> {
+                // Check again if activity is destroyed before making HTTP request
+                if (isDestroyed) {
+                    Log.d(TAG, "Activity destroyed during route calculation, aborting");
+                    return;
+                }
+                
+                try {
+                    String response = makeHttpRequest(url);
+                    Log.d(TAG, "Directions API response: " + response);
+                    
+                    // Check if activity is still alive before updating UI
+                    if (!isDestroyed) {
+                        runOnUiThread(() -> {
+                            if (!isDestroyed) {
+                                parseDirectionsResponse(response);
+                                // Clear calculating flag after successful parsing
+                                isCalculatingRoute = false;
+                            }
+                        });
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error getting directions", e);
+                    if (!isDestroyed) {
+                        runOnUiThread(() -> {
+                            if (!isDestroyed) {
+                                Toast.makeText(this, "Error getting route. Using straight line.", Toast.LENGTH_SHORT).show();
+                                // Fallback to straight line route
+                                showStraightLineRoute();
+                                // Clear calculating flag after error
+                                isCalculatingRoute = false;
+                            }
+                        });
+                    }
+                }
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "Error submitting task to executor service", e);
+            isCalculatingRoute = false;
+        }
+    }
+
+    private String makeHttpRequest(String urlString) throws IOException {
+        URL url = new URL(urlString);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("GET");
+        connection.setConnectTimeout(10000);
+        connection.setReadTimeout(10000);
+
+        StringBuilder response = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                response.append(line);
+            }
+        } finally {
+            connection.disconnect();
+        }
+
+        return response.toString();
+    }
+
+    private void parseDirectionsResponse(String response) {
+        try {
+            JSONObject jsonResponse = new JSONObject(response);
+            String status = jsonResponse.getString("status");
+            
+            if ("OK".equals(status)) {
+                JSONArray routes = jsonResponse.getJSONArray("routes");
+                if (routes.length() > 0) {
+                    JSONObject route = routes.getJSONObject(0);
+                    JSONArray legs = route.getJSONArray("legs");
+                    
+                    if (legs.length() > 0) {
+                        JSONObject leg = legs.getJSONObject(0);
+                        
+                        // Get distance and duration
+                        JSONObject distance = leg.getJSONObject("distance");
+                        JSONObject duration = leg.getJSONObject("duration");
+                        
+                        estimatedDistance = distance.getString("text");
+                        estimatedTime = duration.getString("text");
+                        
+                        Log.d(TAG, "Route distance: " + estimatedDistance + ", duration: " + estimatedTime);
+                        
+                        // Get route points
+                        JSONObject polyline = route.getJSONObject("overview_polyline");
+                        String points = polyline.getString("points");
+                        
+                        // Decode polyline points
+                        List<LatLng> decodedPoints = decodePolyline(points);
+                        
+                        // Draw the route
+                        drawRouteOnMap(decodedPoints);
+                        
+                        // Update distance/time display
+                        updateDistanceTimeDisplay();
+                        
+                        Toast.makeText(this, "Route calculated: " + estimatedDistance + " • " + estimatedTime, Toast.LENGTH_SHORT).show();
+                    }
+                }
+            } else {
+                Log.e(TAG, "Directions API error: " + status);
+                Toast.makeText(this, "Error getting route. Using straight line.", Toast.LENGTH_SHORT).show();
+                showStraightLineRoute();
+            }
+        } catch (JSONException e) {
+            Log.e(TAG, "Error parsing directions response", e);
+            Toast.makeText(this, "Error parsing route. Using straight line.", Toast.LENGTH_SHORT).show();
+            showStraightLineRoute();
+        }
+    }
+
+    private List<LatLng> decodePolyline(String encoded) {
+        List<LatLng> poly = new ArrayList<>();
+        int index = 0, len = encoded.length();
+        int lat = 0, lng = 0;
+
+        while (index < len) {
+            int b, shift = 0, result = 0;
+            do {
+                b = encoded.charAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+            lat += dlat;
+
+            shift = 0;
+            result = 0;
+            do {
+                b = encoded.charAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+            lng += dlng;
+
+            LatLng p = new LatLng(((double) lat / 1E5), ((double) lng / 1E5));
+            poly.add(p);
+        }
+
+        return poly;
+    }
+
+    private void drawRouteOnMap(List<LatLng> points) {
+        if (myMap == null || points.isEmpty()) {
+            Log.d(TAG, "Cannot draw route - map is null or no points");
+            return;
+        }
+
+        // Clear existing route
+        if (currentRoute != null) {
+            currentRoute.remove();
+        }
+
+        // Draw the new route
+        PolylineOptions polylineOptions = new PolylineOptions()
+                .addAll(points)
+                .color(getResources().getColor(android.R.color.holo_blue_dark))
+                .width(8);
+
+        currentRoute = myMap.addPolyline(polylineOptions);
+        routePoints.clear();
+        routePoints.addAll(points);
+        routeDisplayed = true;
+
+        // Update button text
+        if (btnShowRoute != null) {
+            btnShowRoute.setText(getString(R.string.btn_hide_route));
+        }
+
+        // Fit camera to show the entire route
+        if (points.size() > 1) {
+            LatLngBounds.Builder builder = new LatLngBounds.Builder();
+            for (LatLng point : points) {
+                builder.include(point);
+            }
+            LatLngBounds bounds = builder.build();
+            myMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
+        }
+
+        Log.d(TAG, "Route drawn with " + points.size() + " points");
+    }
+
+    private void showStraightLineRoute() {
+        Log.d(TAG, "Showing straight line route as fallback");
+        
+        routePoints.clear();
+        routePoints.add(currentLocation);
+        routePoints.add(destinationLocation);
+
+        PolylineOptions polylineOptions = new PolylineOptions()
+                .addAll(routePoints)
+                .color(getResources().getColor(android.R.color.holo_blue_dark))
+                .width(8);
+
+        currentRoute = myMap.addPolyline(polylineOptions);
+
+        // Fit camera to show both locations
+        LatLngBounds.Builder builder = new LatLngBounds.Builder();
+        builder.include(currentLocation);
+        builder.include(destinationLocation);
+        LatLngBounds bounds = builder.build();
+
+        myMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
+
+        routeDisplayed = true;
+        if (btnShowRoute != null) {
+            btnShowRoute.setText(getString(R.string.btn_hide_route));
+        }
+
+        // Calculate simple distance and time
+        calculateSimpleDistanceAndTime();
+        
+        // Clear calculating flag since route is now displayed
+        isCalculatingRoute = false;
+    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID,
+                    CHANNEL_NAME,
+                    NotificationManager.IMPORTANCE_HIGH
+            );
+            channel.setDescription(CHANNEL_DESCRIPTION);
+            channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+
+            NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            manager.createNotificationChannel(channel);
+        }
+    }
+
+    private void checkNotificationPermissions() {
+        Log.d(TAG, "Checking notification permissions...");
+        
+        // Check for Android 13+ notification permission
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            boolean hasPermission = ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+            Log.d(TAG, "POST_NOTIFICATIONS permission granted: " + hasPermission);
+            
+            if (!hasPermission) {
+                Log.w(TAG, "Notification permission not granted. Requesting...");
+                requestNotificationPermissions();
+            } else {
+                Log.d(TAG, "Notification permission already granted.");
+            }
+        } else {
+            Log.d(TAG, "Android version < 13, notification permission not required");
+        }
+    }
+
+    private void requestNotificationPermissions() {
+        Log.d(TAG, "Requesting notification permissions...");
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // For Android 13+, we need to request POST_NOTIFICATIONS permission
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                Log.d(TAG, "Requesting POST_NOTIFICATIONS permission");
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1002);
+            } else {
+                Log.d(TAG, "POST_NOTIFICATIONS permission already granted");
+            }
+        } else {
+            Log.d(TAG, "Android version < 13, opening notification settings");
+            Intent intent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+            intent.putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName());
+            startActivity(intent);
+            Toast.makeText(this, "Please enable notifications for this app in settings.", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void sendRescuerAlertNotification(String rescuerName) {
+        Log.d(TAG, "Sending rescuer alert notification for: " + rescuerName);
+        Log.d(TAG, "Current mode - isSeniorTrackingMode: " + isSeniorTrackingMode + ", rescuerMarkers.size: " + rescuerMarkers.size());
+        
+        // Create notification
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_ambulance)
+                .setContentTitle("🚑 Rescuer Responding!")
+                .setContentText(rescuerName + " is coming to help you")
+                .setStyle(new NotificationCompat.BigTextStyle()
+                        .bigText(rescuerName + " has responded to your emergency and is on the way to help you. You can track their location on the map."))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setAutoCancel(true)
+                .setVibrate(new long[]{0, 500, 200, 500, 200, 500}) // Vibration pattern
+                .setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI);
+
+        // Show notification
+        try {
+            NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
+            
+            // Check notification permission
+            boolean hasPermission = ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+            Log.d(TAG, "Notification permission granted: " + hasPermission);
+            
+            if (hasPermission) {
+                notificationManager.notify(NOTIFICATION_ID, builder.build());
+                Log.d(TAG, "Rescuer alert notification sent successfully with ID: " + NOTIFICATION_ID);
+                
+                // Also show a toast message
+                runOnUiThread(() -> {
+                    Toast.makeText(this, "🚑 " + rescuerName + " is responding to your emergency!", Toast.LENGTH_LONG).show();
+                });
+            } else {
+                Log.w(TAG, "Notification permission not granted - requesting permission");
+                requestNotificationPermissions();
+                
+                // Fallback to just toast message
+                runOnUiThread(() -> {
+                    Toast.makeText(this, "🚑 " + rescuerName + " is responding to your emergency!", Toast.LENGTH_LONG).show();
+                });
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error sending notification", e);
+            // Fallback to just toast message
+            runOnUiThread(() -> {
+                Toast.makeText(this, "🚑 " + rescuerName + " is responding to your emergency!", Toast.LENGTH_LONG).show();
+            });
+        }
+    }
+
+    private void sendFirstRescuerAlertNotification(String rescuerName) {
+        Log.d(TAG, "Sending FIRST rescuer alert notification for: " + rescuerName);
+        Log.d(TAG, "Current mode - isSeniorTrackingMode: " + isSeniorTrackingMode + ", rescuerMarkers.size: " + rescuerMarkers.size());
+        
+        // Create a more prominent notification for the first responder
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_ambulance)
+                .setContentTitle("🚨 EMERGENCY RESPONSE!")
+                .setContentText(rescuerName + " is responding to your emergency")
+                .setStyle(new NotificationCompat.BigTextStyle()
+                        .bigText("🎉 " + rescuerName + " has responded to your emergency call! Help is on the way. You can track their location on the map."))
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setAutoCancel(true)
+                .setVibrate(new long[]{0, 1000, 500, 1000, 500, 1000}) // Longer vibration pattern
+                .setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI)
+                .setOngoing(true); // Make it persistent until user dismisses
+
+        // Show notification
+        try {
+            NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
+            
+            // Check notification permission
+            boolean hasPermission = ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+            Log.d(TAG, "Notification permission granted: " + hasPermission);
+            
+            if (hasPermission) {
+                notificationManager.notify(NOTIFICATION_ID + 1, builder.build()); // Different ID for first responder
+                Log.d(TAG, "First rescuer alert notification sent successfully with ID: " + (NOTIFICATION_ID + 1));
+                
+                // Also show a prominent toast message
+                runOnUiThread(() -> {
+                    Toast.makeText(this, "🎉 " + rescuerName + " is responding to your emergency! Help is on the way!", Toast.LENGTH_LONG).show();
+                });
+            } else {
+                Log.w(TAG, "Notification permission not granted - requesting permission");
+                requestNotificationPermissions();
+                
+                // Fallback to just toast message
+                runOnUiThread(() -> {
+                    Toast.makeText(this, "🎉 " + rescuerName + " is responding to your emergency! Help is on the way!", Toast.LENGTH_LONG).show();
+                });
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error sending first rescuer notification", e);
+            // Fallback to just toast message
+            runOnUiThread(() -> {
+                Toast.makeText(this, "🎉 " + rescuerName + " is responding to your emergency! Help is on the way!", Toast.LENGTH_LONG).show();
+            });
+        }
+    }
+
+    private void clearEmergencyNotifications() {
+        Log.d(TAG, "Clearing emergency notifications");
+        try {
+            NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
+            notificationManager.cancel(NOTIFICATION_ID);
+            notificationManager.cancel(NOTIFICATION_ID + 1);
+            Log.d(TAG, "Emergency notifications cleared successfully");
+            
+            // Also show a toast to confirm
+            runOnUiThread(() -> {
+                Toast.makeText(this, "Emergency notifications cleared", Toast.LENGTH_SHORT).show();
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "Error clearing notifications", e);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        
+        if (requestCode == 1002) { // Notification permission request
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Log.d(TAG, "Notification permission granted by user");
+                Toast.makeText(this, "Notification permission granted!", Toast.LENGTH_SHORT).show();
+            } else {
+                Log.w(TAG, "Notification permission denied by user");
+                Toast.makeText(this, "Notification permission denied. Some features may not work properly.", Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
+    // Test method to verify notifications are working
+    private void testNotification() {
+        Log.d(TAG, "Testing notification system...");
+        
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_ambulance)
+                .setContentTitle("🧪 Test Notification")
+                .setContentText("This is a test notification to verify the system is working")
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true);
+
+        try {
+            NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
+            boolean hasPermission = ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+            
+            if (hasPermission) {
+                notificationManager.notify(9999, builder.build()); // Use different ID for test
+                Log.d(TAG, "Test notification sent successfully");
+                Toast.makeText(this, "Test notification sent!", Toast.LENGTH_SHORT).show();
+            } else {
+                Log.w(TAG, "Cannot send test notification - permission not granted");
+                Toast.makeText(this, "Cannot send test notification - permission not granted", Toast.LENGTH_LONG).show();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error sending test notification", e);
+            Toast.makeText(this, "Error sending test notification: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 }

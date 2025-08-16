@@ -149,6 +149,9 @@ public class Rescuer_Dashboard extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
 
+        // Handle notification click if this activity was opened from a notification
+        handleNotificationClick();
+
         // Add safety check and ensure components are initialized
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
@@ -193,6 +196,28 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         if (notificationManager != null) {
             // Cancel all emergency notifications
             notificationManager.cancelAll();
+        }
+    }
+
+    private void handleNotificationClick() {
+        // Check if this activity was opened from a notification click
+        Intent intent = getIntent();
+        if (intent != null && intent.getBooleanExtra("notification_clicked", false)) {
+            String helpRequestId = intent.getStringExtra("helpRequestId");
+            Log.d(TAG, "Activity opened from notification click for helpRequestId: " + helpRequestId);
+            
+            // Clear the specific notification
+            if (helpRequestId != null) {
+                clearEmergencyNotification(helpRequestId);
+                Log.d(TAG, "Cleared notification for helpRequestId: " + helpRequestId);
+            }
+            
+            // Show a toast to confirm
+            Toast.makeText(this, "Emergency notification cleared", Toast.LENGTH_SHORT).show();
+            
+            // Clear the intent extras to prevent repeated handling
+            intent.removeExtra("notification_clicked");
+            intent.removeExtra("helpRequestId");
         }
     }
 
@@ -365,10 +390,9 @@ public class Rescuer_Dashboard extends AppCompatActivity {
             });
         }
 
-        // VIEW LOCATION button - to just view location without responding
-        builder.setNegativeButton("📍 VIEW LOCATION", (dialog, which) -> {
+        // CANCEL button - to dismiss without taking action
+        builder.setNegativeButton("❌ CANCEL", (dialog, which) -> {
             clearEmergencyNotification(helpRequestId);
-            openLocationInInternalMap(latitude, longitude, locationAddress, seniorName, seniorPhone, helpRequestId);
             dialog.dismiss();
         });
 
@@ -483,6 +507,16 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         // Create intent for when notification is tapped
         Intent notificationIntent = new Intent(this, Rescuer_Dashboard.class);
         notificationIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        notificationIntent.putExtra("notification_clicked", true);
+        notificationIntent.putExtra("helpRequestId", helpRequestId);
+
+        // Create pending intent
+        android.app.PendingIntent pendingIntent = android.app.PendingIntent.getActivity(
+                this, 
+                helpRequestId.hashCode(), 
+                notificationIntent, 
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT | android.app.PendingIntent.FLAG_IMMUTABLE
+        );
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "emergency_channel")
                 .setSmallIcon(android.R.drawable.ic_dialog_alert)
@@ -490,11 +524,13 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                 .setContentText(message)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setAutoCancel(true)
+                .setContentIntent(pendingIntent) // Set the pending intent
                 .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM))
                 .setVibrate(new long[]{0, 1000, 500, 1000})
                 .setLights(0xFFFF0000, 1000, 1000); // Red light blinking
 
         notificationManager.notify(helpRequestId.hashCode(), builder.build());
+        Log.d(TAG, "System notification sent with ID: " + helpRequestId.hashCode());
     }
 
     private void createNotificationChannel() {

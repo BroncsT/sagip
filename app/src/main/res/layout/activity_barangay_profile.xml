@@ -11,7 +11,7 @@
         android:id="@+id/labelProfile"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Hi, name"
+        android:text="yow"
         android:textAlignment="center"
         android:textSize="20sp"
         android:textStyle="bold"
