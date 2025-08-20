@@ -32,9 +32,44 @@ public class HospitalAdapter extends RecyclerView.Adapter<HospitalAdapter.Hospit
     @Override
     public void onBindViewHolder(@NonNull HospitalAdapter.HospitalViewHolder holder, int position) {
         HospitalLIst hospital = hospitalList.get(position);
+        
+        // Set hospital name
         holder.hospitalNameTextView.setText(hospital.getHospitalName());
-
-
+        
+        // Set hospital address
+        if (hospital.getHospitalAddress() != null) {
+            holder.hospitalAddressTextView.setText(hospital.getHospitalAddress());
+        } else {
+            holder.hospitalAddressTextView.setText("Address not available");
+        }
+        
+        // Set status information (automatically calculated)
+        String calculatedStatus = hospital.getCalculatedStatus();
+        if (!calculatedStatus.equals("unknown")) {
+            String statusText = hospital.getStatusEmoji() + " " + 
+                              calculatedStatus.toUpperCase();
+            holder.hospitalStatusTextView.setText(statusText);
+            holder.hospitalStatusTextView.setTextColor(hospital.getStatusColor());
+        } else {
+            holder.hospitalStatusTextView.setText("⚪ Status not available");
+            holder.hospitalStatusTextView.setTextColor(0xFF9E9E9E);
+        }
+        
+        // Set bed information
+        if (hospital.getAvailableBeds() != null && hospital.getTotalBeds() != null) {
+            String bedInfo = "Beds: " + hospital.getAvailableBeds() + "/" + hospital.getTotalBeds();
+            holder.hospitalBedInfoTextView.setText(bedInfo);
+        } else {
+            holder.hospitalBedInfoTextView.setText("Bed info not available");
+        }
+        
+        // Set doctors information
+        if (hospital.getDoctorsAvailable() != null) {
+            String doctorInfo = "Doctors: " + hospital.getDoctorsAvailable();
+            holder.hospitalDoctorInfoTextView.setText(doctorInfo);
+        } else {
+            holder.hospitalDoctorInfoTextView.setText("Doctor info not available");
+        }
     }
 
     @Override
@@ -44,10 +79,19 @@ public class HospitalAdapter extends RecyclerView.Adapter<HospitalAdapter.Hospit
 
     public static class HospitalViewHolder extends RecyclerView.ViewHolder {
         TextView hospitalNameTextView;
+        TextView hospitalAddressTextView;
+        TextView hospitalStatusTextView;
+        TextView hospitalBedInfoTextView;
+        TextView hospitalDoctorInfoTextView;
         CardView cardView;
+        
         public HospitalViewHolder(@NonNull View itemView) {
             super(itemView);
             hospitalNameTextView = itemView.findViewById(R.id.hospitalName);
+            hospitalAddressTextView = itemView.findViewById(R.id.hospitalAddress);
+            hospitalStatusTextView = itemView.findViewById(R.id.hospitalStatus);
+            hospitalBedInfoTextView = itemView.findViewById(R.id.hospitalBedInfo);
+            hospitalDoctorInfoTextView = itemView.findViewById(R.id.hospitalDoctorInfo);
             cardView = itemView.findViewById(R.id.hospitalCardView);
         }
     }

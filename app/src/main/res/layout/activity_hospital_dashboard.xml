@@ -62,7 +62,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Rescuer Location"
+                android:text="@string/rescuer_location"
                 android:textAlignment="center"
                 android:textColor="@color/black"
                 android:textSize="16sp"
@@ -77,7 +77,7 @@
                     android:id="@+id/getcurrentlocation"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Current Location: "
+                    android:text="@string/current_location"
                     android:textColor="@color/black"
                     android:textSize="16sp" />
 
@@ -91,73 +91,7 @@
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
-    <androidx.cardview.widget.CardView
-        android:id="@+id/seniorInformationCard"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="10dp"
-        app:layout_constraintEnd_toEndOf="@id/guidelineVertical5"
-        app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
-        app:layout_constraintTop_toBottomOf="@id/rescuerCurrentLocationCard">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:padding="16dp">
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Senior Information"
-                android:textAlignment="center"
-                android:textColor="@color/black"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Name: "
-                    android:textColor="@color/black"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/seniorFullName"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textSize="16sp" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Age: "
-                    android:textColor="@color/black"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/seniorAge"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textSize="16sp" />
-            </LinearLayout>
-        </LinearLayout>
-    </androidx.cardview.widget.CardView>
+    
 
     <androidx.cardview.widget.CardView
         android:id="@+id/hospitalAvailableStaff"
@@ -169,7 +103,7 @@
         app:cardElevation="10dp"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
         app:layout_constraintEnd_toEndOf="@id/guidelineVertical3"
-        app:layout_constraintTop_toBottomOf="@id/seniorInformationCard">
+        app:layout_constraintTop_toBottomOf="@id/rescuerCurrentLocationCard">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -180,16 +114,17 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Doctor Available"
+                android:text="@string/doctor_available"
                 android:textAlignment="center"
                 android:textColor="@color/black"
                 android:textSize="16sp"
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/tvDoctorsAvailable"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="10"
+                android:text="10"
                 android:textAlignment="center"
                 android:textColor="@color/black"
                 android:textSize="16sp"
@@ -208,7 +143,7 @@
         app:cardElevation="10dp"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical3"
         app:layout_constraintEnd_toEndOf="@id/guidelineVertical5"
-        app:layout_constraintTop_toBottomOf="@id/seniorInformationCard">
+        app:layout_constraintTop_toBottomOf="@id/rescuerCurrentLocationCard">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -219,20 +154,81 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="ER Bed Available"
+                android:text="@string/er_bed_available"
                 android:textAlignment="center"
                 android:textColor="@color/black"
                 android:textSize="16sp"
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/tvAvailableBeds"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="5"
+                android:text="5"
                 android:textAlignment="center"
                 android:textColor="@color/black"
                 android:textSize="16sp"
                 android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvTotalBeds"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="20"
+                android:textAlignment="center"
+                android:textColor="@color/black"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- ER Status Card -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/hospitalERStatusCard"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="10dp"
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical5"
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
+        app:layout_constraintTop_toBottomOf="@id/hospitalERAvailable">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/emergency_room_status"
+                android:textAlignment="center"
+                android:textColor="@color/black"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="12dp" />
+
+            <TextView
+                android:id="@+id/tvErStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="🟢 AVAILABLE"
+                android:textAlignment="center"
+                android:textColor="#4CAF50"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="16dp" />
+
+            <Button
+                android:id="@+id/btnEditStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:backgroundTint="#2196F3"
+                android:text="@string/edit_status"
+                android:textColor="@android:color/white" />
 
         </LinearLayout>
     </androidx.cardview.widget.CardView>
@@ -246,7 +242,7 @@
         app:cardElevation="10dp"
         app:layout_constraintEnd_toEndOf="@id/guidelineVertical5"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
-        app:layout_constraintTop_toBottomOf="@id/hospitalERAvailable">
+        app:layout_constraintTop_toBottomOf="@id/hospitalERStatusCard">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -257,7 +253,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Notify the Rescuer or Barangay for ER available?"
+                android:text="@string/notify_rescuer_barangay"
                 android:textAlignment="center"
                 android:textColor="@color/black"
                 android:textSize="16sp"
@@ -287,7 +283,7 @@
                     android:layout_marginStart="4dp"
                     android:layout_weight="1"
                     android:backgroundTint="#F44336"
-                    android:text="NO"
+                    android:text="@string/no_button"
                     android:textColor="#F8FFFFFF" />
             </LinearLayout>
         </LinearLayout>

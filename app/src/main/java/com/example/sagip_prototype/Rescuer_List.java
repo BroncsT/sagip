@@ -69,8 +69,36 @@ public class Rescuer_List extends AppCompatActivity {
                         if (value != null) {
                             hospitalList.clear();
                             for (com.google.firebase.firestore.DocumentSnapshot document : value.getDocuments()) {
-                                HospitalLIst hospital = document.toObject(HospitalLIst.class);
-                                if (hospital != null) {
+                                // Create hospital object manually to handle all fields
+                                HospitalLIst hospital = new HospitalLIst();
+                                
+                                // Set basic info
+                                hospital.setHospitalName(document.getString("hospitalName"));
+                                hospital.setHospitalAddress(document.getString("hospitalAddress"));
+                                
+                                // Set numeric fields
+                                if (document.getLong("totalBeds") != null) {
+                                    hospital.setTotalBeds(document.getLong("totalBeds").intValue());
+                                }
+                                if (document.getLong("availableBeds") != null) {
+                                    hospital.setAvailableBeds(document.getLong("availableBeds").intValue());
+                                }
+                                if (document.getLong("doctorsAvailable") != null) {
+                                    hospital.setDoctorsAvailable(document.getLong("doctorsAvailable").intValue());
+                                }
+                                
+                                // Set status fields
+                                hospital.setErStatus(document.getString("erStatus"));
+                                if (document.getDouble("capacityPercentage") != null) {
+                                    hospital.setCapacityPercentage(document.getDouble("capacityPercentage"));
+                                }
+                                
+                                // Set timestamp
+                                if (document.getTimestamp("lastUpdated") != null) {
+                                    hospital.setLastUpdated(document.getTimestamp("lastUpdated").toString());
+                                }
+                                
+                                if (hospital.getHospitalName() != null) {
                                     hospitalList.add(hospital);
                                 }
                             }

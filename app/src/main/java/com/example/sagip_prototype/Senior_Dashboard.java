@@ -189,6 +189,7 @@ public class Senior_Dashboard extends AppCompatActivity {
             mapIntent.putExtra("locationAddress", currentLocationAddress);
             mapIntent.putExtra("isSeniorTrackingMode", true);
             mapIntent.putExtra("helpRequestIdForTracking", helpRequestId);
+            mapIntent.putExtra("seniorName", tvFullName.getText().toString());
 
             startActivity(mapIntent);
             Log.d(TAG, "Opened MyGoogleMAp in tracking mode with help request ID: " + helpRequestId);
@@ -224,8 +225,8 @@ public class Senior_Dashboard extends AppCompatActivity {
                     // Notify all rescuers
                     notifyAllRescuers(helpRequest, requestId);
 
-                    // Open map in tracking mode with the help request ID
-                    openMyGoogleMapWithTracking(requestId);
+                                         // Open map in tracking mode with the help request ID
+                     openMyGoogleMapWithTracking(requestId);
 
                     Toast.makeText(this, "Help request sent to rescuers!", Toast.LENGTH_LONG).show();
                 })

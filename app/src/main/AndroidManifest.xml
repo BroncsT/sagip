@@ -88,6 +88,9 @@
             android:exported="false" />
         <activity
             android:name=".Senior_Emergency_Contact"
+            android:exported="false" />
+        <activity
+            android:name=".Hospital_Status_Edit"
             android:exported="false" /> <!-- File provider declaration -->
         <provider
             android:name="androidx.core.content.FileProvider"

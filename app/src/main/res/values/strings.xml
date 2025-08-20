@@ -16,8 +16,6 @@
     <string name="hospital_title">Hospital</string>
     <string name="hospital_description">Post your ER status</string>
 
-    <!-- OTP Page Strings -->
-    <string name="text_instruction">Enter the 6-digit code sent to</string>
     <string name="mobile_number">+639****5015</string>
     <string name="otp_hint">Enter OTP</string>
     <string name="instruction_text_otp">Enter the 6-digit code sent to your mobile number below to verify your identity.</string>
@@ -184,11 +182,47 @@
     <string name="route_displayed">Route displayed</string>
     <string name="route_hidden">Route hidden</string>
     <string name="location_not_available">Location not available</string>
-    <string name="phone_not_available">Senior\'s phone number not available</string>
     <string name="destination_not_available">Destination location not available</string>
     <string name="current_location_not_available">Current location not available yet</string>
     <string name="location_data_not_available">Location data not available</string>
-
-
+    <string name="call_closest_rescuer">📞 Call Closest Rescuer</string>
+    <string name="rescuer_info">🚑 Rescuer Information</string>
+    <string name="distance_away">Distance: %1$s</string>
+    <string name="phone_not_available">Phone: Not available</string>
+    <string name="phone_available">Phone: %1$s</string>
+    <string name="tracking_help_for">🚑 Tracking Help for %1$s</string>
+    <string name="closest_rescuer_info">Closest: %1$s (%2$s)</string>
+    <string name="calling_rescuer">Calling %1$s</string>
+    <string name="no_rescuers_available">No rescuers available to call</string>
+    <string name="phone_not_available_rescuer">Phone number not available for this rescuer</string>
+    <string name="unable_find_closest_rescuer">Unable to find closest rescuer</string>
+    <string name="get_route">🗺️ Get Route</string>
+    <string name="choose_navigation_method">Choose Navigation Method</string>
+    <string name="navigation_method_prompt">How would you like to navigate to the emergency location?</string>
+    <string name="google_maps_app">Google Maps App</string>
+    <string name="in_app_route">In-App Route</string>
+    <string name="cancel">Cancel</string>
+    
+    <!-- Hospital Status Strings -->
+    <string name="edit_status">Edit Status</string>
+    <string name="emergency_room_status">Emergency Room Status</string>
+    <string name="doctor_available">Doctor Available</string>
+    <string name="er_bed_available">ER Bed Available</string>
+    <string name="rescuer_location">Rescuer Location</string>
+    <string name="senior_information">Senior Information</string>
+    <string name="current_location">Current Location: </string>
+    <string name="name_label">Name: </string>
+    <string name="age_label">Age: </string>
+    <string name="notify_rescuer_barangay">Notify the Rescuer or Barangay for ER available?</string>
+    <string name="no_button">NO</string>
+    
+    <!-- Automatic Status System -->
+    <string name="automatic_status_calculation">Automatic Status Calculation</string>
+    <string name="status_auto_description">Status is automatically calculated based on bed availability and doctor count.</string>
+    <string name="current_status">Current Status:</string>
+    <string name="enter_bed_doctor_info">Enter bed and doctor information</string>
+    <string name="status_available_desc">🟢 Available: Good capacity and staff ratio</string>
+    <string name="status_busy_desc">🟡 Busy: High capacity or limited staff</string>
+    <string name="status_crowded_desc">🔴 Crowded: At or near capacity</string>
 
 </resources>

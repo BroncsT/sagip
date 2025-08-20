@@ -116,7 +116,7 @@
                     android:src="@drawable/ic_number" />
 
                 <TextView
-                    android:id="@+id/gotoupdate"
+                    android:id="@+id/changeInfoText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="16dp"

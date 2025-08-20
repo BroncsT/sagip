@@ -107,6 +107,30 @@
             android:background="@drawable/button_background"
             android:textColor="@android:color/white" />
 
+        <!-- Call closest rescuer button (for senior tracking mode) -->
+        <Button
+            android:id="@+id/btnCallClosestRescuer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/call_closest_rescuer"
+            android:textSize="14sp"
+            android:background="@drawable/button_background"
+            android:textColor="@android:color/white"
+            android:visibility="gone" />
+
+        <!-- Test tracking button (for debugging) -->
+        <Button
+            android:id="@+id/btnTestTracking"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="🧪 Test Tracking"
+            android:textSize="12sp"
+            android:background="@drawable/button_background"
+            android:textColor="@android:color/white"
+            android:visibility="gone" />
+
     </LinearLayout>
 
 </RelativeLayout>

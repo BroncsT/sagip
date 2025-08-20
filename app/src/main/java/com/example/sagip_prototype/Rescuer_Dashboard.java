@@ -174,6 +174,9 @@ public class Rescuer_Dashboard extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         stopLocationUpdates();
+        
+        // Clear tracking status when app is paused (optional - you might want to keep tracking active)
+        // clearTrackingStatus();
     }
 
     @Override
@@ -188,6 +191,9 @@ public class Rescuer_Dashboard extends AppCompatActivity {
 
         // Clear any pending emergency alerts
         clearPendingEmergencyAlerts();
+        
+        // Clear tracking status when app is destroyed
+        clearTrackingStatus();
     }
 
     private void clearPendingEmergencyAlerts() {
@@ -377,24 +383,25 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         builder.setPositiveButton("🚑 RESPOND NOW", (dialog, which) -> {
             clearEmergencyNotification(helpRequestId);
             respondToEmergency(helpRequestId, emergencyId);
-            openLocationInInternalMap(latitude, longitude, locationAddress, seniorName, seniorPhone, helpRequestId);
+            openExternalGoogleMapsNavigation(latitude, longitude, locationAddress, seniorName, seniorPhone, helpRequestId);
+            dialog.dismiss();
+        });
+
+        // GET ROUTE button - opens external Google Maps with navigation
+        builder.setNeutralButton("🗺️ GET ROUTE", (dialog, which) -> {
+            clearEmergencyNotification(helpRequestId);
+            openExternalGoogleMapsNavigation(latitude, longitude, locationAddress, seniorName, seniorPhone, helpRequestId);
             dialog.dismiss();
         });
 
         // Call button - if phone number available
         if (seniorPhone != null && !seniorPhone.isEmpty()) {
-            builder.setNeutralButton("📞 CALL", (dialog, which) -> {
+            builder.setNegativeButton("📞 CALL", (dialog, which) -> {
                 clearEmergencyNotification(helpRequestId);
                 callSenior(seniorPhone);
                 dialog.dismiss();
             });
         }
-
-        // CANCEL button - to dismiss without taking action
-        builder.setNegativeButton("❌ CANCEL", (dialog, which) -> {
-            clearEmergencyNotification(helpRequestId);
-            dialog.dismiss();
-        });
 
         // Make dialog not cancelable so rescuer must choose an action
         builder.setCancelable(false);
@@ -427,6 +434,9 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                 .update(updates)
                 .addOnSuccessListener(aVoid -> {
                     Toast.makeText(this, "✅ Response recorded - Help is on the way!", Toast.LENGTH_LONG).show();
+
+                    // Also update the rescuer's own document with current location for tracking
+                    updateRescuerLocationForTracking();
 
                     // Deactivate the emergency notification so other rescuers know it's handled
                     db.collection("Sagip")
@@ -499,6 +509,115 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         Intent callIntent = new Intent(Intent.ACTION_DIAL);
         callIntent.setData(Uri.parse("tel:" + phoneNumber));
         startActivity(callIntent);
+    }
+
+    private void openGoogleMapsNavigation(Double latitude, Double longitude, String destinationAddress) {
+        if (latitude == null || longitude == null) {
+            Toast.makeText(this, "Destination location not available", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (currentLat == 0.0 && currentLong == 0.0) {
+            Toast.makeText(this, "Your current location is not available yet. Please wait for location update.", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        try {
+            // Create Google Maps navigation intent
+            String destination = latitude + "," + longitude;
+            String source = currentLat + "," + currentLong;
+            
+            // Use Google Maps navigation URL
+            String navigationUrl = "https://www.google.com/maps/dir/" + source + "/" + destination;
+            
+            Intent navigationIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(navigationUrl));
+            navigationIntent.setPackage("com.google.android.apps.maps");
+            navigationIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            
+            // Check if Google Maps is installed
+            if (navigationIntent.resolveActivity(getPackageManager()) != null) {
+                startActivity(navigationIntent);
+                Toast.makeText(this, "Opening Google Maps navigation to " + destinationAddress, Toast.LENGTH_SHORT).show();
+            } else {
+                // Fallback to web browser if Google Maps app is not installed
+                Intent webIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(navigationUrl));
+                startActivity(webIntent);
+                Toast.makeText(this, "Opening navigation in browser to " + destinationAddress, Toast.LENGTH_SHORT).show();
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error opening Google Maps navigation", e);
+            Toast.makeText(this, "Error opening navigation", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void openExternalGoogleMapsNavigation(Double latitude, Double longitude, String destinationAddress, String seniorName, String seniorPhone, String helpRequestId) {
+        if (latitude == null || longitude == null) {
+            Toast.makeText(this, "Destination location not available", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (currentLat == 0.0 && currentLong == 0.0) {
+            Toast.makeText(this, "Your current location is not available yet. Please wait for location update.", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        try {
+            // Create Google Maps navigation intent with turn-by-turn directions
+            String navigationUri = String.format("google.navigation:q=%f,%f&mode=d", latitude, longitude);
+            Intent navigationIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(navigationUri));
+            navigationIntent.setPackage("com.google.android.apps.maps");
+            
+            // Check if Google Maps is installed
+            if (navigationIntent.resolveActivity(getPackageManager()) != null) {
+                startActivity(navigationIntent);
+                Toast.makeText(this, "🚗 Opening Google Maps navigation to " + seniorName, Toast.LENGTH_LONG).show();
+                
+                // Also show a dialog with emergency details
+                showEmergencyDetailsDialog(seniorName, seniorPhone, destinationAddress, helpRequestId);
+            } else {
+                // Fallback to web-based Google Maps
+                String webMapsUri = String.format("https://www.google.com/maps/dir/?api=1&destination=%f,%f&travelmode=driving", 
+                    latitude, longitude);
+                Intent webIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(webMapsUri));
+                startActivity(webIntent);
+                Toast.makeText(this, "🌐 Opening web-based navigation to " + seniorName, Toast.LENGTH_LONG).show();
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error opening Google Maps navigation", e);
+            Toast.makeText(this, "Error opening navigation", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void showEmergencyDetailsDialog(String seniorName, String seniorPhone, String destinationAddress, String helpRequestId) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("🚨 Emergency Response Details");
+        builder.setMessage(String.format(
+            "Senior: %s\n" +
+            "Phone: %s\n" +
+            "Address: %s\n" +
+            "Help Request ID: %s\n\n" +
+            "Google Maps navigation is now active. " +
+            "You can return to this app to call the senior or view more details.",
+            seniorName != null ? seniorName : "Unknown",
+            seniorPhone != null ? seniorPhone : "Not available",
+            destinationAddress != null ? destinationAddress : "Location only",
+            helpRequestId
+        ));
+        
+        builder.setPositiveButton("📞 Call Senior", (dialog, which) -> {
+            if (seniorPhone != null && !seniorPhone.isEmpty()) {
+                callSenior(seniorPhone);
+            } else {
+                Toast.makeText(this, "Phone number not available", Toast.LENGTH_SHORT).show();
+            }
+        });
+        
+        builder.setNegativeButton("Close", (dialog, which) -> dialog.dismiss());
+        
+        AlertDialog dialog = builder.create();
+        dialog.show();
     }
 
     private void showSystemNotification(String title, String message, String helpRequestId) {
@@ -968,9 +1087,11 @@ public class Rescuer_Dashboard extends AppCompatActivity {
             }
         }
 
-        // Create data object with location
+        // Create data object with location - use both formats for compatibility
         Map<String, Object> locationData = new HashMap<>();
         locationData.put("currentLocation", new GeoPoint(latitude, longitude));
+        locationData.put("latitude", latitude);
+        locationData.put("longitude", longitude);
         locationData.put("lastUpdated", com.google.firebase.Timestamp.now());
 
         // Save to Firestore
@@ -981,10 +1102,75 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                 .update(locationData)
                 .addOnSuccessListener(aVoid -> {
                     // Location saved successfully
-                    Log.d(TAG, "Location updated successfully");
+                    Log.d(TAG, "Location updated successfully - lat: " + latitude + ", lng: " + longitude);
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Failed to update location: " + e.getMessage());
+                });
+    }
+
+    // Method to update rescuer location specifically for tracking purposes
+    private void updateRescuerLocationForTracking() {
+        if (userId == null || userId.isEmpty()) {
+            FirebaseUser currentUser = mAuth.getCurrentUser();
+            if (currentUser != null) {
+                userId = currentUser.getUid();
+            } else {
+                Log.e(TAG, "No user ID available for location tracking update");
+                return;
+            }
+        }
+
+        // Create tracking-specific location data
+        Map<String, Object> trackingData = new HashMap<>();
+        trackingData.put("latitude", currentLat);
+        trackingData.put("longitude", currentLong);
+        trackingData.put("currentLocation", new GeoPoint(currentLat, currentLong));
+        trackingData.put("isResponding", true);
+        trackingData.put("lastLocationUpdate", com.google.firebase.Timestamp.now());
+
+        // Update the rescuer's document for tracking
+        db.collection("Sagip")
+                .document("users")
+                .collection(userType)
+                .document(userId)
+                .update(trackingData)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Rescuer location updated for tracking - lat: " + currentLat + ", lng: " + currentLong);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to update rescuer location for tracking: " + e.getMessage());
+                });
+    }
+
+    // Method to clear tracking status when rescuer finishes responding
+    private void clearTrackingStatus() {
+        if (userId == null || userId.isEmpty()) {
+            FirebaseUser currentUser = mAuth.getCurrentUser();
+            if (currentUser != null) {
+                userId = currentUser.getUid();
+            } else {
+                Log.e(TAG, "No user ID available for clearing tracking status");
+                return;
+            }
+        }
+
+        // Clear tracking-specific data
+        Map<String, Object> trackingData = new HashMap<>();
+        trackingData.put("isResponding", false);
+        trackingData.put("lastLocationUpdate", com.google.firebase.Timestamp.now());
+
+        // Update the rescuer's document
+        db.collection("Sagip")
+                .document("users")
+                .collection(userType)
+                .document(userId)
+                .update(trackingData)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Rescuer tracking status cleared");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to clear tracking status: " + e.getMessage());
                 });
     }
 

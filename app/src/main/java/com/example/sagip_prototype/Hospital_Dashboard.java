@@ -9,6 +9,8 @@ import android.location.Geocoder;
 import android.location.Location;
 import android.os.Bundle;
 import android.os.Looper;
+import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -46,6 +48,10 @@ public class Hospital_Dashboard extends AppCompatActivity {
     private FirebaseAuth mAuth;
     private FirebaseFirestore db;
     private TextView tvCurrentLocation;
+    private TextView tvHospitalName;
+    private TextView tvTotalBeds, tvAvailableBeds, tvDoctorsAvailable;
+    private TextView tvErStatus;
+    private Button btnEditStatus;
     private String userType = "hospital";
     private String userId;
     private SharedPreferences sharedPreferences;
@@ -70,6 +76,12 @@ public class Hospital_Dashboard extends AppCompatActivity {
         db = FirebaseFirestore.getInstance();
 
         tvCurrentLocation = findViewById(R.id.tvCurrentLocation);
+        tvHospitalName = findViewById(R.id.hospitalStaffName);
+        tvTotalBeds = findViewById(R.id.tvTotalBeds);
+        tvAvailableBeds = findViewById(R.id.tvAvailableBeds);
+        tvDoctorsAvailable = findViewById(R.id.tvDoctorsAvailable);
+        tvErStatus = findViewById(R.id.tvErStatus);
+        btnEditStatus = findViewById(R.id.btnEditStatus);
 
         // Initialize location services
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
@@ -84,6 +96,12 @@ public class Hospital_Dashboard extends AppCompatActivity {
 
         // Check authentication state
         checkAuthState();
+        
+        // Setup click listeners
+        setupClickListeners();
+        
+        // Load hospital status
+        loadHospitalStatus();
     }
 
     @Override
@@ -322,5 +340,112 @@ public class Hospital_Dashboard extends AppCompatActivity {
         editor.remove(KEY_USER_ID);
         editor.remove(KEY_USER_TYPE);
         editor.apply();
+    }
+
+    private void setupClickListeners() {
+        if (btnEditStatus != null) {
+            btnEditStatus.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Intent intent = new Intent(Hospital_Dashboard.this, Hospital_Status_Edit.class);
+                    startActivity(intent);
+                }
+            });
+        }
+    }
+
+    private void loadHospitalStatus() {
+        if (userId == null) {
+            return;
+        }
+
+        db.collection("Sagip")
+                .document("users")
+                .collection("hospital")
+                .document(userId)
+                .addSnapshotListener((documentSnapshot, e) -> {
+                    if (e != null) {
+                        return;
+                    }
+
+                    if (documentSnapshot != null && documentSnapshot.exists()) {
+                        // Load hospital name
+                        String hospitalName = documentSnapshot.getString("hospitalName");
+                        if (hospitalName != null && tvHospitalName != null) {
+                            tvHospitalName.setText(hospitalName);
+                        }
+
+                        // Load status information
+                        Long totalBeds = documentSnapshot.getLong("totalBeds");
+                        Long availableBeds = documentSnapshot.getLong("availableBeds");
+                        Long doctorsAvailable = documentSnapshot.getLong("doctorsAvailable");
+                        String erStatus = documentSnapshot.getString("erStatus");
+
+                        if (totalBeds != null && tvTotalBeds != null) {
+                            tvTotalBeds.setText(String.valueOf(totalBeds));
+                        }
+                        if (availableBeds != null && tvAvailableBeds != null) {
+                            tvAvailableBeds.setText(String.valueOf(availableBeds));
+                        }
+                        if (doctorsAvailable != null && tvDoctorsAvailable != null) {
+                            tvDoctorsAvailable.setText(String.valueOf(doctorsAvailable));
+                        }
+
+                                                 // Calculate and set automatic status
+                         if (totalBeds != null && availableBeds != null && doctorsAvailable != null && tvErStatus != null) {
+                             String autoStatus = calculateAutoStatus(totalBeds.intValue(), availableBeds.intValue(), doctorsAvailable.intValue());
+                             String statusText = getStatusEmoji(autoStatus) + " " + autoStatus.toUpperCase();
+                             tvErStatus.setText(statusText);
+                             tvErStatus.setTextColor(getStatusColor(autoStatus));
+                         }
+                    }
+                });
+    }
+
+    private String getStatusEmoji(String status) {
+        if (status == null) return "⚪";
+        switch (status.toLowerCase()) {
+            case "available":
+                return "🟢";
+            case "busy":
+                return "🟡";
+            case "crowded":
+                return "🔴";
+            default:
+                return "⚪";
+        }
+    }
+
+    private int getStatusColor(String status) {
+        if (status == null) return 0xFF9E9E9E; // Gray
+        switch (status.toLowerCase()) {
+            case "available":
+                return 0xFF4CAF50; // Green
+            case "busy":
+                return 0xFFFF9800; // Orange
+            case "crowded":
+                return 0xFFF44336; // Red
+            default:
+                return 0xFF9E9E9E; // Gray
+        }
+    }
+
+    private String calculateAutoStatus(int totalBeds, int availableBeds, int doctors) {
+        // Calculate capacity percentage
+        double capacityPercentage = ((double) (totalBeds - availableBeds) / totalBeds) * 100;
+        
+        // Calculate beds per doctor ratio
+        double bedsPerDoctor = totalBeds > 0 ? (double) totalBeds / doctors : 0;
+        
+        // Automatic status logic based on multiple factors
+        if (capacityPercentage >= 90 || availableBeds == 0) {
+            return "crowded"; // At or near capacity
+        } else if (capacityPercentage >= 70 || bedsPerDoctor > 8 || doctors < 2) {
+            return "busy"; // High capacity or insufficient staff
+        } else if (capacityPercentage >= 50 || bedsPerDoctor > 6) {
+            return "busy"; // Moderate capacity
+        } else {
+            return "available"; // Good capacity and staff ratio
+        }
     }
 }
