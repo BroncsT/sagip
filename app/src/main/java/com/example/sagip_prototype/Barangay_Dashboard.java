@@ -139,8 +139,8 @@ public class Barangay_Dashboard extends AppCompatActivity {
                 loadUserData(userId);
             } else if (storedEmail != null) {
                 // Firebase session expired but we have stored credentials
-                // In a production app, you might want to re-authenticate silently here
-                // For now, just load the cached user data
+                // In a production app, you might want to re-auathenticate silently here
+                //                // For now, just load the cached user dat
                 loadUserData(userId);
             } else {
                 // No valid authentication, redirect to login

@@ -394,9 +394,14 @@ public class Hospital_Dashboard extends AppCompatActivity {
                                                  // Calculate and set automatic status
                          if (totalBeds != null && availableBeds != null && doctorsAvailable != null && tvErStatus != null) {
                              String autoStatus = calculateAutoStatus(totalBeds.intValue(), availableBeds.intValue(), doctorsAvailable.intValue());
-                             String statusText = getStatusEmoji(autoStatus) + " " + autoStatus.toUpperCase();
-                             tvErStatus.setText(statusText);
-                             tvErStatus.setTextColor(getStatusColor(autoStatus));
+                             if (!autoStatus.equals("unknown")) {
+                                 String statusText = getStatusEmoji(autoStatus) + " " + autoStatus.toUpperCase();
+                                 tvErStatus.setText(statusText);
+                                 tvErStatus.setTextColor(getStatusColor(autoStatus));
+                             } else {
+                                 tvErStatus.setText("⚪ Status not available");
+                                 tvErStatus.setTextColor(getStatusColor("unknown"));
+                             }
                          }
                     }
                 });
@@ -431,11 +436,20 @@ public class Hospital_Dashboard extends AppCompatActivity {
     }
 
     private String calculateAutoStatus(int totalBeds, int availableBeds, int doctors) {
+        // Validate input
+        if (totalBeds <= 0 || availableBeds < 0 || doctors <= 0) {
+            return "unknown";
+        }
+        
+        if (availableBeds > totalBeds) {
+            return "unknown";
+        }
+        
         // Calculate capacity percentage
         double capacityPercentage = ((double) (totalBeds - availableBeds) / totalBeds) * 100;
         
         // Calculate beds per doctor ratio
-        double bedsPerDoctor = totalBeds > 0 ? (double) totalBeds / doctors : 0;
+        double bedsPerDoctor = (double) totalBeds / doctors;
         
         // Automatic status logic based on multiple factors
         if (capacityPercentage >= 90 || availableBeds == 0) {

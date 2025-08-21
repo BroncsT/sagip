@@ -108,12 +108,17 @@ public class Hospital_Status_Edit extends AppCompatActivity {
                 int doctors = Integer.parseInt(doctorsStr);
 
                 String status = calculateAutoStatus(totalBeds, availableBeds, doctors);
-                String statusEmoji = getStatusEmoji(status);
-                int statusColor = getStatusColor(status);
+                if (!status.equals("unknown")) {
+                    String statusEmoji = getStatusEmoji(status);
+                    int statusColor = getStatusColor(status);
 
-                String statusText = statusEmoji + " " + status.toUpperCase();
-                tvAutoStatus.setText(statusText);
-                tvAutoStatus.setTextColor(statusColor);
+                    String statusText = statusEmoji + " " + status.toUpperCase();
+                    tvAutoStatus.setText(statusText);
+                    tvAutoStatus.setTextColor(statusColor);
+                } else {
+                    tvAutoStatus.setText("⚪ Invalid data - check your inputs");
+                    tvAutoStatus.setTextColor(0xFF9E9E9E);
+                }
             } else {
                 // Show placeholder when not all fields are filled
                 tvAutoStatus.setText("⚪ Enter bed and doctor information");
@@ -126,11 +131,20 @@ public class Hospital_Status_Edit extends AppCompatActivity {
     }
 
     private String calculateAutoStatus(int totalBeds, int availableBeds, int doctors) {
+        // Validate input
+        if (totalBeds <= 0 || availableBeds < 0 || doctors <= 0) {
+            return "unknown";
+        }
+        
+        if (availableBeds > totalBeds) {
+            return "unknown";
+        }
+        
         // Calculate capacity percentage
         double capacityPercentage = ((double) (totalBeds - availableBeds) / totalBeds) * 100;
         
         // Calculate beds per doctor ratio
-        double bedsPerDoctor = totalBeds > 0 ? (double) totalBeds / doctors : 0;
+        double bedsPerDoctor = (double) totalBeds / doctors;
         
         // Automatic status logic based on multiple factors
         if (capacityPercentage >= 90 || availableBeds == 0) {
@@ -229,8 +243,24 @@ public class Hospital_Status_Edit extends AppCompatActivity {
             int availableBeds = Integer.parseInt(availableBedsStr);
             int doctorsAvailable = Integer.parseInt(doctorsAvailableStr);
 
+            // Validate the data
+            if (totalBeds <= 0) {
+                Toast.makeText(this, "Total beds must be greater than 0", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            
+            if (availableBeds < 0) {
+                Toast.makeText(this, "Available beds cannot be negative", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            
             if (availableBeds > totalBeds) {
                 Toast.makeText(this, "Available beds cannot exceed total beds", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            
+            if (doctorsAvailable <= 0) {
+                Toast.makeText(this, "Doctors available must be greater than 0", Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -248,6 +278,9 @@ public class Hospital_Status_Edit extends AppCompatActivity {
             statusData.put("erStatus", status);
             statusData.put("capacityPercentage", capacityPercentage);
             statusData.put("lastUpdated", Timestamp.now());
+            
+            // Also update the status in the main hospital document
+            statusData.put("status", status);
 
             // Save to Firestore
             db.collection("Sagip")
@@ -256,7 +289,9 @@ public class Hospital_Status_Edit extends AppCompatActivity {
                     .document(userId)
                     .update(statusData)
                     .addOnSuccessListener(aVoid -> {
-                        Toast.makeText(this, "Hospital status updated successfully!", Toast.LENGTH_SHORT).show();
+                        String statusMessage = "Hospital status updated successfully!\nStatus: " + 
+                                             getStatusEmoji(status) + " " + status.toUpperCase();
+                        Toast.makeText(this, statusMessage, Toast.LENGTH_LONG).show();
                         finish();
                     })
                     .addOnFailureListener(e -> {

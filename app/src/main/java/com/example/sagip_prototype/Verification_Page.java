@@ -5,6 +5,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.view.View;
+import android.widget.ArrayAdapter;
+import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
@@ -25,13 +27,17 @@ import com.squareup.picasso.Picasso;
 
 public class Verification_Page extends AppCompatActivity {
 
-    Button uploadIdPhotoButton;
+    Button uploadIdPhotoButton, nextButton;
     ImageView idPhotoImageView;
+    AutoCompleteTextView idTypeDropdown;
 
     StorageReference storageReference;
 
     FirebaseAuth auth;
     FirebaseFirestore db;
+    
+    private String selectedIdType = "";
+    private String uploadedImageUrl = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,7 +52,12 @@ public class Verification_Page extends AppCompatActivity {
 
         // Find views
         uploadIdPhotoButton = findViewById(R.id.uploadIdPhotoButton);
+        nextButton = findViewById(R.id.nextButton);
         idPhotoImageView = findViewById(R.id.idPhotoImageView);
+        idTypeDropdown = findViewById(R.id.idTypeDropdown);
+        
+        // Setup ID type dropdown
+        setupIdTypeDropdown();
 
         // Check if user already has an ID photo and display it
         if (auth.getCurrentUser() != null) {
@@ -75,6 +86,56 @@ public class Verification_Page extends AppCompatActivity {
                     Toast.makeText(Verification_Page.this, "Error opening gallery: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 }
             }
+        });
+        
+        // Set click listener for next button
+        nextButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (selectedIdType.isEmpty()) {
+                    Toast.makeText(Verification_Page.this, "Please select an ID type", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                
+                if (uploadedImageUrl.isEmpty()) {
+                    Toast.makeText(Verification_Page.this, "Please upload an ID photo", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                
+                // Navigate to selfie verification
+                Intent intent = new Intent(Verification_Page.this, Selfie_verification.class);
+                intent.putExtra("idPhotoUrl", uploadedImageUrl);
+                intent.putExtra("idType", selectedIdType);
+                startActivity(intent);
+                finish();
+            }
+        });
+    }
+    
+    private void setupIdTypeDropdown() {
+        String[] idTypes = {
+            "Philippine Passport",
+            "Driver's License",
+            "SSS ID",
+            "GSIS ID",
+            "PhilHealth ID",
+            "Voter's ID",
+            "Senior Citizen ID",
+            "UMID (Unified Multi-Purpose ID)",
+            "Postal ID",
+            "NBI Clearance",
+            "Police Clearance",
+            "Barangay ID",
+            "School ID",
+            "Company ID",
+            "Other Government ID"
+        };
+        
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, idTypes);
+        idTypeDropdown.setAdapter(adapter);
+        
+        idTypeDropdown.setOnItemClickListener((parent, view, position, id) -> {
+            selectedIdType = idTypes[position];
         });
     }
 
@@ -112,16 +173,11 @@ public class Verification_Page extends AppCompatActivity {
                         Picasso.get().load(uri).into(idPhotoImageView);
 
                         // Get the image URL
-                        String imageUrl = uri.toString();
+                        uploadedImageUrl = uri.toString();
 
-                        // Pass the image URL to the next activity
-                        Toast.makeText(Verification_Page.this, "Take a selfie for verification", Toast.LENGTH_SHORT).show();
-                        Intent intent = new Intent(Verification_Page.this, Selfie_verification.class);
-
-                        // Add the image URL as an extra in the intent
-                        intent.putExtra("idPhotoUrl", imageUrl);
-                        startActivity(intent);
-                        finish();
+                        // Show success message and enable next button
+                        Toast.makeText(Verification_Page.this, "ID photo uploaded successfully", Toast.LENGTH_SHORT).show();
+                        nextButton.setEnabled(true);
                     }
                 });
             }

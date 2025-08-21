@@ -130,11 +130,20 @@ public class HospitalLIst {
             return "unknown";
         }
 
+        // Validate input
+        if (totalBeds <= 0 || availableBeds < 0 || doctorsAvailable <= 0) {
+            return "unknown";
+        }
+        
+        if (availableBeds > totalBeds) {
+            return "unknown";
+        }
+
         // Calculate capacity percentage
         double capacityPercentage = ((double) (totalBeds - availableBeds) / totalBeds) * 100;
         
         // Calculate beds per doctor ratio
-        double bedsPerDoctor = totalBeds > 0 ? (double) totalBeds / doctorsAvailable : 0;
+        double bedsPerDoctor = (double) totalBeds / doctorsAvailable;
         
         // Automatic status logic based on multiple factors
         if (capacityPercentage >= 90 || availableBeds == 0) {

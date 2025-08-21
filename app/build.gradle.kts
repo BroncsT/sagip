@@ -45,6 +45,21 @@ dependencies {
     implementation (libs.play.services.location)
     implementation(libs.play.services.maps)
     implementation(libs.material.v190)
+    
+    // CameraX dependencies
+    implementation("androidx.camera:camera-core:1.3.1")
+    implementation("androidx.camera:camera-camera2:1.3.1")
+    implementation("androidx.camera:camera-lifecycle:1.3.1")
+    implementation("androidx.camera:camera-view:1.3.1")
+    
+    // ML Kit Face Detection
+    implementation("com.google.mlkit:face-detection:16.1.5")
+    
+    // Google Guava for ListenableFuture
+    implementation("com.google.guava:guava:32.1.3-android")
+    
+    implementation(libs.firebase.crashlytics.buildtools)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)

@@ -492,7 +492,7 @@ public class MainActivity extends AppCompatActivity {
             checkAuthenticatedUserTypeByPhone(identifier, userTypes, 0);
         } else {
             // Check all possible user type collections for UID (email users)
-            String[] userTypes = {"rescuer", "hospital", "senior", "barangay"};
+            String[] userTypes = {"rescuer", "hospital", "seniors", "barangay"};
             checkAuthenticatedUserTypeByUID(identifier, userTypes, 0);
         }
     }
@@ -559,12 +559,19 @@ public class MainActivity extends AppCompatActivity {
                 .get()
                 .addOnSuccessListener(document -> {
                     if (document.exists()) {
-                        // Save user credentials before redirecting
-                        FirebaseUser currentUser = auth.getCurrentUser();
-                        if (currentUser != null) {
-                            saveUserCredentials(uid, userTypes[index], currentUser.getEmail());
+                        String status = document.getString("status");
+                        if (status != null && status.equals("approved")) {
+                            // Save user credentials before redirecting
+                            FirebaseUser currentUser = auth.getCurrentUser();
+                            if (currentUser != null) {
+                                saveUserCredentials(uid, userTypes[index], currentUser.getEmail());
+                            }
+                            redirectToUserDashboard(userTypes[index]);
+                        } else {
+                            showPendingApprovalMessage();
+                            auth.signOut();
+                            clearStoredCredentials();
                         }
-                        redirectToUserDashboard(userTypes[index]);
                     } else {
                         checkAuthenticatedUserTypeByUID(uid, userTypes, index + 1);
                     }
