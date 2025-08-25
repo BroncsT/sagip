@@ -1,0 +1,473 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SAGIP</string>
+    
+    <!-- Language Selection -->
+    <string name="language_selection">Pagpili ng Wika</string>
+    <string name="select_language">Pumili ng Wika</string>
+    <string name="phone">Telepono</string>
+    <string name="email">Email</string>
+    <string name="email_address">Email address</string>
+    <string name="password">Password</string>
+    <string name="forgot_password">Nakalimutan ang Password?</string>
+    <string name="english">English</string>
+    <string name="filipino">Filipino</string>
+    <string name="continue_button">Magpatuloy</string>
+    
+    <!-- Login/Registration -->
+    <string name="login">Mag-login</string>
+    <string name="register">Magparehistro</string>
+    <string name="confirm_password">Kumpirmahin ang Password</string>
+    <string name="dont_have_account">Wala kang account?</string>
+    <string name="already_have_account">May account ka na?</string>
+    <string name="sign_up">Mag-sign Up</string>
+    <string name="sign_in">Mag-sign In</string>
+    
+    <!-- User Types -->
+    <string name="select_user_type">Pumili ng Uri ng User</string>
+    <string name="senior_citizen">Senior Citizen</string>
+    <string name="rescuer">Rescuer</string>
+    <string name="hospital">Hospital</string>
+    <string name="barangay">Barangay</string>
+    
+    <!-- ID Verification -->
+    <string name="id_verification">Pag-verify ng ID</string>
+    <string name="select_id_type">Pumili ng Uri ng ID</string>
+    <string name="philippine_passport">Philippine Passport</string>
+    <string name="drivers_license">Driver\'s License</string>
+    <string name="sss_id">SSS ID</string>
+    <string name="gsis_id">GSIS ID</string>
+    <string name="philhealth_id">PhilHealth ID</string>
+    <string name="voters_id">Voter\'s ID</string>
+    <string name="senior_citizen_id">Senior Citizen ID</string>
+    <string name="umid">UMID (Unified Multi-Purpose ID)</string>
+    <string name="postal_id">Postal ID</string>
+    <string name="nbi_clearance">NBI Clearance</string>
+    <string name="police_clearance">Police Clearance</string>
+    <string name="barangay_id">Barangay ID</string>
+    <string name="school_id">School ID</string>
+    <string name="company_id">Company ID</string>
+    <string name="other_government_id">Ibang Government ID</string>
+    
+    <!-- ID Photo Upload -->
+    <string name="front_side_id">Harap na Bahagi ng ID</string>
+    <string name="back_side_id">Likod na Bahagi ng ID</string>
+    <string name="upload_from_gallery">I-upload mula sa Gallery</string>
+    <string name="capture_with_camera">Kunin gamit ang Camera</string>
+    <string name="tap_to_upload_front">I-tap para i-upload ang harap</string>
+    <string name="tap_to_upload_back">I-tap para i-upload ang likod</string>
+    <string name="next">Susunod</string>
+    <string name="please_select_id_type">Mangyaring pumili ng uri ng ID</string>
+    <string name="please_upload_front">Mangyaring i-upload ang harap na bahagi ng iyong ID</string>
+    <string name="please_upload_back">Mangyaring i-upload ang likod na bahagi ng iyong ID</string>
+    
+    <!-- Camera Capture -->
+    <string name="position_front_id">Iposisyon ang HARAP ng iyong ID sa loob ng frame</string>
+    <string name="position_back_id">Iposisyon ang LIKOD ng iyong ID sa loob ng frame</string>
+    <string name="make_sure_visible">Siguraduhing malinaw na nakikita ang impormasyon na walang reflection o glare.</string>
+    <string name="capture">Kunin</string>
+    <string name="capturing">Kinukuha...</string>
+    <string name="retake">Kunin ulit</string>
+    <string name="confirm">Kumpirmahin</string>
+    <string name="uploading">Ina-upload...</string>
+    <string name="review_captured_image">Tingnan ang kinuhang larawan</string>
+    <string name="tap_confirm_retake">I-tap ang \'Kumpirmahin\' para gamitin ang larawang ito o \'Kunin ulit\' para kumuha muli.</string>
+    <string name="camera_not_ready">Hindi pa handa ang camera</string>
+    <string name="failed_capture">Hindi nakakuha ng larawan</string>
+    <string name="image_uploaded_successfully">Matagumpay na na-upload ang larawan</string>
+    <string name="upload_failed">Hindi na-upload</string>
+    <string name="please_wait_upload">Mangyaring maghintay hanggang matapos ang pag-upload</string>
+    <string name="front_id_captured">Matagumpay na nakuha ang harap na ID</string>
+    <string name="back_id_captured">Matagumpay na nakuha ang likod na ID</string>
+    
+    <!-- Selfie Verification -->
+    <string name="selfie_verification">Pag-verify ng Selfie</string>
+    <string name="automatic_selfie_verification">Automatic na Pag-verify ng Selfie</string>
+    <string name="step_2_of_3">Hakbang 2 ng 3: Automatic na Pag-verify ng Selfie</string>
+    <string name="step_2_complete">Hakbang 2 ng 3: Pag-verify ng Selfie ✓</string>
+    <string name="position_face_circle">⭕ Iposisyon ang iyong mukha sa bilog</string>
+    <string name="look_directly_camera">😊 Tingnan nang diretso ang camera</string>
+    <string name="ensure_good_lighting">💡 Siguraduhing may magandang ilaw</string>
+    <string name="keep_face_centered">👤 Panatilihing nasa gitna ang mukha</string>
+    <string name="photo_taken_automatically">⏱️ Kukuhanin nang automatic ang larawan</string>
+    <string name="tap_start_capture">I-tap ang \'Simulan ang Automatic Capture\' para magsimula</string>
+    <string name="detecting_face">🔍 Nakikita ang mukha...</string>
+    <string name="face_detected">🔍 Nakita ang mukha!</string>
+    <string name="no_face_detected">🔍 Walang nakikitang mukha</string>
+    <string name="please_position_face">Mangyaring iposisyon ang iyong mukha sa camera view</string>
+    <string name="move_face_circle">⭕ Ilipat ang iyong mukha sa bilog</string>
+    <string name="move_closer_camera">📏 Lumapit sa camera</string>
+    <string name="improve_lighting">💡 Pagandahin ang ilaw</string>
+    <string name="perfect_taking_photo">✅ Perpekto! Kukuhanin ang larawan sa %1$d segundo...</string>
+    <string name="capturing_photo_now">📸 Kinukuha ang larawan ngayon...</string>
+    <string name="uploading_selfie">📤 Ina-upload ang iyong selfie...</string>
+    <string name="please_wait_moment">Mangyaring maghintay sandali.</string>
+    <string name="selfie_captured_uploaded">✅ Matagumpay na nakuha at na-upload ang selfie!</string>
+    <string name="upload_failed_try_again">❌ Hindi na-upload. Mangyaring subukan muli.</string>
+    <string name="selfie_upload_failed">Hindi na-upload ang Selfie</string>
+    <string name="perfect_selfie_captured">✅ Perpekto! Nakuha nang automatic ang iyong selfie.</string>
+    <string name="review_guidelines_verify">Mangyaring tingnan ang mga gabay sa ibaba at i-tap ang \'I-verify ang Selfie\' para magpatuloy.</string>
+    <string name="retake_selfie">📷 Kunin ulit ang Selfie</string>
+    <string name="verify_selfie">I-verify ang Selfie</string>
+    <string name="please_take_selfie">Mangyaring kumuha muna ng selfie</string>
+    <string name="submitting_verification">📤 Ina-submit ang verification...</string>
+    <string name="please_wait_process">Mangyaring maghintay habang pinoproseso namin ang iyong impormasyon.</string>
+    <string name="verification_submitted">✅ Matagumpay na na-submit ang verification!</string>
+    <string name="account_pending_approval">Ang iyong account ay nasa pending approval na.</string>
+    <string name="redirected_login">Mare-redirect ka sa login page.</string>
+    <string name="verification_submitted_success">✅ Matagumpay na na-submit ang verification! Ang iyong account ay nasa pending approval.</string>
+    <string name="submission_failed">❌ Hindi na-submit. Mangyaring subukan muli.</string>
+    <string name="check_internet_try_again">Tingnan ang iyong internet connection at subukan muli.</string>
+    <string name="failed_submit_verification">Hindi na-submit ang verification</string>
+    <string name="camera_permission_denied">❌ Tinanggihan ang camera permission.</string>
+    <string name="camera_permission_required">Kailangan ang permission na ito para sa automatic na pag-verify ng selfie.</string>
+    <string name="grant_permission_settings">Mangyaring bigyan ng permission sa Settings o subukan muli.</string>
+    <string name="camera_permission_required_verification">Kailangan ang camera permission para sa automatic na pag-verify ng selfie</string>
+    <string name="user_not_authenticated">Hindi naka-authenticate ang user</string>
+    
+    <!-- Privacy and Terms -->
+    <string name="privacy_text">Ang iyong impormasyon ay mapapanatiling ligtas at gagamitin lamang para sa verification purposes.</string>
+    
+    <!-- General -->
+    <string name="error">Error</string>
+    <string name="success">Tagumpay</string>
+    <string name="cancel">Kanselahin</string>
+    <string name="ok">OK</string>
+    <string name="yes">Oo</string>
+    <string name="no">Hindi</string>
+    <string name="loading">Naglo-load...</string>
+    <string name="please_wait">Mangyaring maghintay...</string>
+    
+    <!-- Image Source Dialog -->
+    <string name="select_image_source">Pumili ng Pinagmulan ng Larawan</string>
+    <string name="camera">Camera</string>
+    <string name="gallery">Gallery</string>
+    <string name="camera_permission_required_capture">Kailangan ang camera permission para kumuha ng ID photo</string>
+    <string name="failed_get_image">Hindi nakuha ang larawan mula sa gallery</string>
+    <string name="failed_capture_image">Hindi nakakuha ng larawan</string>
+    <string name="error_opening_camera">Error sa pagbukas ng camera</string>
+    <string name="error_opening_gallery">Error sa pagbukas ng gallery</string>
+    <string name="image_upload_failed">Hindi na-upload ang Larawan</string>
+    <string name="front_id_uploaded">Matagumpay na na-upload ang harap na ID</string>
+    <string name="back_id_uploaded">Matagumpay na na-upload ang likod na ID</string>
+    <string name="front_id_captured_uploaded">Matagumpay na nakuha at na-upload ang harap na ID</string>
+    <string name="back_id_captured_uploaded">Matagumpay na nakuha at na-upload ang likod na ID</string>
+    
+    <!-- Guidelines -->
+    <string name="guidelines_title">Mga Gabay sa Selfie</string>
+    <string name="guidelines_text">• Siguraduhing malinaw na nakikita ang iyong mukha\n• Tanggalin ang salamin o sumbrero\n• Gumamit ng magandang ilaw\n• Tingnan nang diretso ang camera\n• Panatilihing neutral ang expression</string>
+    
+    <!-- Profile Settings -->
+    <string name="account_settings">Mga Setting ng Account</string>
+    <string name="change_Info">Baguhin ang Impormasyon</string>
+    <string name="notification_settings">Mga Setting ng Notification</string>
+    <string name="more_options">Iba Pang Mga Opsyon</string>
+    <string name="help_support">Tulong at Suporta</string>
+    <string name="logout">Mag-logout</string>
+    
+    <!-- Registration -->
+    <string name="back_arrow">Bumalik</string>
+    <string name="checkmark">✓</string>
+    <string name="account_information">Impormasyon ng Account</string>
+    <string name="mobile_info">Impormasyon ng Mobile</string>
+    <string name="instruction_text">Mangyaring punuin ang impormasyon sa ibaba</string>
+    <string name="barangay_name">Pangalan ng Barangay</string>
+    <string name="email_hint">Ilagay ang iyong email address</string>
+    <string name="terms_conditions">Sumasang-ayon ako sa mga Terms at Conditions</string>
+    <string name="privacy_policy">Sumasang-ayon ako sa Privacy Policy</string>
+    <string name="submit_button_text">I-submit</string>
+    
+    <!-- Dashboard -->
+    <string name="rescuer_location">Lokasyon ng Rescuer</string>
+    <string name="doctor_available">May Doktor na Available</string>
+    <string name="er_bed_available">May ER Bed na Available</string>
+    <string name="emergency_room_status">Status ng Emergency Room</string>
+    <string name="edit_status">Baguhin ang Status</string>
+    <string name="notify_rescuer_barangay">I-notify ang Rescuer/Barangay</string>
+    <string name="update">I-update</string>
+    <string name="no_button">Hindi</string>
+    
+    <!-- Hospital Registration -->
+    <string name="hospital_name">Pangalan ng Hospital</string>
+    
+    <!-- Main Activity -->
+    <string name="welcome_to">Maligayang pagdating sa</string>
+    <string name="enter_number_prompt">Ilagay ang iyong mobile number para magpatuloy</string>
+    <string name="country_code">+63</string>
+    <string name="mobile_hint">Ilagay ang mobile number</string>
+    <string name="invalid_mobile_error">Mangyaring maglagay ng wastong mobile number</string>
+    <string name="continue_btn">Magpatuloy</string>
+    <string name="hospital_title">Hospital</string>
+    <string name="senior_title">Senior Citizen</string>
+    <string name="senior_description">Para sa mga senior citizen na nangangailangan ng emergency assistance</string>
+    <string name="barangay_title">Barangay</string>
+    <string name="barangay_description">Para sa mga barangay official na mag-manage ng emergency responses</string>
+    <string name="rescue_title">Rescuer</string>
+    <string name="rescue_description">Para sa mga emergency responder at rescue team</string>
+    <string name="hospital_description">Para sa mga hospital na mag-manage ng emergency room status</string>
+    
+    <!-- Map Activities -->
+    <string name="btn_navigate">Mag-navigate</string>
+    <string name="btn_call_senior">Tumawag sa Senior</string>
+    <string name="btn_show_route">Ipakita ang Route</string>
+    <string name="call_closest_rescuer">Tumawag sa Pinakamalapit na Rescuer</string>
+    
+    <!-- OTP Page -->
+    <string name="instruction_text_otp">Mangyaring ilagay ang verification code na ipinadala sa iyong mobile number</string>
+    <string name="mobile_number">Mobile Number</string>
+    <string name="otp_hint">Ilagay ang OTP code</string>
+    <string name="verify_button">I-verify</string>
+    <string name="security_note">Para sa security purposes, mangyaring ilagay ang verification code na ipinadala sa iyong mobile number</string>
+    
+    <!-- Rescuer Registration -->
+    <string name="content_description_status">Status indicator</string>
+    <string name="title_rescue_group_registration">Pagparehistro ng Rescue Group</string>
+    <string name="instruction_registration">Mangyaring punuin ang impormasyon sa ibaba para magparehistro ng iyong rescue group</string>
+    <string name="section_basic_information">Pangunahing Impormasyon</string>
+    <string name="hint_rescue_group_name">Ilagay ang pangalan ng rescue group</string>
+    <string name="section_contact_details">Mga Detalye ng Contact</string>
+    <string name="hint_headquarters_address">Ilagay ang address ng headquarters</string>
+    <string name="hint_primary_contact_person">Ilagay ang primary contact person</string>
+    <string name="hint_contact_number">Ilagay ang contact number</string>
+    <string name="checkbox_terms_conditions">Sumasang-ayon ako sa mga Terms at Conditions</string>
+    <string name="checkbox_privacy_policy">Sumasang-ayon ako sa Privacy Policy</string>
+    <string name="button_register_rescue_group">Iparehistro ang Rescue Group</string>
+    
+    <!-- Selfie Verification Layout -->
+    <string name="title_selfie_verification">Pag-verify ng Selfie</string>
+    <string name="selfie_step_indicator">Hakbang 2 ng 3: Pag-verify ng Selfie</string>
+    <string name="selfie_instructions">Mangyaring kumuha ng malinaw na selfie para sa verification</string>
+    <string name="selfie_photo_label">Larawan ng Selfie</string>
+    <string name="content_description_face_outline">Face outline para sa pagposisyon</string>
+    <string name="selfie_photo_placeholder">I-tap para kumuha ng selfie</string>
+    <string name="selfie_guidelines">Mga Gabay sa Selfie</string>
+    <string name="guideline_face_visible">Siguraduhing malinaw na nakikita ang iyong mukha</string>
+    <string name="guideline_good_lighting">Gumamit ng magandang ilaw</string>
+    <string name="guideline_remove_glasses">Tanggalin ang salamin o sumbrero kung maaari</string>
+    <string name="button_verify_selfie">I-verify ang Selfie</string>
+    <string name="selfie_privacy_info">Ang iyong selfie ay gagamitin lamang para sa verification purposes</string>
+    
+    <!-- Senior Citizen Features -->
+    <string name="instruction_add_contact">Mangyaring punuin ang impormasyon ng emergency contact</string>
+    <string name="emergency_contact_name">Pangalan ng Emergency Contact</string>
+    <string name="phone_number">Phone Number</string>
+    <string name="emergency_address">Emergency Address</string>
+    <string name="emergencynote">Emergency Note</string>
+    <string name="emergencyguide">Emergency Guide</string>
+    <string name="emegencysignalcode">Emergency Signal Code</string>
+    <string name="emergencyContact_section">Emergency Contact Section</string>
+    <string name="senior_name">Pangalan ng Senior</string>
+    <string name="senior_number">Number ng Senior</string>
+    <string name="first_name_hint">Ilagay ang first name</string>
+    <string name="middle_name_hint">Ilagay ang middle name</string>
+    <string name="last_name_hint">Ilagay ang last name</string>
+    <string name="birthday_hint">Ilagay ang birthday</string>
+    
+    <!-- Menu Items -->
+    <string name="hospital_list">Lista ng Hospital</string>
+    <string name="hospital_dashboard">Dashboard ng Hospital</string>
+    <string name="hospital_profile">Profile ng Hospital</string>
+    <string name="senior_location">Lokasyon ng Senior</string>
+    <string name="senior_home">Home ng Senior</string>
+    <string name="senior_profile">Profile ng Senior</string>
+    
+    <!-- Rescuer Menu Items -->
+    <string name="rescuer_hospital">Hospital ng Rescuer</string>
+    <string name="rescuer_dashboard">Dashboard ng Rescuer</string>
+    <string name="rescuer_profile">Profile ng Rescuer</string>
+    
+    <!-- Map and Emergency -->
+    <string name="senior_needs_help">Nangangailangan ng tulong si %1$s</string>
+    
+    <!-- Rescuer Dashboard -->
+    <string name="welcome_back">Maligayang pagbabalik!</string>
+    <string name="rescuer_name">Pangalan ng Rescuer</string>
+    <string name="current_location">📍 Kasalukuyang Lokasyon</string>
+    <string name="location_map">🗺️ Mapa ng Lokasyon</string>
+    <string name="show_map">Ipakita ang Mapa</string>
+    <string name="emergency_status">🚨 Status ng Emergency</string>
+    <string name="ready_to_respond">Handa nang tumugon sa mga emergency calls</string>
+    <string name="location_tracking_on">• Location tracking: ON</string>
+    <string name="emergency_listener_active">• Emergency listener: ACTIVE</string>
+    <string name="notifications_enabled">• Notifications: ENABLED</string>
+    <string name="status_details">• Location tracking: ON\n• Emergency listener: ACTIVE\n• Notifications: ENABLED</string>
+    <string name="quick_actions">⚡ Mabilis na Aksyon</string>
+    <string name="navigate_to_nearest_hospital">🏥 Mag-navigate sa Pinakamalapit na Hospital</string>
+    <string name="how_it_works">ℹ️ Paano ito gumagana</string>
+    <string name="rescuer_instructions">1. Panatilihing bukas ang app para makatanggap ng emergency alerts\n2. Kapag may emergency, makakatanggap ka ng notification\n3. Gamitin ang mapa para makita ang emergency location at route\n4. I-tap ang \'RESPOND NOW\' para tanggapin ang emergency\n5. Gamitin ang Google Maps integration para sa turn-by-turn directions</string>
+    <string name="user_name_not_available">Hindi Available ang Pangalan ng User</string>
+    
+    <!-- Rescuer Dashboard Toast Messages -->
+    <string name="emergency_notification_cleared">Na-clear ang emergency notification</string>
+    <string name="response_recorded">✅ Na-record ang response - Papunta na ang tulong!</string>
+    <string name="error_recording_response">Error sa pag-record ng response</string>
+    <string name="emergency_location_not_available">Hindi available ang emergency location</string>
+    <string name="destination_location_not_available">Hindi available ang destination location</string>
+    <string name="current_location_not_available_wait">Hindi pa available ang iyong current location. Mangyaring maghintay para sa location update.</string>
+    <string name="opening_google_maps_navigation">Binubuksan ang Google Maps navigation papunta sa %1$s</string>
+    <string name="opening_browser_navigation">Binubuksan ang navigation sa browser papunta sa %1$s</string>
+    <string name="error_opening_navigation">Error sa pagbukas ng navigation</string>
+    <string name="opening_google_maps_to_senior">🚗 Binubuksan ang Google Maps navigation papunta kay %1$s</string>
+    <string name="opening_web_navigation_to_senior">🌐 Binubuksan ang web-based navigation papunta kay %1$s</string>
+    <string name="phone_number_not_available">Hindi available ang phone number</string>
+    <string name="current_location_not_available_permissions">Hindi available ang current location. Mangyaring maghintay o tingnan ang permissions.</string>
+    <string name="user_profile_not_found">Hindi nahanap ang user profile. Mangyaring mag-login muli.</string>
+    <string name="location_permission_denied">Tinanggihan ang location permission. Hindi ma-update ang location.</string>
+    <string name="error_starting_location_updates">Error sa pagsimula ng location updates</string>
+    
+    <!-- Hospital Dashboard -->
+    <string name="hello">Kamusta, </string>
+    <string name="hospital_address">Address ng Hospital</string>
+    <string name="available_status">🟢 AVAILABLE</string>
+    <string name="beds_info">Beds: %1$d/%2$d</string>
+    <string name="doctors_info">Doktor: %1$d</string>
+    <string name="location_format">Location: %1$s</string>
+    <string name="status_not_available_er">⚪ Hindi available ang status</string>
+    
+    <!-- Contact List -->
+    <string name="contact_name">Pangalan ng Contact</string>
+    <string name="phone_number_label">Phone Number</string>
+    <string name="delete">Tanggalin</string>
+    
+    <!-- Senior Dashboard -->
+    <string name="current_location_label">Kasalukuyang Lokasyon: </string>
+    <string name="locate_nearest_hospital">hanapin ang pinakamalapit na Hospital</string>
+    <string name="location_permission_denied_senior">Tinanggihan ang location permission</string>
+    <string name="fetching_location">Kinukuha ang kasalukuyang lokasyon...</string>
+    <string name="full_name_not_available">Hindi Available ang Buong Pangalan</string>
+    <string name="waiting_location_update">Naghihintay ng location update...</string>
+    <string name="user_data_not_found">Hindi nahanap ang user data.</string>
+    <string name="failed_load_data">Hindi na-load ang data.</string>
+    <string name="yes_i_need_help">🚨 OO, KAILANGAN KO NG TULONG</string>
+    
+    <!-- Senior Update Profile -->
+    <string name="update_account_information">I-update ang Impormasyon ng Account</string>
+    <string name="mobile_number_label">Mobile Number</string>
+    <string name="address_label">Address</string>
+    <string name="update_information">I-update ang Impormasyon</string>
+    
+    <!-- Senior Add Emergency Contact -->
+    <string name="hi_user">kamusta user</string>
+    
+    <!-- Selfie Verification -->
+    <string name="start_automatic_capture">Simulan ang Automatic Capture</string>
+    <string name="manual_capture">Manual Capture</string>
+    <string name="automatic_selfie_verification_title">Automatic na Pag-verify ng Selfie</string>
+    <string name="step_2_automatic_verification">Hakbang 2 ng 3: Automatic na Pag-verify ng Selfie</string>
+    <string name="tap_start_capture_begin">I-tap ang \'Simulan ang Automatic Capture\' para magsimula</string>
+    <string name="detecting_face_instructions">🔍 Nakikilala ang mukha...\n\n⭕ Ilagay ang iyong mukha sa bilog\n😊 Tingnan nang diretso ang camera\n💡 Siguraduhing maganda ang ilaw\n⏱️ Kukunin nang automatic ang litrato kapag handa na</string>
+    <string name="face_detected_instruction">🔍 Nakita ang mukha!\n\n</string>
+    <string name="move_face_to_circle_instruction">⭕ Ilipat ang iyong mukha sa bilog\n</string>
+    <string name="move_closer_camera_instruction">📏 Lumapit sa camera\n</string>
+    <string name="look_directly_camera_instruction">😊 Tingnan nang diretso ang camera\n</string>
+    <string name="improve_lighting_instruction">💡 Pagandahin ang ilaw\n</string>
+    <string name="perfect_taking_photo_instruction">✅ Perpekto! Kukunin ang litrato sa %1$d segundo...</string>
+    <string name="capturing_photo_now_instruction">📸 Kinukuha ang litrato ngayon...</string>
+    <string name="uploading_selfie_instructions">📤 Ina-upload ang iyong selfie...</string>
+    <string name="please_wait_moment_instructions">Mangyaring maghintay sandali.</string>
+    <string name="upload_failed_try_again_instructions">❌ Nabigo ang pag-upload. Subukan muli.</string>
+    <string name="perfect_selfie_captured_instructions">✅ Perpekto! Nakuha nang automatic ang iyong selfie.\n\nMangyaring suriin ang mga guideline sa ibaba at i-tap ang \'Verify Selfie\' para magpatuloy.</string>
+    <string name="step_2_verification_complete">Hakbang 2 ng 3: Pag-verify ng Selfie ✓</string>
+    <string name="retake_selfie_button">📷 Kunin ulit ang Selfie</string>
+    <string name="camera_permission_denied_instructions">❌ Tinanggihan ang pahintulot sa camera.\n\nKailangan ang pahintulot na ito para sa automatic selfie verification.\nMangyaring magbigay ng pahintulot sa Settings o subukan muli.</string>
+    <string name="submitting_verification_instructions">📤 Nagsumite ng verification...\nMangyaring maghintay habang pinoproseso namin ang iyong impormasyon.</string>
+    <string name="please_wait_process_instructions">Mangyaring maghintay habang pinoproseso namin ang iyong impormasyon.</string>
+    <string name="verification_submitted_success_instructions">✅ Matagumpay na naisumite ang verification!\n\nAng iyong account ay nasa pending approval na.\nMababalik ka sa login page.</string>
+    <string name="verification_submitted_success_toast">✅ Matagumpay na naisumite ang verification! Ang iyong account ay nasa pending approval.</string>
+    <string name="submission_failed_instructions">❌ Nabigo ang pagsusumite. Subukan muli.\n\nSuriin ang iyong internet connection at subukan muli.</string>
+    <string name="submission_failed_try_again_instructions">❌ Hindi na-submit. Mangyaring subukan muli.</string>
+    
+    <!-- Hospital Status Edit -->
+    <string name="update_emergency_room_status">I-update ang Status ng Emergency Room</string>
+    <string name="bed_information">Impormasyon ng Bed</string>
+    <string name="automatic_status_calculation">Automatic na Pagkalkula ng Status</string>
+    <string name="status_auto_calculated">Ang status ay awtomatikong kinakalkula batay sa availability ng bed at bilang ng doktor.</string>
+    <string name="current_status">Kasalukuyang Status:</string>
+    <string name="enter_bed_doctor_info">⚪ Maglagay ng impormasyon ng bed at doktor</string>
+    <string name="status_legend">🟢 Available: Magandang capacity at staff ratio\n🟡 Busy: Mataas na capacity o limitadong staff\n🔴 Crowded: Sa o malapit sa capacity</string>
+    <string name="save_status">I-save ang Status</string>
+    <string name="invalid_data_check_inputs">⚪ Hindi wasto ang data - tingnan ang iyong inputs</string>
+    <string name="enter_valid_numbers">⚪ Maglagay ng wastong mga numero</string>
+    
+    <!-- Barangay Dashboard -->
+    <string name="rescue_group_not_available">Hindi Available ang Rescue Group</string>
+    
+    <!-- Map Activities -->
+    <string name="stop_navigation">📍 I-stop ang Navigation</string>
+    <string name="get_route">Kunin ang Route</string>
+    <string name="show_route">Ipakita ang Route</string>
+    <string name="hide_route">Itago ang Route</string>
+    <string name="getting_location">📍 Kinukuha ang iyong lokasyon...</string>
+    <string name="getting_destination">📍 Kinukuha ang destination...</string>
+    <string name="calculating_distance">📍 Kinakalkula ang distansya...</string>
+    <string name="location_address">📍 %1$s</string>
+    <string name="waiting_rescuers">⏳ Naghihintay ng response mula sa mga rescuer...</string>
+    <string name="rescuers_coming">🚑 %1$d rescuer(s) na papunta para tumulong</string>
+    
+    <!-- Main Activity -->
+    <string name="continue_button_text">Magpatuloy</string>
+    <string name="enter_mobile_continue">Ilagay ang iyong mobile number para magpatuloy</string>
+    <string name="login_with_email">Mag-login gamit ang Email</string>
+    <string name="enter_email_password">Ilagay ang iyong email at password</string>
+    <string name="valid_mobile_error">Mangyaring maglagay ng wastong 10-digit mobile number</string>
+    <string name="please_enter_email_password">Mangyaring maglagay ng email at password</string>
+    <string name="reset_password">I-reset ang Password</string>
+    <string name="enter_email_for_reset">Ilagay ang iyong email address para makatanggap ng password reset link:</string>
+    <string name="send_reset_link">Ipadala ang Reset Link</string>
+    <string name="please_enter_valid_email">Mangyaring maglagay ng valid na email address</string>
+    <string name="password_reset_email_sent">Naipadala ang Password Reset Email</string>
+    <string name="password_reset_sent_message">Naipadala ang password reset link sa:\n\n%1$s\n\nMangyaring suriin ang iyong email at sundin ang mga instruction para i-reset ang password. Huwag kalimutang suriin ang spam/junk folder kung hindi mo makita ang email sa inbox.</string>
+    <string name="try_again">Subukan Muli</string>
+    <string name="unknown_error_occurred">May naganap na hindi kilalang error. Subukan muli.</string>
+    <string name="no_account_found_email">Walang nahanap na account sa email address na ito. Mangyaring suriin ang iyong email o gumawa ng bagong account.</string>
+    <string name="too_many_requests">Masyadong maraming request. Subukan muli mamaya.</string>
+    <string name="network_error_check_connection">Network error. Mangyaring suriin ang iyong connection at subukan muli.</string>
+    <string name="failed_send_password_reset">Nabigo ang pagpapadala ng password reset email. Subukan muli o makipag-ugnayan sa support kung patuloy ang problema.</string>
+
+    <!-- HospitalAdapter -->
+    <string name="address_not_available">Hindi available ang address</string>
+    <string name="status_not_available">⚪ Hindi available ang status</string>
+    <string name="beds_info_format">Mga Kama: %1$d/%2$d</string>
+    <string name="bed_info_not_available">Hindi available ang impormasyon sa kama</string>
+    <string name="doctors_info_format">Mga Doktor: %1$d</string>
+    <string name="doctor_info_not_available">Hindi available ang impormasyon sa doktor</string>
+
+    <!-- MyGoogleMAp -->
+    <string name="redirecting_to_openstreetmap">Nagre-redirect sa OpenStreetMap...</string>
+
+                 <!-- OTP Page -->
+     <string name="resend_otp_timer">I-resend ang OTP sa %1$d segundo</string>
+     <string name="timer_finished">Tapos na ang timer</string>
+
+     <!-- Hospital Status Edit -->
+     <string name="please_fill_all_fields">Mangyaring punuin ang lahat ng fields</string>
+     <string name="total_beds_greater_than_zero">Ang total beds ay dapat mas malaki sa 0</string>
+     <string name="available_beds_cannot_be_negative">Hindi pwedeng negative ang available beds</string>
+     <string name="available_beds_cannot_exceed_total">Hindi pwedeng lumagpas ang available beds sa total beds</string>
+     <string name="doctors_available_greater_than_zero">Ang available doctors ay dapat mas malaki sa 0</string>
+     <string name="hospital_status_updated_successfully">Matagumpay na na-update ang hospital status!</string>
+     <string name="status_label">Status:</string>
+     <string name="failed_to_update_status">Hindi na-update ang status</string>
+
+     <!-- Hospital Status Edit Layout -->
+     <string name="total_er_beds">Total ER Beds</string>
+     <string name="available_er_beds">Available ER Beds</string>
+     <string name="doctors_available">Available na Doktor</string>
+
+     <!-- Hospital List -->
+     <string name="senior_citizen_list_information">Impormasyon ng Listahan ng Senior Citizen</string>
+
+                     <!-- Barangay Dashboard -->
+    <string name="user_document_not_exist">Hindi umiiral ang user document</string>
+    <string name="unable_load_user_data">Hindi ma-load ang user data. Tingnan ang iyong internet connection.</string>
+    <string name="current_location_not_available">Hindi available ang kasalukuyang lokasyon. Mangyaring maghintay o tingnan ang permissions.</string>
+    
+    <!-- Missing String Resources -->
+    <string name="password_reset_failed">Nabigo ang password reset</string>
+    <string name="error_missing_id_photo">Error: Kulang ang ID photo</string>
+    <string name="error_starting_camera">Error sa pagsimula ng camera: %1$s</string>
+    <string name="error_binding_camera">Error sa pag-bind ng camera: %1$s</string>
+    <string name="no_face_detected_instructions">Walang nakikitang mukha. Mangyaring iposisyon ang iyong mukha sa camera view.</string>
+    <string name="auto_capture_failed_manual">Nabigo ang auto capture. Mangyaring gamitin ang manual capture.</string>
+    <string name="selfie_captured_uploaded_success">✅ Matagumpay na nakuha at na-upload ang selfie!</string>
+</resources>

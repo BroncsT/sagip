@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <org.osmdroid.views.MapView
+        android:id="@+id/map"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Back button -->
+    <ImageButton
+        android:id="@+id/btnBack"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentStart="true"
+        android:layout_margin="16dp"
+        android:background="@drawable/circle_background"
+        android:src="@drawable/ic_arrow_back"
+        android:contentDescription="Back"
+        android:elevation="4dp" />
+
+    <!-- Emergency info card -->
+    <LinearLayout
+        android:id="@+id/emergencyInfoCard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_margin="16dp"
+        android:background="@drawable/card_background"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:elevation="4dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/tvEmergencyTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🚨 EMERGENCY LOCATION"
+            android:textColor="@android:color/holo_red_dark"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:gravity="center" />
+
+        <TextView
+            android:id="@+id/tvEmergencyAddress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Location address will appear here"
+            android:textSize="14sp"
+            android:gravity="center" />
+
+        <TextView
+            android:id="@+id/tvDistanceTime"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text=""
+            android:textSize="12sp"
+            android:textColor="@android:color/holo_blue_dark"
+            android:gravity="center"
+            android:textStyle="bold" />
+
+        <!-- Action buttons for rescuers -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <Button
+                android:id="@+id/btnNavigate"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:text="@string/btn_navigate"
+                android:textSize="12sp"
+                android:background="@drawable/button_background"
+                android:textColor="@android:color/white" />
+
+            <Button
+                android:id="@+id/btnCallSenior"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:text="@string/btn_call_senior"
+                android:textSize="12sp"
+                android:background="@drawable/button_background"
+                android:textColor="@android:color/white" />
+
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnShowRoute"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/btn_show_route"
+            android:textSize="14sp"
+            android:background="@drawable/button_background"
+            android:textColor="@android:color/white" />
+
+        <!-- Call closest rescuer button (for senior tracking mode) -->
+        <Button
+            android:id="@+id/btnCallClosestRescuer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/call_closest_rescuer"
+            android:textSize="14sp"
+            android:background="@drawable/button_background"
+            android:textColor="@android:color/white"
+            android:visibility="gone" />
+
+        <!-- Test tracking button (for debugging) -->
+        <Button
+            android:id="@+id/btnTestTracking"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="🧪 Test Tracking"
+            android:textSize="12sp"
+            android:background="@drawable/button_background"
+            android:textColor="@android:color/white"
+            android:visibility="gone" />
+
+    </LinearLayout>
+
+</RelativeLayout>

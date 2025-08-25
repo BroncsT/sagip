@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Semi-transparent background -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#80000000" />
+        </shape>
+    </item>
+    
+    <!-- Transparent rectangle for ID frame -->
+    <item android:left="40dp" android:top="100dp" android:right="40dp" android:bottom="100dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#00000000" />
+            <stroke android:width="3dp" android:color="#FFFFFF" />
+            <corners android:radius="8dp" />
+        </shape>
+    </item>
+    
+    <!-- Red overlay markings for sensitive areas -->
+    <!-- Top left marking -->
+    <item android:left="60dp" android:top="120dp" android:right="120dp" android:bottom="140dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#FF0000" />
+            <corners android:radius="4dp" />
+        </shape>
+    </item>
+    
+    <!-- Middle marking -->
+    <item android:left="80dp" android:top="160dp" android:right="140dp" android:bottom="180dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#FF0000" />
+            <corners android:radius="4dp" />
+        </shape>
+    </item>
+    
+    <!-- QR code area marking (right side) -->
+    <item android:left="200dp" android:top="130dp" android:right="240dp" android:bottom="190dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#FF0000" />
+            <corners android:radius="4dp" />
+        </shape>
+    </item>
+    
+    <!-- Bottom marking -->
+    <item android:left="60dp" android:top="200dp" android:right="120dp" android:bottom="220dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#FF0000" />
+            <corners android:radius="4dp" />
+        </shape>
+    </item>
+</layer-list>
