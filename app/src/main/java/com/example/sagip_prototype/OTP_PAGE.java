@@ -51,6 +51,11 @@ public class OTP_PAGE extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        // Apply saved language preference
+        String savedLanguage = LanguageSelectionActivity.getSavedLanguage(this);
+        LanguageSelectionActivity.setAppLanguage(this, savedLanguage);
+        
         setContentView(R.layout.activity_otp_page);
 
         auth = FirebaseAuth.getInstance();

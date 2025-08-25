@@ -186,7 +186,7 @@ public class Hospital_Status_Edit extends AppCompatActivity {
 
     private void loadCurrentStatus() {
         if (userId == null) {
-            Toast.makeText(this, "User not authenticated", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.user_not_authenticated), Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -217,14 +217,14 @@ public class Hospital_Status_Edit extends AppCompatActivity {
                     }
                 })
                 .addOnFailureListener(e -> {
-                    Toast.makeText(this, "Failed to load current status: " + e.getMessage(), 
+                    Toast.makeText(this, getString(R.string.failed_load_data), 
                                  Toast.LENGTH_SHORT).show();
                 });
     }
 
     private void saveHospitalStatus() {
         if (userId == null) {
-            Toast.makeText(this, "User not authenticated", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.user_not_authenticated), Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -234,7 +234,7 @@ public class Hospital_Status_Edit extends AppCompatActivity {
         String doctorsAvailableStr = etDoctorsAvailable.getText().toString();
 
         if (totalBedsStr.isEmpty() || availableBedsStr.isEmpty() || doctorsAvailableStr.isEmpty()) {
-            Toast.makeText(this, "Please fill in all fields", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.please_fill_all_fields), Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -245,22 +245,22 @@ public class Hospital_Status_Edit extends AppCompatActivity {
 
             // Validate the data
             if (totalBeds <= 0) {
-                Toast.makeText(this, "Total beds must be greater than 0", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.total_beds_greater_than_zero), Toast.LENGTH_SHORT).show();
                 return;
             }
             
             if (availableBeds < 0) {
-                Toast.makeText(this, "Available beds cannot be negative", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.available_beds_cannot_be_negative), Toast.LENGTH_SHORT).show();
                 return;
             }
             
             if (availableBeds > totalBeds) {
-                Toast.makeText(this, "Available beds cannot exceed total beds", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.available_beds_cannot_exceed_total), Toast.LENGTH_SHORT).show();
                 return;
             }
             
             if (doctorsAvailable <= 0) {
-                Toast.makeText(this, "Doctors available must be greater than 0", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.doctors_available_greater_than_zero), Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -289,18 +289,18 @@ public class Hospital_Status_Edit extends AppCompatActivity {
                     .document(userId)
                     .update(statusData)
                     .addOnSuccessListener(aVoid -> {
-                        String statusMessage = "Hospital status updated successfully!\nStatus: " + 
+                        String statusMessage = getString(R.string.hospital_status_updated_successfully) + "\n" + getString(R.string.status_label) + " " + 
                                              getStatusEmoji(status) + " " + status.toUpperCase();
                         Toast.makeText(this, statusMessage, Toast.LENGTH_LONG).show();
                         finish();
                     })
                     .addOnFailureListener(e -> {
-                        Toast.makeText(this, "Failed to update status: " + e.getMessage(), 
+                        Toast.makeText(this, getString(R.string.failed_to_update_status), 
                                      Toast.LENGTH_SHORT).show();
                     });
 
         } catch (NumberFormatException e) {
-            Toast.makeText(this, "Please enter valid numbers", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.enter_valid_numbers), Toast.LENGTH_SHORT).show();
         }
     }
 }

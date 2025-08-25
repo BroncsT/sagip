@@ -10,7 +10,7 @@
         android:id="@+id/labelProfile"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Senior Citizen List Information"
+        android:text="@string/senior_citizen_list_information"
         android:textAlignment="center"
         android:textSize="20sp"
         android:textStyle="bold"

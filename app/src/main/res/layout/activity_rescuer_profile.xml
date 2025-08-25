@@ -92,6 +92,7 @@
             android:orientation="vertical">
 
             <TextView
+                android:id="@+id/accountSettingsTitle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="@color/lightRed"
@@ -114,7 +115,7 @@
                     android:src="@drawable/ic_number" />
 
                 <TextView
-                    android:id="@+id/gotoupdate"
+                    android:id="@+id/changeInfoText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="16dp"
@@ -146,11 +147,41 @@
                     android:src="@drawable/ic_notification" />
 
                 <TextView
+                    android:id="@+id/notificationSettingsText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="16dp"
                     android:text="@string/notification_settings"
                     android:textSize="16sp" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#E0E0E0" />
+
+            <LinearLayout
+                android:id="@+id/languageSelectionLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="16dp">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_language" />
+
+                <TextView
+                    android:id="@+id/languageSelectionText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:text="@string/select_language"
+                    android:textSize="16sp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?android:attr/selectableItemBackground" />
             </LinearLayout>
         </LinearLayout>
 
@@ -175,6 +206,7 @@
             android:orientation="vertical">
 
             <TextView
+                android:id="@+id/moreOptionsTitle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="@color/lightRed"
@@ -197,6 +229,7 @@
                     android:src="@drawable/ic_help" />
 
                 <TextView
+                    android:id="@+id/helpSupportText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="16dp"
@@ -222,6 +255,7 @@
                     android:src="@drawable/ic_logout" />
 
                 <TextView
+                    android:id="@+id/logoutText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="16dp"

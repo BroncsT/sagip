@@ -40,7 +40,7 @@ public class HospitalAdapter extends RecyclerView.Adapter<HospitalAdapter.Hospit
         if (hospital.getHospitalAddress() != null) {
             holder.hospitalAddressTextView.setText(hospital.getHospitalAddress());
         } else {
-            holder.hospitalAddressTextView.setText("Address not available");
+            holder.hospitalAddressTextView.setText(context.getString(R.string.address_not_available));
         }
         
         // Set status information (automatically calculated)
@@ -51,24 +51,24 @@ public class HospitalAdapter extends RecyclerView.Adapter<HospitalAdapter.Hospit
             holder.hospitalStatusTextView.setText(statusText);
             holder.hospitalStatusTextView.setTextColor(hospital.getStatusColor());
         } else {
-            holder.hospitalStatusTextView.setText("⚪ Status not available");
+            holder.hospitalStatusTextView.setText(context.getString(R.string.status_not_available));
             holder.hospitalStatusTextView.setTextColor(0xFF9E9E9E);
         }
         
         // Set bed information
         if (hospital.getAvailableBeds() != null && hospital.getTotalBeds() != null) {
-            String bedInfo = "Beds: " + hospital.getAvailableBeds() + "/" + hospital.getTotalBeds();
+            String bedInfo = context.getString(R.string.beds_info, hospital.getAvailableBeds(), hospital.getTotalBeds());
             holder.hospitalBedInfoTextView.setText(bedInfo);
         } else {
-            holder.hospitalBedInfoTextView.setText("Bed info not available");
+            holder.hospitalBedInfoTextView.setText(context.getString(R.string.bed_info_not_available));
         }
         
         // Set doctors information
         if (hospital.getDoctorsAvailable() != null) {
-            String doctorInfo = "Doctors: " + hospital.getDoctorsAvailable();
+            String doctorInfo = context.getString(R.string.doctors_info, hospital.getDoctorsAvailable());
             holder.hospitalDoctorInfoTextView.setText(doctorInfo);
         } else {
-            holder.hospitalDoctorInfoTextView.setText("Doctor info not available");
+            holder.hospitalDoctorInfoTextView.setText(context.getString(R.string.doctor_info_not_available));
         }
     }
 

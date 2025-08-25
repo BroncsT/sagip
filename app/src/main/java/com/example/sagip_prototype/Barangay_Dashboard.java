@@ -71,6 +71,11 @@ public class Barangay_Dashboard extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
+        
+        // Apply saved language preference
+        String savedLanguage = LanguageSelectionActivity.getSavedLanguage(this);
+        LanguageSelectionActivity.setAppLanguage(this, savedLanguage);
+        
         setContentView(R.layout.activity_barangay_dashboard);
 
         sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
@@ -216,7 +221,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
                                     if (firstName != null) {
                                         brgyName.setText(firstName);
                                     } else {
-                                        brgyName.setText("Rescue Group Not Available");
+                                        brgyName.setText(getString(R.string.rescue_group_not_available));
                                     }
                                 }
 
@@ -229,7 +234,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
                                 }
                             } else {
                                 Toast.makeText(Barangay_Dashboard.this,
-                                        "User document does not exist",
+                                        getString(R.string.user_document_not_exist),
                                         Toast.LENGTH_SHORT).show();
 
                                 // Clear stored credentials and redirect to login
@@ -239,7 +244,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
                         } else {
                             // Handle network errors gracefully - don't log out on temporary failures
                             Toast.makeText(Barangay_Dashboard.this,
-                                    "Unable to load user data. Check your internet connection.",
+                                    getString(R.string.unable_load_user_data),
                                     Toast.LENGTH_SHORT).show();
 
                             // Only log out if it's an authentication error
@@ -281,7 +286,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
                 startLocationUpdates();
             } else {
                 // Permission denied, show a message
-                Toast.makeText(this, "Location permission denied. Unable to update location.",
+                Toast.makeText(this, getString(R.string.location_permission_denied),
                         Toast.LENGTH_LONG).show();
             }
         }
@@ -406,7 +411,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
 
     private void navigateToNearestHospital() {
         if (currentLat == 0.0 && currentLong == 0.0) {
-            Toast.makeText(this, "Current location not available. Please wait or check permissions.",
+            Toast.makeText(this, getString(R.string.current_location_not_available),
                     Toast.LENGTH_SHORT).show();
             return;
         }

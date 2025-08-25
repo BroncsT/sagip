@@ -17,7 +17,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 
-public class Hospital_Profile extends AppCompatActivity {
+public class Hospital_Profile extends BaseProfileActivity {
 
     private static final String PREF_NAME = "SagipAppPrefs";
     private static final String KEY_USER_ID = "userId";
@@ -40,6 +40,9 @@ public class Hospital_Profile extends AppCompatActivity {
 
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
+
+        // Add language selection functionality
+        addLanguageSelectionToLayout();
 
         LinearLayout UpdateProfile = findViewById(R.id.gotoupdate);
         TextView hospitalProfile = findViewById(R.id.profileName);
@@ -139,4 +142,32 @@ public class Hospital_Profile extends AppCompatActivity {
         });
     }
 
+    @Override
+    protected void updateSpecificProfileElements() {
+        // Update profile-specific UI elements
+        TextView accountSettingsTitle = findViewById(R.id.accountSettingsTitle);
+        if (accountSettingsTitle != null) {
+            accountSettingsTitle.setText(getString(R.string.account_settings));
+        }
+
+        TextView changeInfoText = findViewById(R.id.changeInfoText);
+        if (changeInfoText != null) {
+            changeInfoText.setText(getString(R.string.change_Info));
+        }
+
+        TextView moreOptionsTitle = findViewById(R.id.moreOptionsTitle);
+        if (moreOptionsTitle != null) {
+            moreOptionsTitle.setText(getString(R.string.more_options));
+        }
+
+        TextView helpSupportText = findViewById(R.id.helpSupportText);
+        if (helpSupportText != null) {
+            helpSupportText.setText(getString(R.string.help_support));
+        }
+
+        TextView logoutText = findViewById(R.id.logoutText);
+        if (logoutText != null) {
+            logoutText.setText(getString(R.string.logout));
+        }
+    }
 }

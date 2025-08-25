@@ -66,6 +66,27 @@
                 android:textSize="18sp"/>
         </LinearLayout>
 
+        <!-- Language Selection -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp"
+            android:gravity="end">
+
+            <TextView
+                android:id="@+id/languageSelectionText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/select_language"
+                android:textColor="#3E69E0"
+                android:textSize="14sp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground"
+                android:padding="8dp" />
+        </LinearLayout>
+
         <!-- Login Method Toggle -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
@@ -90,7 +111,7 @@
                     android:layout_weight="1"
                     android:background="@drawable/tab_selector"
                     android:gravity="center"
-                    android:text="Phone"
+                    android:text="@string/phone"
                     android:textColor="#3E69E0"
                     android:textSize="14sp"
                     android:textStyle="bold"
@@ -104,7 +125,7 @@
                     android:layout_weight="1"
                     android:background="@drawable/tab_selector"
                     android:gravity="center"
-                    android:text="Email"
+                    android:text="@string/email"
                     android:textColor="#999999"
                     android:textSize="14sp"
                     android:clickable="true"
@@ -202,7 +223,7 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:background="@null"
-                        android:hint="Email address"
+                        android:hint="@string/email_address"
                         android:inputType="textEmailAddress"
                         android:textColor="#333333"
                         android:textSize="16sp" />
@@ -239,7 +260,7 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:background="@null"
-                        android:hint="Password"
+                        android:hint="@string/password"
                         android:inputType="textPassword"
                         android:textColor="#333333"
                         android:textSize="16sp" />
@@ -259,19 +280,25 @@
             </com.google.android.material.card.MaterialCardView>
 
             <!-- Forgot Password -->
-            <TextView
-                android:id="@+id/forgotPasswordText"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_gravity="end"
+                android:orientation="horizontal"
                 android:layout_marginTop="12dp"
-                android:text="Forgot Password?"
-                android:textColor="#3E69E0"
-                android:textSize="14sp"
-                android:clickable="true"
-                android:focusable="true"
-                android:background="?android:attr/selectableItemBackground"
-                android:padding="8dp" />
+                android:gravity="end">
+
+                <TextView
+                    android:id="@+id/forgotPasswordText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/forgot_password"
+                    android:textColor="#3E69E0"
+                    android:textSize="14sp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?android:attr/selectableItemBackground"
+                    android:padding="8dp" />
+            </LinearLayout>
         </LinearLayout>
 
         <TextView
@@ -327,10 +354,12 @@
                     android:orientation="vertical">
 
                     <TextView
+                        android:id="@+id/senior_title"
                         style="@style/FeatureTitleStyle"
                         android:text="@string/senior_title" />
 
                     <TextView
+                        android:id="@+id/senior_description"
                         style="@style/FeatureDescriptionStyle"
                         android:text="@string/senior_description" />
                 </LinearLayout>
@@ -364,10 +393,12 @@
                         android:orientation="vertical">
 
                         <TextView
+                            android:id="@+id/barangay_title"
                             style="@style/FeatureTitleStyle"
                             android:text="@string/barangay_title" />
 
                         <TextView
+                            android:id="@+id/barangay_description"
                             style="@style/FeatureDescriptionStyle"
                             android:text="@string/barangay_description" />
                     </LinearLayout>
@@ -395,10 +426,12 @@
                         android:orientation="vertical">
 
                         <TextView
+                            android:id="@+id/rescue_title"
                             style="@style/FeatureTitleStyle"
                             android:text="@string/rescue_title" />
 
                         <TextView
+                            android:id="@+id/rescue_description"
                             style="@style/FeatureDescriptionStyle"
                             android:text="@string/rescue_description" />
                     </LinearLayout>
@@ -426,10 +459,12 @@
                         android:orientation="vertical">
 
                         <TextView
+                            android:id="@+id/hospital_title"
                             style="@style/FeatureTitleStyle"
                             android:text="@string/hospital_title" />
 
                         <TextView
+                            android:id="@+id/hospital_description"
                             style="@style/FeatureDescriptionStyle"
                             android:text="@string/hospital_description" />
                     </LinearLayout>

@@ -67,6 +67,10 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
 
+        // Apply saved language preference
+        String savedLanguage = LanguageSelectionActivity.getSavedLanguage(this);
+        LanguageSelectionActivity.setAppLanguage(this, savedLanguage);
+
         auth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
         sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
@@ -182,6 +186,14 @@ public class MainActivity extends AppCompatActivity {
         passwordInput = findViewById(R.id.passwordInput);
         emailLoginButton = findViewById(R.id.login_btn); // Same button for both modes
 
+        // Setup language selection (now available in both modes)
+        TextView languageSelectionText = findViewById(R.id.languageSelectionText);
+        if (languageSelectionText != null) {
+            languageSelectionText.setOnClickListener(v -> {
+                showLanguageSelectionDialog();
+            });
+        }
+
         // Set up tab click listeners
         phoneTabButton.setOnClickListener(v -> {
             showPhoneLogin();
@@ -217,9 +229,9 @@ public class MainActivity extends AppCompatActivity {
         phoneErrorTextView.setVisibility(View.GONE);
 
         // Update button text and prompt
-        phoneLoginButton.setText("Continue");
+        phoneLoginButton.setText(getString(R.string.continue_button_text));
         TextView loginPrompt = findViewById(R.id.loginPromptText);
-        loginPrompt.setText("Enter your mobile number to continue");
+        loginPrompt.setText(getString(R.string.enter_mobile_continue));
     }
 
     private void showEmailLogin() {
@@ -228,9 +240,9 @@ public class MainActivity extends AppCompatActivity {
         emailLoginLayout.setVisibility(View.VISIBLE);
 
         // Update button text and prompt
-        phoneLoginButton.setText("Login with Email");
+        phoneLoginButton.setText(getString(R.string.login_with_email));
         TextView loginPrompt = findViewById(R.id.loginPromptText);
-        loginPrompt.setText("Enter your email and password");
+        loginPrompt.setText(getString(R.string.enter_email_password));
     }
 
     private void setupPhoneLogin() {
@@ -247,7 +259,7 @@ public class MainActivity extends AppCompatActivity {
                         checkUserExistsByPhoneNumber("+63" + number);
                     } else {
                         phoneErrorTextView.setVisibility(View.VISIBLE);
-                        phoneErrorTextView.setText("Please enter a valid 10-digit mobile number");
+                        phoneErrorTextView.setText(getString(R.string.valid_mobile_error));
                         Log.e(TAG, "Invalid phone number entered: " + number);
                     }
                 } else {
@@ -258,7 +270,7 @@ public class MainActivity extends AppCompatActivity {
                     if (!email.isEmpty() && !password.isEmpty()) {
                         loginWithEmail(email, password);
                     } else {
-                        Toast.makeText(MainActivity.this, "Please enter email and password", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(MainActivity.this, getString(R.string.please_enter_email_password), Toast.LENGTH_SHORT).show();
                     }
                 }
             }
@@ -285,16 +297,18 @@ public class MainActivity extends AppCompatActivity {
                 showForgotPasswordDialog();
             });
         }
+
+
     }
 
     private void showForgotPasswordDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Reset Password");
-        builder.setMessage("Enter your email address to receive a password reset link:");
+        builder.setTitle(getString(R.string.reset_password));
+        builder.setMessage(getString(R.string.enter_email_for_reset));
 
         // Create an EditText for email input
         final EditText emailEditText = new EditText(this);
-        emailEditText.setHint("Enter your email");
+        emailEditText.setHint(getString(R.string.email_hint));
         emailEditText.setInputType(android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
 
         // Add some padding to the EditText
@@ -303,19 +317,19 @@ public class MainActivity extends AppCompatActivity {
 
         builder.setView(emailEditText);
 
-        builder.setPositiveButton("Send Reset Link", new DialogInterface.OnClickListener() {
+        builder.setPositiveButton(getString(R.string.send_reset_link), new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
                 String email = emailEditText.getText().toString().trim();
                 if (isValidEmail(email)) {
                     sendPasswordResetEmail(email);
                 } else {
-                    Toast.makeText(MainActivity.this, "Please enter a valid email address", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(MainActivity.this, getString(R.string.please_enter_valid_email), Toast.LENGTH_SHORT).show();
                 }
             }
         });
 
-        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+        builder.setNegativeButton(getString(R.string.cancel), new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
                 dialog.dismiss();
@@ -357,13 +371,11 @@ public class MainActivity extends AppCompatActivity {
 
     private void showPasswordResetSuccessDialog(String email) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Password Reset Email Sent");
-        builder.setMessage("A password reset link has been sent to:\n\n" + email +
-                "\n\nPlease check your email and follow the instructions to reset your password. " +
-                "Don't forget to check your spam/junk folder if you don't see the email in your inbox.");
+        builder.setTitle(getString(R.string.password_reset_email_sent));
+        builder.setMessage(getString(R.string.password_reset_sent_message, email));
         builder.setIcon(android.R.drawable.ic_dialog_info);
 
-        builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+        builder.setPositiveButton(getString(R.string.ok), new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
                 dialog.dismiss();
@@ -383,18 +395,18 @@ public class MainActivity extends AppCompatActivity {
 
     private void showPasswordResetErrorDialog(String errorMessage) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Password Reset Failed");
+        builder.setTitle(getString(R.string.password_reset_failed));
         builder.setMessage(errorMessage);
         builder.setIcon(android.R.drawable.ic_dialog_alert);
 
-        builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+        builder.setPositiveButton(getString(R.string.ok), new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
                 dialog.dismiss();
             }
         });
 
-        builder.setNegativeButton("Try Again", new DialogInterface.OnClickListener() {
+        builder.setNegativeButton(getString(R.string.try_again), new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
                 dialog.dismiss();
@@ -407,25 +419,25 @@ public class MainActivity extends AppCompatActivity {
 
     private String getPasswordResetErrorMessage(Exception exception) {
         if (exception == null) {
-            return "An unknown error occurred. Please try again.";
+            return getString(R.string.unknown_error_occurred);
         }
 
         String errorMessage = exception.getMessage();
         if (errorMessage == null) {
-            return "An unknown error occurred. Please try again.";
+            return getString(R.string.unknown_error_occurred);
         }
 
         // Handle common Firebase Auth error codes
         if (errorMessage.contains("There is no user record")) {
-            return "No account found with this email address. Please check your email or create a new account.";
+            return getString(R.string.no_account_found_email);
         } else if (errorMessage.contains("The email address is badly formatted")) {
-            return "Please enter a valid email address.";
+            return getString(R.string.please_enter_valid_email);
         } else if (errorMessage.contains("too-many-requests")) {
-            return "Too many requests. Please wait a moment before trying again.";
+            return getString(R.string.too_many_requests);
         } else if (errorMessage.contains("network-request-failed")) {
-            return "Network error. Please check your internet connection and try again.";
+            return getString(R.string.network_error_check_connection);
         } else {
-            return "Failed to send password reset email. Please try again or contact support if the problem persists.";
+            return getString(R.string.failed_send_password_reset);
         }
     }
 
@@ -518,17 +530,27 @@ public class MainActivity extends AppCompatActivity {
                             if (!task.getResult().isEmpty()) {
                                 for (QueryDocumentSnapshot document : task.getResult()) {
                                     String status = document.getString("status");
-                                    if (status != null && status.equals("approved")) {
-                                        // Save user credentials before redirecting
+                                    // Only require approval for senior citizens
+                                    if (userTypes[index].equals("seniors")) {
+                                        if (status != null && status.equals("approved")) {
+                                            // Save user credentials before redirecting
+                                            FirebaseUser currentUser = auth.getCurrentUser();
+                                            if (currentUser != null) {
+                                                saveUserCredentials(currentUser.getUid(), userTypes[index], phoneNumber);
+                                            }
+                                            redirectToUserDashboard(userTypes[index]);
+                                        } else {
+                                            showPendingApprovalMessage();
+                                            auth.signOut();
+                                            clearStoredCredentials();
+                                        }
+                                    } else {
+                                        // For non-senior users, allow login regardless of status
                                         FirebaseUser currentUser = auth.getCurrentUser();
                                         if (currentUser != null) {
                                             saveUserCredentials(currentUser.getUid(), userTypes[index], phoneNumber);
                                         }
                                         redirectToUserDashboard(userTypes[index]);
-                                    } else {
-                                        showPendingApprovalMessage();
-                                        auth.signOut();
-                                        clearStoredCredentials();
                                     }
                                     return;
                                 }
@@ -560,17 +582,27 @@ public class MainActivity extends AppCompatActivity {
                 .addOnSuccessListener(document -> {
                     if (document.exists()) {
                         String status = document.getString("status");
-                        if (status != null && status.equals("approved")) {
-                            // Save user credentials before redirecting
+                        // Only require approval for senior citizens
+                        if (userTypes[index].equals("seniors")) {
+                            if (status != null && status.equals("approved")) {
+                                // Save user credentials before redirecting
+                                FirebaseUser currentUser = auth.getCurrentUser();
+                                if (currentUser != null) {
+                                    saveUserCredentials(uid, userTypes[index], currentUser.getEmail());
+                                }
+                                redirectToUserDashboard(userTypes[index]);
+                            } else {
+                                showPendingApprovalMessage();
+                                auth.signOut();
+                                clearStoredCredentials();
+                            }
+                        } else {
+                            // For non-senior users, allow login regardless of status
                             FirebaseUser currentUser = auth.getCurrentUser();
                             if (currentUser != null) {
                                 saveUserCredentials(uid, userTypes[index], currentUser.getEmail());
                             }
                             redirectToUserDashboard(userTypes[index]);
-                        } else {
-                            showPendingApprovalMessage();
-                            auth.signOut();
-                            clearStoredCredentials();
                         }
                     } else {
                         checkAuthenticatedUserTypeByUID(uid, userTypes, index + 1);
@@ -631,11 +663,18 @@ public class MainActivity extends AppCompatActivity {
                             if (!task.getResult().isEmpty()) {
                                 for (QueryDocumentSnapshot document : task.getResult()) {
                                     String status = document.getString("status");
-                                    if (status != null && status.equals("approved")) {
+                                    // Only require approval for senior citizens
+                                    if (userTypes[index].equals("seniors")) {
+                                        if (status != null && status.equals("approved")) {
+                                            String plainNumber = formattedNumber.substring(3);
+                                            sendOtp(plainNumber, false);
+                                        } else {
+                                            showPendingApprovalMessage();
+                                        }
+                                    } else {
+                                        // For non-senior users, allow login regardless of status
                                         String plainNumber = formattedNumber.substring(3);
                                         sendOtp(plainNumber, false);
-                                    } else {
-                                        showPendingApprovalMessage();
                                     }
                                     return;
                                 }
@@ -652,8 +691,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void showPendingApprovalMessage() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Account Pending Approval")
-                .setMessage("Your account is registered but pending administrator approval. Please try again later.")
+        builder.setTitle("Senior Citizen Account Pending Approval")
+                .setMessage("Your Senior Citizen account is registered but pending administrator approval. Please try again later.")
                 .setPositiveButton("OK", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
@@ -710,5 +749,145 @@ public class MainActivity extends AppCompatActivity {
                 phoneLoginButton.setEnabled(true);
             }
         }
+    }
+
+    private void showLanguageSelectionDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(getString(R.string.language_selection));
+        
+        String[] languages = {getString(R.string.english), getString(R.string.filipino)};
+        String currentLanguage = LanguageSelectionActivity.getSavedLanguage(this);
+        int currentIndex = currentLanguage.equals("tl") ? 1 : 0;
+        
+        builder.setSingleChoiceItems(languages, currentIndex, (dialog, which) -> {
+            String selectedLanguage = (which == 0) ? "en" : "tl";
+            LanguageSelectionActivity.setAppLanguage(this, selectedLanguage);
+            LanguageSelectionActivity.saveLanguagePreference(this, selectedLanguage);
+            
+            // Update UI elements without recreating the activity
+            updateUILanguage();
+            
+            dialog.dismiss();
+        });
+        
+        builder.setNegativeButton(getString(R.string.cancel), (dialog, which) -> dialog.dismiss());
+        builder.show();
+    }
+
+    private void updateUILanguage() {
+        // Update all text elements with new language
+        TextView loginPromptText = findViewById(R.id.loginPromptText);
+        if (loginPromptText != null) {
+            if (isPhoneLoginMode) {
+                loginPromptText.setText(getString(R.string.enter_mobile_continue));
+            } else {
+                loginPromptText.setText(getString(R.string.enter_email_password));
+            }
+        }
+
+        // Update tab buttons
+        TextView phoneTabButton = findViewById(R.id.phoneTabButton);
+        TextView emailTabButton = findViewById(R.id.emailTabButton);
+        if (phoneTabButton != null) {
+            phoneTabButton.setText(getString(R.string.phone));
+        }
+        if (emailTabButton != null) {
+            emailTabButton.setText(getString(R.string.email));
+        }
+
+        // Update language selection text
+        TextView languageSelectionText = findViewById(R.id.languageSelectionText);
+        if (languageSelectionText != null) {
+            languageSelectionText.setText(getString(R.string.select_language));
+        }
+
+        // Update forgot password text
+        TextView forgotPasswordText = findViewById(R.id.forgotPasswordText);
+        if (forgotPasswordText != null) {
+            forgotPasswordText.setText(getString(R.string.forgot_password));
+        }
+
+        // Update login button text
+        if (phoneLoginButton != null) {
+            if (isPhoneLoginMode) {
+                phoneLoginButton.setText(getString(R.string.continue_button_text));
+            } else {
+                phoneLoginButton.setText(getString(R.string.login_with_email));
+            }
+        }
+
+        // Update input hints
+        EditText userNumber = findViewById(R.id.user_number);
+        if (userNumber != null) {
+            userNumber.setHint(getString(R.string.mobile_hint));
+        }
+
+        EditText emailInput = findViewById(R.id.emailInput);
+        if (emailInput != null) {
+            emailInput.setHint(getString(R.string.email_address));
+        }
+
+        EditText passwordInput = findViewById(R.id.passwordInput);
+        if (passwordInput != null) {
+            passwordInput.setHint(getString(R.string.password));
+        }
+
+        // Update error text
+        TextView errorTextView = findViewById(R.id.errorTextView);
+        if (errorTextView != null && errorTextView.getVisibility() == View.VISIBLE) {
+            errorTextView.setText(getString(R.string.valid_mobile_error));
+        }
+
+        // Update registration cards
+        updateRegistrationCards();
+    }
+
+    private void updateRegistrationCards() {
+        // Update Senior Citizen card
+        TextView seniorTitle = findViewById(R.id.senior_title);
+        if (seniorTitle != null) {
+            seniorTitle.setText(getString(R.string.senior_title));
+        }
+        TextView seniorDescription = findViewById(R.id.senior_description);
+        if (seniorDescription != null) {
+            seniorDescription.setText(getString(R.string.senior_description));
+        }
+
+        // Update Barangay card
+        TextView barangayTitle = findViewById(R.id.barangay_title);
+        if (barangayTitle != null) {
+            barangayTitle.setText(getString(R.string.barangay_title));
+        }
+        TextView barangayDescription = findViewById(R.id.barangay_description);
+        if (barangayDescription != null) {
+            barangayDescription.setText(getString(R.string.barangay_description));
+        }
+
+        // Update Rescuer card
+        TextView rescueTitle = findViewById(R.id.rescue_title);
+        if (rescueTitle != null) {
+            rescueTitle.setText(getString(R.string.rescue_title));
+        }
+        TextView rescueDescription = findViewById(R.id.rescue_description);
+        if (rescueDescription != null) {
+            rescueDescription.setText(getString(R.string.rescue_description));
+        }
+
+        // Update Hospital card
+        TextView hospitalTitle = findViewById(R.id.hospital_title);
+        if (hospitalTitle != null) {
+            hospitalTitle.setText(getString(R.string.hospital_title));
+        }
+        TextView hospitalDescription = findViewById(R.id.hospital_description);
+        if (hospitalDescription != null) {
+            hospitalDescription.setText(getString(R.string.hospital_description));
+        }
+    }
+
+    private void saveLanguagePreference(String languageCode) {
+        SharedPreferences prefs = getSharedPreferences("AppSettings", MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putString("language", languageCode);
+        editor.apply();
     }
 }

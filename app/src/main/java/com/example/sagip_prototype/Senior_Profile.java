@@ -14,7 +14,7 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
 
-public class Senior_Profile extends AppCompatActivity {
+public class Senior_Profile extends BaseProfileActivity {
 
     FirebaseAuth mAuth;
     FirebaseFirestore db;
@@ -28,6 +28,9 @@ public class Senior_Profile extends AppCompatActivity {
 
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
+        
+        // Add language selection functionality
+        addLanguageSelectionToLayout();
 
         LinearLayout gotoupdate = findViewById(R.id.gotoupdate);
         TextView tvFullName = findViewById(R.id.seniorProfileName);
@@ -116,5 +119,39 @@ public class Senior_Profile extends AppCompatActivity {
                 })
                 .setIcon(android.R.drawable.ic_dialog_alert)
                 .show();
+    }
+
+    @Override
+    protected void updateSpecificProfileElements() {
+        // Update profile-specific UI elements
+        TextView accountSettingsTitle = findViewById(R.id.accountSettingsTitle);
+        if (accountSettingsTitle != null) {
+            accountSettingsTitle.setText(getString(R.string.account_settings));
+        }
+
+        TextView changeInfoText = findViewById(R.id.changeInfoText);
+        if (changeInfoText != null) {
+            changeInfoText.setText(getString(R.string.change_Info));
+        }
+
+        TextView notificationSettingsText = findViewById(R.id.notificationSettingsText);
+        if (notificationSettingsText != null) {
+            notificationSettingsText.setText(getString(R.string.notification_settings));
+        }
+
+        TextView moreOptionsTitle = findViewById(R.id.moreOptionsTitle);
+        if (moreOptionsTitle != null) {
+            moreOptionsTitle.setText(getString(R.string.more_options));
+        }
+
+        TextView helpSupportText = findViewById(R.id.helpSupportText);
+        if (helpSupportText != null) {
+            helpSupportText.setText(getString(R.string.help_support));
+        }
+
+        TextView logoutText = findViewById(R.id.logoutText);
+        if (logoutText != null) {
+            logoutText.setText(getString(R.string.logout));
+        }
     }
 }

@@ -46,6 +46,11 @@ public class Rescuer_Registration extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
+        
+        // Apply saved language preference
+        String savedLanguage = LanguageSelectionActivity.getSavedLanguage(this);
+        LanguageSelectionActivity.setAppLanguage(this, savedLanguage);
+        
         setContentView(R.layout.activity_rescuer_registration);
 
         mAuth = FirebaseAuth.getInstance();

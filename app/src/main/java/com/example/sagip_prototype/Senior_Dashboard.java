@@ -61,6 +61,11 @@ public class Senior_Dashboard extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
+        
+        // Apply saved language preference
+        String savedLanguage = LanguageSelectionActivity.getSavedLanguage(this);
+        LanguageSelectionActivity.setAppLanguage(this, savedLanguage);
+        
         setContentView(R.layout.activity_senior_dashboard);
 
         mAuth = FirebaseAuth.getInstance();
@@ -144,46 +149,46 @@ public class Senior_Dashboard extends AppCompatActivity {
                         // Create help request
                         createHelpRequest(seniorName, phoneNumber, uid);
 
-                        // Open MyGoogleMAp with current location instead of Google Maps
-                        openMyGoogleMapWithLocation();
+                        // Open MyOpenStreetMap with current location instead of Google Maps
+                        openMyOpenStreetMapWithLocation();
                     } else {
                         createHelpRequest("Senior User", "", uid);
-                        openMyGoogleMapWithLocation();
+                        openMyOpenStreetMapWithLocation();
                     }
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error getting user info", e);
                     createHelpRequest("Senior User", "", uid);
-                    openMyGoogleMapWithLocation();
+                    openMyOpenStreetMapWithLocation();
                 });
     }
 
-    // New method to open MyGoogleMAp with current location
-    private void openMyGoogleMapWithLocation() {
+    // New method to open MyOpenStreetMap with current location
+    private void openMyOpenStreetMapWithLocation() {
         try {
-            Intent mapIntent = new Intent(Senior_Dashboard.this, MyGoogleMAp.class);
+            Intent mapIntent = new Intent(Senior_Dashboard.this, MyOpenStreetMap.class);
 
-            // Pass current location data to MyGoogleMAp
+            // Pass current location data to MyOpenStreetMap
             mapIntent.putExtra("latitude", currentLat);
             mapIntent.putExtra("longitude", currentLong);
             mapIntent.putExtra("locationAddress", currentLocationAddress);
             mapIntent.putExtra("isEmergency", true);
 
             startActivity(mapIntent);
-            Log.d(TAG, "Opened MyGoogleMAp with current location");
+            Log.d(TAG, "Opened MyOpenStreetMap with current location");
 
         } catch (Exception e) {
-            Log.e(TAG, "Error opening MyGoogleMAp", e);
+            Log.e(TAG, "Error opening MyOpenStreetMap", e);
             Toast.makeText(this, "Error opening map", Toast.LENGTH_SHORT).show();
         }
     }
 
-    // New method to open MyGoogleMAp in tracking mode
-    private void openMyGoogleMapWithTracking(String helpRequestId) {
+    // New method to open MyOpenStreetMap in tracking mode
+    private void openMyOpenStreetMapWithTracking(String helpRequestId) {
         try {
-            Intent mapIntent = new Intent(Senior_Dashboard.this, MyGoogleMAp.class);
+            Intent mapIntent = new Intent(Senior_Dashboard.this, MyOpenStreetMap.class);
 
-            // Pass current location data to MyGoogleMAp
+            // Pass current location data to MyOpenStreetMap
             mapIntent.putExtra("latitude", currentLat);
             mapIntent.putExtra("longitude", currentLong);
             mapIntent.putExtra("locationAddress", currentLocationAddress);
@@ -192,10 +197,10 @@ public class Senior_Dashboard extends AppCompatActivity {
             mapIntent.putExtra("seniorName", tvFullName.getText().toString());
 
             startActivity(mapIntent);
-            Log.d(TAG, "Opened MyGoogleMAp in tracking mode with help request ID: " + helpRequestId);
+            Log.d(TAG, "Opened MyOpenStreetMap in tracking mode with help request ID: " + helpRequestId);
 
         } catch (Exception e) {
-            Log.e(TAG, "Error opening MyGoogleMAp in tracking mode", e);
+            Log.e(TAG, "Error opening MyOpenStreetMap in tracking mode", e);
             Toast.makeText(this, "Error opening map", Toast.LENGTH_SHORT).show();
         }
     }
@@ -226,7 +231,7 @@ public class Senior_Dashboard extends AppCompatActivity {
                     notifyAllRescuers(helpRequest, requestId);
 
                                          // Open map in tracking mode with the help request ID
-                     openMyGoogleMapWithTracking(requestId);
+                     openMyOpenStreetMapWithTracking(requestId);
 
                     Toast.makeText(this, "Help request sent to rescuers!", Toast.LENGTH_LONG).show();
                 })

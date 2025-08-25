@@ -17,7 +17,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Update Emergency Room Status"
+            android:text="@string/update_emergency_room_status"
             android:textAlignment="center"
             android:textColor="@color/black"
             android:textSize="24sp"
@@ -41,7 +41,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Hospital Name"
+                    android:text="@string/hospital_name"
                     android:textColor="#666666"
                     android:textSize="14sp" />
 
@@ -49,7 +49,7 @@
                     android:id="@+id/tvHospitalName"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Loading..."
+                    android:text="@string/loading"
                     android:textColor="@color/black"
                     android:textSize="18sp"
                     android:textStyle="bold"
@@ -75,7 +75,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Bed Information"
+                    android:text="@string/bed_information"
                     android:textColor="@color/black"
                     android:textSize="18sp"
                     android:textStyle="bold"
@@ -86,7 +86,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="12dp"
-                    android:hint="Total ER Beds"
+                    android:hint="@string/total_er_beds"
                     app:boxCornerRadiusBottomEnd="8dp"
                     app:boxCornerRadiusBottomStart="8dp"
                     app:boxCornerRadiusTopEnd="8dp"
@@ -107,7 +107,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="12dp"
-                    android:hint="Available ER Beds"
+                    android:hint="@string/available_er_beds"
                     app:boxCornerRadiusBottomEnd="8dp"
                     app:boxCornerRadiusBottomStart="8dp"
                     app:boxCornerRadiusTopEnd="8dp"
@@ -127,7 +127,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Doctors Available"
+                    android:hint="@string/doctors_available"
                     app:boxCornerRadiusBottomEnd="8dp"
                     app:boxCornerRadiusBottomStart="8dp"
                     app:boxCornerRadiusTopEnd="8dp"
@@ -163,7 +163,7 @@
                  <TextView
                      android:layout_width="match_parent"
                      android:layout_height="wrap_content"
-                     android:text="Automatic Status Calculation"
+                     android:text="@string/automatic_status_calculation"
                      android:textColor="@color/black"
                      android:textSize="18sp"
                      android:textStyle="bold"
@@ -172,7 +172,7 @@
                  <TextView
                      android:layout_width="match_parent"
                      android:layout_height="wrap_content"
-                     android:text="Status is automatically calculated based on bed availability and doctor count."
+                     android:text="@string/status_auto_calculated"
                      android:textColor="#666666"
                      android:textSize="14sp"
                      android:layout_marginBottom="16dp" />
@@ -180,7 +180,7 @@
                  <TextView
                      android:layout_width="match_parent"
                      android:layout_height="wrap_content"
-                     android:text="Current Status:"
+                     android:text="@string/current_status"
                      android:textColor="@color/black"
                      android:textSize="16sp"
                      android:textStyle="bold"
@@ -190,7 +190,7 @@
                      android:id="@+id/tvAutoStatus"
                      android:layout_width="match_parent"
                      android:layout_height="wrap_content"
-                     android:text="⚪ Enter bed and doctor information"
+                     android:text="@string/enter_bed_doctor_info"
                      android:textAlignment="center"
                      android:textColor="#9E9E9E"
                      android:textSize="20sp"
@@ -202,7 +202,7 @@
                  <TextView
                      android:layout_width="match_parent"
                      android:layout_height="wrap_content"
-                     android:text="🟢 Available: Good capacity and staff ratio\n🟡 Busy: High capacity or limited staff\n🔴 Crowded: At or near capacity"
+                     android:text="@string/status_legend"
                      android:textColor="#666666"
                      android:textSize="12sp"
                      android:lineSpacingExtra="4dp" />
@@ -224,7 +224,7 @@
                 android:layout_marginEnd="8dp"
                 android:layout_weight="1"
                 android:backgroundTint="#9E9E9E"
-                android:text="Cancel"
+                android:text="@string/cancel"
                 android:textColor="@android:color/white" />
 
             <Button
@@ -234,7 +234,7 @@
                 android:layout_marginStart="8dp"
                 android:layout_weight="1"
                 android:backgroundTint="#4CAF50"
-                android:text="Save Status"
+                android:text="@string/save_status"
                 android:textColor="@android:color/white" />
 
         </LinearLayout>

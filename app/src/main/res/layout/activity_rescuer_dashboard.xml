@@ -45,7 +45,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Welcome Back!"
+                        android:text="@string/welcome_back"
                         android:textSize="14sp"
                         android:textColor="@color/gray"/>
 
@@ -53,7 +53,7 @@
                         android:id="@+id/barangayStaffName"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Rescuer Name"
+                        android:text="@string/rescuer_name"
                         android:textSize="20sp"
                         android:textStyle="bold"
                         android:textColor="@color/dark_blue"/>
@@ -74,7 +74,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="📍 Current Location"
+                    android:text="@string/current_location"
                     android:textSize="16sp"
                     android:textStyle="bold"
                     android:textColor="@color/dark_blue"
@@ -84,7 +84,7 @@
                     android:id="@+id/currentLocationValue"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Getting location..."
+                    android:text="@string/getting_location"
                     android:textSize="14sp"
                     android:textColor="@color/gray"/>
 
@@ -103,7 +103,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="🗺️ Location Map"
+                    android:text="@string/location_map"
                     android:textSize="16sp"
                     android:textStyle="bold"
                     android:textColor="@color/dark_blue"
@@ -113,7 +113,7 @@
                     android:id="@+id/toggleMapButton"
                     android:layout_width="wrap_content"
                     android:layout_height="40dp"
-                    android:text="Show Map"
+                    android:text="@string/show_map"
                     android:textSize="14sp"
                     android:textColor="@color/white"
                     android:background="@drawable/button_background"
@@ -129,9 +129,8 @@
                 app:cardCornerRadius="12dp"
                 app:cardElevation="4dp">
 
-                <fragment
+                <org.osmdroid.views.MapView
                     android:id="@+id/mapFragment"
-                    android:name="com.google.android.gms.maps.SupportMapFragment"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent" />
 
@@ -149,7 +148,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="🚨 Emergency Status"
+                    android:text="@string/emergency_status"
                     android:textSize="16sp"
                     android:textStyle="bold"
                     android:textColor="@color/white"
@@ -158,7 +157,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Ready to respond to emergency calls"
+                    android:text="@string/ready_to_respond"
                     android:textSize="14sp"
                     android:textColor="@color/white"
                     android:alpha="0.9"/>
@@ -166,7 +165,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="• Location tracking: ON\n• Emergency listener: ACTIVE\n• Notifications: ENABLED"
+                    android:text="@string/status_details"
                     android:textSize="12sp"
                     android:textColor="@color/white"
                     android:alpha="0.8"
@@ -186,7 +185,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="⚡ Quick Actions"
+                    android:text="@string/quick_actions"
                     android:textSize="16sp"
                     android:textStyle="bold"
                     android:textColor="@color/dark_blue"
@@ -196,7 +195,7 @@
                     android:id="@+id/navigateToHospitalButton"
                     android:layout_width="match_parent"
                     android:layout_height="50dp"
-                    android:text="🏥 Navigate to Nearest Hospital"
+                    android:text="@string/navigate_to_nearest_hospital"
                     android:textSize="16sp"
                     android:textColor="@color/white"
                     android:background="@drawable/hospital_button_background"
@@ -218,7 +217,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="ℹ️ How it works"
+                    android:text="@string/how_it_works"
                     android:textSize="16sp"
                     android:textStyle="bold"
                     android:textColor="@color/dark_blue"
@@ -227,7 +226,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="1. Keep the app open to receive emergency alerts\n2. When an emergency occurs, you'll get a notification\n3. Use the map to see emergency location and route\n4. Tap 'RESPOND NOW' to accept the emergency\n5. Use Google Maps integration for turn-by-turn directions"
+                    android:text="@string/rescuer_instructions"
                     android:textSize="14sp"
                     android:textColor="@color/gray"
                     android:lineSpacingExtra="4dp"/>

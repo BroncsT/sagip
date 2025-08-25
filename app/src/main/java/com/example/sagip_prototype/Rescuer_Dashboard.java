@@ -89,6 +89,11 @@ public class Rescuer_Dashboard extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
+        
+        // Apply saved language preference
+        String savedLanguage = LanguageSelectionActivity.getSavedLanguage(this);
+        LanguageSelectionActivity.setAppLanguage(this, savedLanguage);
+        
         setContentView(R.layout.activity_rescuer_dashboard);
 
         // Initialize SharedPreferences
@@ -219,7 +224,7 @@ public class Rescuer_Dashboard extends AppCompatActivity {
             }
             
             // Show a toast to confirm
-            Toast.makeText(this, "Emergency notification cleared", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.emergency_notification_cleared), Toast.LENGTH_SHORT).show();
             
             // Clear the intent extras to prevent repeated handling
             intent.removeExtra("notification_clicked");
@@ -433,7 +438,7 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                 .document(helpRequestId)
                 .update(updates)
                 .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(this, "✅ Response recorded - Help is on the way!", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, getString(R.string.response_recorded), Toast.LENGTH_LONG).show();
 
                     // Also update the rescuer's own document with current location for tracking
                     updateRescuerLocationForTracking();
@@ -460,7 +465,7 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error updating emergency response", e);
-                    Toast.makeText(this, "Error recording response", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, getString(R.string.error_recording_response), Toast.LENGTH_SHORT).show();
                 });
     }
 
@@ -487,9 +492,9 @@ public class Rescuer_Dashboard extends AppCompatActivity {
     private void openLocationInInternalMap(Double latitude, Double longitude, String address,
                                            String seniorName, String seniorPhone, String helpRequestId) {
         if (latitude != null && longitude != null) {
-            Intent mapIntent = new Intent(this, MyGoogleMAp.class);
+            Intent mapIntent = new Intent(this, MyOpenStreetMap.class);
 
-            // Use consistent extra names that match MyGoogleMAp expectations
+            // Use consistent extra names that match MyOpenStreetMap expectations
             mapIntent.putExtra("latitude", latitude);
             mapIntent.putExtra("longitude", longitude);
             mapIntent.putExtra("locationAddress", address);
@@ -501,7 +506,7 @@ public class Rescuer_Dashboard extends AppCompatActivity {
 
             startActivity(mapIntent);
         } else {
-            Toast.makeText(this, "Emergency location not available", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.emergency_location_not_available), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -513,12 +518,12 @@ public class Rescuer_Dashboard extends AppCompatActivity {
 
     private void openGoogleMapsNavigation(Double latitude, Double longitude, String destinationAddress) {
         if (latitude == null || longitude == null) {
-            Toast.makeText(this, "Destination location not available", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.destination_location_not_available), Toast.LENGTH_SHORT).show();
             return;
         }
 
         if (currentLat == 0.0 && currentLong == 0.0) {
-            Toast.makeText(this, "Your current location is not available yet. Please wait for location update.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, getString(R.string.current_location_not_available_wait), Toast.LENGTH_LONG).show();
             return;
         }
 
@@ -537,17 +542,17 @@ public class Rescuer_Dashboard extends AppCompatActivity {
             // Check if Google Maps is installed
             if (navigationIntent.resolveActivity(getPackageManager()) != null) {
                 startActivity(navigationIntent);
-                Toast.makeText(this, "Opening Google Maps navigation to " + destinationAddress, Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.opening_google_maps_navigation, destinationAddress), Toast.LENGTH_SHORT).show();
             } else {
                 // Fallback to web browser if Google Maps app is not installed
                 Intent webIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(navigationUrl));
                 startActivity(webIntent);
-                Toast.makeText(this, "Opening navigation in browser to " + destinationAddress, Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.opening_browser_navigation, destinationAddress), Toast.LENGTH_SHORT).show();
             }
             
         } catch (Exception e) {
             Log.e(TAG, "Error opening Google Maps navigation", e);
-            Toast.makeText(this, "Error opening navigation", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.error_opening_navigation), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -571,7 +576,7 @@ public class Rescuer_Dashboard extends AppCompatActivity {
             // Check if Google Maps is installed
             if (navigationIntent.resolveActivity(getPackageManager()) != null) {
                 startActivity(navigationIntent);
-                Toast.makeText(this, "🚗 Opening Google Maps navigation to " + seniorName, Toast.LENGTH_LONG).show();
+                Toast.makeText(this, getString(R.string.opening_google_maps_to_senior, seniorName), Toast.LENGTH_LONG).show();
                 
                 // Also show a dialog with emergency details
                 showEmergencyDetailsDialog(seniorName, seniorPhone, destinationAddress, helpRequestId);
@@ -581,12 +586,12 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                     latitude, longitude);
                 Intent webIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(webMapsUri));
                 startActivity(webIntent);
-                Toast.makeText(this, "🌐 Opening web-based navigation to " + seniorName, Toast.LENGTH_LONG).show();
+                Toast.makeText(this, getString(R.string.opening_web_navigation_to_senior, seniorName), Toast.LENGTH_LONG).show();
             }
             
         } catch (Exception e) {
             Log.e(TAG, "Error opening Google Maps navigation", e);
-            Toast.makeText(this, "Error opening navigation", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.error_opening_navigation), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -610,7 +615,7 @@ public class Rescuer_Dashboard extends AppCompatActivity {
             if (seniorPhone != null && !seniorPhone.isEmpty()) {
                 callSenior(seniorPhone);
             } else {
-                Toast.makeText(this, "Phone number not available", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.phone_number_not_available), Toast.LENGTH_SHORT).show();
             }
         });
         
@@ -674,14 +679,14 @@ public class Rescuer_Dashboard extends AppCompatActivity {
 
     private void navigateToNearestHospital() {
         if (currentLat == 0.0 && currentLong == 0.0) {
-            Toast.makeText(this, "Current location not available. Please wait or check permissions.",
+            Toast.makeText(this, getString(R.string.current_location_not_available_permissions),
                     Toast.LENGTH_SHORT).show();
             return;
         }
 
-        Intent mapIntent = new Intent(this, MyGoogleMAp.class);
+        Intent mapIntent = new Intent(this, MyOpenStreetMap.class);
 
-        // Use consistent extra names that match MyGoogleMAp expectations
+        // Use consistent extra names that match MyOpenStreetMap expectations
         mapIntent.putExtra("latitude", currentLat);
         mapIntent.putExtra("longitude", currentLong);
         mapIntent.putExtra("locationAddress", "Navigate to nearest hospital");
@@ -856,7 +861,7 @@ public class Rescuer_Dashboard extends AppCompatActivity {
     private void checkUIDBasedUserTypes(String uid, String[] userTypes, int index) {
         if (index >= userTypes.length) {
             Log.e(TAG, "User not found in any collection");
-            Toast.makeText(this, "User profile not found. Please login again.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, getString(R.string.user_profile_not_found), Toast.LENGTH_LONG).show();
             clearStoredCredentials();
             mAuth.signOut();
             navigateToLogin();
@@ -913,7 +918,7 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         if (displayName != null) {
             brgyName.setText(displayName);
         } else {
-            brgyName.setText("User Name Not Available");
+            brgyName.setText(getString(R.string.user_name_not_available));
         }
 
         // Check if there's stored location data
@@ -958,7 +963,7 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                 startLocationUpdates();
             } else {
                 // Permission denied, show a message
-                Toast.makeText(this, "Location permission denied. Unable to update location.",
+                Toast.makeText(this, getString(R.string.location_permission_denied),
                         Toast.LENGTH_LONG).show();
             }
         }
@@ -1011,7 +1016,7 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                 Log.d(TAG, "Location updates started successfully");
             } catch (Exception e) {
                 Log.e(TAG, "Error starting location updates: " + e.getMessage());
-                Toast.makeText(this, "Error starting location updates", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.error_starting_location_updates), Toast.LENGTH_SHORT).show();
             }
         }
     }

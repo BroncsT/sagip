@@ -66,6 +66,11 @@ public class Hospital_Dashboard extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
+        
+        // Apply saved language preference
+        String savedLanguage = LanguageSelectionActivity.getSavedLanguage(this);
+        LanguageSelectionActivity.setAppLanguage(this, savedLanguage);
+        
         setContentView(R.layout.activity_hospital_dashboard);
 
         // Initialize SharedPreferences
@@ -175,9 +180,9 @@ public class Hospital_Dashboard extends AppCompatActivity {
                 startLocationUpdates();
             } else {
                 // Permission denied, show a message
-                Toast.makeText(this, "Location permission denied. Unable to update location.",
+                Toast.makeText(this, getString(R.string.location_permission_denied),
                         Toast.LENGTH_LONG).show();
-                tvCurrentLocation.setText("Location: Permission denied");
+                tvCurrentLocation.setText(getString(R.string.location_permission_denied));
             }
         }
     }
@@ -222,11 +227,11 @@ public class Hospital_Dashboard extends AppCompatActivity {
     private void updateLocationDisplay(double latitude, double longitude) {
         String locationText = getAddressFromLocation(latitude, longitude);
         if (locationText != null) {
-            tvCurrentLocation.setText("Location: " + locationText);
+            tvCurrentLocation.setText(getString(R.string.location_format, locationText));
         } else {
             // Fallback to coordinates if address can't be determined
             tvCurrentLocation.setText(String.format(Locale.getDefault(),
-                    "Location: %.6f, %.6f", latitude, longitude));
+                    getString(R.string.location_format), latitude, longitude));
         }
     }
 
@@ -295,7 +300,7 @@ public class Hospital_Dashboard extends AppCompatActivity {
                 })
                 .addOnFailureListener(e -> {
                     Toast.makeText(Hospital_Dashboard.this,
-                            "Failed to update location: " + e.getMessage(),
+                            getString(R.string.error_starting_location_updates),
                             Toast.LENGTH_SHORT).show();
                 });
     }
@@ -399,7 +404,7 @@ public class Hospital_Dashboard extends AppCompatActivity {
                                  tvErStatus.setText(statusText);
                                  tvErStatus.setTextColor(getStatusColor(autoStatus));
                              } else {
-                                 tvErStatus.setText("⚪ Status not available");
+                                 tvErStatus.setText(getString(R.string.status_not_available_er));
                                  tvErStatus.setTextColor(getStatusColor("unknown"));
                              }
                          }

@@ -12,7 +12,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
 
-public class Barangay_Profile extends AppCompatActivity {
+public class Barangay_Profile extends BaseProfileActivity {
         FirebaseAuth mAuth;
 
     @Override
@@ -21,6 +21,10 @@ public class Barangay_Profile extends AppCompatActivity {
         EdgeToEdge.enable(this);
         mAuth = FirebaseAuth.getInstance();
         setContentView(R.layout.activity_barangay_profile);
+        
+        // Add language selection functionality
+        addLanguageSelectionToLayout();
+        
         TextView labelProfile = findViewById(R.id.profileName);
         TextView email = findViewById(R.id.profileEmail);
 
@@ -67,4 +71,37 @@ public class Barangay_Profile extends AppCompatActivity {
         });
     }
 
+    @Override
+    protected void updateSpecificProfileElements() {
+        // Update profile-specific UI elements
+        TextView accountSettingsTitle = findViewById(R.id.accountSettingsTitle);
+        if (accountSettingsTitle != null) {
+            accountSettingsTitle.setText(getString(R.string.account_settings));
+        }
+
+        TextView changeInfoText = findViewById(R.id.changeInfoText);
+        if (changeInfoText != null) {
+            changeInfoText.setText(getString(R.string.change_Info));
+        }
+
+        TextView notificationSettingsText = findViewById(R.id.notificationSettingsText);
+        if (notificationSettingsText != null) {
+            notificationSettingsText.setText(getString(R.string.notification_settings));
+        }
+
+        TextView moreOptionsTitle = findViewById(R.id.moreOptionsTitle);
+        if (moreOptionsTitle != null) {
+            moreOptionsTitle.setText(getString(R.string.more_options));
+        }
+
+        TextView helpSupportText = findViewById(R.id.helpSupportText);
+        if (helpSupportText != null) {
+            helpSupportText.setText(getString(R.string.help_support));
+        }
+
+        TextView logoutText = findViewById(R.id.logoutText);
+        if (logoutText != null) {
+            logoutText.setText(getString(R.string.logout));
+        }
+    }
 }

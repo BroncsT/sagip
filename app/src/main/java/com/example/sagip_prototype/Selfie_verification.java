@@ -55,7 +55,7 @@ public class Selfie_verification extends AppCompatActivity {
     private static final int GALLERY_REQUEST_CODE = 2001;
 
     Button takeSelfieButton, submitVerificationButton, manualCaptureButton;
-    ImageView selfieImageView, facePlaceholderImageView;
+    ImageView selfieImageView, facePlaceholderImageView, circularOverlay, circularBorder;
     TextView instructionsTextView, selfieStepIndicator, selfiePlaceholderText, guidelinesTitle;
     PreviewView previewView;
 
@@ -63,7 +63,8 @@ public class Selfie_verification extends AppCompatActivity {
     FirebaseAuth auth;
     FirebaseFirestore db;
 
-    private String idPhotoUrl; // To store the ID photo URL from previous screen
+    private String frontIdPhotoUrl; // To store the front ID photo URL from previous screen
+    private String backIdPhotoUrl; // To store the back ID photo URL from previous screen
     private String selfieUrl; // To store the selfie URL
     private String idType; // To store the ID type from previous screen
 
@@ -76,12 +77,17 @@ public class Selfie_verification extends AppCompatActivity {
     private boolean isGoodLighting = false;
     private boolean autoCaptureEnabled = true;
     private int faceDetectionCount = 0;
-    private static final int REQUIRED_FACE_DETECTIONS = 30; // 30 frames with good face detection
+    private static final int REQUIRED_FACE_DETECTIONS = 15; // Reduced to 15 frames for faster capture
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
+        
+        // Apply saved language preference
+        String savedLanguage = LanguageSelectionActivity.getSavedLanguage(this);
+        LanguageSelectionActivity.setAppLanguage(this, savedLanguage);
+        
         setContentView(R.layout.activity_selfie_verification);
 
         // Initialize Firebase components
@@ -89,11 +95,13 @@ public class Selfie_verification extends AppCompatActivity {
         auth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
 
-        // Get the ID photo URL and ID type from the intent
-        idPhotoUrl = getIntent().getStringExtra("idPhotoUrl");
+        // Get the ID photo URLs and ID type from the intent
+        frontIdPhotoUrl = getIntent().getStringExtra("frontIdPhotoUrl");
+        backIdPhotoUrl = getIntent().getStringExtra("backIdPhotoUrl");
         idType = getIntent().getStringExtra("idType");
-        if (idPhotoUrl == null) {
-            Toast.makeText(this, "Error: Missing ID photo information", Toast.LENGTH_SHORT).show();
+        if (frontIdPhotoUrl == null || backIdPhotoUrl == null) {
+            Toast.makeText(this, getString(R.string.error_missing_id_photo), Toast.LENGTH_SHORT).show();
+            return;
         }
 
         // Find views
@@ -107,6 +115,8 @@ public class Selfie_verification extends AppCompatActivity {
         selfiePlaceholderText = findViewById(R.id.selfiePlaceholderText);
         guidelinesTitle = findViewById(R.id.guidelinesTitle);
         previewView = findViewById(R.id.previewView);
+        circularOverlay = findViewById(R.id.circularOverlay);
+        circularBorder = findViewById(R.id.circularBorder);
 
         // Initially disable submit button until selfie is taken
         submitVerificationButton.setEnabled(false);
@@ -119,6 +129,11 @@ public class Selfie_verification extends AppCompatActivity {
         setupFaceDetector();
 
         // Check if user already has a selfie photo and display it
+        if (auth.getCurrentUser() == null) {
+            Toast.makeText(this, getString(R.string.user_not_authenticated), Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
         if (auth.getCurrentUser() != null) {
             StorageReference selfieReference = storageReference.child("users/" + auth.getUid() + "/selfie_photos");
             selfieReference.getDownloadUrl().addOnSuccessListener(new OnSuccessListener<Uri>() {
@@ -140,6 +155,10 @@ public class Selfie_verification extends AppCompatActivity {
         takeSelfieButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                // Hide guidelines when retaking
+                guidelinesTitle.setVisibility(View.GONE);
+                findViewById(R.id.guidelinesLayout).setVisibility(View.GONE);
+                selfieImageView.setVisibility(View.GONE);
                 startAutomaticSelfieCapture();
             }
         });
@@ -156,10 +175,10 @@ public class Selfie_verification extends AppCompatActivity {
         submitVerificationButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (selfieUrl != null && idPhotoUrl != null) {
+                if (selfieUrl != null && frontIdPhotoUrl != null && backIdPhotoUrl != null) {
                     saveVerificationData();
                 } else {
-                    Toast.makeText(Selfie_verification.this, "Please take a selfie first", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(Selfie_verification.this, getString(R.string.please_take_selfie), Toast.LENGTH_SHORT).show();
                 }
             }
         });
@@ -167,26 +186,29 @@ public class Selfie_verification extends AppCompatActivity {
     
     private void setupInitialUI() {
         // Set initial instructions
-        instructionsTextView.setText("Automatic Selfie Verification\n\n" +
-                "📱 Position your face in the frame\n" +
-                "😊 Look directly at the camera\n" +
-                "💡 Ensure good lighting\n" +
-                "👤 Keep your face centered\n" +
-                "⏱️ Photo will be taken automatically");
+        instructionsTextView.setText(getString(R.string.automatic_selfie_verification_title) + "\n\n" +
+                getString(R.string.position_face_circle) + "\n" +
+                getString(R.string.look_directly_camera) + "\n" +
+                getString(R.string.ensure_good_lighting) + "\n" +
+                getString(R.string.keep_face_centered) + "\n" +
+                getString(R.string.photo_taken_automatically));
         
         // Update step indicator
-        selfieStepIndicator.setText("Step 2 of 3: Automatic Selfie Verification");
+        selfieStepIndicator.setText(getString(R.string.step_2_automatic_verification));
         
         // Show placeholder elements initially
         facePlaceholderImageView.setVisibility(View.VISIBLE);
         selfiePlaceholderText.setVisibility(View.VISIBLE);
-        selfiePlaceholderText.setText("Tap 'Start Automatic Capture' to begin");
+        selfiePlaceholderText.setText(getString(R.string.tap_start_capture_begin));
         
         // Hide guidelines initially
         guidelinesTitle.setVisibility(View.GONE);
+        findViewById(R.id.guidelinesLayout).setVisibility(View.GONE);
         
         // Hide preview initially
         previewView.setVisibility(View.GONE);
+        circularOverlay.setVisibility(View.GONE);
+        circularBorder.setVisibility(View.GONE);
     }
 
     private void setupFaceDetector() {
@@ -208,19 +230,21 @@ public class Selfie_verification extends AppCompatActivity {
             return;
         }
 
-        // Show camera preview
+        // Show camera preview with circular overlay
         previewView.setVisibility(View.VISIBLE);
+        circularOverlay.setVisibility(View.VISIBLE);
+        circularBorder.setVisibility(View.VISIBLE);
         facePlaceholderImageView.setVisibility(View.GONE);
         selfiePlaceholderText.setVisibility(View.GONE);
         takeSelfieButton.setVisibility(View.GONE);
         manualCaptureButton.setVisibility(View.VISIBLE);
 
         // Update instructions
-        instructionsTextView.setText("🔍 Detecting face...\n\n" +
-                "📱 Position your face in the center\n" +
-                "😊 Look directly at the camera\n" +
-                "💡 Ensure good lighting\n" +
-                "⏱️ Photo will be taken automatically when ready");
+        instructionsTextView.setText(getString(R.string.detecting_face_instructions));
+
+        // Reset face detection count
+        faceDetectionCount = 0;
+        autoCaptureEnabled = true;
 
         // Start camera
         startCamera();
@@ -234,7 +258,7 @@ public class Selfie_verification extends AppCompatActivity {
                 cameraProvider = cameraProviderFuture.get();
                 bindCameraUseCases();
             } catch (ExecutionException | InterruptedException e) {
-                Toast.makeText(this, "Error starting camera: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.error_starting_camera, e.getMessage()), Toast.LENGTH_SHORT).show();
             }
         }, ContextCompat.getMainExecutor(this));
     }
@@ -257,7 +281,7 @@ public class Selfie_verification extends AppCompatActivity {
             cameraProvider.unbindAll();
             cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalysis);
         } catch (Exception e) {
-            Toast.makeText(this, "Error binding camera: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.error_binding_camera, e.getMessage()), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -281,14 +305,14 @@ public class Selfie_verification extends AppCompatActivity {
         if (faces.isEmpty()) {
             isFaceDetected = false;
             isFacePositioned = false;
-            updateInstructions("🔍 No face detected\n\nPlease position your face in the camera view");
+            updateInstructions(getString(R.string.no_face_detected_instructions));
             return;
         }
 
         Face face = faces.get(0);
         isFaceDetected = true;
 
-        // Check face position (should be in center)
+        // Check face position (should be in circular center area)
         android.graphics.Rect boundingBox = face.getBoundingBox();
         float faceCenterX = boundingBox.centerX();
         float faceCenterY = boundingBox.centerY();
@@ -301,48 +325,53 @@ public class Selfie_verification extends AppCompatActivity {
                 Math.pow(faceCenterY - imageCenterY, 2)
         );
         
-        float maxDistance = Math.min(imageWidth, imageHeight) * 0.3f; // 30% of smaller dimension
+        // Use circular radius (smaller of width/height * 0.3 for more forgiving circle)
+        float circleRadius = Math.min(imageWidth, imageHeight) * 0.3f;
         
-        isFacePositioned = distanceFromCenter < maxDistance;
+        isFacePositioned = distanceFromCenter < circleRadius;
 
         // Check face size (should be reasonably large)
         float faceSize = Math.min(boundingBox.width(), boundingBox.height());
-        float minFaceSize = Math.min(imageWidth, imageHeight) * 0.2f; // 20% of smaller dimension
+        float minFaceSize = Math.min(imageWidth, imageHeight) * 0.15f; // Reduced to 15% for more forgiving size
         boolean isFaceSizeGood = faceSize > minFaceSize;
 
-        // Check if face is looking forward (simple check)
-        boolean isLookingForward = face.getHeadEulerAngleY() < 20 && face.getHeadEulerAngleY() > -20;
+        // Check if face is looking forward (more forgiving check)
+        boolean isLookingForward = face.getHeadEulerAngleY() < 30 && face.getHeadEulerAngleY() > -30;
 
         // Check lighting (using face detection confidence as proxy)
         boolean isGoodLighting = true; // Assume good lighting if face is detected
 
         // Update instructions based on conditions
         StringBuilder instruction = new StringBuilder();
-        instruction.append("🔍 Face detected!\n\n");
+                    instruction.append(getString(R.string.face_detected_instruction));
 
         if (!isFacePositioned) {
-            instruction.append("📱 Move your face to the center\n");
+                            instruction.append(getString(R.string.move_face_to_circle_instruction));
         }
         if (!isFaceSizeGood) {
-            instruction.append("📏 Move closer to the camera\n");
+                            instruction.append(getString(R.string.move_closer_camera_instruction));
         }
         if (!isLookingForward) {
-            instruction.append("😊 Look directly at the camera\n");
+                            instruction.append(getString(R.string.look_directly_camera_instruction));
         }
         if (!isGoodLighting) {
-            instruction.append("💡 Improve lighting\n");
+                            instruction.append(getString(R.string.improve_lighting_instruction));
         }
 
         if (isFacePositioned && isFaceSizeGood && isLookingForward && isGoodLighting) {
-            instruction.append("✅ Perfect! Taking photo in ");
-            instruction.append(3 - (faceDetectionCount / 10));
-            instruction.append(" seconds...");
+            instruction.append(getString(R.string.perfect_taking_photo_instruction, 2 - (faceDetectionCount / 8)));
             
             faceDetectionCount++;
             
             if (faceDetectionCount >= REQUIRED_FACE_DETECTIONS && autoCaptureEnabled) {
                 autoCaptureEnabled = false;
-                captureCurrentFrame();
+                runOnUiThread(() -> {
+                    updateInstructions(getString(R.string.capturing_photo_now_instruction));
+                });
+                // Small delay to show the capture message
+                new android.os.Handler().postDelayed(() -> {
+                    captureCurrentFrame();
+                }, 500);
             }
         } else {
             faceDetectionCount = 0;
@@ -358,16 +387,23 @@ public class Selfie_verification extends AppCompatActivity {
     }
 
     private void captureCurrentFrame() {
-        if (previewView.getBitmap() != null) {
-            Bitmap bitmap = previewView.getBitmap();
-            processCapturedImage(bitmap);
-        } else {
-            // Fallback: take a screenshot of the preview
-            View view = previewView.getRootView();
-            view.setDrawingCacheEnabled(true);
-            Bitmap bitmap = Bitmap.createBitmap(view.getDrawingCache());
-            view.setDrawingCacheEnabled(false);
-            processCapturedImage(bitmap);
+        try {
+            if (previewView.getBitmap() != null) {
+                Bitmap bitmap = previewView.getBitmap();
+                processCapturedImage(bitmap);
+            } else {
+                // Fallback: take a screenshot of the preview
+                View view = previewView.getRootView();
+                view.setDrawingCacheEnabled(true);
+                Bitmap bitmap = Bitmap.createBitmap(view.getDrawingCache());
+                view.setDrawingCacheEnabled(false);
+                processCapturedImage(bitmap);
+            }
+        } catch (Exception e) {
+            // If capture fails, try manual capture
+            Toast.makeText(this, getString(R.string.auto_capture_failed_manual), Toast.LENGTH_SHORT).show();
+            manualCaptureButton.setVisibility(View.VISIBLE);
+            manualCaptureButton.setEnabled(true);
         }
     }
 
@@ -379,6 +415,8 @@ public class Selfie_verification extends AppCompatActivity {
         
         // Hide preview and show captured image
         previewView.setVisibility(View.GONE);
+        circularOverlay.setVisibility(View.GONE);
+        circularBorder.setVisibility(View.GONE);
         selfieImageView.setVisibility(View.VISIBLE);
         selfieImageView.setImageBitmap(bitmap);
         
@@ -396,7 +434,7 @@ public class Selfie_verification extends AppCompatActivity {
         }
 
         // Show loading state
-        instructionsTextView.setText("📤 Uploading your selfie...\nPlease wait a moment.");
+        instructionsTextView.setText(getString(R.string.uploading_selfie_instructions));
 
         // Convert bitmap to byte array
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -413,15 +451,15 @@ public class Selfie_verification extends AppCompatActivity {
                     public void onSuccess(Uri uri) {
                         selfieUrl = uri.toString();
                         submitVerificationButton.setEnabled(true);
-                        Toast.makeText(Selfie_verification.this, "✅ Selfie captured and uploaded successfully!", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(Selfie_verification.this, getString(R.string.selfie_captured_uploaded_success), Toast.LENGTH_SHORT).show();
                     }
                 });
             }
         }).addOnFailureListener(new OnFailureListener() {
             @Override
             public void onFailure(@NonNull Exception e) {
-                instructionsTextView.setText("❌ Upload failed. Please try again.");
-                Toast.makeText(Selfie_verification.this, "Selfie Upload Failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                instructionsTextView.setText(getString(R.string.upload_failed_try_again_instructions));
+                Toast.makeText(Selfie_verification.this, getString(R.string.selfie_upload_failed, e.getMessage()), Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -433,17 +471,17 @@ public class Selfie_verification extends AppCompatActivity {
         
         // Show guidelines
         guidelinesTitle.setVisibility(View.VISIBLE);
+        findViewById(R.id.guidelinesLayout).setVisibility(View.VISIBLE);
         
         // Update instructions
-        instructionsTextView.setText("✅ Perfect! Your selfie has been captured automatically.\n\n" +
-                "Please review the guidelines below and tap 'Verify Selfie' to continue.");
+        instructionsTextView.setText(getString(R.string.perfect_selfie_captured_instructions));
         
         // Update step indicator
-        selfieStepIndicator.setText("Step 2 of 3: Selfie Verification ✓");
+        selfieStepIndicator.setText(getString(R.string.step_2_verification_complete));
         
         // Show retake option
         takeSelfieButton.setVisibility(View.VISIBLE);
-        takeSelfieButton.setText("📷 Retake Selfie");
+        takeSelfieButton.setText(getString(R.string.retake_selfie_button));
         manualCaptureButton.setVisibility(View.GONE);
     }
 
@@ -455,10 +493,8 @@ public class Selfie_verification extends AppCompatActivity {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 startAutomaticSelfieCapture();
             } else {
-                instructionsTextView.setText("❌ Camera permission denied.\n\n" +
-                        "This permission is required for automatic selfie verification.\n" +
-                        "Please grant permission in Settings or try again.");
-                Toast.makeText(this, "Camera permission is required for automatic selfie verification", Toast.LENGTH_LONG).show();
+                instructionsTextView.setText(getString(R.string.camera_permission_denied_instructions));
+                Toast.makeText(this, getString(R.string.camera_permission_required), Toast.LENGTH_LONG).show();
             }
         }
     }
@@ -470,13 +506,14 @@ public class Selfie_verification extends AppCompatActivity {
         }
 
         // Show submission progress
-        instructionsTextView.setText("📤 Submitting verification...\nPlease wait while we process your information.");
+        instructionsTextView.setText(getString(R.string.submitting_verification_instructions));
         submitVerificationButton.setEnabled(false);
         takeSelfieButton.setEnabled(false);
 
-        // Create data map with both URLs and ID type
+        // Create data map with all URLs and ID type
         Map<String, Object> verificationData = new HashMap<>();
-        verificationData.put("idPhotoUrl", idPhotoUrl);
+        verificationData.put("frontIdPhotoUrl", frontIdPhotoUrl);
+        verificationData.put("backIdPhotoUrl", backIdPhotoUrl);
         verificationData.put("selfieUrl", selfieUrl);
         verificationData.put("idType", idType);
         verificationData.put("verificationSubmittedAt", System.currentTimeMillis());
@@ -495,11 +532,9 @@ public class Selfie_verification extends AppCompatActivity {
                     @Override
                     public void onSuccess(Void aVoid) {
                         // Show success message
-                        instructionsTextView.setText("✅ Verification submitted successfully!\n\n" +
-                                "Your account is now pending approval.\n" +
-                                "You will be redirected to the login page.");
+                        instructionsTextView.setText(getString(R.string.verification_submitted_success_instructions));
                         
-                        Toast.makeText(Selfie_verification.this, "✅ Verification submitted successfully! Your account is pending approval.", Toast.LENGTH_LONG).show();
+                        Toast.makeText(Selfie_verification.this, getString(R.string.verification_submitted_success_toast), Toast.LENGTH_LONG).show();
                         
                         // Delay before redirecting to show success message
                         new android.os.Handler().postDelayed(new Runnable() {
@@ -522,11 +557,10 @@ public class Selfie_verification extends AppCompatActivity {
                     @Override
                     public void onFailure(@NonNull Exception e) {
                         // Reset UI on failure
-                        instructionsTextView.setText("❌ Submission failed. Please try again.\n\n" +
-                                "Check your internet connection and try again.");
+                        instructionsTextView.setText(getString(R.string.submission_failed_instructions));
                         submitVerificationButton.setEnabled(true);
                         takeSelfieButton.setEnabled(true);
-                        Toast.makeText(Selfie_verification.this, "Failed to submit verification: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(Selfie_verification.this, getString(R.string.failed_submit_verification, e.getMessage()), Toast.LENGTH_SHORT).show();
                     }
                 });
     }

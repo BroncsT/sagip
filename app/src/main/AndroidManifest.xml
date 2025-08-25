@@ -8,12 +8,14 @@
     <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" /> <!-- Camera features -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- OpenStreetMap permissions -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
@@ -44,11 +46,23 @@
         android:theme="@style/Theme.SAGIP_prototype"
         tools:targetApi="31">
 
-        <!-- ADD THIS - MyGoogleMAp Activity -->
+        <!-- OpenStreetMap Activity -->
+        <activity
+            android:name=".MyOpenStreetMap"
+            android:exported="false"
+            android:label="Emergency Location Map" />
+            
+        <!-- OpenStreetMap Example Activity -->
+        <activity
+            android:name=".OpenStreetMapExample"
+            android:exported="false"
+            android:label="OpenStreetMap Examples" />
+            
+        <!-- Google Maps Activity (kept for reference) -->
         <activity
             android:name=".MyGoogleMAp"
             android:exported="false"
-            android:label="Emergency Location Map" />
+            android:label="Emergency Location Map (Google)" />
 
         <activity
             android:name=".Senior_add_Emergency_Contact"
@@ -121,24 +135,28 @@
             android:name=".Verification_Page"
             android:exported="false" />
         <activity
+            android:name=".IdCameraCapture"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+        <activity
             android:name=".Senior_Registration"
             android:exported="false" />
         <activity
             android:name=".OTP_PAGE"
             android:exported="false" />
         <activity
+            android:name=".LanguageSelectionActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="@string/gmap_api_key" />
 
     </application>
 
