@@ -45,6 +45,7 @@ dependencies {
     implementation (libs.play.services.location)
     // implementation(libs.play.services.maps) // Commented out Google Maps
     implementation(libs.material.v190)
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     
     // OpenStreetMap dependencies
     implementation("org.osmdroid:osmdroid-android:6.1.18")

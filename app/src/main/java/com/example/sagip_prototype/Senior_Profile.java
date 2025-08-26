@@ -52,6 +52,16 @@ public class Senior_Profile extends BaseProfileActivity {
             }
         });
 
+        // Feedback Support Layout
+        LinearLayout feedbackSupportLayout = findViewById(R.id.feedbackSupportLayout);
+        feedbackSupportLayout.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(Senior_Profile.this, FeedbackActivity.class);
+                startActivity(intent);
+            }
+        });
+
         String uid = mAuth.getCurrentUser().getUid();
         String userType = "seniors";
 

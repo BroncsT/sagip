@@ -108,7 +108,7 @@
             android:exported="false" /> <!-- File provider declaration -->
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="com.yourapplication.fileprovider"
+            android:authorities="com.example.sagip_prototype.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data
@@ -147,6 +147,20 @@
         <activity
             android:name=".LanguageSelectionActivity"
             android:exported="false" />
+
+        <!-- Feedback and Reporting Activities -->
+        <activity
+            android:name=".FeedbackActivity"
+            android:exported="false"
+            android:label="@string/feedback_title" />
+        <activity
+            android:name=".MyReportsActivity"
+            android:exported="false"
+            android:label="@string/feedback_my_reports" />
+        <activity
+            android:name=".AdminFeedbackActivity"
+            android:exported="false"
+            android:label="@string/admin_feedback_title" />
 
         <activity
             android:name=".MainActivity"

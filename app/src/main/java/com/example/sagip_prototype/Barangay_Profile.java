@@ -39,6 +39,16 @@ public class Barangay_Profile extends BaseProfileActivity {
             }
         });
 
+        // Feedback Support Layout
+        LinearLayout feedbackSupportLayout = findViewById(R.id.feedbackSupportLayout);
+        feedbackSupportLayout.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(Barangay_Profile.this, FeedbackActivity.class);
+                startActivity(intent);
+            }
+        });
+
         gotoLogut.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {

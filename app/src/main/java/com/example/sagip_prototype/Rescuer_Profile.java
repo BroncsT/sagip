@@ -47,6 +47,16 @@ public class Rescuer_Profile extends BaseProfileActivity {
             }
         });
 
+        // Feedback Support Layout
+        LinearLayout feedbackSupportLayout = findViewById(R.id.feedbackSupportLayout);
+        feedbackSupportLayout.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(Rescuer_Profile.this, FeedbackActivity.class);
+                startActivity(intent);
+            }
+        });
+
         logout.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
