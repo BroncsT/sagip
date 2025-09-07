@@ -263,12 +263,27 @@ public class MainActivity extends AppCompatActivity {
                         Log.e(TAG, "Invalid phone number entered: " + number);
                     }
                 } else {
-                    // Handle email login
+                    // Handle email/phone login
                     String email = emailInput.getText().toString().trim();
                     String password = passwordInput.getText().toString().trim();
 
-                    if (!email.isEmpty() && !password.isEmpty()) {
-                        loginWithEmail(email, password);
+                    if (!email.isEmpty()) {
+                        // Check if it's a phone number
+                        if (isValidPhoneNumber(email)) {
+                            // Phone number login - skip password requirement
+                            Log.d(TAG, "Phone number detected in email field: " + email);
+                            checkUserExistsByPhoneNumber("+63" + email);
+                        } else {
+                            // Email login - always require password for admin emails
+                            if (password.isEmpty()) {
+                                Toast.makeText(MainActivity.this, 
+                                    "Please enter your password to login with this email.", 
+                                    Toast.LENGTH_SHORT).show();
+                            } else {
+                                // Password provided, proceed with email login
+                                loginWithEmail(email, password);
+                            }
+                        }
                     } else {
                         Toast.makeText(MainActivity.this, getString(R.string.please_enter_email_password), Toast.LENGTH_SHORT).show();
                     }
@@ -298,8 +313,34 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
+        // Add text change listener to email input to show/hide password field
+        emailInput.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
 
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+            @Override
+            public void afterTextChanged(android.text.Editable s) {
+                String input = s.toString().trim();
+                View passwordCard = findViewById(R.id.passwordInputCard);
+                View forgotPasswordLayout = findViewById(R.id.forgotPasswordLayout);
+                
+                if (isValidPhoneNumber(input)) {
+                    // Hide password field for phone numbers
+                    if (passwordCard != null) passwordCard.setVisibility(View.GONE);
+                    if (forgotPasswordLayout != null) forgotPasswordLayout.setVisibility(View.GONE);
+                } else {
+                    // Show password field for email addresses and other inputs
+                    if (passwordCard != null) passwordCard.setVisibility(View.VISIBLE);
+                    if (forgotPasswordLayout != null) forgotPasswordLayout.setVisibility(View.VISIBLE);
+                }
+            }
+        });
     }
+
+
 
     private void showForgotPasswordDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -449,6 +490,80 @@ public class MainActivity extends AppCompatActivity {
     private void loginWithEmail(String email, String password) {
         showProgressBar(true);
 
+        // First, try to find the email in Firestore to check if it's an admin-provided email
+        checkAdminProvidedEmail(email, password);
+    }
+
+
+
+    private void checkAdminProvidedEmail(String email, String password) {
+        String[] userTypes = {"rescuer", "hospital", "barangay", "seniors"};
+        checkEmailInCollections(email, password, userTypes, 0);
+    }
+
+    private void checkEmailInCollections(String email, String password, String[] userTypes, int index) {
+        if (index >= userTypes.length) {
+            // Email not found in any collection, try regular Firebase Auth
+            Log.d(TAG, "Email not found in Firestore, trying Firebase Auth");
+            tryFirebaseEmailAuth(email, password);
+            return;
+        }
+
+        db.collection("Sagip")
+                .document("users")
+                .collection(userTypes[index])
+                .whereEqualTo("email", email)
+                .get()
+                .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
+                    @Override
+                    public void onComplete(@NonNull Task<QuerySnapshot> task) {
+                        if (task.isSuccessful()) {
+                            if (!task.getResult().isEmpty()) {
+                                // Admin-provided email found in Firestore
+                                for (QueryDocumentSnapshot document : task.getResult()) {
+                                    String status = document.getString("status");
+                                    String uid = document.getId();
+                                    
+                                    Log.d(TAG, "Admin-provided email found: " + email + " with status: " + status);
+                                    
+                                    // User has Firebase Auth account, try login
+                                    if (password.isEmpty()) {
+                                        // No password provided, show message to enter password
+                                        Toast.makeText(MainActivity.this, 
+                                            "Please enter your password to login with this email.", 
+                                            Toast.LENGTH_LONG).show();
+                                        showProgressBar(false);
+                                    } else {
+                                        tryFirebaseEmailAuth(email, password);
+                                    }
+                                    return;
+                                }
+                            } else {
+                                // Email not found in this collection, check next
+                                checkEmailInCollections(email, password, userTypes, index + 1);
+                            }
+                        } else {
+                            Log.e(TAG, "Error checking email in collection", task.getException());
+                            // Try next collection
+                            checkEmailInCollections(email, password, userTypes, index + 1);
+                        }
+                    }
+                });
+    }
+
+
+
+
+    private void tryFirebaseEmailAuth(String email, String password) {
+        if (password.isEmpty()) {
+            // No password provided, show message
+            Toast.makeText(MainActivity.this, 
+                "Please enter your password to login with this email.", 
+                Toast.LENGTH_LONG).show();
+            showProgressBar(false);
+            return;
+        }
+
         auth.signInWithEmailAndPassword(email, password)
                 .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
                     @Override
@@ -459,12 +574,73 @@ public class MainActivity extends AppCompatActivity {
                             FirebaseUser user = auth.getCurrentUser();
                             if (user != null) {
                                 Log.d(TAG, "Email login successful for: " + email);
-                                checkUserTypeAndRedirect(user.getUid(), false);
+                                
+                                // Check if user is verified - REQUIRE verification for admin-provided accounts
+                                if (user.isEmailVerified()) {
+                                    checkUserTypeAndRedirect(user.getUid(), false);
+                                } else {
+                                    // Email not verified - require verification before proceeding
+                                    Log.d(TAG, "User email not verified, requiring verification for admin-provided account");
+                                    showEmailVerificationRequiredDialog(user);
+                                }
                             }
                         } else {
                             Log.e(TAG, "Email login failed", task.getException());
                             String errorMessage = getLoginErrorMessage(task.getException());
                             Toast.makeText(MainActivity.this, errorMessage, Toast.LENGTH_LONG).show();
+                        }
+                    }
+                });
+    }
+
+    private void showEmailVerificationRequiredDialog(FirebaseUser user) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Email Verification Required");
+        builder.setMessage("Your email address needs to be verified before you can access your account. A verification email has been sent to " + user.getEmail() + ". Please check your email and click the verification link, then try logging in again.");
+        builder.setIcon(android.R.drawable.ic_dialog_info);
+
+        builder.setPositiveButton("Send Verification Email", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                sendEmailVerification(user);
+            }
+        });
+
+        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                // Sign out the user since they can't proceed without verification
+                auth.signOut();
+                dialog.dismiss();
+            }
+        });
+
+        builder.setCancelable(false);
+        builder.show();
+    }
+
+    private void sendEmailVerification(FirebaseUser user) {
+        showProgressBar(true);
+        
+        user.sendEmailVerification()
+                .addOnCompleteListener(this, new OnCompleteListener<Void>() {
+                    @Override
+                    public void onComplete(@NonNull Task<Void> task) {
+                        showProgressBar(false);
+                        
+                        if (task.isSuccessful()) {
+                            Log.d(TAG, "Verification email sent to: " + user.getEmail());
+                            Toast.makeText(MainActivity.this, 
+                                "Verification email sent! Please check your email and click the verification link.", 
+                                Toast.LENGTH_LONG).show();
+                            
+                            // Sign out user until they verify
+                            auth.signOut();
+                        } else {
+                            Log.e(TAG, "Failed to send verification email", task.getException());
+                            Toast.makeText(MainActivity.this, 
+                                "Failed to send verification email. Please try again.", 
+                                Toast.LENGTH_SHORT).show();
                         }
                     }
                 });
@@ -500,7 +676,7 @@ public class MainActivity extends AppCompatActivity {
     private void checkUserTypeAndRedirect(String identifier, boolean isPhoneNumber) {
         if (isPhoneNumber) {
             // Check all possible user type collections for phone number
-            String[] userTypes = {"seniors", "user", "rescuer", "barangay"};
+            String[] userTypes = {"seniors", "rescuer", "barangay", "hospital"};
             checkAuthenticatedUserTypeByPhone(identifier, userTypes, 0);
         } else {
             // Check all possible user type collections for UID (email users)
@@ -518,10 +694,16 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
+        // Try both with and without +63 prefix
+        String searchNumber = phoneNumber;
+        if (phoneNumber.startsWith("+63")) {
+            searchNumber = phoneNumber.substring(3); // Remove +63 prefix
+        }
+        
         db.collection("Sagip")
                 .document("users")
                 .collection(userTypes[index])
-                .whereEqualTo("mobileNumber", phoneNumber)
+                .whereEqualTo("mobileNumber", searchNumber)
                 .get()
                 .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
                     @Override
@@ -530,7 +712,7 @@ public class MainActivity extends AppCompatActivity {
                             if (!task.getResult().isEmpty()) {
                                 for (QueryDocumentSnapshot document : task.getResult()) {
                                     String status = document.getString("status");
-                                    // Only require approval for senior citizens
+                                    // Handle different user types
                                     if (userTypes[index].equals("seniors")) {
                                         if (status != null && status.equals("approved")) {
                                             // Save user credentials before redirecting
@@ -539,13 +721,44 @@ public class MainActivity extends AppCompatActivity {
                                                 saveUserCredentials(currentUser.getUid(), userTypes[index], phoneNumber);
                                             }
                                             redirectToUserDashboard(userTypes[index]);
+                                        } else if (status != null && status.equals("pending")) {
+                                            // User is pending approval - BLOCK ACCESS to dashboard
+                                            FirebaseUser currentUser = auth.getCurrentUser();
+                                            if (currentUser != null) {
+                                                auth.signOut();
+                                            }
+                                            showPendingApprovalMessage();
+                                            clearStoredCredentials();
                                         } else {
                                             showPendingApprovalMessage();
                                             auth.signOut();
                                             clearStoredCredentials();
                                         }
                                     } else {
-                                        // For non-senior users, allow login regardless of status
+                                        // For non-senior users (rescuer, barangay, hospital):
+                                        // If status is "new", route to the existing registration page first.
+                                        if ("new".equals(status)) {
+                                            Class<?> registrationClass;
+                                            switch (userTypes[index]) {
+                                                case "hospital":
+                                                    registrationClass = Hospital_Registration.class;
+                                                    break;
+                                                case "barangay":
+                                                    registrationClass = Barangay_Registration.class;
+                                                    break;
+                                                case "rescuer":
+                                                    registrationClass = Rescuer_Registration.class;
+                                                    break;
+                                                default:
+                                                    registrationClass = Senior_Registration.class;
+                                                    break;
+                                            }
+                                            Intent i = new Intent(MainActivity.this, registrationClass);
+                                            startActivity(i);
+                                            finish();
+                                            return;
+                                        }
+                                        // User is registered, proceed directly
                                         FirebaseUser currentUser = auth.getCurrentUser();
                                         if (currentUser != null) {
                                             saveUserCredentials(currentUser.getUid(), userTypes[index], phoneNumber);
@@ -582,7 +795,7 @@ public class MainActivity extends AppCompatActivity {
                 .addOnSuccessListener(document -> {
                     if (document.exists()) {
                         String status = document.getString("status");
-                        // Only require approval for senior citizens
+                        // Handle different user types
                         if (userTypes[index].equals("seniors")) {
                             if (status != null && status.equals("approved")) {
                                 // Save user credentials before redirecting
@@ -591,13 +804,44 @@ public class MainActivity extends AppCompatActivity {
                                     saveUserCredentials(uid, userTypes[index], currentUser.getEmail());
                                 }
                                 redirectToUserDashboard(userTypes[index]);
+                            } else if (status != null && status.equals("pending")) {
+                                // User is pending approval - BLOCK ACCESS to dashboard
+                                FirebaseUser currentUser = auth.getCurrentUser();
+                                if (currentUser != null) {
+                                    auth.signOut();
+                                }
+                                showPendingApprovalMessage();
+                                clearStoredCredentials();
                             } else {
                                 showPendingApprovalMessage();
                                 auth.signOut();
                                 clearStoredCredentials();
                             }
                         } else {
-                            // For non-senior users, allow login regardless of status
+                            // For email-based users (hospital, barangay, rescuer):
+                            // If status is "new", route to the existing registration page first.
+                            if ("new".equals(status)) {
+                                Class<?> registrationClass;
+                                switch (userTypes[index]) {
+                                    case "hospital":
+                                        registrationClass = Hospital_Registration.class;
+                                        break;
+                                    case "barangay":
+                                        registrationClass = Barangay_Registration.class;
+                                        break;
+                                    case "rescuer":
+                                        registrationClass = Rescuer_Registration.class;
+                                        break;
+                                    default:
+                                        registrationClass = Senior_Registration.class;
+                                        break;
+                                }
+                                Intent i = new Intent(MainActivity.this, registrationClass);
+                                startActivity(i);
+                                finish();
+                                return;
+                            }
+                            // User is registered, proceed directly
                             FirebaseUser currentUser = auth.getCurrentUser();
                             if (currentUser != null) {
                                 saveUserCredentials(uid, userTypes[index], currentUser.getEmail());
@@ -640,21 +884,28 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void checkUserExistsByPhoneNumber(String formattedNumber) {
-        String[] userTypes = {"seniors", "user", "rescuer", "barangay"};
+        String[] userTypes = {"seniors", "rescuer", "barangay", "hospital"};
         checkPhoneNumberInCollections(formattedNumber, userTypes, 0);
     }
 
     private void checkPhoneNumberInCollections(String formattedNumber, String[] userTypes, int index) {
         if (index >= userTypes.length) {
             String plainNumber = formattedNumber.substring(3);
+            Log.d(TAG, "User not found in any collection after checking all types, sending OTP for new user. Phone: " + formattedNumber);
             sendOtp(plainNumber, true);
             return;
         }
 
+        // Try both with and without +63 prefix
+        final String searchNumber = formattedNumber.startsWith("+63") ? formattedNumber.substring(3) : formattedNumber;
+        final String finalFormattedNumber = formattedNumber;
+        Log.d(TAG, "Searching for phone number: " + searchNumber + " in collection: " + userTypes[index] + " (original: " + finalFormattedNumber + ")");
+        
+        // Try searching with the number without +63 prefix first
         db.collection("Sagip")
                 .document("users")
                 .collection(userTypes[index])
-                .whereEqualTo("mobileNumber", formattedNumber)
+                .whereEqualTo("mobileNumber", searchNumber)
                 .get()
                 .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
                     @Override
@@ -663,23 +914,81 @@ public class MainActivity extends AppCompatActivity {
                             if (!task.getResult().isEmpty()) {
                                 for (QueryDocumentSnapshot document : task.getResult()) {
                                     String status = document.getString("status");
-                                    // Only require approval for senior citizens
+                                    String documentId = document.getId();
+                                    Log.d(TAG, "Found user in " + userTypes[index] + " collection. Document ID: " + documentId + ", Status: " + status);
+                                    
+                                    // Handle different user types
                                     if (userTypes[index].equals("seniors")) {
                                         if (status != null && status.equals("approved")) {
+                                            Log.d(TAG, "Senior user found with approved status, sending OTP for existing user");
                                             String plainNumber = formattedNumber.substring(3);
                                             sendOtp(plainNumber, false);
+                                        } else if (status != null && status.equals("pending")) {
+                                            Log.d(TAG, "Senior user found but status is pending - BLOCKING ACCESS");
+                                            showPendingApprovalMessage();
                                         } else {
+                                            Log.d(TAG, "Senior user found but status not approved/pending: " + status);
                                             showPendingApprovalMessage();
                                         }
                                     } else {
                                         // For non-senior users, allow login regardless of status
+                                        Log.d(TAG, "Non-senior user found, sending OTP for existing user");
                                         String plainNumber = formattedNumber.substring(3);
                                         sendOtp(plainNumber, false);
                                     }
                                     return;
                                 }
                             } else {
-                                checkPhoneNumberInCollections(formattedNumber, userTypes, index + 1);
+                                Log.d(TAG, "User not found in collection: " + userTypes[index] + " with format " + searchNumber + ", trying with full format");
+                                // Try with the full number format (including +63 prefix)
+                                if (!finalFormattedNumber.equals(searchNumber)) {
+                                    db.collection("Sagip")
+                                            .document("users")
+                                            .collection(userTypes[index])
+                                            .whereEqualTo("mobileNumber", finalFormattedNumber)
+                                            .get()
+                                            .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
+                                                @Override
+                                                public void onComplete(@NonNull Task<QuerySnapshot> task2) {
+                                                    if (task2.isSuccessful() && !task2.getResult().isEmpty()) {
+                                                        Log.d(TAG, "User found with full format: " + finalFormattedNumber);
+                                                        // Process the found user with the same logic
+                                                        for (QueryDocumentSnapshot document : task2.getResult()) {
+                                                            String status = document.getString("status");
+                                                            String documentId = document.getId();
+                                                            Log.d(TAG, "Found user in " + userTypes[index] + " collection. Document ID: " + documentId + ", Status: " + status);
+                                                            
+                                                            // Handle different user types
+                                                            if (userTypes[index].equals("seniors")) {
+                                                                if (status != null && status.equals("approved")) {
+                                                                    Log.d(TAG, "Senior user found with approved status, sending OTP for existing user");
+                                                                    String plainNumber = finalFormattedNumber.substring(3);
+                                                                    sendOtp(plainNumber, false);
+                                                                } else if (status != null && status.equals("pending")) {
+                                                                    Log.d(TAG, "Senior user found but status is pending - BLOCKING ACCESS");
+                                                                    showPendingApprovalMessage();
+                                                                } else {
+                                                                    Log.d(TAG, "Senior user found but status not approved/pending: " + status);
+                                                                    showPendingApprovalMessage();
+                                                                }
+                                                            } else {
+                                                                // For non-senior users, allow login regardless of status
+                                                                Log.d(TAG, "Non-senior user found, sending OTP for existing user");
+                                                                String plainNumber = finalFormattedNumber.substring(3);
+                                                                sendOtp(plainNumber, false);
+                                                            }
+                                                            return;
+                                                        }
+                                                    } else {
+                                                        Log.d(TAG, "User not found in collection: " + userTypes[index] + " with either format, checking next collection");
+                                                        checkPhoneNumberInCollections(finalFormattedNumber, userTypes, index + 1);
+                                                    }
+                                                }
+                                            });
+                                } else {
+                                    Log.d(TAG, "User not found in collection: " + userTypes[index] + ", checking next collection");
+                                    checkPhoneNumberInCollections(formattedNumber, userTypes, index + 1);
+                                }
                             }
                         } else {
                             Log.e(TAG, "Error checking user", task.getException());
@@ -692,11 +1001,14 @@ public class MainActivity extends AppCompatActivity {
     private void showPendingApprovalMessage() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Senior Citizen Account Pending Approval")
-                .setMessage("Your Senior Citizen account is registered but pending administrator approval. Please try again later.")
+                .setMessage("Your Senior Citizen account is registered but pending administrator approval. You cannot access the app until your account is approved. Please contact an administrator or try again later.")
                 .setPositiveButton("OK", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
                         dialog.dismiss();
+                        // Ensure user is signed out and redirected to login
+                        auth.signOut();
+                        clearStoredCredentials();
                     }
                 })
                 .setCancelable(false)
@@ -712,6 +1024,8 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onVerificationCompleted(com.google.firebase.auth.PhoneAuthCredential credential) {
                         Log.d(TAG, "Auto-verification completed");
+                        // Don't do anything here - let the OTP page handle the verification
+                        // This prevents MainActivity from interfering with the OTP flow
                     }
 
                     @Override
@@ -728,6 +1042,8 @@ public class MainActivity extends AppCompatActivity {
                         intent.putExtra("MOBILE_NUMBER", "+63" + number);
                         intent.putExtra("IS_NEW_USER", isNewUser);
                         startActivity(intent);
+                        // Finish MainActivity to prevent it from interfering with OTP flow
+                        finish();
                     }
                 })
                 .build();
@@ -735,7 +1051,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean isValidPhoneNumber(String number) {
-        return !TextUtils.isEmpty(number) && number.matches("\\d{10}");
+        return !TextUtils.isEmpty(number) && number.matches("09\\d{9}");
     }
 
     private void showProgressBar(boolean show) {
@@ -890,4 +1206,5 @@ public class MainActivity extends AppCompatActivity {
         editor.putString("language", languageCode);
         editor.apply();
     }
+
 }

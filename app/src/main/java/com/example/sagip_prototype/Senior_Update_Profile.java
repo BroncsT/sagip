@@ -20,9 +20,11 @@ public class Senior_Update_Profile extends AppCompatActivity {
 
     private FirebaseAuth mAuth;
     private FirebaseFirestore db;
-    private TextView mobileNumberDisplay;
+    private EditText mobileNumberInput;
+    private EditText emailInput;
     private EditText addressInput;
     private Button updateButton;
+    private String originalMobileNumber;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -32,8 +34,9 @@ public class Senior_Update_Profile extends AppCompatActivity {
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
 
-        mobileNumberDisplay = findViewById(R.id.mobileNumber);
-        addressInput = findViewById(R.id.emerContact_Number);
+        mobileNumberInput = findViewById(R.id.mobileNumber);
+        emailInput = findViewById(R.id.emailAddress);
+        addressInput = findViewById(R.id.addressInput);
         updateButton = findViewById(R.id.submitButton);
 
         loadUserData();
@@ -55,9 +58,15 @@ public class Senior_Update_Profile extends AppCompatActivity {
                         // Get data from Firestore
                         String mobileNumber = documentSnapshot.getString("mobileNumber");
                         String address = documentSnapshot.getString("address");
+                        String email = documentSnapshot.getString("email");
+                        
+                        // Store original mobile number for comparison
+                        originalMobileNumber = mobileNumber;
+                        
                         // Display data in UI
-                        mobileNumberDisplay.setText(mobileNumber);
-                        addressInput.setText(address);
+                        mobileNumberInput.setText(mobileNumber);
+                        addressInput.setText(address != null ? address : "");
+                        emailInput.setText(email != null ? email : "");
                     }
                 })
                 .addOnFailureListener(e -> {
@@ -70,20 +79,67 @@ public class Senior_Update_Profile extends AppCompatActivity {
     private void updateProfile() {
         // Validate inputs
         String address = addressInput.getText().toString().trim();
-        String mobileNum = mobileNumberDisplay.getText().toString().trim();
-
+        String mobileNum = mobileNumberInput.getText().toString().trim();
+        String email = emailInput.getText().toString().trim();
 
         if (mobileNum.isEmpty() || address.isEmpty()) {
             Toast.makeText(this, "Please fill in all required fields", Toast.LENGTH_SHORT).show();
             return;
         }
 
+        // Check if mobile number has changed
+        boolean mobileNumberChanged = !mobileNum.equals(originalMobileNumber);
+        
+        if (mobileNumberChanged) {
+            // Show confirmation dialog for phone number change
+            showPhoneChangeConfirmationDialog(mobileNum, address, email);
+        } else {
+            // Update profile directly
+            updateProfileData(mobileNum, address, email);
+        }
+    }
+
+    private void showPhoneChangeConfirmationDialog(String newMobileNumber, String address, String email) {
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Phone Number Change")
+                .setMessage("You are changing your phone number from " + originalMobileNumber + " to " + newMobileNumber + 
+                           ". This will require phone verification. Do you want to continue?")
+                .setPositiveButton("Continue", (dialog, which) -> {
+                    // Start phone verification process
+                    startPhoneVerification(newMobileNumber, address, email);
+                })
+                .setNegativeButton("Cancel", (dialog, which) -> {
+                    // Reset phone number to original
+                    mobileNumberInput.setText(originalMobileNumber);
+                })
+                .show();
+    }
+
+    private void startPhoneVerification(String newMobileNumber, String address, String email) {
+        // Disable button and show loading
+        updateButton.setEnabled(false);
+        updateButton.setText("Verifying...");
+        
+        // For now, we'll just update the profile
+        // In a full implementation, you would integrate with Firebase Phone Auth here
+        Toast.makeText(this, "Phone verification would be implemented here", Toast.LENGTH_SHORT).show();
+        
+        // Update profile data
+        updateProfileData(newMobileNumber, address, email);
+    }
+
+    private void updateProfileData(String mobileNumber, String address, String email) {
         String uid = mAuth.getCurrentUser().getUid();
         String userType = "seniors";
 
         Map<String, Object> updates = new HashMap<>();
         updates.put("address", address);
-        updates.put("mobileNumber", mobileNum);
+        updates.put("mobileNumber", mobileNumber);
+        
+        // Only add email if it's not empty
+        if (!email.isEmpty()) {
+            updates.put("email", email);
+        }
 
         db.collection("Sagip")
                 .document("users")

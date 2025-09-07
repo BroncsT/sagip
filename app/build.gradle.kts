@@ -15,6 +15,11 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        // 16 KB page size support
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+        }
     }
 
     buildTypes {
@@ -30,6 +35,13 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+    
+    // Native library configuration for 16 KB page size support
+    packaging {
+        jniLibs {
+            useLegacyPackaging = false
+        }
+    }
 }
 
 dependencies {
@@ -43,22 +55,17 @@ dependencies {
     implementation(libs.firebase.storage)
     implementation (libs.picasso)
     implementation (libs.play.services.location)
-    // implementation(libs.play.services.maps) // Commented out Google Maps
+    implementation(libs.play.services.maps)
     implementation(libs.material.v190)
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     
-    // OpenStreetMap dependencies
-    implementation("org.osmdroid:osmdroid-android:6.1.18")
-    implementation("org.osmdroid:osmdroid-wms:6.1.18")
-    implementation("org.osmdroid:osmdroid-mapsforge:6.1.18")
-    
-    // CameraX dependencies
+    // CameraX dependencies - Updated for better compatibility
     implementation("androidx.camera:camera-core:1.3.1")
     implementation("androidx.camera:camera-camera2:1.3.1")
     implementation("androidx.camera:camera-lifecycle:1.3.1")
     implementation("androidx.camera:camera-view:1.3.1")
     
-    // ML Kit Face Detection
+    // ML Kit Face Detection - Updated for 16 KB compatibility
     implementation("com.google.mlkit:face-detection:16.1.5")
     
     // Google Guava for ListenableFuture

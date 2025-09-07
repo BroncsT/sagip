@@ -328,6 +328,12 @@ public class FeedbackActivity extends AppCompatActivity {
                 Toast.makeText(this, getString(R.string.feedback_include_contact), Toast.LENGTH_SHORT).show();
                 return;
             }
+            
+            // Validate phone number if provided
+            if (!contactPhone.isEmpty() && !isValidPhoneNumber(contactPhone)) {
+                contactPhoneEditText.setError(getString(R.string.valid_mobile_error));
+                return;
+            }
         }
 
         submitFeedback(subject, message, contactEmail, contactPhone);
@@ -461,5 +467,9 @@ public class FeedbackActivity extends AppCompatActivity {
                 Toast.makeText(this, getString(R.string.feedback_storage_permission), Toast.LENGTH_SHORT).show();
             }
         }
+    }
+
+    private boolean isValidPhoneNumber(String number) {
+        return !number.isEmpty() && number.matches("09\\d{9}");
     }
 }

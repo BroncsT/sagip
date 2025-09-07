@@ -2,12 +2,15 @@
 <resources>
     <string name="app_name">SAGIP</string>
     
+    <!-- Google Maps API Key -->
+    <string name="google_maps_key">AIzaSyBkf_blEJ4wc5Q_CNxABKK6-LFxDF-gWv0</string>
+    
     <!-- Language Selection -->
     <string name="language_selection">Language Selection</string>
     <string name="select_language">Select Language</string>
     <string name="phone">Phone</string>
     <string name="email">Email</string>
-    <string name="email_address">Email address</string>
+    <string name="email_address">Email address or phone number</string>
     <string name="password">Password</string>
     <string name="forgot_password">Forgot Password?</string>
     <string name="english">English</string>
@@ -74,8 +77,6 @@
     <string name="tap_confirm_retake">Tap \'Confirm\' to use this photo or \'Retake\' to capture again.</string>
     <string name="camera_not_ready">Camera not ready</string>
     <string name="failed_capture">Failed to capture image</string>
-    <string name="image_uploaded_successfully">Image uploaded successfully</string>
-    <string name="upload_failed">Upload failed</string>
     <string name="please_wait_upload">Please wait for upload to complete</string>
     <string name="front_id_captured">Front ID photo captured successfully</string>
     <string name="back_id_captured">Back ID photo captured successfully</string>
@@ -104,12 +105,12 @@
     <string name="please_wait_moment">Please wait a moment.</string>
     <string name="selfie_captured_uploaded">✅ Selfie captured and uploaded successfully!</string>
     <string name="upload_failed_try_again">❌ Upload failed. Please try again.</string>
-    <string name="selfie_upload_failed">Selfie Upload Failed: %1$s</string>
+    <string name="selfie_upload_failed">Selfie Verification Upload Failed: %1$s</string>
     <string name="perfect_selfie_captured">✅ Perfect! Your selfie has been captured automatically.</string>
     <string name="review_guidelines_verify">Please review the guidelines below and tap \'Verify Selfie\' to continue.</string>
-    <string name="retake_selfie">📷 Retake Selfie</string>
+    <string name="retake_selfie">📷 Retake Selfie Verification</string>
     <string name="verify_selfie">Verify Selfie</string>
-    <string name="please_take_selfie">Please take a selfie first</string>
+    <string name="please_take_selfie">Please take a selfie photo first</string>
     <string name="submitting_verification">📤 Submitting verification...</string>
     <string name="please_wait_process">Please wait while we process your information.</string>
     <string name="verification_submitted">✅ Verification submitted successfully!</string>
@@ -120,9 +121,8 @@
     <string name="check_internet_try_again">Check your internet connection and try again.</string>
     <string name="failed_submit_verification">Failed to submit verification: %1$s</string>
     <string name="camera_permission_denied">❌ Camera permission denied.</string>
-    <string name="camera_permission_required">This permission is required for automatic selfie verification.</string>
     <string name="grant_permission_settings">Please grant permission in Settings or try again.</string>
-    <string name="camera_permission_required_verification">Camera permission is required for automatic selfie verification</string>
+    <string name="camera_permission_required_verification">Camera permission is required for automatic selfie</string>
     <string name="user_not_authenticated">User not authenticated</string>
     
     <!-- Privacy and Terms -->
@@ -144,7 +144,6 @@
     <string name="gallery">Gallery</string>
     <string name="camera_permission_required_capture">Camera permission is required to capture ID photo</string>
     <string name="failed_get_image">Failed to get image from gallery</string>
-    <string name="failed_capture_image">Failed to capture image</string>
     <string name="error_opening_camera">Error opening camera</string>
     <string name="error_opening_gallery">Error opening gallery</string>
     <string name="image_upload_failed">Image Upload Failed</string>
@@ -154,7 +153,7 @@
     <string name="back_id_captured_uploaded">Back ID photo captured and uploaded successfully</string>
     
     <!-- Guidelines -->
-    <string name="guidelines_title">Selfie Guidelines</string>
+    <string name="guidelines_title">Selfie Verification Guidelines</string>
     <string name="guidelines_text">• Ensure your face is clearly visible\n• Remove glasses or hats\n• Use good lighting\n• Look directly at the camera\n• Keep a neutral expression</string>
     
     <!-- Profile Settings -->
@@ -189,12 +188,22 @@
     
     <!-- Hospital Registration -->
     <string name="hospital_name">Hospital Name</string>
+    <string name="title_hospital_registration">Hospital Registration</string>
+    <string name="emergency_room_info">Emergency Room Information</string>
+    <string name="emergency_room_beds">Total Number of Emergency Room Beds</string>
+    <string name="emergency_room_doctors">Total Number of Doctors in Emergency Room</string>
+    
+    <!-- Barangay Registration -->
+    <string name="title_barangay_registration">Barangay Registration</string>
+    <string name="barangay_address">Barangay Address</string>
+    <string name="barangay_captain">Barangay Captain</string>
+    <string name="barangay_contact_person">Barangay Contact Person</string>
     
     <!-- Main Activity -->
     <string name="welcome_to">Welcome to</string>
     <string name="enter_number_prompt">Enter your mobile number to continue</string>
     <string name="country_code">+63</string>
-    <string name="mobile_hint">Enter mobile number</string>
+    <string name="mobile_hint">Enter mobicle number</string>
     <string name="invalid_mobile_error">Please enter a valid mobile number</string>
     <string name="continue_btn">Continue</string>
     <string name="hospital_title">Hospital</string>
@@ -228,7 +237,7 @@
     <string name="section_contact_details">Contact Details</string>
     <string name="hint_headquarters_address">Enter headquarters address</string>
     <string name="hint_primary_contact_person">Enter primary contact person</string>
-    <string name="hint_contact_number">Enter contact number</string>
+    <string name="hint_contact_number">Enter contact number (optional)</string>
     <string name="checkbox_terms_conditions">I agree to the Terms and Conditions</string>
     <string name="checkbox_privacy_policy">I agree to the Privacy Policy</string>
     <string name="button_register_rescue_group">Register Rescue Group</string>
@@ -236,16 +245,16 @@
     <!-- Selfie Verification Layout -->
     <string name="title_selfie_verification">Selfie Verification</string>
     <string name="selfie_step_indicator">Step 2 of 3: Selfie Verification</string>
-    <string name="selfie_instructions">Please take a clear selfie for verification</string>
-    <string name="selfie_photo_label">Selfie Photo</string>
+    <string name="selfie_instructions">Please take a clear selfie photo</string>
+    <string name="selfie_photo_label">Selfie Verification Photo</string>
     <string name="content_description_face_outline">Face outline for positioning</string>
-    <string name="selfie_photo_placeholder">Tap to take selfie</string>
-    <string name="selfie_guidelines">Selfie Guidelines</string>
+    <string name="selfie_photo_placeholder">Tap to take selfie photo</string>
+    <string name="selfie_guidelines">Selfie Verification Guidelines</string>
     <string name="guideline_face_visible">Ensure your face is clearly visible</string>
     <string name="guideline_good_lighting">Use good lighting</string>
     <string name="guideline_remove_glasses">Remove glasses or hats if possible</string>
     <string name="button_verify_selfie">Verify Selfie</string>
-    <string name="selfie_privacy_info">Your selfie will be used for verification purposes only</string>
+    <string name="selfie_privacy_info">Your selfie photo will be used for verification purposes only</string>
     
     <!-- Senior Citizen Features -->
     <string name="instruction_add_contact">Please fill in the emergency contact information</string>
@@ -262,6 +271,8 @@
     <string name="middle_name_hint">Enter middle name</string>
     <string name="last_name_hint">Enter last name</string>
     <string name="birthday_hint">Enter birthday</string>
+    <string name="emergency_contact_number_hint">Enter emergency contact number</string>
+    <string name="email_address_optional">Email address (optional)</string>
     
     <!-- Menu Items -->
     <string name="hospital_list">Hospital List</string>
@@ -365,13 +376,23 @@
     <string name="capturing_photo_now_instruction">📸 Capturing photo now...</string>
     <string name="perfect_selfie_captured_instructions">✅ Perfect! Your selfie has been captured automatically.\n\nPlease review the guidelines below and tap \'Verify Selfie\' to continue.</string>
     <string name="step_2_verification_complete">Step 2 of 3: Selfie Verification ✓</string>
-    <string name="retake_selfie_button">📷 Retake Selfie</string>
-    <string name="camera_permission_denied_instructions">❌ Camera permission denied.\n\nThis permission is required for automatic selfie verification.\nPlease grant permission in Settings or try again.</string>
+    <string name="retake_selfie_button">📷 Retake Selfie Verification</string>
+    <string name="camera_permission_denied_instructions">❌ Camera permission denied.\n\nThis permission is required for automatic selfie.\nPlease grant permission in Settings or try again.</string>
     <string name="submitting_verification_instructions">📤 Submitting verification...\nPlease wait while we process your information.</string>
     <string name="please_wait_process_instructions">Please wait while we process your information.</string>
     <string name="verification_submitted_success_instructions">✅ Verification submitted successfully!\n\nYour account is now pending approval.\nYou will be redirected to the login page.</string>
     <string name="verification_submitted_success_toast">✅ Verification submitted successfully! Your account is pending approval.</string>
     <string name="submission_failed_instructions">❌ Submission failed. Please try again.\n\nCheck your internet connection and try again.</string>
+    
+    <!-- Delete Account -->
+    <string name="delete_account">Delete Account</string>
+    <string name="delete_account_confirmation_title">Delete Account</string>
+    <string name="delete_account_confirmation_message">Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed.</string>
+    <string name="delete_account_confirm">Yes, Delete Account</string>
+    <string name="delete_account_cancel">Cancel</string>
+    <string name="delete_account_success">Account deleted successfully</string>
+    <string name="delete_account_failed">Failed to delete account. Please try again.</string>
+    <string name="delete_account_progress">Deleting account...</string>
     
     <!-- Hospital Status Edit -->
     <string name="update_emergency_room_status">Update Emergency Room Status</string>
@@ -404,9 +425,9 @@
     <string name="continue_button_text">Continue</string>
     <string name="enter_mobile_continue">Enter your mobile number to continue</string>
     <string name="login_with_email">Login with Email</string>
-    <string name="enter_email_password">Enter your email and password</string>
-    <string name="valid_mobile_error">Please enter a valid 10-digit mobile number</string>
-    <string name="please_enter_email_password">Please enter email and password</string>
+    <string name="enter_email_password">Enter your email/phone and password</string>
+    <string name="valid_mobile_error">Please enter a valid 11-digit mobile number starting with 09</string>
+    <string name="please_enter_email_password">Please enter email/phone and password</string>
     <string name="reset_password">Reset Password</string>
     <string name="enter_email_for_reset">Enter your email address to receive a password reset link:</string>
     <string name="send_reset_link">Send Reset Link</string>
@@ -419,6 +440,9 @@
     <string name="too_many_requests">Too many requests. Please try again later.</string>
     <string name="network_error_check_connection">Network error. Please check your connection and try again.</string>
     <string name="failed_send_password_reset">Failed to send password reset email. Please try again or contact support if the problem persists.</string>
+    <string name="please_verify_email">Please verify your email to continue.</string>
+    
+
 
     <!-- HospitalAdapter -->
     <string name="address_not_available">Address not available</string>
@@ -460,14 +484,24 @@
     
     <!-- Missing String Resources -->
     <string name="password_reset_failed">Password reset failed</string>
+    
+    <!-- Password Change for Registration -->
+    <string name="change_password">Change Password</string>
+    <string name="new_password">New Password</string>
+    <string name="reenter_password">Re-enter Password</string>
+    <string name="confirm_new_password">Confirm New Password</string>
+    <string name="password_requirements">Password must be at least 8 characters long and contain at least one lowercase letter and one symbol</string>
+    <string name="password_too_short">Password must be at least 8 characters long</string>
+    <string name="password_no_lowercase">Password must contain at least one lowercase letter</string>
+    <string name="password_no_symbol">Password must contain at least one symbol (!@#$%^&amp;*()_+-=[]{}|;:,./&lt;&gt;?)</string>
+    <string name="passwords_do_not_match">Passwords do not match</string>
+    <string name="password_changed_successfully">Password changed successfully</string>
     <string name="error_missing_id_photo">Error: Missing ID photo</string>
-    <string name="error_starting_camera">Error starting camera: %1$s</string>
-    <string name="error_binding_camera">Error binding camera: %1$s</string>
     <string name="no_face_detected_instructions">No face detected. Please position your face in the camera view.</string>
     <string name="auto_capture_failed_manual">Auto capture failed. Please use manual capture.</string>
     <string name="uploading_selfie_instructions">📤 Uploading your selfie...</string>
     <string name="upload_failed_try_again_instructions">❌ Upload failed. Please try again.</string>
-    <string name="selfie_captured_uploaded_success">✅ Selfie captured and uploaded successfully!</string>
+    <string name="selfie_captured_uploaded_success">✅ Face verification captured and uploaded successfully!</string>
     
     <!-- Feedback and Reporting Module -->
     <string name="feedback_support">Feedback &amp; Support</string>
@@ -544,4 +578,72 @@
     <string name="admin_feedback_update">Update</string>
     <string name="admin_feedback_update_success">Feedback updated successfully</string>
     <string name="admin_feedback_update_error">Failed to update feedback</string>
+
+    <!-- Google Maps API Key -->
+    <string name="google_maps_api_key">AIzaSyBkf_blEJ4wc5Q_CNxABKK6-LFxDF-gWv0</string>
+    <!-- Hospital Dashboard Additional Strings -->
+    <string name="debug_status">Debug Status</string>
+    <string name="status_calculation_description">Status is calculated based on total registered beds/doctors vs. your current availability</string>
+    <string name="e_room_capacity">E-Room Capacity</string>
+    <string name="refresh">Refresh</string>
+    <string name="total_beds_in_er">Total Beds in ER:</string>
+    <string name="doctors_stationed_in_er">Doctors Stationed in the ER:</string>
+    <string name="current_er_status">Current ER Status</string>
+    <string name="available_er_beds_hint">Available ER Beds</string>
+    <string name="er_medical_staff_on_duty_hint">ER Medical Staff On-Duty</string>
+    
+    <!-- ID Camera Capture Strings -->
+    <string name="front_of_id">Front of ID</string>
+    <string name="back_of_id">Back of ID</string>
+    <string name="id_capture_instructions">Position your ID inside the frame</string>
+    <string name="id_capture_additional_instructions">Make sure all text is clearly visible</string>
+    <string name="review_instructions">Tap Confirm if the image looks good, or Retake to capture again</string>
+    <string name="error_starting_camera">Error starting camera: %1$s</string>
+    <string name="error_binding_camera">Error binding camera: %1$s</string>
+    <string name="failed_capture_image">Failed to capture image: %1$s</string>
+    <string name="image_uploaded_successfully">Image uploaded successfully</string>
+    <string name="upload_failed">Upload failed: %1$s</string>
+    <string name="wait_upload_complete">Please wait for upload to complete</string>
+    <string name="image_quality_issue">Image Quality Issue</string>
+    <string name="image_quality_message">The captured image may not be suitable for verification</string>
+    <string name="retake_photo">Retake Photo</string>
+    <string name="use_anyway">Use Anyway</string>
+    <string name="camera_permission_required">Camera permission required for ID verification</string>
+    <string name="image_appears_blurry">Image appears blurry</string>
+    <string name="no_clear_id_content">No clear ID content detected</string>
+    <string name="poor_lighting_contrast">Poor lighting or contrast</string>
+    <string name="image_quality_insufficient">Image quality insufficient for verification</string>
+    
+    <!-- Selfie Verification Strings -->
+    <string name="face_verification">Selfie Verification</string>
+    <string name="blink">Blink</string>
+    <string name="get_ready_to_scan_face">Get ready to scan your face</string>
+    <string name="scan_face_tips">Face Scanning Tips</string>
+    <string name="tip_well_lit_room">Ensure you\'re in a well-lit room</string>
+    <string name="tip_place_face_in_frame">Place your face in the circular frame</string>
+    <string name="tip_wait_for_scanning">Wait for the scanning process to complete</string>
+    <string name="tip_no_mask">Remove any masks or face coverings</string>
+    <string name="look_at_camera_and_blink">Look at the camera and blink</string>
+    <string name="face_detected_blink_now">Face detected! Please blink now</string>
+    <string name="blink_detected">Blink detected! Capturing photo...</string>
+    <string name="face_detection_timeout">Face detection timeout</string>
+    <string name="manual_capture_available">Manual capture is now available</string>
+    <string name="please_wait_moment_instructions">Please wait a moment for face detection</string>
+    <string name="submission_failed_try_again_instructions">Submission failed. Please try again</string>
+    
+    <!-- Hospital Status Update Requirements -->
+    <string name="status_update_required_title">Status Update Required</string>
+    <string name="status_update_required">Your hospital status needs to be updated. Please update your current bed and doctor availability.</string>
+    <string name="status_update_required_immediate">Your hospital status has never been updated. Please update your current bed and doctor availability immediately.</string>
+    <string name="status_update_overdue">Your hospital status is %1$d minute(s) overdue for update. Please update your current bed and doctor availability.</string>
+    <string name="update_now">Update Now</string>
+    <string name="remind_later">Remind Later</string>
+    <string name="status_update_reminder_scheduled">Reminder scheduled. Please update your status soon.</string>
+    <string name="status_update_frequency">Status must be updated every 10 minutes</string>
+    <string name="last_updated">Last Updated: %1$s</string>
+    <string name="next_update_due">Next Update Due: %1$s</string>
+    <string name="next_update_in">Next update in: %1$s</string>
+    <string name="countdown_format">%1$02d:%2$02d:%3$02d</string>
+    <string name="update_required_now">Update Required Now!</string>
+    <string name="status_update_timer">Status Update Timer</string>
 </resources>

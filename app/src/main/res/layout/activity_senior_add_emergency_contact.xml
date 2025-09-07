@@ -95,7 +95,7 @@
             android:layout_marginTop="8dp"
             android:background="@drawable/input_field_background"
             android:hint="@string/phone_number"
-            android:inputType="textPostalAddress"
+            android:inputType="phone"
             android:padding="12dp"
             android:textSize="14sp" />
 

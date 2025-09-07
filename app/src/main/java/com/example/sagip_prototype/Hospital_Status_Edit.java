@@ -2,6 +2,11 @@ package com.example.sagip_prototype;
 
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.util.Log;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -29,10 +34,18 @@ public class Hospital_Status_Edit extends AppCompatActivity {
     private String userId;
 
     // UI Elements
-    private EditText etTotalBeds, etAvailableBeds, etDoctorsAvailable;
-    private Button btnSaveStatus, btnCancel;
-    private TextView tvHospitalName;
+    private EditText etAvailableBeds, etDoctorsAvailable;
+    private Button btnSaveStatus, btnCancel, btnRefreshTotals;
     private TextView tvAutoStatus;
+    private TextView tvDatabaseTotalBeds, tvDatabaseTotalDoctors;
+    
+    // Database totals for calculation
+    private int databaseTotalBeds = 0;
+    private int databaseTotalDoctors = 0;
+    
+    // Handler for debouncing real-time updates
+    private Handler updateHandler = new Handler(Looper.getMainLooper());
+    private Runnable updateRunnable;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,16 +62,27 @@ public class Hospital_Status_Edit extends AppCompatActivity {
         initializeViews();
         setupClickListeners();
         loadCurrentStatus();
+        loadDatabaseTotals();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // Clean up handler to prevent memory leaks
+        if (updateRunnable != null) {
+            updateHandler.removeCallbacks(updateRunnable);
+        }
     }
 
     private void initializeViews() {
-        tvHospitalName = findViewById(R.id.tvHospitalName);
-        etTotalBeds = findViewById(R.id.etTotalBeds);
         etAvailableBeds = findViewById(R.id.etAvailableBeds);
         etDoctorsAvailable = findViewById(R.id.etDoctorsAvailable);
         tvAutoStatus = findViewById(R.id.tvAutoStatus);
+        tvDatabaseTotalBeds = findViewById(R.id.tvDatabaseTotalBeds);
+        tvDatabaseTotalDoctors = findViewById(R.id.tvDatabaseTotalDoctors);
         btnSaveStatus = findViewById(R.id.btnSaveStatus);
         btnCancel = findViewById(R.id.btnCancel);
+        btnRefreshTotals = findViewById(R.id.btnRefreshTotals);
 
         // Get user ID
         userId = sharedPreferences.getString(KEY_USER_ID, null);
@@ -73,14 +97,50 @@ public class Hospital_Status_Edit extends AppCompatActivity {
     private void setupClickListeners() {
         btnSaveStatus.setOnClickListener(v -> saveHospitalStatus());
         btnCancel.setOnClickListener(v -> finish());
+        btnRefreshTotals.setOnClickListener(v -> loadDatabaseTotals());
 
-        // Update status when values change (but don't auto-fill available beds)
-        etTotalBeds.setOnFocusChangeListener((v, hasFocus) -> {
-            if (!hasFocus) {
-                updateAutoStatus();
+        // Real-time status update as user types (with debouncing)
+        etAvailableBeds.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                // Cancel previous update if user is still typing
+                if (updateRunnable != null) {
+                    updateHandler.removeCallbacks(updateRunnable);
+                }
+                
+                // Schedule new update with 300ms delay
+                updateRunnable = () -> updateAutoStatusRealTime();
+                updateHandler.postDelayed(updateRunnable, 300);
             }
+
+            @Override
+            public void afterTextChanged(Editable s) {}
         });
 
+        etDoctorsAvailable.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                // Cancel previous update if user is still typing
+                if (updateRunnable != null) {
+                    updateHandler.removeCallbacks(updateRunnable);
+                }
+                
+                // Schedule new update with 300ms delay
+                updateRunnable = () -> updateAutoStatusRealTime();
+                updateHandler.postDelayed(updateRunnable, 300);
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {}
+        });
+
+        // Keep focus change listeners as backup
         etAvailableBeds.setOnFocusChangeListener((v, hasFocus) -> {
             if (!hasFocus) {
                 updateAutoStatus();
@@ -96,18 +156,57 @@ public class Hospital_Status_Edit extends AppCompatActivity {
 
 
 
+    private void updateAutoStatusRealTime() {
+        try {
+            String availableBedsStr = etAvailableBeds.getText().toString().trim();
+            String doctorsStr = etDoctorsAvailable.getText().toString().trim();
+
+            Log.d("Hospital_Status_Edit", "Real-time update - Available beds: '" + availableBedsStr + "', Doctors: '" + doctorsStr + "'");
+            Log.d("Hospital_Status_Edit", "Database totals - Beds: " + databaseTotalBeds + ", Doctors: " + databaseTotalDoctors);
+
+            // Check if both fields have values and database totals are loaded
+            if (!availableBedsStr.isEmpty() && !doctorsStr.isEmpty() && databaseTotalBeds > 0 && databaseTotalDoctors > 0) {
+                int availableBeds = Integer.parseInt(availableBedsStr);
+                int availableDoctors = Integer.parseInt(doctorsStr);
+
+                String status = calculateAutoStatus(availableBeds, availableDoctors);
+                if (!status.equals("unknown")) {
+                    String statusEmoji = getStatusEmoji(status);
+                    int statusColor = getStatusColor(status);
+
+                    String statusText = statusEmoji + " " + status.toUpperCase();
+                    tvAutoStatus.setText(statusText);
+                    tvAutoStatus.setTextColor(statusColor);
+                    
+                    Log.d("Hospital_Status_Edit", "Real-time status calculated: " + status);
+                } else {
+                    tvAutoStatus.setText("⚪ Invalid data - check your inputs");
+                    tvAutoStatus.setTextColor(0xFF9E9E9E);
+                }
+            } else if (availableBedsStr.isEmpty() || doctorsStr.isEmpty()) {
+                tvAutoStatus.setText("⚪ Enter both values");
+                tvAutoStatus.setTextColor(0xFF9E9E9E);
+            } else if (databaseTotalBeds == 0 || databaseTotalDoctors == 0) {
+                tvAutoStatus.setText("⚪ Loading database totals...");
+                tvAutoStatus.setTextColor(0xFF9E9E9E);
+            }
+        } catch (NumberFormatException e) {
+            Log.e("Hospital_Status_Edit", "Error parsing numbers in real-time update: " + e.getMessage());
+            tvAutoStatus.setText("⚪ Enter valid numbers");
+            tvAutoStatus.setTextColor(0xFF9E9E9E);
+        }
+    }
+
     private void updateAutoStatus() {
         try {
-            String totalBedsStr = etTotalBeds.getText().toString();
             String availableBedsStr = etAvailableBeds.getText().toString();
             String doctorsStr = etDoctorsAvailable.getText().toString();
 
-            if (!totalBedsStr.isEmpty() && !availableBedsStr.isEmpty() && !doctorsStr.isEmpty()) {
-                int totalBeds = Integer.parseInt(totalBedsStr);
+            if (!availableBedsStr.isEmpty() && !doctorsStr.isEmpty() && databaseTotalBeds > 0 && databaseTotalDoctors > 0) {
                 int availableBeds = Integer.parseInt(availableBedsStr);
-                int doctors = Integer.parseInt(doctorsStr);
+                int availableDoctors = Integer.parseInt(doctorsStr);
 
-                String status = calculateAutoStatus(totalBeds, availableBeds, doctors);
+                String status = calculateAutoStatus(availableBeds, availableDoctors);
                 if (!status.equals("unknown")) {
                     String statusEmoji = getStatusEmoji(status);
                     int statusColor = getStatusColor(status);
@@ -119,9 +218,13 @@ public class Hospital_Status_Edit extends AppCompatActivity {
                     tvAutoStatus.setText("⚪ Invalid data - check your inputs");
                     tvAutoStatus.setTextColor(0xFF9E9E9E);
                 }
+            } else if (databaseTotalBeds == 0 || databaseTotalDoctors == 0) {
+                // Show message when database totals are not loaded
+                tvAutoStatus.setText("⚪ Loading database totals...");
+                tvAutoStatus.setTextColor(0xFF9E9E9E);
             } else {
                 // Show placeholder when not all fields are filled
-                tvAutoStatus.setText("⚪ Enter bed and doctor information");
+                tvAutoStatus.setText("⚪ Enter available beds and doctors");
                 tvAutoStatus.setTextColor(0xFF9E9E9E);
             }
         } catch (NumberFormatException e) {
@@ -130,32 +233,45 @@ public class Hospital_Status_Edit extends AppCompatActivity {
         }
     }
 
-    private String calculateAutoStatus(int totalBeds, int availableBeds, int doctors) {
+    private String calculateAutoStatus(int availableBeds, int availableDoctors) {
+        Log.d("Hospital_Status_Edit", "=== CALCULATION DEBUG ===");
+        Log.d("Hospital_Status_Edit", "Input - availableBeds: " + availableBeds + ", availableDoctors: " + availableDoctors);
+        Log.d("Hospital_Status_Edit", "Database totals - totalBeds: " + databaseTotalBeds + ", totalDoctors: " + databaseTotalDoctors);
+        
         // Validate input
-        if (totalBeds <= 0 || availableBeds < 0 || doctors <= 0) {
+        if (availableBeds < 0 || availableDoctors <= 0 || databaseTotalBeds <= 0 || databaseTotalDoctors <= 0) {
+            Log.w("Hospital_Status_Edit", "Validation failed - returning unknown");
             return "unknown";
         }
         
-        if (availableBeds > totalBeds) {
-            return "unknown";
-        }
+        // Calculate capacity percentage based on database totals
+        double capacityPercentage = ((double) (databaseTotalBeds - availableBeds) / databaseTotalBeds) * 100;
         
-        // Calculate capacity percentage
-        double capacityPercentage = ((double) (totalBeds - availableBeds) / totalBeds) * 100;
+        // Calculate beds per doctor ratio based on database totals
+        double bedsPerDoctor = (double) databaseTotalBeds / databaseTotalDoctors;
         
-        // Calculate beds per doctor ratio
-        double bedsPerDoctor = (double) totalBeds / doctors;
+        // Calculate available beds per available doctor ratio
+        double availableBedsPerDoctor = (double) availableBeds / availableDoctors;
         
-        // Automatic status logic based on multiple factors
-        if (capacityPercentage >= 90 || availableBeds == 0) {
-            return "crowded"; // At or near capacity
-        } else if (capacityPercentage >= 70 || bedsPerDoctor > 8 || doctors < 2) {
-            return "busy"; // High capacity or insufficient staff
-        } else if (capacityPercentage >= 50 || bedsPerDoctor > 6) {
-            return "busy"; // Moderate capacity
+        Log.d("Hospital_Status_Edit", "Calculated - capacityPercentage: " + capacityPercentage + 
+              "%, bedsPerDoctor: " + bedsPerDoctor + ", availableBedsPerDoctor: " + availableBedsPerDoctor);
+        
+        // Automatic status logic based on database totals and current availability
+        String result;
+        if (availableBeds == 0) {
+            result = "crowded"; // No available beds
+        } else if (capacityPercentage >= 90 || availableBedsPerDoctor > 8 || availableDoctors < 2) {
+            result = "crowded"; // At or near capacity, or insufficient staff
+        } else if (capacityPercentage >= 70 || availableBedsPerDoctor > 6 || availableDoctors < 3) {
+            result = "busy"; // High capacity or insufficient staff
+        } else if (capacityPercentage >= 50 || availableBedsPerDoctor > 4) {
+            result = "busy"; // Moderate capacity
         } else {
-            return "available"; // Good capacity and staff ratio
+            result = "available"; // Good capacity and staff ratio
         }
+        
+        Log.d("Hospital_Status_Edit", "Final result: " + result);
+        return result;
     }
 
     private String getStatusEmoji(String status) {
@@ -197,20 +313,13 @@ public class Hospital_Status_Edit extends AppCompatActivity {
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists()) {
-                        // Load hospital name
-                        String hospitalName = documentSnapshot.getString("hospitalName");
-                        if (hospitalName != null) {
-                            tvHospitalName.setText(hospitalName);
-                        }
 
                         // Load current status
-                        Long totalBeds = documentSnapshot.getLong("totalBeds");
                         Long availableBeds = documentSnapshot.getLong("availableBeds");
-                        Long doctorsAvailable = documentSnapshot.getLong("doctorsAvailable");
+                        Long availableDoctors = documentSnapshot.getLong("availableDoctors");
 
-                        if (totalBeds != null) etTotalBeds.setText(String.valueOf(totalBeds));
                         if (availableBeds != null) etAvailableBeds.setText(String.valueOf(availableBeds));
-                        if (doctorsAvailable != null) etDoctorsAvailable.setText(String.valueOf(doctorsAvailable));
+                        if (availableDoctors != null) etDoctorsAvailable.setText(String.valueOf(availableDoctors));
 
                         // Update auto status display
                         updateAutoStatus();
@@ -222,6 +331,91 @@ public class Hospital_Status_Edit extends AppCompatActivity {
                 });
     }
 
+    private void loadDatabaseTotals() {
+        // Show loading state
+        tvDatabaseTotalBeds.setText("Loading...");
+        tvDatabaseTotalDoctors.setText("Loading...");
+        
+        db.collection("Sagip")
+                .document("users")
+                .collection("hospital")
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    int totalBeds = 0;
+                    int totalDoctors = 0;
+                    
+                    for (com.google.firebase.firestore.DocumentSnapshot document : queryDocumentSnapshots.getDocuments()) {
+                        // Try both field names for backward compatibility
+                        Long beds = document.getLong("totalBeds");
+                        if (beds == null) {
+                            beds = document.getLong("emergencyRoomBeds");
+                        }
+                        if (beds != null) {
+                            totalBeds += beds.intValue();
+                            Log.d("Hospital_Status_Edit", "Found beds: " + beds.intValue() + " from hospital: " + document.getString("hospitalName"));
+                        } else {
+                            Log.w("Hospital_Status_Edit", "No beds data found for hospital: " + document.getString("hospitalName"));
+                        }
+                    }
+                    
+                    Log.d("Hospital_Status_Edit", "Total beds calculated: " + totalBeds);
+                    
+                    // Get total doctors from a separate collection or document
+                    // For now, we'll use a fixed value or get it from a system settings document
+                    loadTotalDoctorsFromSystem();
+                    
+                    // Store totals for calculation
+                    databaseTotalBeds = totalBeds;
+                    
+                    // Update UI with totals
+                    tvDatabaseTotalBeds.setText(String.valueOf(totalBeds));
+                    
+                    // Update status calculation with new database totals
+                    updateAutoStatus();
+                })
+                .addOnFailureListener(e -> {
+                    tvDatabaseTotalBeds.setText("Error");
+                    tvDatabaseTotalDoctors.setText("Error");
+                    Toast.makeText(this, "Failed to load database totals: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    private void loadTotalDoctorsFromSystem() {
+        // Load total doctors by summing up all doctors registered during hospital registration
+        db.collection("Sagip")
+                .document("users")
+                .collection("hospital")
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    int totalRegisteredDoctors = 0;
+                    
+                    for (com.google.firebase.firestore.DocumentSnapshot document : queryDocumentSnapshots.getDocuments()) {
+                        // Try both field names for backward compatibility
+                        Long registeredDoctors = document.getLong("totalDoctors");
+                        if (registeredDoctors == null) {
+                            registeredDoctors = document.getLong("emergencyRoomDoctors");
+                        }
+                        if (registeredDoctors != null) {
+                            totalRegisteredDoctors += registeredDoctors.intValue();
+                            Log.d("Hospital_Status_Edit", "Found doctors: " + registeredDoctors.intValue() + " from hospital: " + document.getString("hospitalName"));
+                        } else {
+                            Log.w("Hospital_Status_Edit", "No doctors data found for hospital: " + document.getString("hospitalName"));
+                        }
+                    }
+                    
+                    Log.d("Hospital_Status_Edit", "Total doctors calculated: " + totalRegisteredDoctors);
+                    
+                    databaseTotalDoctors = totalRegisteredDoctors;
+                    tvDatabaseTotalDoctors.setText(String.valueOf(totalRegisteredDoctors));
+                    updateAutoStatus();
+                })
+                .addOnFailureListener(e -> {
+                    tvDatabaseTotalDoctors.setText("Error");
+                    Toast.makeText(this, "Failed to load total registered doctors: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    updateAutoStatus();
+                });
+    }
+
     private void saveHospitalStatus() {
         if (userId == null) {
             Toast.makeText(this, getString(R.string.user_not_authenticated), Toast.LENGTH_SHORT).show();
@@ -229,33 +423,21 @@ public class Hospital_Status_Edit extends AppCompatActivity {
         }
 
         // Validate input
-        String totalBedsStr = etTotalBeds.getText().toString();
         String availableBedsStr = etAvailableBeds.getText().toString();
         String doctorsAvailableStr = etDoctorsAvailable.getText().toString();
 
-        if (totalBedsStr.isEmpty() || availableBedsStr.isEmpty() || doctorsAvailableStr.isEmpty()) {
+        if (availableBedsStr.isEmpty() || doctorsAvailableStr.isEmpty()) {
             Toast.makeText(this, getString(R.string.please_fill_all_fields), Toast.LENGTH_SHORT).show();
             return;
         }
 
         try {
-            int totalBeds = Integer.parseInt(totalBedsStr);
             int availableBeds = Integer.parseInt(availableBedsStr);
             int doctorsAvailable = Integer.parseInt(doctorsAvailableStr);
 
             // Validate the data
-            if (totalBeds <= 0) {
-                Toast.makeText(this, getString(R.string.total_beds_greater_than_zero), Toast.LENGTH_SHORT).show();
-                return;
-            }
-            
             if (availableBeds < 0) {
                 Toast.makeText(this, getString(R.string.available_beds_cannot_be_negative), Toast.LENGTH_SHORT).show();
-                return;
-            }
-            
-            if (availableBeds > totalBeds) {
-                Toast.makeText(this, getString(R.string.available_beds_cannot_exceed_total), Toast.LENGTH_SHORT).show();
                 return;
             }
             
@@ -265,22 +447,18 @@ public class Hospital_Status_Edit extends AppCompatActivity {
             }
 
             // Calculate automatic status
-            String status = calculateAutoStatus(totalBeds, availableBeds, doctorsAvailable);
-            
-            // Calculate capacity percentage
-            double capacityPercentage = ((double) (totalBeds - availableBeds) / totalBeds) * 100;
+            String status = calculateAutoStatus(availableBeds, doctorsAvailable);
 
             // Create status data
             Map<String, Object> statusData = new HashMap<>();
-            statusData.put("totalBeds", totalBeds);
             statusData.put("availableBeds", availableBeds);
-            statusData.put("doctorsAvailable", doctorsAvailable);
+            statusData.put("availableDoctors", doctorsAvailable); // New field name
+            statusData.put("doctorsAvailable", doctorsAvailable); // Keep old field name for backward compatibility
             statusData.put("erStatus", status);
-            statusData.put("capacityPercentage", capacityPercentage);
             statusData.put("lastUpdated", Timestamp.now());
             
             // Also update the status in the main hospital document
-            statusData.put("status", status);
+            statusData.put("DashboardStatues", status);
 
             // Save to Firestore
             db.collection("Sagip")
@@ -292,6 +470,15 @@ public class Hospital_Status_Edit extends AppCompatActivity {
                         String statusMessage = getString(R.string.hospital_status_updated_successfully) + "\n" + getString(R.string.status_label) + " " + 
                                              getStatusEmoji(status) + " " + status.toUpperCase();
                         Toast.makeText(this, statusMessage, Toast.LENGTH_LONG).show();
+                        
+                        // Clear the status update notification
+                        clearStatusUpdateNotification();
+                        
+                        // Refresh database totals after successful update
+                        loadDatabaseTotals();
+                        
+                        // Set result to indicate successful update
+                        setResult(RESULT_OK);
                         finish();
                     })
                     .addOnFailureListener(e -> {
@@ -301,6 +488,28 @@ public class Hospital_Status_Edit extends AppCompatActivity {
 
         } catch (NumberFormatException e) {
             Toast.makeText(this, getString(R.string.enter_valid_numbers), Toast.LENGTH_SHORT).show();
+        }
+    }
+    
+    /**
+     * Clears the status update notification
+     */
+    private void clearStatusUpdateNotification() {
+        try {
+            // Clear the notification from the notification manager
+            android.app.NotificationManager notificationManager = (android.app.NotificationManager) getSystemService(android.content.Context.NOTIFICATION_SERVICE);
+            if (notificationManager != null) {
+                notificationManager.cancel(1001); // Same ID as used in the notification service
+                Log.d("Hospital_Status_Edit", "Status update notification cleared");
+            }
+            
+            // Also tell the notification service to cancel scheduled notifications
+            android.content.Intent serviceIntent = new android.content.Intent(this, HospitalStatusNotificationService.class);
+            serviceIntent.putExtra("action", "cancel_notification");
+            startService(serviceIntent);
+            
+        } catch (Exception e) {
+            Log.e("Hospital_Status_Edit", "Error clearing notification", e);
         }
     }
 }

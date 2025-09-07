@@ -153,23 +153,7 @@
                 android:orientation="horizontal"
                 android:padding="16dp">
 
-                <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@drawable/ic_flag"
-                    android:layout_gravity="center_vertical"
-                    android:layout_marginEnd="12dp"
-                    android:contentDescription="@string/app_name" />
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center_vertical"
-                    android:layout_marginEnd="12dp"
-                    android:text="@string/country_code"
-                    android:textColor="#333333"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
 
                 <EditText
                     android:id="@+id/user_number"
@@ -224,7 +208,7 @@
                         android:layout_weight="1"
                         android:background="@null"
                         android:hint="@string/email_address"
-                        android:inputType="textEmailAddress"
+                        android:inputType="text"
                         android:textColor="#333333"
                         android:textSize="16sp" />
                 </LinearLayout>
@@ -232,6 +216,7 @@
 
             <!-- Password Input Card -->
             <com.google.android.material.card.MaterialCardView
+                android:id="@+id/passwordInputCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginHorizontal="4dp"
@@ -281,6 +266,7 @@
 
             <!-- Forgot Password -->
             <LinearLayout
+                android:id="@+id/forgotPasswordLayout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"

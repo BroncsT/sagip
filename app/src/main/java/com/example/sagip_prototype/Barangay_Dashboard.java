@@ -10,6 +10,7 @@ import android.location.Location;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Looper;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -140,13 +141,12 @@ public class Barangay_Dashboard extends AppCompatActivity {
             // Verify Firebase Auth state
             FirebaseUser currentUser = mAuth.getCurrentUser();
             if (currentUser != null) {
-                // Firebase user is still authenticated
-                loadUserData(userId);
+                // Firebase user is still authenticated, check status
+                checkUserStatusAndRedirect();
             } else if (storedEmail != null) {
                 // Firebase session expired but we have stored credentials
-                // In a production app, you might want to re-auathenticate silently here
-                //                // For now, just load the cached user dat
-                loadUserData(userId);
+                // Check status before loading data
+                checkUserStatusAndRedirect();
             } else {
                 // No valid authentication, redirect to login
                 clearStoredCredentials();
@@ -162,7 +162,8 @@ public class Barangay_Dashboard extends AppCompatActivity {
                 // User is logged in but not stored in SharedPreferences
                 userId = currentUser.getUid();
                 saveLoginState(userId, userType, currentUser.getEmail());
-                loadUserData(userId);
+                // Check status before loading data
+                checkUserStatusAndRedirect();
             }
         }
     }
@@ -189,6 +190,55 @@ public class Barangay_Dashboard extends AppCompatActivity {
 
         // Use commit() instead of apply() for immediate persistence
         editor.commit();
+    }
+
+    private void checkUserStatusAndRedirect() {
+        if (userId == null) {
+            Log.w("Barangay_Dashboard", "userId is null, cannot check status");
+            return;
+        }
+
+        Log.d("Barangay_Dashboard", "Checking user status for userId: " + userId);
+
+        db.collection("Sagip")
+                .document("users")
+                .collection("barangay")
+                .document(userId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String status = documentSnapshot.getString("status");
+                        Log.d("Barangay_Dashboard", "User status: " + status);
+                        
+                        if ("new".equals(status)) {
+                            Log.d("Barangay_Dashboard", "User status is 'new', redirecting to registration");
+                            // User status is "new", redirect to registration
+                            Intent intent = new Intent(Barangay_Dashboard.this, Barangay_Registration.class);
+                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                            startActivity(intent);
+                            finish();
+                        } else {
+                            Log.d("Barangay_Dashboard", "User status is not 'new', proceeding to dashboard");
+                            // User is registered, proceed with dashboard initialization
+                            loadUserData(userId);
+                        }
+                    } else {
+                        Log.w("Barangay_Dashboard", "User document does not exist, redirecting to registration");
+                        // User document doesn't exist, redirect to registration
+                        Intent intent = new Intent(Barangay_Dashboard.this, Barangay_Registration.class);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        startActivity(intent);
+                        finish();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("Barangay_Dashboard", "Error checking user status: " + e.getMessage(), e);
+                    // On error, redirect to registration to be safe
+                    Intent intent = new Intent(Barangay_Dashboard.this, Barangay_Registration.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(intent);
+                    finish();
+                });
     }
 
     private void navigateToLogin() {

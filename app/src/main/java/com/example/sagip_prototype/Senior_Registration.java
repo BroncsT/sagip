@@ -45,6 +45,7 @@ public class Senior_Registration extends AppCompatActivity {
         EditText getMiddleName = findViewById(R.id.middleName);
         EditText getLastName = findViewById(R.id.lastName);
         EditText getAddress = findViewById(R.id.emerContact_Number);
+        EditText getEmailAddress = findViewById(R.id.emailAddress);
         TextView getMobileNumber = findViewById(R.id.mobileNumber);
         Button continueButton = findViewById(R.id.addEmerContact);
 
@@ -65,6 +66,7 @@ public class Senior_Registration extends AppCompatActivity {
                 String lastName = getLastName.getText().toString().trim();
                 String birthday = birthdayEditText.getText().toString().trim();
                 String address = getAddress.getText().toString().trim();
+                String emailAddress = getEmailAddress.getText().toString().trim();
                 String mobileNumber = getMobileNumber.getText().toString().trim();
 
                 if (firstName.isEmpty() || lastName.isEmpty() || birthday.isEmpty() || address.isEmpty()) {
@@ -101,6 +103,9 @@ public class Senior_Registration extends AppCompatActivity {
                                 usrData.put("birthday", birthday);
                                 usrData.put("address", address);
                                 usrData.put("mobileNumber", mobileNumber);
+                                if (!emailAddress.isEmpty()) {
+                                    usrData.put("email", emailAddress);
+                                }
                                 usrData.put("status", "pending");
                                 usrData.put("user-type", userType);
 

@@ -76,6 +76,9 @@ public class Senior_Dashboard extends AppCompatActivity {
             finish();
             return;
         }
+        
+        // Additional check: Verify user status before proceeding
+        checkUserStatus();
 
         initializeViews();
         initializeLocationServices();
@@ -149,46 +152,46 @@ public class Senior_Dashboard extends AppCompatActivity {
                         // Create help request
                         createHelpRequest(seniorName, phoneNumber, uid);
 
-                        // Open MyOpenStreetMap with current location instead of Google Maps
-                        openMyOpenStreetMapWithLocation();
+                        // Open MyGoogleMAp with current location
+                        openMyGoogleMapWithLocation();
                     } else {
                         createHelpRequest("Senior User", "", uid);
-                        openMyOpenStreetMapWithLocation();
+                        openMyGoogleMapWithLocation();
                     }
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error getting user info", e);
                     createHelpRequest("Senior User", "", uid);
-                    openMyOpenStreetMapWithLocation();
+                    openMyGoogleMapWithLocation();
                 });
     }
 
-    // New method to open MyOpenStreetMap with current location
-    private void openMyOpenStreetMapWithLocation() {
+    // New method to open MyGoogleMAp with current location
+    private void openMyGoogleMapWithLocation() {
         try {
-            Intent mapIntent = new Intent(Senior_Dashboard.this, MyOpenStreetMap.class);
+            Intent mapIntent = new Intent(Senior_Dashboard.this, MyGoogleMAp.class);
 
-            // Pass current location data to MyOpenStreetMap
+            // Pass current location data to MyGoogleMAp
             mapIntent.putExtra("latitude", currentLat);
             mapIntent.putExtra("longitude", currentLong);
             mapIntent.putExtra("locationAddress", currentLocationAddress);
             mapIntent.putExtra("isEmergency", true);
 
             startActivity(mapIntent);
-            Log.d(TAG, "Opened MyOpenStreetMap with current location");
+            Log.d(TAG, "Opened MyGoogleMAp with current location");
 
         } catch (Exception e) {
-            Log.e(TAG, "Error opening MyOpenStreetMap", e);
+            Log.e(TAG, "Error opening MyGoogleMAp", e);
             Toast.makeText(this, "Error opening map", Toast.LENGTH_SHORT).show();
         }
     }
 
-    // New method to open MyOpenStreetMap in tracking mode
-    private void openMyOpenStreetMapWithTracking(String helpRequestId) {
+    // New method to open MyGoogleMAp in tracking mode
+    private void openMyGoogleMapWithTracking(String helpRequestId) {
         try {
-            Intent mapIntent = new Intent(Senior_Dashboard.this, MyOpenStreetMap.class);
+            Intent mapIntent = new Intent(Senior_Dashboard.this, MyGoogleMAp.class);
 
-            // Pass current location data to MyOpenStreetMap
+            // Pass current location data to MyGoogleMAp
             mapIntent.putExtra("latitude", currentLat);
             mapIntent.putExtra("longitude", currentLong);
             mapIntent.putExtra("locationAddress", currentLocationAddress);
@@ -197,10 +200,10 @@ public class Senior_Dashboard extends AppCompatActivity {
             mapIntent.putExtra("seniorName", tvFullName.getText().toString());
 
             startActivity(mapIntent);
-            Log.d(TAG, "Opened MyOpenStreetMap in tracking mode with help request ID: " + helpRequestId);
+            Log.d(TAG, "Opened MyGoogleMAp in tracking mode with help request ID: " + helpRequestId);
 
         } catch (Exception e) {
-            Log.e(TAG, "Error opening MyOpenStreetMap in tracking mode", e);
+            Log.e(TAG, "Error opening MyGoogleMAp in tracking mode", e);
             Toast.makeText(this, "Error opening map", Toast.LENGTH_SHORT).show();
         }
     }
@@ -231,7 +234,7 @@ public class Senior_Dashboard extends AppCompatActivity {
                     notifyAllRescuers(helpRequest, requestId);
 
                                          // Open map in tracking mode with the help request ID
-                     openMyOpenStreetMapWithTracking(requestId);
+                     openMyGoogleMapWithTracking(requestId);
 
                     Toast.makeText(this, "Help request sent to rescuers!", Toast.LENGTH_LONG).show();
                 })
@@ -478,6 +481,46 @@ public class Senior_Dashboard extends AppCompatActivity {
                 .update(locationData)
                 .addOnSuccessListener(aVoid -> Log.d(TAG, "Location saved to database"))
                 .addOnFailureListener(e -> Log.e(TAG, "Error saving location to database", e));
+    }
+
+    private void checkUserStatus() {
+        String uid = mAuth.getCurrentUser().getUid();
+        String userType = "seniors";
+        
+        db.collection("Sagip")
+                .document("users")
+                .collection(userType)
+                .document(uid)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String status = documentSnapshot.getString("status");
+                        if (status != null && !status.equals("approved")) {
+                            // Account not approved - sign out and redirect to login
+                            Log.d(TAG, "Senior account not approved during status check, status: " + status);
+                            mAuth.signOut();
+                            Toast.makeText(Senior_Dashboard.this, 
+                                "Your account is not yet approved. Please wait for administrator approval.", 
+                                Toast.LENGTH_LONG).show();
+                            startActivity(new Intent(Senior_Dashboard.this, MainActivity.class));
+                            finish();
+                            return;
+                        }
+                        // Status is approved, continue with normal flow
+                        Log.d(TAG, "Senior account status verified as approved");
+                    } else {
+                        Log.e(TAG, "User document not found during status check");
+                        mAuth.signOut();
+                        startActivity(new Intent(Senior_Dashboard.this, MainActivity.class));
+                        finish();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error checking user status", e);
+                    mAuth.signOut();
+                    startActivity(new Intent(Senior_Dashboard.this, MainActivity.class));
+                    finish();
+                });
     }
 
     private void loadUserData() {

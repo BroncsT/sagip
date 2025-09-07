@@ -3,6 +3,7 @@ package com.example.sagip_prototype;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -102,7 +103,10 @@ public class Hospital_Profile extends BaseProfileActivity {
                 .setMessage("Are you sure you want to logout?")
                 .setPositiveButton("Yes", (dialog, which) -> {
                     // User confirmed logout
-                    // Clear stored credentials FIRST
+                    // Stop notification service FIRST
+                    stopStatusNotificationService();
+                    
+                    // Clear stored credentials
                     clearStoredCredentials();
 
                     // Then sign out from Firebase
@@ -128,6 +132,17 @@ public class Hospital_Profile extends BaseProfileActivity {
         editor.remove(KEY_IS_LOGGED_IN);
         editor.remove(KEY_USER_EMAIL);
         editor.apply();
+    }
+    
+    /**
+     * Stops the status notification service (called on logout)
+     */
+    private void stopStatusNotificationService() {
+        Intent serviceIntent = new Intent(this, HospitalStatusNotificationService.class);
+        serviceIntent.putExtra("action", "cancel_notification");
+        startService(serviceIntent);
+        
+        Log.d("Hospital_Profile", "Stopped status notification service on logout");
     }
 
     private void setupBottomNavigation() {

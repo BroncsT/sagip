@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.text.InputType;
 import android.text.TextUtils;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
@@ -22,10 +23,13 @@ import com.google.firebase.auth.PhoneAuthOptions;
 import com.google.firebase.auth.PhoneAuthProvider;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.SetOptions;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import android.util.Log;
 
 public class Rescuer_Registration extends AppCompatActivity {
 
@@ -52,6 +56,9 @@ public class Rescuer_Registration extends AppCompatActivity {
         LanguageSelectionActivity.setAppLanguage(this, savedLanguage);
         
         setContentView(R.layout.activity_rescuer_registration);
+        
+        // Enable smooth scrolling
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
 
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
@@ -60,24 +67,40 @@ public class Rescuer_Registration extends AppCompatActivity {
         headquartersAddress = findViewById(R.id.headquarters_address);
         primaryContactPerson = findViewById(R.id.primary_contact_person);
         contactNumber = findViewById(R.id.contact_number);
+        EditText newPassword = findViewById(R.id.newPassword);
+        EditText confirmNewPassword = findViewById(R.id.confirmNewPassword);
 
         Button submitRescuer = findViewById(R.id.submit_rescuer);
+
+        // Setup real-time password validation
+        setupPasswordValidation(newPassword, confirmNewPassword);
 
         submitRescuer.setOnClickListener(v -> {
             String groupname = rescueGroupName.getText().toString().trim();
             String headquarters = headquartersAddress.getText().toString().trim();
             String contact = primaryContactPerson.getText().toString().trim();
             String number = contactNumber.getText().toString().trim();
-
-            if (groupname.isEmpty() || headquarters.isEmpty() || contact.isEmpty() || number.isEmpty()) {
-                Toast.makeText(Rescuer_Registration.this, "Fill all fields", Toast.LENGTH_SHORT).show();
+            String password = newPassword.getText().toString().trim();
+            String confirmPassword = confirmNewPassword.getText().toString().trim();
+            
+            if (groupname.isEmpty() || headquarters.isEmpty() || contact.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
+                Toast.makeText(Rescuer_Registration.this, "Fill all required fields", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            if (!isValidPhoneNumber(number)) {
-                Toast.makeText(Rescuer_Registration.this, "Enter a valid number", Toast.LENGTH_SHORT).show();
+            // Only validate phone number if it's provided
+            if (!number.isEmpty() && !isValidPhoneNumber(number)) {
+                Toast.makeText(Rescuer_Registration.this, getString(R.string.valid_mobile_error), Toast.LENGTH_SHORT).show();
                 return;
             }
+
+            // Validate password
+            String passwordError = validatePassword(password, confirmPassword);
+            if (passwordError != null) {
+                Toast.makeText(Rescuer_Registration.this, passwordError, Toast.LENGTH_SHORT).show();
+                return;
+            }
+
 
             FirebaseUser user = mAuth.getCurrentUser();
             if (user == null) {
@@ -85,8 +108,24 @@ public class Rescuer_Registration extends AppCompatActivity {
                 return;
             }
 
-            // Proceed with phone number verification
-            verifyPhoneNumber(number);
+            // Change password first
+            user.updatePassword(password)
+                .addOnCompleteListener(new OnCompleteListener<Void>() {
+                    @Override
+                    public void onComplete(@NonNull Task<Void> task) {
+                        if (task.isSuccessful()) {
+                            // Password updated successfully, now proceed with phone verification if number provided
+                            if (!number.isEmpty()) {
+                                verifyPhoneNumber(number);
+                            } else {
+                                // Skip phone verification and save data directly
+                                saveUserDataToFirestore();
+                            }
+                        } else {
+                            Toast.makeText(Rescuer_Registration.this, "Failed to update password: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                });
         });
 
         setupPhoneAuthCallbacks();
@@ -96,13 +135,17 @@ public class Rescuer_Registration extends AppCompatActivity {
         mCallbacks = new PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
             @Override
             public void onVerificationCompleted(@NonNull PhoneAuthCredential credential) {
-                Toast.makeText(Rescuer_Registration.this, "Verification automatically completed", Toast.LENGTH_SHORT).show();
-                linkPhoneWithCurrentUser(credential);
+                if (!isFinishing() && !isDestroyed()) {
+                    Toast.makeText(Rescuer_Registration.this, "Verification automatically completed", Toast.LENGTH_SHORT).show();
+                    linkPhoneWithCurrentUser(credential);
+                }
             }
 
             @Override
             public void onVerificationFailed(@NonNull FirebaseException e) {
-                Toast.makeText(Rescuer_Registration.this, "Verification failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                if (!isFinishing() && !isDestroyed()) {
+                    Toast.makeText(Rescuer_Registration.this, "Verification failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                }
             }
 
             @Override
@@ -110,8 +153,10 @@ public class Rescuer_Registration extends AppCompatActivity {
                 mVerificationId = verificationId;
                 mResendToken = token;
 
-                Toast.makeText(Rescuer_Registration.this, "Verification code sent", Toast.LENGTH_SHORT).show();
-                showVerificationCodeInputDialog();
+                if (!isFinishing() && !isDestroyed()) {
+                    Toast.makeText(Rescuer_Registration.this, "Verification code sent", Toast.LENGTH_SHORT).show();
+                    showVerificationCodeInputDialog();
+                }
             }
         };
     }
@@ -132,6 +177,10 @@ public class Rescuer_Registration extends AppCompatActivity {
     }
 
     private void showVerificationCodeInputDialog() {
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+        
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Enter Verification Code");
 
@@ -140,33 +189,50 @@ public class Rescuer_Registration extends AppCompatActivity {
         builder.setView(input);
 
         builder.setPositiveButton("Submit", (dialog, which) -> {
-            String code = input.getText().toString();
-            if (!TextUtils.isEmpty(code)) {
-                PhoneAuthCredential credential = PhoneAuthProvider.getCredential(mVerificationId, code);
-                linkPhoneWithCurrentUser(credential);
+            if (!isFinishing() && !isDestroyed()) {
+                String code = input.getText().toString();
+                if (!TextUtils.isEmpty(code)) {
+                    PhoneAuthCredential credential = PhoneAuthProvider.getCredential(mVerificationId, code);
+                    linkPhoneWithCurrentUser(credential);
+                }
             }
         });
 
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
-        builder.show();
+        
+        try {
+            builder.show();
+        } catch (Exception e) {
+            Log.e("Rescuer_Registration", "Error showing dialog: " + e.getMessage());
+        }
     }
 
     private void linkPhoneWithCurrentUser(PhoneAuthCredential credential) {
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+        
         FirebaseUser user = mAuth.getCurrentUser();
         if (user != null) {
             user.linkWithCredential(credential)
                     .addOnCompleteListener(this, task -> {
-                        if (task.isSuccessful()) {
-                            Toast.makeText(Rescuer_Registration.this, "Phone verified", Toast.LENGTH_SHORT).show();
-                            saveUserDataToFirestore();
-                        } else {
-                            Toast.makeText(Rescuer_Registration.this, "Phone verification failed: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                        if (!isFinishing() && !isDestroyed()) {
+                            if (task.isSuccessful()) {
+                                Toast.makeText(Rescuer_Registration.this, "Phone verified", Toast.LENGTH_SHORT).show();
+                                saveUserDataToFirestore();
+                            } else {
+                                Toast.makeText(Rescuer_Registration.this, "Phone verification failed: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                            }
                         }
                     });
         }
     }
 
     private void saveUserDataToFirestore() {
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+        
         FirebaseUser user = mAuth.getCurrentUser();
         if (user == null) {
             Toast.makeText(this, "User not authenticated", Toast.LENGTH_SHORT).show();
@@ -174,7 +240,6 @@ public class Rescuer_Registration extends AppCompatActivity {
         }
 
         String uid = user.getUid();
-        String email = user.getEmail();
 
         String groupname = rescueGroupName.getText().toString().trim();
         String headquarters = headquartersAddress.getText().toString().trim();
@@ -186,26 +251,144 @@ public class Rescuer_Registration extends AppCompatActivity {
         usrData.put("headquarters", headquarters);
         usrData.put("contactPerson", contact);
         usrData.put("mobileNumber", number);
-        usrData.put("email", email);
         usrData.put("user-type", userType);
+        usrData.put("status", "registered");
 
+        Toast.makeText(Rescuer_Registration.this, "Starting registration process...", Toast.LENGTH_SHORT).show();
+
+        // Step 1: Save to Firestore with admin-provided email first
         db.collection("Sagip")
                 .document("users")
                 .collection(userType)
                 .document(uid)
                 .set(usrData, SetOptions.merge()) // UPDATE instead of overwrite
                 .addOnCompleteListener(task -> {
-                    if (task.isSuccessful()) {
-                        Toast.makeText(Rescuer_Registration.this, "Information updated", Toast.LENGTH_SHORT).show();
-                        startActivity(new Intent(Rescuer_Registration.this, Rescuer_Dashboard.class));
-                        finish();
-                    } else {
-                        Toast.makeText(Rescuer_Registration.this, "Update failed: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                    if (!isFinishing() && !isDestroyed()) {
+                        if (task.isSuccessful()) {
+                            Toast.makeText(Rescuer_Registration.this, "Data saved to Firestore successfully!", Toast.LENGTH_SHORT).show();
+                            
+                            // Step 2: Admin-provided email is stored in Firestore only
+                            // Firebase Auth email remains as phone number (already verified)
+                            // This avoids verification requirements and maintains admin control
+                            Toast.makeText(Rescuer_Registration.this,
+                                    "Registration complete! Redirecting to dashboard...", 
+                                    Toast.LENGTH_LONG).show();
+                            
+                            // Redirect to rescuer dashboard
+                            Intent dashboardIntent = new Intent(Rescuer_Registration.this, Rescuer_Dashboard.class);
+                            startActivity(dashboardIntent);
+                            finish();
+                        } else {
+                            String errorMsg = "Update failed: " + task.getException().getMessage();
+                            Toast.makeText(Rescuer_Registration.this, errorMsg, Toast.LENGTH_LONG).show();
+                            Log.e("Rescuer_Registration", errorMsg, task.getException());
+                        }
                     }
                 });
     }
 
     private boolean isValidPhoneNumber(String number) {
-        return !TextUtils.isEmpty(number) && number.matches("\\d{10}");
+        return !TextUtils.isEmpty(number) && number.matches("09\\d{9}");
     }
+
+    private void setupPasswordValidation(EditText newPassword, EditText confirmPassword) {
+        // Real-time validation for new password
+        newPassword.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                validatePasswordRealTime(newPassword, s.toString());
+            }
+
+            @Override
+            public void afterTextChanged(android.text.Editable s) {}
+        });
+
+        // Real-time validation for confirm password
+        confirmPassword.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                validateConfirmPasswordRealTime(confirmPassword, newPassword.getText().toString(), s.toString());
+            }
+
+            @Override
+            public void afterTextChanged(android.text.Editable s) {}
+        });
+    }
+
+    private void validatePasswordRealTime(EditText passwordField, String password) {
+        com.google.android.material.textfield.TextInputLayout layout = (com.google.android.material.textfield.TextInputLayout) passwordField.getParent().getParent();
+        
+        if (password.isEmpty()) {
+            layout.setHelperText(getString(R.string.password_requirements));
+            layout.setError(null);
+            return;
+        }
+
+        if (password.length() < 8) {
+            layout.setError(getString(R.string.password_too_short));
+            return;
+        }
+
+        if (!password.matches(".*[a-z].*")) {
+            layout.setError(getString(R.string.password_no_lowercase));
+            return;
+        }
+
+        if (!password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{}|;:,./<>?].*")) {
+            layout.setError(getString(R.string.password_no_symbol));
+            return;
+        }
+
+        layout.setError(null);
+        layout.setHelperText("✓ Password meets requirements");
+    }
+
+    private void validateConfirmPasswordRealTime(EditText confirmField, String newPassword, String confirmPassword) {
+        com.google.android.material.textfield.TextInputLayout layout = (com.google.android.material.textfield.TextInputLayout) confirmField.getParent().getParent();
+        
+        if (confirmPassword.isEmpty()) {
+            layout.setHelperText("Confirm your password");
+            layout.setError(null);
+            return;
+        }
+
+        if (!confirmPassword.equals(newPassword)) {
+            layout.setError("Passwords do not match");
+            return;
+        }
+
+        layout.setError(null);
+        layout.setHelperText("✓ Passwords match");
+    }
+
+    private String validatePassword(String password, String confirmPassword) {
+        // Check if passwords match
+        if (!password.equals(confirmPassword)) {
+            return "Passwords do not match";
+        }
+
+        // Check minimum length
+        if (password.length() < 8) {
+            return getString(R.string.password_too_short);
+        }
+
+        // Check for lowercase letter
+        if (!password.matches(".*[a-z].*")) {
+            return getString(R.string.password_no_lowercase);
+        }
+
+        // Check for symbol
+        if (!password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{}|;:,./<>?].*")) {
+            return getString(R.string.password_no_symbol);
+        }
+
+        return null; // Password is valid
+    }
+
 }

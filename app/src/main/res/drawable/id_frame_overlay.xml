@@ -8,44 +8,43 @@
     </item>
     
     <!-- Transparent rectangle for ID frame -->
-    <item android:left="40dp" android:top="100dp" android:right="40dp" android:bottom="100dp">
+    <item android:left="40dp" android:top="80dp" android:right="40dp" android:bottom="120dp">
         <shape android:shape="rectangle">
             <solid android:color="#00000000" />
-            <stroke android:width="3dp" android:color="#FFFFFF" />
-            <corners android:radius="8dp" />
+            <stroke android:width="2dp" android:color="#FFFFFF" />
+            <corners android:radius="12dp" />
         </shape>
     </item>
     
-    <!-- Red overlay markings for sensitive areas -->
-    <!-- Top left marking -->
-    <item android:left="60dp" android:top="120dp" android:right="120dp" android:bottom="140dp">
+    <!-- Corner markers - Top Left -->
+    <item android:left="40dp" android:top="80dp" android:right="60dp" android:bottom="100dp">
         <shape android:shape="rectangle">
-            <solid android:color="#FF0000" />
-            <corners android:radius="4dp" />
+            <solid android:color="#00000000" />
+            <stroke android:width="4dp" android:color="#FFFFFF" />
         </shape>
     </item>
     
-    <!-- Middle marking -->
-    <item android:left="80dp" android:top="160dp" android:right="140dp" android:bottom="180dp">
+    <!-- Corner markers - Top Right -->
+    <item android:left="60dp" android:top="80dp" android:right="40dp" android:bottom="100dp">
         <shape android:shape="rectangle">
-            <solid android:color="#FF0000" />
-            <corners android:radius="4dp" />
+            <solid android:color="#00000000" />
+            <stroke android:width="4dp" android:color="#FFFFFF" />
         </shape>
     </item>
     
-    <!-- QR code area marking (right side) -->
-    <item android:left="200dp" android:top="130dp" android:right="240dp" android:bottom="190dp">
+    <!-- Corner markers - Bottom Left -->
+    <item android:left="40dp" android:top="100dp" android:right="60dp" android:bottom="120dp">
         <shape android:shape="rectangle">
-            <solid android:color="#FF0000" />
-            <corners android:radius="4dp" />
+            <solid android:color="#00000000" />
+            <stroke android:width="4dp" android:color="#FFFFFF" />
         </shape>
     </item>
     
-    <!-- Bottom marking -->
-    <item android:left="60dp" android:top="200dp" android:right="120dp" android:bottom="220dp">
+    <!-- Corner markers - Bottom Right -->
+    <item android:left="60dp" android:top="100dp" android:right="40dp" android:bottom="120dp">
         <shape android:shape="rectangle">
-            <solid android:color="#FF0000" />
-            <corners android:radius="4dp" />
+            <solid android:color="#00000000" />
+            <stroke android:width="4dp" android:color="#FFFFFF" />
         </shape>
     </item>
 </layer-list>

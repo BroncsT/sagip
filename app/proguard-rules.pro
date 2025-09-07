@@ -19,3 +19,11 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# 16 KB page size compatibility - Keep native libraries
+-keep class com.google.mlkit.** { *; }
+-keep class com.google.android.gms.** { *; }
+
+# Keep native library symbols for proper alignment
+-keepattributes *Annotation*
+-keepattributes SourceFile,LineNumberTable

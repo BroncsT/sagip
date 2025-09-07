@@ -1,6 +1,8 @@
 package com.example.sagip_prototype;
 
 import android.os.Bundle;
+import android.text.InputFilter;
+import android.text.Spanned;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -11,10 +13,13 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class Senior_add_Emergency_Contact extends AppCompatActivity {
 
@@ -28,6 +33,19 @@ public class Senior_add_Emergency_Contact extends AppCompatActivity {
         EditText emerNumber = findViewById(R.id.emerContact_Number);
         EditText emerAddress = findViewById(R.id.emerContact_add);
         Button addEmergencyContact = findViewById(R.id.addEmerContact);
+
+        // Add input filter to restrict phone number input to digits only
+        emerNumber.setFilters(new InputFilter[]{new InputFilter() {
+            @Override
+            public CharSequence filter(CharSequence source, int start, int end, Spanned dest, int dstart, int dend) {
+                for (int i = start; i < end; i++) {
+                    if (!Character.isDigit(source.charAt(i))) {
+                        return "";
+                    }
+                }
+                return null;
+            }
+        }});
 
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         FirebaseAuth mAuth = FirebaseAuth.getInstance();
@@ -44,6 +62,11 @@ public class Senior_add_Emergency_Contact extends AppCompatActivity {
                     return;
                 }
 
+                if (!isValidPhoneNumber(number)) {
+                    Toast.makeText(Senior_add_Emergency_Contact.this, getString(R.string.valid_mobile_error), Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
                 FirebaseUser user = mAuth.getCurrentUser();
                 if (user == null) {
                     Toast.makeText(Senior_add_Emergency_Contact.this, "User not authenticated", Toast.LENGTH_SHORT).show();
@@ -53,24 +76,66 @@ public class Senior_add_Emergency_Contact extends AppCompatActivity {
                 String uid = user.getUid();
                 String userType = "seniors";
 
-                HashMap<String, Object> newContact = new HashMap<>();
-                newContact.put("name", name);
-                newContact.put("number", number);
-                newContact.put("address", address);
-
-                db.collection("Sagip")
-                        .document("users")
-                        .collection(userType)
-                        .document(uid)
-                        .update("emergencyContacts", FieldValue.arrayUnion(newContact))
-                        .addOnSuccessListener(aVoid -> {
-                            Toast.makeText(Senior_add_Emergency_Contact.this, "Emergency contact added successfully", Toast.LENGTH_SHORT).show();
-                            finish();
-                        })
-                        .addOnFailureListener(e -> {
-                            Toast.makeText(Senior_add_Emergency_Contact.this, "Failed to add emergency contact", Toast.LENGTH_SHORT).show();
-                        });
+                // Check for duplicate phone numbers before adding
+                checkForDuplicateAndAdd(uid, userType, name, number, address, db);
             }
         });
+    }
+
+    private void checkForDuplicateAndAdd(String uid, String userType, String name, String number, String address, FirebaseFirestore db) {
+        db.collection("Sagip")
+                .document("users")
+                .collection(userType)
+                .document(uid)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        List<Map<String, Object>> existingContacts = (List<Map<String, Object>>) documentSnapshot.get("emergencyContacts");
+                        
+                        if (existingContacts != null) {
+                            // Check for duplicate phone numbers
+                            for (Map<String, Object> contact : existingContacts) {
+                                String existingNumber = contact.get("number").toString();
+                                if (existingNumber.equals(number)) {
+                                    Toast.makeText(Senior_add_Emergency_Contact.this, "Phone number already exists in emergency contacts", Toast.LENGTH_SHORT).show();
+                                    return;
+                                }
+                            }
+                        }
+                        
+                        // No duplicate found, add the contact
+                        addEmergencyContact(uid, userType, name, number, address, db);
+                    } else {
+                        // No existing contacts, add the contact
+                        addEmergencyContact(uid, userType, name, number, address, db);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(Senior_add_Emergency_Contact.this, "Failed to check existing contacts: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    private void addEmergencyContact(String uid, String userType, String name, String number, String address, FirebaseFirestore db) {
+        HashMap<String, Object> newContact = new HashMap<>();
+        newContact.put("name", name);
+        newContact.put("number", number);
+        newContact.put("address", address);
+
+        db.collection("Sagip")
+                .document("users")
+                .collection(userType)
+                .document(uid)
+                .update("emergencyContacts", FieldValue.arrayUnion(newContact))
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(Senior_add_Emergency_Contact.this, "Emergency contact added successfully", Toast.LENGTH_SHORT).show();
+                    finish();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(Senior_add_Emergency_Contact.this, "Failed to add emergency contact", Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    private boolean isValidPhoneNumber(String number) {
+        return !number.isEmpty() && number.matches("09\\d{9}");
     }
 }

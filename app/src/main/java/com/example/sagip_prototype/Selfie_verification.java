@@ -386,6 +386,7 @@ public class Selfie_verification extends AppCompatActivity {
         });
     }
 
+
     private void captureCurrentFrame() {
         try {
             if (previewView.getBitmap() != null) {

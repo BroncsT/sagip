@@ -1,7 +1,9 @@
 package com.example.sagip_prototype;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
@@ -18,6 +20,7 @@ import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.HashMap;
 import java.util.Map;
+import android.util.Log;
 
 public class Barangay_Registration extends AppCompatActivity {
 
@@ -31,26 +34,54 @@ public class Barangay_Registration extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_barangay_registration);
+        
+        // Enable smooth scrolling
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
 
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
 
         EditText barangayName = findViewById(R.id.emerContact_name);
         EditText address = findViewById(R.id.emerContact_Number);
-        EditText captain = findViewById(R.id.emerContact_add);
+        EditText contactPerson = findViewById(R.id.emerContact_add);
+        EditText phoneNumber = findViewById(R.id.phoneNumber);
+        EditText newPassword = findViewById(R.id.newPassword);
+        EditText confirmNewPassword = findViewById(R.id.confirmNewPassword);
+
+        // Setup real-time password validation
+        setupPasswordValidation(newPassword, confirmNewPassword);
 
         Button continueButton = findViewById(R.id.addEmerContact);
 
         continueButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                String barangayNameText = barangayName.getText().toString();
-                String addressText = address.getText().toString();
-                String captainText = captain.getText().toString();
-
-                if (!barangayNameText.isEmpty() && !addressText.isEmpty() && !captainText.isEmpty()) {
-                    Toast.makeText(Barangay_Registration.this, "Fill all Fiels", Toast.LENGTH_SHORT).show();
+                String barangayNameText = barangayName.getText().toString().trim();
+                String addressText = address.getText().toString().trim();
+                String contactPersonText = contactPerson.getText().toString().trim();
+                String phoneNumberText = phoneNumber.getText().toString().trim();
+                String password = newPassword.getText().toString().trim();
+                String confirmPassword = confirmNewPassword.getText().toString().trim();
+                
+                if (barangayNameText.isEmpty() || addressText.isEmpty() || contactPersonText.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
+                    Toast.makeText(Barangay_Registration.this, "Please fill in all required fields", Toast.LENGTH_SHORT).show();
+                    return;
                 }
+
+                // Only validate phone number if it's provided
+                if (!phoneNumberText.isEmpty() && !isValidPhoneNumber(phoneNumberText)) {
+                    Toast.makeText(Barangay_Registration.this, getString(R.string.valid_mobile_error), Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                // Validate password
+                String passwordError = validatePassword(password, confirmPassword);
+                if (passwordError != null) {
+                    Toast.makeText(Barangay_Registration.this, passwordError, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                
                 FirebaseUser user = mAuth.getCurrentUser();
                 if (user == null) {
                     Toast.makeText(Barangay_Registration.this, "User not authenticated", Toast.LENGTH_SHORT).show();
@@ -58,34 +89,170 @@ public class Barangay_Registration extends AppCompatActivity {
                 }
                 String uid = user.getUid();
 
-
-                Map<String, Object> usrData = new HashMap<>();
-                usrData.put("barangayName", barangayNameText);
-                usrData.put("address", address);
-                usrData.put("captain", captain);
-                usrData.put("user-type", userType);
-
-                db.collection("Sagip")
-                        .document("users")
-                        .collection(userType)
-                        .document(uid)
-                        .set(usrData)
-                        .addOnCompleteListener(new OnCompleteListener<Void>() {
-                            @Override
-                            public void onComplete(@NonNull Task<Void> task) {
-                                if (task.isSuccessful()) {
-                                    Toast.makeText(Barangay_Registration.this,
-                                            "Registration successful! Awaiting approval.",
-                                            Toast.LENGTH_LONG).show();
-                                    finish();
-                                } else {
-                                    Toast.makeText(Barangay_Registration.this,
-                                            "Failed to save data: " + task.getException().getMessage(),
-                                            Toast.LENGTH_SHORT).show();
-                                }
+                // Change password first
+                user.updatePassword(password)
+                    .addOnCompleteListener(new OnCompleteListener<Void>() {
+                        @Override
+                        public void onComplete(@NonNull Task<Void> task) {
+                            if (task.isSuccessful()) {
+                                // Password updated successfully, now save user data
+                                saveUserData(barangayNameText, addressText, contactPersonText, phoneNumberText, uid);
+                            } else {
+                                Toast.makeText(Barangay_Registration.this, "Failed to update password: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
                             }
-                        });
+                        }
+                    });
             }
         });
     }
+
+    private void saveUserData(String barangayNameText, String addressText, String contactPersonText, String phoneNumberText, String uid) {
+        Map<String, Object> usrData = new HashMap<>();
+        usrData.put("barangayName", barangayNameText);
+        usrData.put("address", addressText);
+        usrData.put("contactPerson", contactPersonText);
+        usrData.put("mobileNumber", phoneNumberText);
+        usrData.put("user-type", userType);
+        usrData.put("status", "registered");
+
+        Toast.makeText(Barangay_Registration.this, "Starting registration process...", Toast.LENGTH_SHORT).show();
+
+        // Step 1: Save to Firestore with admin-provided email first
+        db.collection("Sagip")
+                .document("users")
+                .collection(userType)
+                .document(uid)
+                .set(usrData)
+                .addOnCompleteListener(new OnCompleteListener<Void>() {
+                    @Override
+                    public void onComplete(@NonNull Task<Void> task) {
+                        if (!isFinishing() && !isDestroyed()) {
+                            if (task.isSuccessful()) {
+                                Toast.makeText(Barangay_Registration.this, "Data saved to Firestore successfully!", Toast.LENGTH_SHORT).show();
+                                
+                                // Step 2: Admin-provided email is stored in Firestore only
+                                // Firebase Auth email remains as phone number (already verified)
+                                // This avoids verification requirements and maintains admin control
+                                Toast.makeText(Barangay_Registration.this,
+                                        "Registration complete! Redirecting to dashboard...", 
+                                        Toast.LENGTH_LONG).show();
+                                
+                                // Redirect to barangay dashboard
+                                Intent dashboardIntent = new Intent(Barangay_Registration.this, Barangay_Dashboard.class);
+                                startActivity(dashboardIntent);
+                                finish();
+                            } else {
+                                String errorMsg = "Failed to save data: " + task.getException().getMessage();
+                                Toast.makeText(Barangay_Registration.this, errorMsg, Toast.LENGTH_LONG).show();
+                                Log.e("Barangay_Registration", errorMsg, task.getException());
+                            }
+                        }
+                    }
+                });
+    }
+
+    private boolean isValidPhoneNumber(String number) {
+        return !number.isEmpty() && number.matches("09\\d{9}");
+    }
+
+    private void setupPasswordValidation(EditText newPassword, EditText confirmPassword) {
+        // Real-time validation for new password
+        newPassword.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                validatePasswordRealTime(newPassword, s.toString());
+            }
+
+            @Override
+            public void afterTextChanged(android.text.Editable s) {}
+        });
+
+        // Real-time validation for confirm password
+        confirmPassword.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                validateConfirmPasswordRealTime(confirmPassword, newPassword.getText().toString(), s.toString());
+            }
+
+            @Override
+            public void afterTextChanged(android.text.Editable s) {}
+        });
+    }
+
+    private void validatePasswordRealTime(EditText passwordField, String password) {
+        com.google.android.material.textfield.TextInputLayout layout = (com.google.android.material.textfield.TextInputLayout) passwordField.getParent().getParent();
+        
+        if (password.isEmpty()) {
+            layout.setHelperText(getString(R.string.password_requirements));
+            layout.setError(null);
+            return;
+        }
+
+        if (password.length() < 8) {
+            layout.setError(getString(R.string.password_too_short));
+            return;
+        }
+
+        if (!password.matches(".*[a-z].*")) {
+            layout.setError(getString(R.string.password_no_lowercase));
+            return;
+        }
+
+        if (!password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{}|;:,./<>?].*")) {
+            layout.setError(getString(R.string.password_no_symbol));
+            return;
+        }
+
+        layout.setError(null);
+        layout.setHelperText("✓ Password meets requirements");
+    }
+
+    private void validateConfirmPasswordRealTime(EditText confirmField, String newPassword, String confirmPassword) {
+        com.google.android.material.textfield.TextInputLayout layout = (com.google.android.material.textfield.TextInputLayout) confirmField.getParent().getParent();
+        
+        if (confirmPassword.isEmpty()) {
+            layout.setHelperText("Confirm your password");
+            layout.setError(null);
+            return;
+        }
+
+        if (!confirmPassword.equals(newPassword)) {
+            layout.setError("Passwords do not match");
+            return;
+        }
+
+        layout.setError(null);
+        layout.setHelperText("✓ Passwords match");
+    }
+
+    private String validatePassword(String password, String confirmPassword) {
+        // Check if passwords match
+        if (!password.equals(confirmPassword)) {
+            return "Passwords do not match";
+        }
+
+        // Check minimum length
+        if (password.length() < 8) {
+            return getString(R.string.password_too_short);
+        }
+
+        // Check for lowercase letter
+        if (!password.matches(".*[a-z].*")) {
+            return getString(R.string.password_no_lowercase);
+        }
+
+        // Check for symbol
+        if (!password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{}|;:,./<>?].*")) {
+            return getString(R.string.password_no_symbol);
+        }
+
+        return null; // Password is valid
+    }
+
 }

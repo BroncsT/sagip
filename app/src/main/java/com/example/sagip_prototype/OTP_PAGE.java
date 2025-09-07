@@ -2,6 +2,7 @@ package com.example.sagip_prototype;
 
 import static android.content.ContentValues.TAG;
 
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.CountDownTimer;
@@ -14,6 +15,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.gms.tasks.OnCompleteListener;
@@ -26,6 +28,7 @@ import com.google.firebase.auth.PhoneAuthCredential;
 import com.google.firebase.auth.PhoneAuthOptions;
 import com.google.firebase.auth.PhoneAuthProvider;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.QuerySnapshot;
 
 import java.util.Arrays;
@@ -45,7 +48,7 @@ public class OTP_PAGE extends AppCompatActivity {
     private CountDownTimer countDownTimer;
     private static final long TIMER_DURATION = 60000; // 60 seconds
 
-    private final List<String> userTypes = Arrays.asList("seniors", "hospital", "rescuer", "barangay");
+    private final List<String> userTypes = Arrays.asList("seniors", "rescuer", "barangay", "hospital");
     private int currentUserTypeIndex = 0;
 
     @Override
@@ -69,6 +72,8 @@ public class OTP_PAGE extends AppCompatActivity {
         verificationId = getIntent().getStringExtra("VERIFICATION_ID");
         mobileNumber = getIntent().getStringExtra("MOBILE_NUMBER");
         isNewUser = getIntent().getBooleanExtra("IS_NEW_USER", false);
+        
+        Log.d(TAG, "OTP_PAGE: Mobile number: " + mobileNumber + ", isNewUser: " + isNewUser);
 
         resendButton.setEnabled(false);
         startTimer();
@@ -144,17 +149,18 @@ public class OTP_PAGE extends AppCompatActivity {
     private void verifyWithCredential(PhoneAuthCredential credential) {
         auth.signInWithCredential(credential)
                 .addOnCompleteListener(this, task -> {
-                    if (task.isSuccessful()) {
-                        FirebaseUser user = task.getResult().getUser();
-                        if (isNewUser) {
-                            goToRegistration();
-                        } else {
+                    if (!isFinishing() && !isDestroyed()) {
+                        if (task.isSuccessful()) {
+                            FirebaseUser user = task.getResult().getUser();
+                            Log.d(TAG, "OTP verification successful for: " + mobileNumber);
+                            // Always check user status first, regardless of isNewUser flag
+                            // This prevents pending users from bypassing the status check
                             currentUserTypeIndex = 0;
                             findUserTypeByMobileNumber();
+                        } else {
+                            Toast.makeText(OTP_PAGE.this, "Verification failed: " +
+                                    (task.getException() != null ? task.getException().getMessage() : "Unknown error"), Toast.LENGTH_SHORT).show();
                         }
-                    } else {
-                        Toast.makeText(OTP_PAGE.this, "Verification failed: " +
-                                (task.getException() != null ? task.getException().getMessage() : "Unknown error"), Toast.LENGTH_SHORT).show();
                     }
                 });
     }
@@ -162,26 +168,121 @@ public class OTP_PAGE extends AppCompatActivity {
     private void findUserTypeByMobileNumber() {
         if (currentUserTypeIndex >= userTypes.size()) {
             // Not found in any userType collection
-            goToRegistration();
+            Log.d(TAG, "User not found in any collection after checking all types. Phone: " + mobileNumber + ", isNewUser: " + isNewUser);
+            
+            // For senior users, check if they might be pending before going to registration
+            // This handles cases where the user exists but wasn't found due to search issues
+            if (isNewUser) {
+                Log.d(TAG, "Treating as new user, going to registration");
+                goToRegistration();
+            } else {
+                Log.d(TAG, "User was expected to exist but not found, going to registration");
+                goToRegistration();
+            }
             return;
         }
 
         String currentType = userTypes.get(currentUserTypeIndex);
+        Log.d(TAG, "Checking user type: " + currentType + " for mobile: " + mobileNumber);
+        
+        // Try both with and without +63 prefix
+        final String searchNumber = mobileNumber.startsWith("+63") ? mobileNumber.substring(3) : mobileNumber;
+        final String finalMobileNumber = mobileNumber;
+        Log.d(TAG, "Searching for phone number: " + searchNumber + " in collection: " + currentType + " (original: " + finalMobileNumber + ")");
+        
         db.collection("Sagip")
                 .document("users")
                 .collection(currentType)
-                .whereEqualTo("mobileNumber", mobileNumber)
+                .whereEqualTo("mobileNumber", searchNumber)
                 .get()
                 .addOnCompleteListener(task -> {
-                    if (task.isSuccessful()) {
-                        if (!task.getResult().isEmpty()) {
-                            goToHomeScreen(currentType);
+                    if (!isFinishing() && !isDestroyed()) {
+                        if (task.isSuccessful()) {
+                            if (!task.getResult().isEmpty()) {
+                                Log.d(TAG, "User found in collection: " + currentType);
+                                
+                                // Check user status for senior users
+                                if (currentType.equals("seniors")) {
+                                    for (QueryDocumentSnapshot document : task.getResult()) {
+                                        String status = document.getString("status");
+                                        String documentId = document.getId();
+                                        Log.d(TAG, "Senior user found in OTP_PAGE. Document ID: " + documentId + ", Status: " + status);
+                                        if (status != null && status.equals("approved")) {
+                                            Log.d(TAG, "Senior user found with approved status, proceeding to dashboard");
+                                            goToHomeScreen(currentType);
+                                        } else if (status != null && status.equals("pending")) {
+                                            Log.d(TAG, "Senior user found but status is pending - BLOCKING ACCESS");
+                                            showPendingApprovalMessage();
+                                        } else {
+                                            Log.d(TAG, "Senior user found but status not approved/pending: " + status);
+                                            showPendingApprovalMessage();
+                                        }
+                                        return;
+                                    }
+                                } else {
+                                    // For non-senior users, allow login regardless of status
+                                    Log.d(TAG, "Non-senior user found, proceeding to dashboard");
+                                    goToHomeScreen(currentType);
+                                }
+                            } else {
+                                Log.d(TAG, "User not found in collection: " + currentType + " with format " + searchNumber + ", trying with full format");
+                                // Try with the full number format (including +63 prefix)
+                                if (!finalMobileNumber.equals(searchNumber)) {
+                                    db.collection("Sagip")
+                                            .document("users")
+                                            .collection(currentType)
+                                            .whereEqualTo("mobileNumber", finalMobileNumber)
+                                            .get()
+                                            .addOnCompleteListener(task2 -> {
+                                                if (!isFinishing() && !isDestroyed()) {
+                                                    if (task2.isSuccessful()) {
+                                                        if (!task2.getResult().isEmpty()) {
+                                                            Log.d(TAG, "User found with full format: " + finalMobileNumber);
+                                                            // Process the found user with the same logic
+                                                            if (currentType.equals("seniors")) {
+                                                                for (QueryDocumentSnapshot document : task2.getResult()) {
+                                                                    String status = document.getString("status");
+                                                                    String documentId = document.getId();
+                                                                    Log.d(TAG, "Senior user found in OTP_PAGE with full format. Document ID: " + documentId + ", Status: " + status);
+                                                                    if (status != null && status.equals("approved")) {
+                                                                        Log.d(TAG, "Senior user found with approved status, proceeding to dashboard");
+                                                                        goToHomeScreen(currentType);
+                                                                    } else if (status != null && status.equals("pending")) {
+                                                                        Log.d(TAG, "Senior user found but status is pending - BLOCKING ACCESS");
+                                                                        showPendingApprovalMessage();
+                                                                    } else {
+                                                                        Log.d(TAG, "Senior user found but status not approved/pending: " + status);
+                                                                        showPendingApprovalMessage();
+                                                                    }
+                                                                    return;
+                                                                }
+                                                            } else {
+                                                                // For non-senior users, allow login regardless of status
+                                                                Log.d(TAG, "Non-senior user found with full format, proceeding to dashboard");
+                                                                goToHomeScreen(currentType);
+                                                            }
+                                                        } else {
+                                                            Log.d(TAG, "User not found in collection: " + currentType + " with either format, checking next type");
+                                                            currentUserTypeIndex++;
+                                                            findUserTypeByMobileNumber(); // Check next type
+                                                        }
+                                                    } else {
+                                                        Log.e(TAG, "Error checking user type with full format: " + task2.getException());
+                                                        currentUserTypeIndex++;
+                                                        findUserTypeByMobileNumber(); // Check next type
+                                                    }
+                                                }
+                                            });
+                                } else {
+                                    Log.d(TAG, "User not found in collection: " + currentType);
+                                    currentUserTypeIndex++;
+                                    findUserTypeByMobileNumber(); // Check next type
+                                }
+                            }
                         } else {
-                            currentUserTypeIndex++;
-                            findUserTypeByMobileNumber(); // Check next type
+                            Log.e(TAG, "Error checking user type: " + task.getException());
+                            Toast.makeText(OTP_PAGE.this, "Error checking user type: " + task.getException(), Toast.LENGTH_SHORT).show();
                         }
-                    } else {
-                        Toast.makeText(OTP_PAGE.this, "Error checking user type: " + task.getException(), Toast.LENGTH_SHORT).show();
                     }
                 });
     }
@@ -202,8 +303,10 @@ public class OTP_PAGE extends AppCompatActivity {
                 intent = new Intent(OTP_PAGE.this, Barangay_Dashboard.class);
                 break;
             default:
-                intent = new Intent(OTP_PAGE.this, MainActivity.class);
-                break;
+                // For unknown user types, go to registration instead of MainActivity
+                Log.d(TAG, "Unknown user type: " + userType + ", redirecting to registration");
+                goToRegistration();
+                return;
         }
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
@@ -213,9 +316,27 @@ public class OTP_PAGE extends AppCompatActivity {
     private void goToRegistration() {
         Intent intent = new Intent(OTP_PAGE.this, Senior_Registration.class);
         intent.putExtra("MOBILE_NUMBER", mobileNumber);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
     }
+
+    private void showPendingApprovalMessage() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Senior Citizen Account Pending Approval")
+                .setMessage("Your Senior Citizen account is registered but pending administrator approval. You cannot access the app until your account is approved. Please contact an administrator or try again later.")
+                .setPositiveButton("OK", (dialog, which) -> {
+                    dialog.dismiss();
+                    // Sign out the user and finish this activity
+                    // This will return the user to the previous activity (MainActivity) naturally
+                    auth.signOut();
+                    finish();
+                })
+                .setCancelable(false)
+                .show();
+    }
+
+    
 
     @Override
     protected void onDestroy() {

@@ -115,6 +115,26 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                 navigateToNearestHospital();
             }
         });
+        
+        // Test Google Navigation (long press on hospital button)
+        navigateToHospitalButton.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View v) {
+                // Test Google Navigation with current location as starting point
+                Log.d("Rescuer_Dashboard", "Testing Google Navigation from current location");
+                
+                if (currentLat != 0.0 && currentLong != 0.0) {
+                    // Use current location as starting point, church as destination
+                    openGoogleNavigation(15.22514, 120.62861, "Christ, the Divine Healer Parish Church - Sta. Lucia Resettlement Center, Magalang, Pampanga", "Test Senior", "09123456789", "test123");
+                    Toast.makeText(Rescuer_Dashboard.this, "🗺️ Navigation from your current location to the church", Toast.LENGTH_LONG).show();
+                } else {
+                    Toast.makeText(Rescuer_Dashboard.this, "📍 Getting your current location first...", Toast.LENGTH_SHORT).show();
+                    // Request location update and then start navigation
+                    requestLocationAndStartNavigation();
+                }
+                return true;
+            }
+        });
 
         // Initialize location services
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
@@ -388,14 +408,15 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         builder.setPositiveButton("🚑 RESPOND NOW", (dialog, which) -> {
             clearEmergencyNotification(helpRequestId);
             respondToEmergency(helpRequestId, emergencyId);
-            openExternalGoogleMapsNavigation(latitude, longitude, locationAddress, seniorName, seniorPhone, helpRequestId);
+            openGoogleNavigation(latitude, longitude, locationAddress, seniorName, seniorPhone, helpRequestId);
             dialog.dismiss();
         });
 
-        // GET ROUTE button - opens external Google Maps with navigation
-        builder.setNeutralButton("🗺️ GET ROUTE", (dialog, which) -> {
+        // GOOGLE NAVIGATION button - opens embedded Google Navigation
+        builder.setNeutralButton("🗺️ GOOGLE NAV", (dialog, which) -> {
             clearEmergencyNotification(helpRequestId);
-            openExternalGoogleMapsNavigation(latitude, longitude, locationAddress, seniorName, seniorPhone, helpRequestId);
+            Log.d("Rescuer_Dashboard", "Opening Google Navigation with data: " + seniorName + " at " + locationAddress);
+            openGoogleNavigation(latitude, longitude, locationAddress, seniorName, seniorPhone, helpRequestId);
             dialog.dismiss();
         });
 
@@ -492,20 +513,52 @@ public class Rescuer_Dashboard extends AppCompatActivity {
     private void openLocationInInternalMap(Double latitude, Double longitude, String address,
                                            String seniorName, String seniorPhone, String helpRequestId) {
         if (latitude != null && longitude != null) {
-            Intent mapIntent = new Intent(this, MyOpenStreetMap.class);
+            Intent mapIntent = new Intent(this, RescuerNavigationActivity.class);
 
-            // Use consistent extra names that match MyOpenStreetMap expectations
+            // Pass emergency data to the dedicated navigation activity
             mapIntent.putExtra("latitude", latitude);
             mapIntent.putExtra("longitude", longitude);
             mapIntent.putExtra("locationAddress", address);
-            mapIntent.putExtra("isRescuerMode", true);
             mapIntent.putExtra("seniorName", seniorName);
             mapIntent.putExtra("seniorPhone", seniorPhone != null ? seniorPhone : "");
             mapIntent.putExtra("helpRequestId", helpRequestId);
-            mapIntent.putExtra("emergencyDescription", "Senior needs immediate assistance");
 
             startActivity(mapIntent);
+            
+            // Show toast to guide rescuer
+            Toast.makeText(this, "🗺️ Opening dedicated navigation to " + seniorName + "'s location", Toast.LENGTH_LONG).show();
         } else {
+            Toast.makeText(this, getString(R.string.emergency_location_not_available), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void openGoogleNavigation(Double latitude, Double longitude, String address,
+                                     String seniorName, String seniorPhone, String helpRequestId) {
+        Log.d("Rescuer_Dashboard", "openGoogleNavigation called with: " + latitude + ", " + longitude);
+        
+        if (latitude != null && longitude != null) {
+            try {
+                Intent navigationIntent = new Intent(this, GoogleNavigationActivity.class);
+
+                // Pass emergency data to the Google Navigation activity
+                navigationIntent.putExtra("latitude", latitude);
+                navigationIntent.putExtra("longitude", longitude);
+                navigationIntent.putExtra("locationAddress", address);
+                navigationIntent.putExtra("seniorName", seniorName);
+                navigationIntent.putExtra("seniorPhone", seniorPhone != null ? seniorPhone : "");
+                navigationIntent.putExtra("helpRequestId", helpRequestId);
+
+                Log.d("Rescuer_Dashboard", "Starting GoogleNavigationActivity");
+                startActivity(navigationIntent);
+                
+                // Show toast to guide rescuer
+                Toast.makeText(this, "🗺️ Opening Google Navigation to " + seniorName + "'s location", Toast.LENGTH_LONG).show();
+            } catch (Exception e) {
+                Log.e("Rescuer_Dashboard", "Error starting GoogleNavigationActivity", e);
+                Toast.makeText(this, "Error opening navigation: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        } else {
+            Log.e("Rescuer_Dashboard", "Invalid coordinates: " + latitude + ", " + longitude);
             Toast.makeText(this, getString(R.string.emergency_location_not_available), Toast.LENGTH_SHORT).show();
         }
     }
@@ -684,9 +737,9 @@ public class Rescuer_Dashboard extends AppCompatActivity {
             return;
         }
 
-        Intent mapIntent = new Intent(this, MyOpenStreetMap.class);
+        Intent mapIntent = new Intent(this, MyGoogleMAp.class);
 
-        // Use consistent extra names that match MyOpenStreetMap expectations
+        // Use consistent extra names that match MyGoogleMAp expectations
         mapIntent.putExtra("latitude", currentLat);
         mapIntent.putExtra("longitude", currentLong);
         mapIntent.putExtra("locationAddress", "Navigate to nearest hospital");
@@ -716,7 +769,8 @@ public class Rescuer_Dashboard extends AppCompatActivity {
             if (storedUserType != null) {
                 Log.d(TAG, "Using stored user type: " + storedUserType);
                 this.userType = storedUserType;
-                loadUserData(userId);
+                // Check user status before loading data
+                checkUserStatusAndRedirect();
             } else {
                 Log.d(TAG, "No stored user type, detecting from database...");
                 // User type not stored, need to detect it from database
@@ -745,6 +799,55 @@ public class Rescuer_Dashboard extends AppCompatActivity {
             editor.putString(KEY_USER_PHONE, phoneNumber);
         }
         editor.apply();
+    }
+
+    private void checkUserStatusAndRedirect() {
+        if (userId == null) {
+            Log.w(TAG, "userId is null, cannot check status");
+            return;
+        }
+
+        Log.d(TAG, "Checking user status for userId: " + userId);
+
+        db.collection("Sagip")
+                .document("users")
+                .collection("rescuer")
+                .document(userId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String status = documentSnapshot.getString("status");
+                        Log.d(TAG, "User status: " + status);
+                        
+                        if ("new".equals(status)) {
+                            Log.d(TAG, "User status is 'new', redirecting to registration");
+                            // User status is "new", redirect to registration
+                            Intent intent = new Intent(Rescuer_Dashboard.this, Rescuer_Registration.class);
+                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                            startActivity(intent);
+                            finish();
+                        } else {
+                            Log.d(TAG, "User status is not 'new', proceeding to dashboard");
+                            // User is registered, proceed with dashboard initialization
+                            loadUserData(userId);
+                        }
+                    } else {
+                        Log.w(TAG, "User document does not exist, redirecting to registration");
+                        // User document doesn't exist, redirect to registration
+                        Intent intent = new Intent(Rescuer_Dashboard.this, Rescuer_Registration.class);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        startActivity(intent);
+                        finish();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error checking user status: " + e.getMessage(), e);
+                    // On error, redirect to registration to be safe
+                    Intent intent = new Intent(Rescuer_Dashboard.this, Rescuer_Registration.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(intent);
+                    finish();
+                });
     }
 
     private void navigateToLogin() {
@@ -810,7 +913,7 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         Log.d(TAG, "Detecting user type for UID: " + uid);
 
         // Check for phone-based users first (seniors, user, rescuer, admin)
-        String[] phoneUserTypes = {"rescuer", "seniors", "user", "admin"};
+        String[] phoneUserTypes = {"rescuer", "seniors"};
 
         if (phoneNumber != null) {
             Log.d(TAG, "Phone number available: " + phoneNumber + ", checking phone-based collections...");
@@ -835,10 +938,16 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         String currentUserType = userTypes[index];
         Log.d(TAG, "Checking phone-based user type: " + currentUserType);
 
+        // Try both with and without +63 prefix
+        String searchNumber = phoneNumber;
+        if (phoneNumber.startsWith("+63")) {
+            searchNumber = phoneNumber.substring(3); // Remove +63 prefix
+        }
+        
         db.collection("Sagip")
                 .document("users")
                 .collection(currentUserType)
-                .whereEqualTo("mobileNumber", phoneNumber)
+                .whereEqualTo("mobileNumber", searchNumber)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
                     if (!querySnapshot.isEmpty()) {
@@ -1201,5 +1310,30 @@ public class Rescuer_Dashboard extends AppCompatActivity {
             }
             return false;
         });
+    }
+    
+    // Request current location and start navigation
+    private void requestLocationAndStartNavigation() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            fusedLocationClient.getLastLocation()
+                .addOnSuccessListener(this, location -> {
+                    if (location != null) {
+                        currentLat = location.getLatitude();
+                        currentLong = location.getLongitude();
+                        
+                        // Now start navigation with current location
+                        openGoogleNavigation(15.22514, 120.62861, "Christ, the Divine Healer Parish Church - Sta. Lucia Resettlement Center, Magalang, Pampanga", "Test Senior", "09123456789", "test123");
+                        Toast.makeText(this, "🗺️ Navigation from your current location to the church", Toast.LENGTH_LONG).show();
+                    } else {
+                        Toast.makeText(this, "❌ Could not get current location. Please try again.", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("Rescuer_Dashboard", "Error getting current location", e);
+                    Toast.makeText(this, "❌ Error getting location: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+        } else {
+            Toast.makeText(this, "❌ Location permission required for navigation", Toast.LENGTH_SHORT).show();
+        }
     }
 }

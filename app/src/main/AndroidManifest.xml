@@ -14,8 +14,14 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- OpenStreetMap permissions -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
@@ -44,25 +50,28 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.SAGIP_prototype"
-        tools:targetApi="31">
+        tools:targetApi="31"
+        android:extractNativeLibs="true">
 
-        <!-- OpenStreetMap Activity -->
-        <activity
-            android:name=".MyOpenStreetMap"
-            android:exported="false"
-            android:label="Emergency Location Map" />
-            
-        <!-- OpenStreetMap Example Activity -->
-        <activity
-            android:name=".OpenStreetMapExample"
-            android:exported="false"
-            android:label="OpenStreetMap Examples" />
-            
-        <!-- Google Maps Activity (kept for reference) -->
+        <!-- Google Maps Activity -->
         <activity
             android:name=".MyGoogleMAp"
             android:exported="false"
             android:label="Emergency Location Map (Google)" />
+
+        <!-- Rescuer Navigation Activity -->
+        <activity
+            android:name=".RescuerNavigationActivity"
+            android:exported="false"
+            android:label="Rescuer Navigation"
+            android:screenOrientation="portrait" />
+
+        <!-- Google Navigation Activity -->
+        <activity
+            android:name=".GoogleNavigationActivity"
+            android:exported="false"
+            android:label="Google Navigation"
+            android:screenOrientation="portrait" />
 
         <activity
             android:name=".Senior_add_Emergency_Contact"
@@ -137,7 +146,13 @@
         <activity
             android:name=".IdCameraCapture"
             android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:screenOrientation="unspecified" />
+        <activity
+            android:name=".FaceVerification"
+            android:exported="false"
             android:screenOrientation="portrait" />
+
         <activity
             android:name=".Senior_Registration"
             android:exported="false" />
@@ -146,6 +161,9 @@
             android:exported="false" />
         <activity
             android:name=".LanguageSelectionActivity"
+            android:exported="false" />
+        <activity
+            android:name=".EmailVerificationActivity"
             android:exported="false" />
 
         <!-- Feedback and Reporting Activities -->
@@ -162,6 +180,32 @@
             android:exported="false"
             android:label="@string/admin_feedback_title" />
 
+        <!-- Hospital Status Notification Service -->
+        <service
+            android:name=".HospitalStatusNotificationService"
+            android:enabled="true"
+            android:exported="false" />
+
+        <!-- Global Timer Service for continuous countdown -->
+        <service
+            android:name=".GlobalTimerService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <!-- Boot Receiver for rescheduling notifications -->
+        <receiver
+            android:name=".BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter android:priority="1000">
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.PACKAGE_REPLACED" />
+                <data android:scheme="package" />
+            </intent-filter>
+        </receiver>
+
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -171,6 +215,9 @@
             </intent-filter>
         </activity>
 
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="@string/google_maps_api_key" />
 
     </application>
 

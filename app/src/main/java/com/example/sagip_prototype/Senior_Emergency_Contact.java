@@ -2,6 +2,8 @@ package com.example.sagip_prototype;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.InputFilter;
+import android.text.Spanned;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.EditText;
@@ -202,6 +204,19 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
         EditText nameEditText = dialogView.findViewById(R.id.editTextName);
         EditText numberEditText = dialogView.findViewById(R.id.editTextNumber);
 
+        // Add input filter to restrict phone number input to digits only
+        numberEditText.setFilters(new InputFilter[]{new InputFilter() {
+            @Override
+            public CharSequence filter(CharSequence source, int start, int end, Spanned dest, int dstart, int dend) {
+                for (int i = start; i < end; i++) {
+                    if (!Character.isDigit(source.charAt(i))) {
+                        return "";
+                    }
+                }
+                return null;
+            }
+        }});
+
         // Pre-fill with current values
         nameEditText.setText(contact.getName());
         numberEditText.setText(contact.getNumber());
@@ -213,7 +228,12 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
                     String newNumber = numberEditText.getText().toString().trim();
 
                     if (!newName.isEmpty() && !newNumber.isEmpty()) {
-                        updateContactInFirestore(position, contact, newName, newNumber);
+                        if (!isValidPhoneNumber(newNumber)) {
+                            Toast.makeText(this, getString(R.string.valid_mobile_error), Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                        // Check for duplicate phone numbers before updating
+                        checkForDuplicateAndUpdate(position, contact, newName, newNumber);
                     } else {
                         Toast.makeText(this, "Please fill all fields", Toast.LENGTH_SHORT).show();
                     }
@@ -259,5 +279,39 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
                 .addOnFailureListener(e -> {
                     Toast.makeText(this, "Failed to update contact: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
+    }
+
+    private void checkForDuplicateAndUpdate(int position, Emergency_Contacts oldContact, String newName, String newNumber) {
+        String uid = mAuth.getCurrentUser().getUid();
+        String userType = "seniors";
+
+        // Check if the new number is different from the old number
+        if (oldContact.getNumber().equals(newNumber)) {
+            // Same number, just update the name
+            updateContactInFirestore(position, oldContact, newName, newNumber);
+            return;
+        }
+
+        // Check for duplicate phone numbers in existing contacts
+        boolean isDuplicate = false;
+        for (int i = 0; i < emergencyContacts.size(); i++) {
+            if (i != position) { // Skip the current contact being updated
+                Emergency_Contacts existingContact = emergencyContacts.get(i);
+                if (existingContact.getNumber().equals(newNumber)) {
+                    isDuplicate = true;
+                    break;
+                }
+            }
+        }
+
+        if (isDuplicate) {
+            Toast.makeText(this, "Phone number already exists in emergency contacts", Toast.LENGTH_SHORT).show();
+        } else {
+            updateContactInFirestore(position, oldContact, newName, newNumber);
+        }
+    }
+
+    private boolean isValidPhoneNumber(String number) {
+        return !number.isEmpty() && number.matches("09\\d{9}");
     }
 }

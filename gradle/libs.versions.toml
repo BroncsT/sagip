@@ -1,5 +1,5 @@
 [versions]
-agp = "8.12.1"
+agp = "8.13.0"
 junit = "4.13.2"
 junitVersion = "1.2.1"
 espressoCore = "3.6.1"
@@ -15,6 +15,7 @@ materialVersion = "1.9.0"
 picasso = "2.8"
 playServicesLocation = "21.0.1"
 playServicesMaps = "19.0.0"
+playServicesNavigation = "3.0.0"
 firebaseCrashlyticsBuildtools = "3.0.6"
 
 [libraries]
@@ -32,6 +33,7 @@ material-v190 = { module = "com.google.android.material:material", version.ref =
 picasso = { module = "com.squareup.picasso:picasso", version.ref = "picasso" }
 play-services-location = { module = "com.google.android.gms:play-services-location", version.ref = "playServicesLocation" }
 play-services-maps = { module = "com.google.android.gms:play-services-maps", version.ref = "playServicesMaps" }
+play-services-navigation = { module = "com.google.android.libraries.navigation:navigation", version.ref = "playServicesNavigation" }
 firebase-crashlytics-buildtools = { group = "com.google.firebase", name = "firebase-crashlytics-buildtools", version.ref = "firebaseCrashlyticsBuildtools" }
 
 [plugins]

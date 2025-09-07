@@ -59,6 +59,7 @@ public class Verification_Page extends AppCompatActivity {
     private String backImageUrl = "";
     private boolean isFrontImageSelected = false;
     private boolean isBackImageSelected = false;
+    private boolean pendingIsFront = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -76,9 +77,6 @@ public class Verification_Page extends AppCompatActivity {
         auth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
 
-        // Find views
-        uploadIdPhotoButton = findViewById(R.id.uploadIdPhotoButton);
-        captureIdPhotoButton = findViewById(R.id.captureIdPhotoButton);
         nextButton = findViewById(R.id.nextButton);
         frontIdPhotoImageView = findViewById(R.id.frontIdPhotoImageView);
         backIdPhotoImageView = findViewById(R.id.backIdPhotoImageView);
@@ -98,7 +96,12 @@ public class Verification_Page extends AppCompatActivity {
         frontIdPhotoImageView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                showImageSourceDialog(true);
+                pendingIsFront = true;
+                if (ContextCompat.checkSelfPermission(Verification_Page.this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(Verification_Page.this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_CODE);
+                    return;
+                }
+                openCamera(true);
             }
         });
 
@@ -106,29 +109,18 @@ public class Verification_Page extends AppCompatActivity {
         backIdPhotoImageView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                showImageSourceDialog(false);
-            }
-        });
-
-        // Set click listener for upload button (gallery)
-        uploadIdPhotoButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                showImageSourceDialog(true); // Default to front
-            }
-        });
-
-        // Set click listener for capture button (camera)
-        captureIdPhotoButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
+                pendingIsFront = false;
                 if (ContextCompat.checkSelfPermission(Verification_Page.this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
                     ActivityCompat.requestPermissions(Verification_Page.this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_CODE);
                     return;
                 }
-                showImageSourceDialog(true); // Default to front
+                openCamera(false);
             }
         });
+
+        // Hide legacy buttons (upload from gallery / capture with camera)
+        if (uploadIdPhotoButton != null) uploadIdPhotoButton.setVisibility(View.GONE);
+        if (captureIdPhotoButton != null) captureIdPhotoButton.setVisibility(View.GONE);
         
         // Set click listener for next button
         nextButton.setOnClickListener(new View.OnClickListener() {
@@ -160,25 +152,7 @@ public class Verification_Page extends AppCompatActivity {
         });
     }
 
-    private void showImageSourceDialog(boolean isFront) {
-        String[] options = {getString(R.string.camera), getString(R.string.gallery)};
-        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
-        builder.setTitle(getString(R.string.select_image_source));
-        builder.setItems(options, (dialog, which) -> {
-            if (which == 0) {
-                // Camera
-                if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-                    ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_CODE);
-                    return;
-                }
-                openCamera(isFront);
-            } else {
-                // Gallery
-                openGallery(isFront);
-            }
-        });
-        builder.show();
-    }
+    // Removed image source dialog and gallery path per requirements
 
     private void openCamera(boolean isFront) {
         try {
@@ -191,18 +165,7 @@ public class Verification_Page extends AppCompatActivity {
         }
     }
 
-    private void openGallery(boolean isFront) {
-        try {
-            Intent openGallery = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-            if (isFront) {
-                startActivityForResult(openGallery, GALLERY_REQUEST_CODE_FRONT);
-            } else {
-                startActivityForResult(openGallery, GALLERY_REQUEST_CODE_BACK);
-            }
-        } catch (Exception e) {
-            Toast.makeText(this, getString(R.string.error_opening_gallery) + ": " + e.getMessage(), Toast.LENGTH_SHORT).show();
-        }
-    }
+    // Removed gallery open method
 
     private void loadExistingPhotos() {
         // Load front photo
@@ -259,6 +222,7 @@ public class Verification_Page extends AppCompatActivity {
             getString(R.string.school_id),
             getString(R.string.company_id),
             getString(R.string.other_government_id)
+                // nbi, police, student,company maybe not included
         };
         
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, idTypes);
@@ -280,39 +244,20 @@ public class Verification_Page extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
         
         if (resultCode == RESULT_OK && data != null) {
-            if (requestCode == GALLERY_REQUEST_CODE_FRONT || requestCode == GALLERY_REQUEST_CODE_BACK) {
-                Uri selectedImage = data.getData();
-                if (selectedImage != null) {
-                    boolean isFront = (requestCode == GALLERY_REQUEST_CODE_FRONT);
-                    uploadImage(selectedImage, isFront);
-                } else {
-                    Toast.makeText(this, "Failed to get image from gallery", Toast.LENGTH_SHORT).show();
-                }
-            } else if (requestCode == CAMERA_REQUEST_CODE_FRONT || requestCode == CAMERA_REQUEST_CODE_BACK) {
-                Bundle extras = data.getExtras();
-                if (extras != null) {
-                    Bitmap imageBitmap = (Bitmap) extras.get("data");
-                    if (imageBitmap != null) {
-                        boolean isFront = (requestCode == CAMERA_REQUEST_CODE_FRONT);
-                        uploadBitmap(imageBitmap, isFront);
-                    } else {
-                        Toast.makeText(this, "Failed to capture image", Toast.LENGTH_SHORT).show();
-                    }
-                }
-            } else if (requestCode == ID_CAMERA_CAPTURE_REQUEST) {
+            if (requestCode == ID_CAMERA_CAPTURE_REQUEST) {
                 String imageUrl = data.getStringExtra("imageUrl");
                 boolean isFront = data.getBooleanExtra("isFrontSide", true);
                 
                 if (imageUrl != null) {
                     if (isFront) {
                         frontImageUrl = imageUrl;
-                        Picasso.get().load(imageUrl).into(frontIdPhotoImageView);
+                        Picasso.get().load(imageUrl).fit().centerCrop().into(frontIdPhotoImageView);
                         frontIdPlaceholderText.setVisibility(View.GONE);
                         isFrontImageSelected = true;
                         Toast.makeText(this, "Front ID photo captured successfully", Toast.LENGTH_SHORT).show();
                     } else {
                         backImageUrl = imageUrl;
-                        Picasso.get().load(imageUrl).into(backIdPhotoImageView);
+                        Picasso.get().load(imageUrl).fit().centerCrop().into(backIdPhotoImageView);
                         backIdPlaceholderText.setVisibility(View.GONE);
                         isBackImageSelected = true;
                         Toast.makeText(this, "Back ID photo captured successfully", Toast.LENGTH_SHORT).show();
@@ -329,8 +274,7 @@ public class Verification_Page extends AppCompatActivity {
 
         if (requestCode == CAMERA_PERMISSION_CODE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Permission granted, show dialog again
-                showImageSourceDialog(true);
+                openCamera(pendingIsFront);
             } else {
                 Toast.makeText(this, "Camera permission is required to capture ID photo", Toast.LENGTH_LONG).show();
             }
