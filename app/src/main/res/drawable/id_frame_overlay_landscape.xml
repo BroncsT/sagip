@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Semi-transparent background -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#80000000" />
+        </shape>
+    </item>
+    
+    <!-- Clean white rectangular frame for ID - optimized for landscape -->
+    <item android:left="60dp" android:top="80dp" android:right="60dp" android:bottom="100dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#00000000" />
+            <stroke android:width="4dp" android:color="#FFFFFF" />
+            <corners android:radius="8dp" />
+        </shape>
+    </item>
+    
+    <!-- Corner indicators for better alignment - landscape optimized -->
+    <!-- Top Left corner -->
+    <item android:left="60dp" android:top="80dp" android:right="90dp" android:bottom="110dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#00000000" />
+            <stroke android:width="6dp" android:color="#FFFFFF" />
+        </shape>
+    </item>
+    
+    <!-- Top Right corner -->
+    <item android:left="90dp" android:top="80dp" android:right="60dp" android:bottom="110dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#00000000" />
+            <stroke android:width="6dp" android:color="#FFFFFF" />
+        </shape>
+    </item>
+    
+    <!-- Bottom Left corner -->
+    <item android:left="60dp" android:top="70dp" android:right="90dp" android:bottom="100dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#00000000" />
+            <stroke android:width="6dp" android:color="#FFFFFF" />
+        </shape>
+    </item>
+    
+    <!-- Bottom Right corner -->
+    <item android:left="90dp" android:top="70dp" android:right="60dp" android:bottom="100dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#00000000" />
+            <stroke android:width="6dp" android:color="#FFFFFF" />
+        </shape>
+    </item>
+</layer-list>

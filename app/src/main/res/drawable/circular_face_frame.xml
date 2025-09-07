@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- No background overlay - just the circular border -->
+    
+    <!-- Transparent circular area for face -->
+    <item android:left="50dp" android:top="50dp" android:right="50dp" android:bottom="50dp">
+        <shape android:shape="oval">
+            <solid android:color="#00000000" />
+            <stroke android:width="4dp" android:color="#2196F3" />
+        </shape>
+    </item>
+    
+    <!-- Progress indicator (partial circle) -->
+    <item android:left="50dp" android:top="50dp" android:right="50dp" android:bottom="50dp">
+        <shape android:shape="oval">
+            <solid android:color="#00000000" />
+            <stroke android:width="6dp" android:color="#FF4081" />
+        </shape>
+    </item>
+</layer-list>

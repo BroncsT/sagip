@@ -1,0 +1,399 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/white">
+
+    <!-- Enhanced Google Maps Fragment -->
+    <fragment
+        android:id="@+id/map"
+        android:name="com.google.android.gms.maps.SupportMapFragment"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Top green navigation banner (Google Maps style) -->
+    <LinearLayout
+        android:id="@+id/topNavigationBanner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_marginTop="50dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:background="@drawable/navigation_banner_background"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:gravity="center_vertical"
+        android:elevation="8dp"
+        android:visibility="visible">
+
+        <!-- Turn arrow icon -->
+        <ImageView
+            android:id="@+id/ivTurnArrow"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/ic_turn_right"
+            android:layout_marginEnd="12dp" />
+
+        <!-- Distance and street name -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvRemainingDistance"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="400 m"
+                android:textColor="@android:color/white"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvStreetName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Señora Ave"
+                android:textColor="@android:color/white"
+                android:textSize="14sp" />
+
+        </LinearLayout>
+
+        <!-- GPS status indicator -->
+        <TextView
+            android:id="@+id/tvGpsStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🛰️ GPS"
+            android:textColor="@android:color/white"
+            android:textSize="12sp"
+            android:layout_marginEnd="8dp" />
+
+        <!-- Voice command button -->
+        <ImageButton
+            android:id="@+id/btnVoiceCommand"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/voice_button_background"
+            android:src="@drawable/ic_mic"
+            android:contentDescription="Voice Command"
+            android:elevation="4dp" />
+
+    </LinearLayout>
+
+    <!-- Back button -->
+    <ImageButton
+        android:id="@+id/btnBack"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentStart="true"
+        android:layout_margin="16dp"
+        android:background="@drawable/circle_background"
+        android:src="@drawable/ic_arrow_back"
+        android:contentDescription="Back"
+        android:elevation="4dp" />
+
+    <!-- Speed indicator (bottom-left) -->
+    <LinearLayout
+        android:id="@+id/speedIndicator"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentStart="true"
+        android:layout_margin="16dp"
+        android:layout_marginBottom="120dp"
+        android:background="@drawable/circle_background"
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:gravity="center"
+        android:elevation="4dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/tvCurrentSpeed"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0 km/h"
+            android:textColor="@android:color/white"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+    </LinearLayout>
+
+    <!-- Map controls (right side) -->
+    <LinearLayout
+        android:id="@+id/mapControls"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_centerVertical="true"
+        android:layout_margin="16dp"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:visibility="gone">
+
+        <!-- Compass button -->
+        <ImageButton
+            android:id="@+id/btnCompass"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/circle_background"
+            android:src="@drawable/ic_compass"
+            android:contentDescription="Compass"
+            android:elevation="4dp" />
+
+        <!-- Zoom in button -->
+        <ImageButton
+            android:id="@+id/btnZoomIn"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/circle_background"
+            android:src="@drawable/ic_zoom_in"
+            android:contentDescription="Zoom In"
+            android:elevation="4dp" />
+
+        <!-- Zoom out button -->
+        <ImageButton
+            android:id="@+id/btnZoomOut"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/circle_background"
+            android:src="@drawable/ic_zoom_out"
+            android:contentDescription="Zoom Out"
+            android:elevation="4dp" />
+
+        <!-- Audio toggle button -->
+        <ImageButton
+            android:id="@+id/btnAudioToggle"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/circle_background"
+            android:src="@drawable/ic_volume_on"
+            android:contentDescription="Audio Toggle"
+            android:elevation="4dp" />
+
+    </LinearLayout>
+
+    <!-- Bottom navigation summary bar (Google Maps style) -->
+    <LinearLayout
+        android:id="@+id/bottomNavigationBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:background="#2C2C2C"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:gravity="center_vertical"
+        android:elevation="8dp"
+        android:visibility="visible">
+
+        <!-- Cancel navigation button -->
+        <ImageButton
+            android:id="@+id/btnCancelNavigation"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="16dp"
+            android:background="@drawable/circle_background"
+            android:src="@drawable/ic_close"
+            android:contentDescription="Cancel Navigation"
+            android:elevation="4dp" />
+
+        <!-- Re-center button -->
+        <Button
+            android:id="@+id/btnRecenter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="16dp"
+            android:background="@drawable/circle_background"
+            android:text="A Re-centre"
+            android:textColor="@android:color/white"
+            android:textSize="12sp"
+            android:drawableStart="@drawable/ic_recenter"
+            android:drawablePadding="4dp"
+            android:padding="8dp"
+            android:elevation="4dp" />
+
+        <!-- Trip summary -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <TextView
+                android:id="@+id/tvEstimatedTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="4 min"
+                android:textColor="@android:color/white"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center">
+
+                <TextView
+                    android:id="@+id/tvTotalDistance"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="1.2 km"
+                    android:textColor="@android:color/white"
+                    android:textSize="12sp"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:id="@+id/tvArrivalTime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="5:07 pm"
+                    android:textColor="@android:color/white"
+                    android:textSize="12sp" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- Route options button -->
+        <ImageButton
+            android:id="@+id/btnRouteOptions"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/circle_background"
+            android:src="@drawable/ic_route_options"
+            android:contentDescription="Route Options"
+            android:elevation="4dp" />
+
+    </LinearLayout>
+
+    <!-- Emergency info card (initial state) -->
+    <LinearLayout
+        android:id="@+id/emergencyInfoCard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_margin="16dp"
+        android:background="@drawable/card_background"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:elevation="6dp">
+
+        <TextView
+            android:id="@+id/tvEmergencyTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🚨 EMERGENCY: Senior"
+            android:textColor="@android:color/holo_red_dark"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:gravity="center" />
+
+        <TextView
+            android:id="@+id/tvEmergencyAddress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Location address will appear here"
+            android:textSize="14sp"
+            android:gravity="center" />
+
+        <TextView
+            android:id="@+id/tvDistanceTime"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text=""
+            android:textSize="12sp"
+            android:textColor="@android:color/holo_blue_dark"
+            android:gravity="center"
+            android:textStyle="bold" />
+
+        <!-- Navigation buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <Button
+                android:id="@+id/btnStartNavigation"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:text="🗺️ Google Navigation"
+                android:textSize="12sp"
+                android:background="@drawable/button_background"
+                android:textColor="@android:color/white" />
+
+            <Button
+                android:id="@+id/btnStopNavigation"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:text="⏹️ Stop Navigation"
+                android:textSize="12sp"
+                android:background="@drawable/button_background"
+                android:textColor="@android:color/white"
+                android:visibility="gone" />
+
+        </LinearLayout>
+
+        <!-- Action buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <Button
+                android:id="@+id/btnCallSenior"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:text="📞 Call Senior"
+                android:textSize="12sp"
+                android:background="@drawable/button_background"
+                android:textColor="@android:color/white" />
+
+            <Button
+                android:id="@+id/btnOpenExternalMaps"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:text="🚗 External Maps"
+                android:textSize="12sp"
+                android:background="@drawable/button_background"
+                android:textColor="@android:color/white" />
+
+        </LinearLayout>
+
+        <!-- Arrived button -->
+        <Button
+            android:id="@+id/btnArrived"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="✅ Mark as Arrived"
+            android:textSize="14sp"
+            android:background="@drawable/button_background"
+            android:textColor="@android:color/white"
+            android:visibility="gone" />
+
+    </LinearLayout>
+
+</RelativeLayout>
