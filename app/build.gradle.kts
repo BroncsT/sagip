@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.google.gms.google.services)
+    id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin")
 }
 
 android {
@@ -34,12 +35,26 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        isCoreLibraryDesugaringEnabled = true
     }
     
     // Native library configuration for 16 KB page size support
     packaging {
         jniLibs {
             useLegacyPackaging = false
+        }
+        // Resolve AAR metadata issues
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/DEPENDENCIES"
+            excludes += "/META-INF/LICENSE"
+            excludes += "/META-INF/LICENSE.txt"
+            excludes += "/META-INF/license.txt"
+            excludes += "/META-INF/NOTICE"
+            excludes += "/META-INF/NOTICE.txt"
+            excludes += "/META-INF/notice.txt"
+            excludes += "/META-INF/ASL2.0"
+            excludes += "/META-INF/*.kotlin_module"
         }
     }
 }
@@ -53,11 +68,21 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.storage)
+    implementation(libs.firebase.messaging)
     implementation (libs.picasso)
-    implementation (libs.play.services.location)
-    implementation(libs.play.services.maps)
     implementation(libs.material.v190)
-    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
+    
+    
+    // WorkManager for reliable background tasks (FCM alternative)
+    implementation("androidx.work:work-runtime:2.9.0")
+    
+    // Google Maps Navigation SDK (with Java 8 compatibility)
+    implementation("com.google.android.libraries.navigation:navigation:6.2.0") {
+        exclude(group = "com.google.android.gms", module = "play-services-maps")
+    }
+    
+    // Location services
+    implementation("com.google.android.gms:play-services-location:21.0.1")
     
     // CameraX dependencies - Updated for better compatibility
     implementation("androidx.camera:camera-core:1.3.1")
@@ -71,7 +96,11 @@ dependencies {
     // Google Guava for ListenableFuture
     implementation("com.google.guava:guava:32.1.3-android")
     
+    // Core library desugaring for Java 8+ APIs
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    
     implementation(libs.firebase.crashlytics.buildtools)
+    implementation(libs.swiperefreshlayout)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)

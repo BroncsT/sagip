@@ -52,7 +52,7 @@ import android.media.MediaPlayer;
 import android.media.RingtoneManager;
 import android.net.Uri;
 
-public class Hospital_Dashboard extends AppCompatActivity implements GlobalTimerService.TimerUpdateListener {
+public class Hospital_Dashboard extends AppCompatActivity {
 
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1001;
     private static final String PREF_NAME = "SagipAppPrefs";
@@ -90,11 +90,17 @@ public class Hospital_Dashboard extends AppCompatActivity implements GlobalTimer
     private long timerStartTime = 0;
     private long timerDuration = 0;
     private boolean isDialogShowing = false;
+    private boolean isTimerBeingStarted = false; // Flag to prevent multiple timer starts
+    private boolean isNavigatingBetweenPages = false; // Flag to prevent timer restarts during navigation
+    private long lastRealTimeUpdate = 0; // Throttle real-time listener calls
+    private boolean isTimerUpdating = false; // Flag to prevent multiple timer updates
+    
+    // Simple timer persistence using SharedPreferences
+    private static final String TIMER_START_TIME_KEY = "timer_start_time";
+    private static final String TIMER_DURATION_KEY = "timer_duration";
     
     // Global timer service
-    private GlobalTimerService globalTimerService;
-    private boolean isServiceBound = false;
-    private ServiceConnection serviceConnection;
+    // GlobalTimerService removed - using simple timer with SharedPreferences
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -140,11 +146,10 @@ public class Hospital_Dashboard extends AppCompatActivity implements GlobalTimer
         // Check authentication state
         checkAuthState();
         
-        // Setup global timer service connection
-        setupGlobalTimerService();
+        // Stop GlobalTimerService to remove the notification
+        stopGlobalTimerService();
         
-        // Ensure global timer service is running
-        ensureGlobalTimerServiceRunning();
+        // GlobalTimerService removed - using simple timer with SharedPreferences
     }
 
     @Override
@@ -153,46 +158,39 @@ public class Hospital_Dashboard extends AppCompatActivity implements GlobalTimer
         Log.d("Hospital_Dashboard", "=== onResume() called ===");
         Log.d("Hospital_Dashboard", "Current time: " + new java.util.Date());
         Log.d("Hospital_Dashboard", "Is timer running: " + isTimerRunning);
-        Log.d("Hospital_Dashboard", "Is service bound: " + isServiceBound);
+        
+        // Clear navigation flag
+        isNavigatingBetweenPages = false;
+        
+        // Check if this activity was opened from a status update reminder notification
+        Intent intent = getIntent();
+        if (intent != null && intent.getBooleanExtra("show_status_update_dialog", false)) {
+            Log.d("Hospital_Dashboard", "Opened from status update reminder notification");
+            // Show the status update dialog immediately
+            showStatusUpdateRequiredDialog(Long.MAX_VALUE);
+            // Clear the extra to prevent showing again
+            intent.removeExtra("show_status_update_dialog");
+        }
         
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
             startLocationUpdates();
         }
         
-        // Always try to connect to global timer service first
-        if (!isServiceBound) {
-            Log.d("Hospital_Dashboard", "Service not bound, setting up connection");
-            setupGlobalTimerService();
-        }
-        
-        // Check if global timer service is running
-        if (isServiceBound && globalTimerService != null) {
-            if (globalTimerService.isTimerRunning()) {
-                Log.d("Hospital_Dashboard", "Global timer is running, updating display");
-                long remainingTime = globalTimerService.getRemainingTime();
-                if (remainingTime > 0) {
-                    updateTimerDisplayFromService(remainingTime);
-                } else {
-                    // Timer expired while away
-                    showExpiredTimerState();
-                }
-            } else {
-                Log.d("Hospital_Dashboard", "Global timer not running, starting fresh");
-                forceUpdateStatus();
+        // Only restore timer state if not already running to avoid unnecessary refreshes
+        if (!isTimerRunning) {
+            Log.d("Hospital_Dashboard", "=== ATTEMPTING TIMER RESTORATION ===");
+            boolean timerRestored = restoreTimerState();
+            
+            if (!timerRestored && userId != null) {
+                Log.d("Hospital_Dashboard", "No timer to restore, checking database for timer state");
+                // Only load if timer is not running to avoid refresh
+                loadHospitalStatus();
+            } else if (timerRestored) {
+                Log.d("Hospital_Dashboard", "✅ Timer restored successfully from SharedPreferences");
             }
         } else {
-            // Fallback to local timer logic
-            if (isTimerRunning) {
-                Log.d("Hospital_Dashboard", "Local timer running, updating display only");
-                updateTimerDisplayOnly();
-            } else if (timerStartTime > 0) {
-                Log.d("Hospital_Dashboard", "Resuming local timer");
-                resumeTimer();
-            } else {
-                Log.d("Hospital_Dashboard", "No timer state, starting fresh");
-                forceUpdateStatus();
-            }
+            Log.d("Hospital_Dashboard", "Timer already running, skipping restoration to avoid refresh");
         }
         
         // Start notification service for status updates
@@ -205,15 +203,33 @@ public class Hospital_Dashboard extends AppCompatActivity implements GlobalTimer
         Log.d("Hospital_Dashboard", "=== onPause() called ===");
         Log.d("Hospital_Dashboard", "Current time: " + new java.util.Date());
         Log.d("Hospital_Dashboard", "Is timer running: " + isTimerRunning);
-        Log.d("Hospital_Dashboard", "Is service bound: " + isServiceBound);
+        // GlobalTimerService removed
+        
+        // Set flag to prevent timer restarts during navigation
+        isNavigatingBetweenPages = true;
+        
+        // Save current timer state before leaving
+        if (isTimerRunning && timerStartTime > 0 && timerDuration > 0) {
+            long currentTime = System.currentTimeMillis();
+            long elapsedTime = currentTime - timerStartTime;
+            long remainingTime = timerDuration - elapsedTime;
+            
+            if (remainingTime > 0) {
+                // Save the current state with updated start time
+                saveTimerState(currentTime, remainingTime);
+                Log.d("Hospital_Dashboard", "⏰ Timer state saved when leaving: " + (remainingTime / 1000) + " seconds remaining");
+            } else {
+                // Timer has expired, clear saved state
+                clearTimerState();
+                Log.d("Hospital_Dashboard", "⚠️ Timer expired when leaving, cleared saved state");
+            }
+        }
         
         stopLocationUpdates();
         
         // Don't cancel timer when navigating to other activities
-        // The global timer service continues running independently
-        // Local timer also continues running for immediate updates
-        Log.d("Hospital_Dashboard", "Timer continues running while navigating to other pages");
-        Log.d("Hospital_Dashboard", "Global service will continue countdown independently");
+        // Timer state is saved and will be restored when returning
+        Log.d("Hospital_Dashboard", "✅ Timer state saved, will be restored when returning");
     }
     
     @Override
@@ -267,9 +283,12 @@ public class Hospital_Dashboard extends AppCompatActivity implements GlobalTimer
         if (requestCode == 1001) { // Status update request
             Log.d("Hospital_Dashboard", "Returned from status update screen");
             if (resultCode == RESULT_OK) {
-                Log.d("Hospital_Dashboard", "Status update was successful, refreshing timer");
-                // Status was updated successfully, refresh the timer
+                Log.d("Hospital_Dashboard", "Status update was successful, refreshing dashboard");
+                // Status was updated successfully, refresh the dashboard data
                 refreshTimerAfterStatusUpdate();
+                
+                // Also explicitly refresh the hospital status display
+                refreshHospitalStatus();
             } else {
                 Log.d("Hospital_Dashboard", "Status update was cancelled or failed");
             }
@@ -568,6 +587,9 @@ public class Hospital_Dashboard extends AppCompatActivity implements GlobalTimer
 
     // Method to handle logout - clears stored credentials and signs out from Firebase
     public void logoutUser() {
+        // Cancel background notifications since user is logging out
+        cancelBackgroundNotifications();
+        
         // Clear stored credentials
         clearStoredCredentials();
 
@@ -596,6 +618,7 @@ public class Hospital_Dashboard extends AppCompatActivity implements GlobalTimer
                 }
             });
         }
+        
     }
 
     private void loadHospitalStatus() {
@@ -641,8 +664,22 @@ public class Hospital_Dashboard extends AppCompatActivity implements GlobalTimer
                     }
 
                     if (documentSnapshot != null && documentSnapshot.exists()) {
-                        Log.d("Hospital_Dashboard", "Real-time listener: Document exists, processing data...");
-                        processHospitalData(documentSnapshot);
+                        // Throttle real-time listener calls to prevent excessive processing
+                        long currentTime = System.currentTimeMillis();
+                        if (lastRealTimeUpdate == 0 || (currentTime - lastRealTimeUpdate) > 1000) { // Throttle to max 1 call per second
+                            lastRealTimeUpdate = currentTime;
+                            Log.d("Hospital_Dashboard", "Real-time listener: Document exists, processing data...");
+                            processHospitalData(documentSnapshot);
+                            
+                            // Only check timer state if timer is not being started and not navigating between pages
+                            if (!isTimerBeingStarted && !isNavigatingBetweenPages) {
+                                checkStatusUpdateRequirement(documentSnapshot);
+                            } else {
+                                Log.d("Hospital_Dashboard", "Skipping timer check - timer is being started or navigating between pages");
+                            }
+                        } else {
+                            Log.d("Hospital_Dashboard", "Real-time listener: Throttled - too frequent updates");
+                        }
                     } else {
                         Log.w("Hospital_Dashboard", "Real-time listener: Document does not exist or is null");
                     }
@@ -655,7 +692,7 @@ public class Hospital_Dashboard extends AppCompatActivity implements GlobalTimer
         
         // Load hospital name
         String hospitalName = documentSnapshot.getString("hospitalName");
-        if (hospitalName != null && tvHospitalName != null) {
+        if (hospitalName != null && tvHospitalName != null && !hospitalName.equals(tvHospitalName.getText().toString())) {
             tvHospitalName.setText(hospitalName);
             Log.d("Hospital_Dashboard", "Hospital name set: " + hospitalName);
         }
@@ -677,12 +714,18 @@ public class Hospital_Dashboard extends AppCompatActivity implements GlobalTimer
               ", erStatus: " + erStatus);
 
         if (availableBeds != null && tvAvailableBeds != null) {
-            tvAvailableBeds.setText(String.valueOf(availableBeds));
-            Log.d("Hospital_Dashboard", "Available beds set: " + availableBeds);
+            String bedsText = String.valueOf(availableBeds);
+            if (!bedsText.equals(tvAvailableBeds.getText().toString())) {
+                tvAvailableBeds.setText(bedsText);
+                Log.d("Hospital_Dashboard", "Available beds set: " + availableBeds);
+            }
         }
         if (doctorsAvailable != null && tvDoctorsAvailable != null) {
-            tvDoctorsAvailable.setText(String.valueOf(doctorsAvailable));
-            Log.d("Hospital_Dashboard", "Doctors available set: " + doctorsAvailable);
+            String doctorsText = String.valueOf(doctorsAvailable);
+            if (!doctorsText.equals(tvDoctorsAvailable.getText().toString())) {
+                tvDoctorsAvailable.setText(doctorsText);
+                Log.d("Hospital_Dashboard", "Doctors available set: " + doctorsAvailable);
+            }
         }
 
         // Calculate and set automatic status
@@ -691,13 +734,18 @@ public class Hospital_Dashboard extends AppCompatActivity implements GlobalTimer
             Log.d("Hospital_Dashboard", "Calculated status: " + autoStatus);
             if (!autoStatus.equals("unknown")) {
                 String statusText = getStatusEmoji(autoStatus) + " " + autoStatus.toUpperCase();
-                tvErStatus.setText(statusText);
-                tvErStatus.setTextColor(getStatusColor(autoStatus));
-                Log.d("Hospital_Dashboard", "Status updated to: " + statusText);
+                if (!statusText.equals(tvErStatus.getText().toString())) {
+                    tvErStatus.setText(statusText);
+                    tvErStatus.setTextColor(getStatusColor(autoStatus));
+                    Log.d("Hospital_Dashboard", "Status updated to: " + statusText);
+                }
             } else {
-                tvErStatus.setText(getString(R.string.status_not_available_er));
-                tvErStatus.setTextColor(getStatusColor("unknown"));
-                Log.w("Hospital_Dashboard", "Status calculation returned unknown");
+                String unknownStatus = getString(R.string.status_not_available_er);
+                if (!unknownStatus.equals(tvErStatus.getText().toString())) {
+                    tvErStatus.setText(unknownStatus);
+                    tvErStatus.setTextColor(getStatusColor("unknown"));
+                    Log.w("Hospital_Dashboard", "Status calculation returned unknown");
+                }
             }
         } else {
             Log.w("Hospital_Dashboard", "Missing data for status calculation - totalBeds: " + totalBeds + 
@@ -870,7 +918,13 @@ public class Hospital_Dashboard extends AppCompatActivity implements GlobalTimer
                 }
                 
                 // Update UI with last updated and next update times
-                updateStatusUpdateUI(lastUpdated, timeSinceLastUpdate);
+                // Only update if timer is not already running and not navigating between pages
+                if (!isTimerRunning && !isNavigatingBetweenPages) {
+                    Log.d("Hospital_Dashboard", "Updating UI - timer not running or service not bound");
+                    updateStatusUpdateUI(lastUpdated, timeSinceLastUpdate);
+                } else {
+                    Log.d("Hospital_Dashboard", "Skipping UI update - timer is already running correctly or navigating between pages");
+                }
             } else {
                 // No lastUpdated timestamp, consider it as requiring immediate update
                 Log.w("Hospital_Dashboard", "No lastUpdated timestamp found - requiring immediate update");
@@ -999,31 +1053,142 @@ public class Hospital_Dashboard extends AppCompatActivity implements GlobalTimer
      * Starts the countdown timer for status update
      */
     private void startCountdownTimer(long timeRemainingMs) {
+        // Prevent multiple timer starts
+        if (isTimerBeingStarted) {
+            Log.d("Hospital_Dashboard", "Timer is already being started, skipping duplicate start");
+            return;
+        }
+        
+        isTimerBeingStarted = true;
+        
         long minutes = timeRemainingMs / (1000 * 60);
         long seconds = (timeRemainingMs % (1000 * 60)) / 1000;
-        Log.d("Hospital_Dashboard", "Starting global countdown timer for: " + minutes + ":" + String.format("%02d", seconds));
+        Log.d("Hospital_Dashboard", "=== STARTING TIMER DEBUG ===");
+        Log.d("Hospital_Dashboard", "Time remaining: " + timeRemainingMs + " ms");
+        Log.d("Hospital_Dashboard", "Minutes: " + minutes + ", Seconds: " + seconds);
+        Log.d("Hospital_Dashboard", "Is timer being started: " + isTimerBeingStarted);
+        Log.d("Hospital_Dashboard", "Is timer running: " + isTimerRunning);
+        // GlobalTimerService removed
         
-        // Start the global timer service
-        startGlobalTimerService(timeRemainingMs);
+        // Cancel any existing local timer to prevent conflicts
+        if (statusCountdownTimer != null) {
+            statusCountdownTimer.cancel();
+            statusCountdownTimer = null;
+        }
         
-        // Also start local timer for immediate UI updates if service is not ready
+        // Save timer state to SharedPreferences for persistence
+        saveTimerState(System.currentTimeMillis(), timeRemainingMs);
+        
+        // Schedule background notification for when app is closed
+        scheduleBackgroundNotification();
+        
+        // Start simple local timer instead of complex global service
+        startSimpleTimer(timeRemainingMs);
+        
+        // Set local timer state for reference
+        isTimerRunning = true;
+        timerStartTime = System.currentTimeMillis();
+        timerDuration = timeRemainingMs;
+        
+        Log.d("Hospital_Dashboard", "Simple timer started and state saved to SharedPreferences");
+        
+        // Reset the flag after a short delay
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            isTimerBeingStarted = false;
+        }, 1000);
+    }
+    
+    /**
+     * Saves timer state to SharedPreferences for persistence
+     */
+    private void saveTimerState(long startTime, long duration) {
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putLong(TIMER_START_TIME_KEY, startTime);
+        editor.putLong(TIMER_DURATION_KEY, duration);
+        editor.apply();
+        Log.d("Hospital_Dashboard", "Timer state saved: start=" + startTime + ", duration=" + duration);
+    }
+    
+    /**
+     * Restores timer state from SharedPreferences
+     */
+    private boolean restoreTimerState() {
+        long savedStartTime = sharedPreferences.getLong(TIMER_START_TIME_KEY, 0);
+        long savedDuration = sharedPreferences.getLong(TIMER_DURATION_KEY, 0);
+        
+        if (savedStartTime > 0 && savedDuration > 0) {
+            long currentTime = System.currentTimeMillis();
+            long elapsedTime = currentTime - savedStartTime;
+            long remainingTime = savedDuration - elapsedTime;
+            
+            Log.d("Hospital_Dashboard", "=== RESTORING TIMER STATE ===");
+            Log.d("Hospital_Dashboard", "Saved start time: " + new java.util.Date(savedStartTime));
+            Log.d("Hospital_Dashboard", "Current time: " + new java.util.Date(currentTime));
+            Log.d("Hospital_Dashboard", "Elapsed time: " + (elapsedTime / 1000) + " seconds");
+            Log.d("Hospital_Dashboard", "Remaining time: " + (remainingTime / 1000) + " seconds");
+            
+            if (remainingTime > 0) {
+                // Timer is still valid, restore it
+                timerStartTime = savedStartTime;
+                timerDuration = savedDuration;
+                isTimerRunning = true;
+                
+                // Start the timer with remaining time
+                startSimpleTimer(remainingTime);
+                Log.d("Hospital_Dashboard", "✅ Timer restored successfully with " + (remainingTime / 1000) + " seconds remaining");
+                return true;
+            } else {
+                // Timer has expired, clear saved state
+                clearTimerState();
+                Log.d("Hospital_Dashboard", "⚠️ Timer has expired, cleared saved state");
+                return false;
+            }
+        }
+        
+        Log.d("Hospital_Dashboard", "No saved timer state found");
+        return false;
+    }
+    
+    /**
+     * Clears saved timer state
+     */
+    private void clearTimerState() {
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.remove(TIMER_START_TIME_KEY);
+        editor.remove(TIMER_DURATION_KEY);
+        editor.apply();
+        Log.d("Hospital_Dashboard", "Timer state cleared");
+    }
+    
+    /**
+     * Starts a simple local timer
+     */
+    private void startSimpleTimer(long timeRemainingMs) {
         if (statusCountdownTimer != null) {
             statusCountdownTimer.cancel();
         }
         
-        isTimerRunning = true;
         statusCountdownTimer = new CountDownTimer(timeRemainingMs, 1000) {
             @Override
             public void onTick(long millisUntilFinished) {
-                // Only update if global service is not connected yet
-                if (!isServiceBound || globalTimerService == null) {
-                    long totalSeconds = millisUntilFinished / 1000;
-                    long hours = totalSeconds / 3600;
-                    long minutes = (totalSeconds % 3600) / 60;
-                    long seconds = totalSeconds % 60;
-                    
-                    String countdownText = getString(R.string.countdown_format, hours, minutes, seconds);
-                    String displayText = getString(R.string.next_update_in, countdownText);
+                // Prevent multiple timer updates
+                if (isTimerUpdating) {
+                    Log.d("Hospital_Dashboard", "Timer update already in progress, skipping");
+                    return;
+                }
+                
+                isTimerUpdating = true;
+                
+                // Update display
+                long totalSeconds = millisUntilFinished / 1000;
+                long hours = totalSeconds / 3600;
+                long minutes = (totalSeconds % 3600) / 60;
+                long seconds = totalSeconds % 60;
+                
+                String countdownText = getString(R.string.countdown_format, hours, minutes, seconds);
+                String displayText = getString(R.string.next_update_in, countdownText);
+                
+                if (tvCountdownTimer != null) {
                     tvCountdownTimer.setText(displayText);
                     
                     // Change color based on remaining time
@@ -1035,18 +1200,29 @@ public class Hospital_Dashboard extends AppCompatActivity implements GlobalTimer
                         tvCountdownTimer.setTextColor(0xFF2196F3);
                     }
                 }
+                
+                // Reset the flag after a short delay
+                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                    isTimerUpdating = false;
+                }, 100);
             }
             
             @Override
             public void onFinish() {
-                // Timer finished - update required
+                // Timer finished
                 isTimerRunning = false;
-                tvCountdownTimer.setText(getString(R.string.update_required_now));
-                tvCountdownTimer.setTextColor(0xFFFF5722);
-                tvLastUpdated.setTextColor(0xFFFF5722);
+                clearTimerState();
+                
+                if (tvCountdownTimer != null) {
+                    tvCountdownTimer.setText(getString(R.string.update_required_now));
+                    tvCountdownTimer.setTextColor(0xFFFF5722);
+                }
                 
                 // Play notification sound
                 playNotificationSound();
+                
+                // Schedule background notification for when app is closed
+                scheduleBackgroundNotification();
                 
                 // Show update required dialog
                 showStatusUpdateRequiredDialog(STATUS_UPDATE_INTERVAL_MS);
@@ -1054,6 +1230,29 @@ public class Hospital_Dashboard extends AppCompatActivity implements GlobalTimer
         };
         
         statusCountdownTimer.start();
+        Log.d("Hospital_Dashboard", "Simple timer started for " + (timeRemainingMs / 1000) + " seconds");
+    }
+    
+    /**
+     * Schedules background notification for when app is closed
+     */
+    private void scheduleBackgroundNotification() {
+        Log.d("Hospital_Dashboard", "Scheduling background notification for status update");
+        
+        Intent serviceIntent = new Intent(this, HospitalStatusNotificationService.class);
+        serviceIntent.putExtra("action", "schedule_notification");
+        startService(serviceIntent);
+    }
+    
+    /**
+     * Cancels background notifications (called when user logs out)
+     */
+    private void cancelBackgroundNotifications() {
+        Log.d("Hospital_Dashboard", "Canceling background notifications");
+        
+        Intent serviceIntent = new Intent(this, HospitalStatusNotificationService.class);
+        serviceIntent.putExtra("action", "cancel_notification");
+        startService(serviceIntent);
     }
     
     /**
@@ -1088,7 +1287,8 @@ public class Hospital_Dashboard extends AppCompatActivity implements GlobalTimer
             showStatusUpdateRequiredDialog(STATUS_UPDATE_INTERVAL_MS);
         } else {
             Log.d("Hospital_Dashboard", "Resuming timer with " + (remainingTime / 1000) + " seconds remaining");
-            startCountdownTimer(remainingTime);
+            // Don't call startCountdownTimer to avoid conflicts, just start simple timer
+            startSimpleTimer(remainingTime);
         }
     }
 
@@ -1107,30 +1307,31 @@ public class Hospital_Dashboard extends AppCompatActivity implements GlobalTimer
             return "unknown";
         }
         
-        // Calculate capacity percentage based on total beds
+        // Calculate capacity percentage (occupied beds / total beds)
         double capacityPercentage = ((double) (totalBeds - availableBeds) / totalBeds) * 100;
         
-        // Calculate beds per doctor ratio based on total beds
-        double bedsPerDoctor = (double) totalBeds / doctors;
+        // Calculate occupied beds per doctor ratio (this indicates workload)
+        int occupiedBeds = totalBeds - availableBeds;
+        double occupiedBedsPerDoctor = (double) occupiedBeds / doctors;
         
-        // Calculate available beds per available doctor ratio
-        double availableBedsPerDoctor = (double) availableBeds / doctors;
+        // Calculate total beds per doctor ratio (this indicates overall capacity)
+        double totalBedsPerDoctor = (double) totalBeds / doctors;
         
         Log.d("Hospital_Dashboard", "Calculated - capacityPercentage: " + capacityPercentage + 
-              "%, bedsPerDoctor: " + bedsPerDoctor + ", availableBedsPerDoctor: " + availableBedsPerDoctor);
+              "%, occupiedBedsPerDoctor: " + occupiedBedsPerDoctor + ", totalBedsPerDoctor: " + totalBedsPerDoctor);
         
-        // Automatic status logic based on total beds and current availability
+        // Automatic status logic based on capacity and workload
         String result;
         if (availableBeds == 0) {
             result = "crowded"; // No available beds
-        } else if (capacityPercentage >= 90 || availableBedsPerDoctor > 8 || doctors < 2) {
+        } else if (capacityPercentage >= 90 || occupiedBedsPerDoctor >= 8 || doctors < 2) {
             result = "crowded"; // At or near capacity, or insufficient staff
-        } else if (capacityPercentage >= 70 || availableBedsPerDoctor > 6 || doctors < 3) {
-            result = "busy"; // High capacity or insufficient staff
-        } else if (capacityPercentage >= 50 || availableBedsPerDoctor > 4) {
-            result = "busy"; // Moderate capacity
+        } else if (capacityPercentage >= 70 || occupiedBedsPerDoctor >= 6 || doctors < 3) {
+            result = "busy"; // High capacity or high workload
+        } else if (capacityPercentage >= 50 || occupiedBedsPerDoctor >= 4) {
+            result = "busy"; // Moderate capacity or moderate workload
         } else {
-            result = "available"; // Good capacity and staff ratio
+            result = "available"; // Good capacity and low workload
         }
         
         Log.d("Hospital_Dashboard", "Final result: " + result);
@@ -1179,8 +1380,8 @@ public class Hospital_Dashboard extends AppCompatActivity implements GlobalTimer
         timerStartTime = 0;
         timerDuration = 0;
         
-        // Reset global timer service
-        resetGlobalTimerService();
+        // Clear saved timer state since we're starting fresh
+        clearTimerState();
         
         // Add a small delay to ensure Firebase has updated the timestamp
         new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
@@ -1189,11 +1390,7 @@ public class Hospital_Dashboard extends AppCompatActivity implements GlobalTimer
             forceUpdateStatus();
         }, 1000); // 1 second delay
     }
-    
-    /**
-     * Updates the timer display without recalculating from database
-     * This is used when navigating between activities to maintain continuous countdown
-     */
+
     private void updateTimerDisplayOnly() {
         if (timerStartTime > 0 && timerDuration > 0) {
             long currentTime = System.currentTimeMillis();
@@ -1230,34 +1427,7 @@ public class Hospital_Dashboard extends AppCompatActivity implements GlobalTimer
             }
         }
     }
-    
-    /**
-     * Updates timer display from global service
-     */
-    private void updateTimerDisplayFromService(long remainingTimeMs) {
-        if (tvCountdownTimer != null) {
-            long totalSeconds = remainingTimeMs / 1000;
-            long hours = totalSeconds / 3600;
-            long minutes = (totalSeconds % 3600) / 60;
-            long seconds = totalSeconds % 60;
-            
-            String countdownText = getString(R.string.countdown_format, hours, minutes, seconds);
-            String displayText = getString(R.string.next_update_in, countdownText);
-            
-            tvCountdownTimer.setText(displayText);
-            
-            // Update color based on remaining time
-            if (remainingTimeMs <= (STATUS_UPDATE_INTERVAL_MS * 0.1)) {
-                tvCountdownTimer.setTextColor(0xFFFF5722);
-            } else if (remainingTimeMs <= (STATUS_UPDATE_INTERVAL_MS * 0.2)) {
-                tvCountdownTimer.setTextColor(0xFFFF9800);
-            } else {
-                tvCountdownTimer.setTextColor(0xFF2196F3);
-            }
-            
-            Log.d("Hospital_Dashboard", "Updated timer from service: " + minutes + ":" + String.format("%02d", seconds));
-        }
-    }
+
     
     /**
      * Shows expired timer state
@@ -1284,139 +1454,13 @@ public class Hospital_Dashboard extends AppCompatActivity implements GlobalTimer
         long timeRemainingMs = minutesRemaining * 60 * 1000; // Convert to milliseconds
         startCountdownTimer(timeRemainingMs);
     }
-    
-    /**
-     * Setup global timer service connection
-     */
-    private void setupGlobalTimerService() {
-        if (serviceConnection != null) {
-            Log.d("Hospital_Dashboard", "Service connection already exists");
-            return;
-        }
-        
-        serviceConnection = new ServiceConnection() {
-            @Override
-            public void onServiceConnected(ComponentName name, IBinder service) {
-                GlobalTimerService.TimerBinder binder = (GlobalTimerService.TimerBinder) service;
-                globalTimerService = binder.getService();
-                isServiceBound = true;
-                
-                // Add this activity as a listener
-                globalTimerService.addTimerUpdateListener(Hospital_Dashboard.this);
-                
-                Log.d("Hospital_Dashboard", "Connected to GlobalTimerService");
-                
-                // Check if timer is already running and update display
-                if (globalTimerService.isTimerRunning()) {
-                    long remainingTime = globalTimerService.getRemainingTime();
-                    if (remainingTime > 0) {
-                        updateTimerDisplayFromService(remainingTime);
-                    } else {
-                        showExpiredTimerState();
-                    }
-                }
-            }
-            
-            @Override
-            public void onServiceDisconnected(ComponentName name) {
-                globalTimerService = null;
-                isServiceBound = false;
-                Log.d("Hospital_Dashboard", "Disconnected from GlobalTimerService");
-            }
-        };
-        
-        // Start the service first to ensure it's running
-        Intent serviceIntent = new Intent(this, GlobalTimerService.class);
-        startService(serviceIntent);
-        
-        // Then bind to it
-        bindService(serviceIntent, serviceConnection, BIND_AUTO_CREATE);
-        
-        Log.d("Hospital_Dashboard", "Setting up GlobalTimerService connection");
-    }
-    
-    /**
-     * Start the global timer service
-     */
-    private void startGlobalTimerService(long timeRemainingMs) {
-        Intent serviceIntent = new Intent(this, GlobalTimerService.class);
-        serviceIntent.putExtra("action", "start_timer");
-        serviceIntent.putExtra("time_remaining_ms", timeRemainingMs);
-        startService(serviceIntent);
-    }
-    
-    /**
-     * Stop the global timer service
-     */
+
     private void stopGlobalTimerService() {
         Intent serviceIntent = new Intent(this, GlobalTimerService.class);
-        serviceIntent.putExtra("action", "stop_timer");
-        startService(serviceIntent);
+        stopService(serviceIntent);
+        Log.d("Hospital_Dashboard", "GlobalTimerService stopped to remove notification");
     }
-    
-    /**
-     * Reset the global timer service
-     */
-    private void resetGlobalTimerService() {
-        Intent serviceIntent = new Intent(this, GlobalTimerService.class);
-        serviceIntent.putExtra("action", "reset_timer");
-        startService(serviceIntent);
-    }
-    
-    /**
-     * Ensures the global timer service is running
-     */
-    private void ensureGlobalTimerServiceRunning() {
-        Intent serviceIntent = new Intent(this, GlobalTimerService.class);
-        serviceIntent.putExtra("action", "ensure_running");
-        startService(serviceIntent);
-        Log.d("Hospital_Dashboard", "Ensured GlobalTimerService is running");
-    }
-    
-    // GlobalTimerService.TimerUpdateListener implementation
-    @Override
-    public void onTimerUpdate(long remainingTimeMs) {
-        // Update the UI on the main thread
-        runOnUiThread(() -> {
-            if (tvCountdownTimer != null) {
-                long totalSeconds = remainingTimeMs / 1000;
-                long hours = totalSeconds / 3600;
-                long minutes = (totalSeconds % 3600) / 60;
-                long seconds = totalSeconds % 60;
-                
-                String countdownText = getString(R.string.countdown_format, hours, minutes, seconds);
-                String displayText = getString(R.string.next_update_in, countdownText);
-                
-                tvCountdownTimer.setText(displayText);
-                
-                // Update color based on remaining time
-                if (remainingTimeMs <= (STATUS_UPDATE_INTERVAL_MS * 0.1)) {
-                    tvCountdownTimer.setTextColor(0xFFFF5722);
-                } else if (remainingTimeMs <= (STATUS_UPDATE_INTERVAL_MS * 0.2)) {
-                    tvCountdownTimer.setTextColor(0xFFFF9800);
-                } else {
-                    tvCountdownTimer.setTextColor(0xFF2196F3);
-                }
-            }
-        });
-    }
-    
-    @Override
-    public void onTimerFinished() {
-        // Timer finished, show update required dialog
-        runOnUiThread(() -> {
-            if (tvCountdownTimer != null) {
-                tvCountdownTimer.setText(getString(R.string.update_required_now));
-                tvCountdownTimer.setTextColor(0xFFFF5722);
-            }
-            
-            // Play notification sound
-            playNotificationSound();
-            
-            showStatusUpdateRequiredDialog(STATUS_UPDATE_INTERVAL_MS);
-        });
-    }
-    
+
     /**
      * Plays a notification sound when timer expires
      */
@@ -1448,15 +1492,6 @@ public class Hospital_Dashboard extends AppCompatActivity implements GlobalTimer
     protected void onDestroy() {
         super.onDestroy();
         Log.d("Hospital_Dashboard", "=== onDestroy() called ===");
-        
-        // Unbind from global timer service
-        if (isServiceBound && serviceConnection != null) {
-            if (globalTimerService != null) {
-                globalTimerService.removeTimerUpdateListener(this);
-            }
-            unbindService(serviceConnection);
-            isServiceBound = false;
-        }
         
         // Cancel countdown timer to prevent memory leaks
         if (statusCountdownTimer != null) {

@@ -42,8 +42,9 @@ import com.google.android.gms.maps.model.Marker;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.DocumentChange;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 
 import java.util.ArrayList;
@@ -73,6 +74,11 @@ public class RescuerNavigationActivity extends AppCompatActivity implements OnMa
     private GoogleMap googleMap;
     private FusedLocationProviderClient fusedLocationClient;
     private LocationCallback locationCallback;
+    
+    // Emergency notification system variables
+    private ListenerRegistration emergencyListener;
+    private String userId;
+    private String userType;
     private boolean locationUpdatesActive = false;
     private ActivityResultLauncher<String[]> locationPermissionRequest;
 
@@ -138,6 +144,7 @@ public class RescuerNavigationActivity extends AppCompatActivity implements OnMa
     private boolean voiceEnabled = true;
     private Handler navigationHandler = new Handler();
     private Runnable navigationUpdateRunnable;
+    private boolean hasAutomaticallyMarkedArrived = false;
 
     // Firebase
     private FirebaseFirestore db;
@@ -155,6 +162,9 @@ public class RescuerNavigationActivity extends AppCompatActivity implements OnMa
         // Initialize Firebase
         db = FirebaseFirestore.getInstance();
         mAuth = FirebaseAuth.getInstance();
+
+        // Initialize emergency notification system
+        initializeEmergencyNotificationSystem();
 
         // Initialize UI
         initializeUI();
@@ -316,8 +326,19 @@ public class RescuerNavigationActivity extends AppCompatActivity implements OnMa
             displayEmergencyLocation();
         }
 
-        // Get current location
+        // Get current location and automatically show route
         getCurrentLocation();
+        
+        // Auto-display route after a short delay to ensure location is available
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            if (currentLocation != null && emergencyLocation != null) {
+                showRoute();
+                Toast.makeText(this, "🗺️ Route to emergency location displayed", Toast.LENGTH_SHORT).show();
+            }
+        }, 2000); // 2 second delay
+        
+        // Start arrival monitoring immediately (not just when navigating)
+        startArrivalMonitoring();
     }
 
     private void displayEmergencyLocation() {
@@ -447,7 +468,7 @@ public class RescuerNavigationActivity extends AppCompatActivity implements OnMa
 
         isNavigating = true;
         
-        // Show route
+        // Show route with enhanced visualization
         showRoute();
         
         // Switch to Google Maps-style UI
@@ -458,7 +479,17 @@ public class RescuerNavigationActivity extends AppCompatActivity implements OnMa
         // Start navigation monitoring
         startNavigationMonitoring();
         
-        Toast.makeText(this, "🗺️ Turn-by-turn navigation started!", Toast.LENGTH_LONG).show();
+        // Show enhanced route information
+        showRouteInformation();
+        
+        Toast.makeText(this, "🗺️ Turn-by-turn navigation started! Route displayed on map.", Toast.LENGTH_LONG).show();
+    }
+
+    private void showRouteInformation() {
+        if (estimatedDistance != null && estimatedTime != null) {
+            String routeInfo = "📍 Route: " + estimatedDistance + " • ⏱️ " + estimatedTime;
+            Toast.makeText(this, routeInfo, Toast.LENGTH_LONG).show();
+        }
     }
 
     private void switchToNavigationUI() {
@@ -550,48 +581,121 @@ public class RescuerNavigationActivity extends AppCompatActivity implements OnMa
         navigationUpdateRunnable = new Runnable() {
             @Override
             public void run() {
-                if (isNavigating && currentLocation != null && currentStep != null) {
-                    // Check if we're close to the current step's end location
-                    float[] results = new float[1];
-                    Location.distanceBetween(
-                        currentLocation.latitude, currentLocation.longitude,
-                        currentStep.getEndLocation().latitude, currentStep.getEndLocation().longitude,
-                        results
-                    );
-                    
-                    float distanceToStepEnd = results[0];
-                    
-                    // If we're within 50 meters of the step end, move to next step
-                    if (distanceToStepEnd < 50 && currentStepIndex + 1 < navigationSteps.size()) {
-                        nextStep();
-                    }
-                    
-                    // Check if we're close to destination
+                if (currentLocation != null) {
+                    // Check if we're close to destination (regardless of navigation state)
                     if (emergencyLocation != null) {
+                        float[] results = new float[1];
                         Location.distanceBetween(
                             currentLocation.latitude, currentLocation.longitude,
                             emergencyLocation.latitude, emergencyLocation.longitude,
                             results
                         );
                         
-                        if (results[0] < 30) {
+                        float distanceToDestination = results[0];
+                        Log.d(TAG, "Distance to destination: " + distanceToDestination + " meters");
+                        
+                        // Show proximity warnings and enable manual arrival button
+                        if (distanceToDestination < 200 && distanceToDestination > 50) {
+                            // Close to destination (200m - 50m)
+                            if (tvNavigationStatus != null) {
+                                tvNavigationStatus.setText("📍 Approaching destination (" + String.format("%.0f", distanceToDestination) + "m)");
+                            }
+                            // Show manual arrival button when close
+                            if (btnArrived != null) {
+                                btnArrived.setVisibility(View.VISIBLE);
+                                btnArrived.setText("✅ Mark as Arrived (" + String.format("%.0f", distanceToDestination) + "m)");
+                            }
+                        } else if (distanceToDestination < 50 && distanceToDestination > 20) {
+                            // Very close to destination (50m - 20m)
+                            if (tvNavigationStatus != null) {
+                                tvNavigationStatus.setText("🚨 Very close to destination (" + String.format("%.0f", distanceToDestination) + "m)");
+                            }
+                            // Show manual arrival button when very close
+                            if (btnArrived != null) {
+                                btnArrived.setVisibility(View.VISIBLE);
+                                btnArrived.setText("✅ Mark as Arrived (" + String.format("%.0f", distanceToDestination) + "m)");
+                            }
+                        } else if (distanceToDestination > 200) {
+                            // Far from destination, hide manual arrival button
+                            if (btnArrived != null) {
+                                btnArrived.setVisibility(View.GONE);
+                            }
+                        }
+                        
+                        // Check if we're within 50 meters of destination (increased from 30)
+                        if (distanceToDestination < 50 && !hasAutomaticallyMarkedArrived) {
+                            Log.d(TAG, "Arrived at destination! Distance: " + distanceToDestination + " meters");
+                            
                             // We're at the destination
                             if (voiceEnabled && textToSpeech != null) {
                                 textToSpeech.speak("You have arrived at your destination", TextToSpeech.QUEUE_FLUSH, null, null);
                             }
-                            Toast.makeText(RescuerNavigationActivity.this, "🏁 You have arrived at the emergency location!", Toast.LENGTH_LONG).show();
+                            
+                            // Show arrival notification
+                            showArrivalNotification();
+                            
+                            // Automatically send arrival notification to senior
+                            automaticallyMarkArrived();
+                        }
+                    }
+                    
+                    // Navigation-specific logic (only when actively navigating)
+                    if (isNavigating && currentStep != null) {
+                        // Check if we're close to the current step's end location
+                        float[] results = new float[1];
+                        Location.distanceBetween(
+                            currentLocation.latitude, currentLocation.longitude,
+                            currentStep.getEndLocation().latitude, currentStep.getEndLocation().longitude,
+                            results
+                        );
+                        
+                        float distanceToStepEnd = results[0];
+                        
+                        // If we're within 50 meters of the step end, move to next step
+                        if (distanceToStepEnd < 50 && currentStepIndex + 1 < navigationSteps.size()) {
+                            nextStep();
                         }
                     }
                 }
                 
-                // Schedule next update
-                if (isNavigating) {
-                    navigationHandler.postDelayed(this, 5000); // Check every 5 seconds
-                }
+                // Schedule next update (always run, not just when navigating)
+                navigationHandler.postDelayed(this, 3000); // Check every 3 seconds for better responsiveness
             }
         };
         
         navigationHandler.post(navigationUpdateRunnable);
+    }
+
+    private void showArrivalNotification() {
+        // Show a prominent arrival notification
+        Toast.makeText(this, "🏁 ARRIVED! You are at the emergency location!", Toast.LENGTH_LONG).show();
+        
+        // Also show a dialog for confirmation
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("🏁 Arrived at Destination");
+        builder.setMessage("You have arrived at the emergency location. Would you like to mark as arrived?");
+        builder.setIcon(android.R.drawable.ic_dialog_alert);
+        
+        builder.setPositiveButton("✅ Mark as Arrived", (dialog, which) -> {
+            automaticallyMarkArrived();
+            dialog.dismiss();
+        });
+        
+        builder.setNegativeButton("Not Yet", (dialog, which) -> {
+            // Reset the arrival flag so it can trigger again
+            hasAutomaticallyMarkedArrived = false;
+            dialog.dismiss();
+        });
+        
+        builder.setCancelable(false);
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+
+    private void startArrivalMonitoring() {
+        // Start monitoring for arrival immediately when activity loads
+        Log.d(TAG, "Starting arrival monitoring");
+        startNavigationMonitoring(); // This now handles both navigation and arrival monitoring
     }
 
     private void stopNavigationMonitoring() {
@@ -808,30 +912,64 @@ public class RescuerNavigationActivity extends AppCompatActivity implements OnMa
             routePolyline.remove();
         }
 
-        // Add new route polyline
+        // Add new route polyline with enhanced styling
         PolylineOptions polylineOptions = new PolylineOptions()
                 .addAll(routePoints)
-                .width(10)
-                .color(0xFF2196F3) // Blue color
-                .geodesic(true);
+                .width(12) // Slightly thicker for better visibility
+                .color(0xFF1976D2) // Material Design Blue
+                .geodesic(true)
+                .pattern(null); // Solid line
 
         routePolyline = googleMap.addPolyline(polylineOptions);
         routeDisplayed = true;
 
         Log.d(TAG, "Route displayed with " + routePoints.size() + " points");
 
-        // Adjust camera to show the entire route
+        // Add start and end markers for better visualization
+        addRouteMarkers();
+
+        // Adjust camera to show the entire route with padding
         if (currentLocation != null && emergencyLocation != null) {
             LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
             boundsBuilder.include(currentLocation);
             boundsBuilder.include(emergencyLocation);
             
+            // Include all route points for better bounds calculation
+            for (LatLng point : routePoints) {
+                boundsBuilder.include(point);
+            }
+            
             try {
                 LatLngBounds bounds = boundsBuilder.build();
-                googleMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
+                googleMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 150)); // More padding
             } catch (Exception e) {
                 Log.e(TAG, "Error adjusting camera bounds", e);
+                // Fallback to simple zoom
+                googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(emergencyLocation, 15f));
             }
+        }
+    }
+
+    private void addRouteMarkers() {
+        if (googleMap == null) return;
+
+        // Add start marker (current location)
+        if (currentLocation != null) {
+            MarkerOptions startMarker = new MarkerOptions()
+                    .position(currentLocation)
+                    .title("🚗 Your Location")
+                    .snippet("Starting point");
+            googleMap.addMarker(startMarker);
+        }
+
+        // Add destination marker (emergency location) - this should already exist
+        if (emergencyLocation != null) {
+            // Check if emergency marker already exists, if not add it
+            MarkerOptions emergencyMarker = new MarkerOptions()
+                    .position(emergencyLocation)
+                    .title("🚨 Emergency Location")
+                    .snippet("👤 " + seniorName + "\n📍 " + emergencyAddress);
+            googleMap.addMarker(emergencyMarker);
         }
     }
 
@@ -887,6 +1025,8 @@ public class RescuerNavigationActivity extends AppCompatActivity implements OnMa
                 Map<String, Object> updates = new HashMap<>();
                 updates.put("status", "rescuer_arrived");
                 updates.put("rescuerArrivedTime", System.currentTimeMillis());
+                updates.put("rescuerArrivedBy", getCurrentRescuerName());
+                updates.put("rescuerTeam", getCurrentRescuerTeam());
                 
                 db.collection("Sagip")
                     .document("helpRequests")
@@ -894,7 +1034,9 @@ public class RescuerNavigationActivity extends AppCompatActivity implements OnMa
                     .document(helpRequestId)
                     .update(updates)
                     .addOnSuccessListener(aVoid -> {
-                        Toast.makeText(this, "✅ Marked as arrived! Help request updated.", Toast.LENGTH_LONG).show();
+                        // Send arrival notification to senior
+                        sendArrivalNotificationToSenior();
+                        Toast.makeText(this, "✅ Marked as arrived! Senior has been notified.", Toast.LENGTH_LONG).show();
                         finish();
                     })
                     .addOnFailureListener(e -> {
@@ -913,6 +1055,56 @@ public class RescuerNavigationActivity extends AppCompatActivity implements OnMa
         dialog.show();
     }
 
+    private void automaticallyMarkArrived() {
+        // Prevent multiple automatic arrivals
+        if (hasAutomaticallyMarkedArrived) {
+            return;
+        }
+        hasAutomaticallyMarkedArrived = true;
+        
+        Log.d(TAG, "Automatically marking as arrived and sending notification to senior");
+        
+        // Update help request status
+        if (helpRequestId != null && !helpRequestId.isEmpty()) {
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("status", "rescuer_arrived");
+            updates.put("rescuerArrivedTime", System.currentTimeMillis());
+            updates.put("rescuerArrivedBy", getCurrentRescuerName());
+            updates.put("rescuerTeam", getCurrentRescuerTeam());
+            
+            db.collection("Sagip")
+                .document("helpRequests")
+                .collection("activeRequests")
+                .document(helpRequestId)
+                .update(updates)
+                .addOnSuccessListener(aVoid -> {
+                    // Send arrival notification to senior
+                    sendArrivalNotificationToSenior();
+                    Toast.makeText(this, "✅ Automatically marked as arrived! Senior has been notified.", Toast.LENGTH_LONG).show();
+                    
+                    // Stop navigation
+                    stopNavigation();
+                    
+                    // Close the rescuer navigation activity after a brief delay
+                    new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                        finish();
+                    }, 2000); // 2 second delay to show the success message
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error automatically updating help request status", e);
+                    Toast.makeText(this, "Error updating status", Toast.LENGTH_SHORT).show();
+                });
+        } else {
+            Toast.makeText(this, "✅ Automatically marked as arrived!", Toast.LENGTH_LONG).show();
+            stopNavigation();
+            
+            // Close the rescuer navigation activity after a brief delay
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                finish();
+            }, 2000); // 2 second delay to show the success message
+        }
+    }
+
     private void updateRescuerLocationInFirebase(Location location) {
         if (helpRequestId == null || helpRequestId.isEmpty()) {
             return;
@@ -929,6 +1121,7 @@ public class RescuerNavigationActivity extends AppCompatActivity implements OnMa
         rescuerLocation.put("timestamp", System.currentTimeMillis());
         rescuerLocation.put("rescuerId", currentUser.getUid());
         rescuerLocation.put("rescuerName", getCurrentRescuerName());
+        rescuerLocation.put("rescuerTeam", getCurrentRescuerTeam());
 
         // Update rescuer location in Firebase
         db.collection("Sagip")
@@ -961,6 +1154,78 @@ public class RescuerNavigationActivity extends AppCompatActivity implements OnMa
         return "Rescuer";
     }
 
+    private String getCurrentRescuerTeam() {
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser != null) {
+            // Get team information from Firestore
+            db.collection("Sagip")
+                .document("users")
+                .collection("rescuer")
+                .document(currentUser.getUid())
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String teamName = documentSnapshot.getString("rescuegroup");
+                        if (teamName != null && !teamName.isEmpty()) {
+                            Log.d(TAG, "Rescuer team: " + teamName);
+                        }
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error getting rescuer team info", e);
+                });
+        }
+        return null; // This will be updated asynchronously
+    }
+
+    private void sendArrivalNotificationToSenior() {
+        if (helpRequestId == null || helpRequestId.isEmpty()) {
+            return;
+        }
+
+        // Get help request details to find senior information
+        db.collection("Sagip")
+            .document("helpRequests")
+            .collection("activeRequests")
+            .document(helpRequestId)
+            .get()
+            .addOnSuccessListener(documentSnapshot -> {
+                if (documentSnapshot.exists()) {
+                    String seniorUid = documentSnapshot.getString("seniorUid");
+                    String seniorName = documentSnapshot.getString("seniorName");
+                    String rescuerName = getCurrentRescuerName();
+                    String rescuerTeam = getCurrentRescuerTeam();
+                    
+                    // Create arrival notification for senior
+                    Map<String, Object> arrivalNotification = new HashMap<>();
+                    arrivalNotification.put("type", "rescuer_arrived");
+                    arrivalNotification.put("title", "🚑 Rescuer Has Arrived!");
+                    arrivalNotification.put("message", rescuerName + " from " + (rescuerTeam != null ? rescuerTeam : "Rescue Team") + " has arrived at your location");
+                    arrivalNotification.put("helpRequestId", helpRequestId);
+                    arrivalNotification.put("rescuerName", rescuerName);
+                    arrivalNotification.put("rescuerTeam", rescuerTeam);
+                    arrivalNotification.put("timestamp", System.currentTimeMillis());
+                    arrivalNotification.put("isActive", true);
+                    
+                    // Send notification to senior's notification collection
+                    db.collection("Sagip")
+                        .document("seniorNotifications")
+                        .collection("arrivalNotifications")
+                        .document(helpRequestId)
+                        .set(arrivalNotification)
+                        .addOnSuccessListener(aVoid -> {
+                            Log.d(TAG, "Arrival notification sent to senior: " + seniorName);
+                        })
+                        .addOnFailureListener(e -> {
+                            Log.e(TAG, "Failed to send arrival notification to senior", e);
+                        });
+                }
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "Error getting help request details for arrival notification", e);
+            });
+    }
+
     private void updateSpeedIndicator(Location location) {
         if (location != null && tvCurrentSpeed != null) {
             float speed = location.getSpeed(); // Speed in m/s
@@ -976,25 +1241,72 @@ public class RescuerNavigationActivity extends AppCompatActivity implements OnMa
 
     private void showRouteOptions() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Route Options");
-        builder.setMessage("Choose your preferred route:");
+        builder.setTitle("🗺️ Route Options");
+        builder.setMessage("Choose your preferred route to the emergency location:");
         
-        builder.setPositiveButton("Fastest Route", (dialog, which) -> {
+        builder.setPositiveButton("🚀 Fastest Route", (dialog, which) -> {
             // Recalculate route with fastest option
-            showRoute();
-            Toast.makeText(this, "Fastest route selected", Toast.LENGTH_SHORT).show();
+            showRouteWithOptions("fastest");
+            Toast.makeText(this, "🚀 Fastest route selected", Toast.LENGTH_SHORT).show();
         });
         
-        builder.setNeutralButton("Shortest Route", (dialog, which) -> {
+        builder.setNeutralButton("📏 Shortest Route", (dialog, which) -> {
             // Recalculate route with shortest option
-            showRoute();
-            Toast.makeText(this, "Shortest route selected", Toast.LENGTH_SHORT).show();
+            showRouteWithOptions("shortest");
+            Toast.makeText(this, "📏 Shortest route selected", Toast.LENGTH_SHORT).show();
         });
         
-        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
+        builder.setNegativeButton("🚫 Avoid Highways", (dialog, which) -> {
+            // Recalculate route avoiding highways
+            showRouteWithOptions("avoid_highways");
+            Toast.makeText(this, "🚫 Route avoiding highways selected", Toast.LENGTH_SHORT).show();
+        });
+        
+        // Add a fourth option
+        builder.setNeutralButton("🔄 Refresh Route", (dialog, which) -> {
+            // Refresh current route
+            showRoute();
+            Toast.makeText(this, "🔄 Route refreshed", Toast.LENGTH_SHORT).show();
+        });
         
         AlertDialog dialog = builder.create();
         dialog.show();
+    }
+
+    private void showRouteWithOptions(String routeType) {
+        if (currentLocation == null || emergencyLocation == null) {
+            return;
+        }
+
+        // Get directions using Google Directions API with specific options
+        String directionsUrl = buildDirectionsUrlWithOptions(currentLocation, emergencyLocation, routeType);
+        executeDirectionsRequest(directionsUrl);
+    }
+
+    private String buildDirectionsUrlWithOptions(LatLng origin, LatLng destination, String routeType) {
+        String str_origin = "origin=" + origin.latitude + "," + origin.longitude;
+        String str_dest = "destination=" + destination.latitude + "," + destination.longitude;
+        String parameters = str_origin + "&" + str_dest;
+        
+        // Add route-specific options
+        switch (routeType) {
+            case "fastest":
+                parameters += "&mode=driving&traffic_model=best_guess&departure_time=now";
+                break;
+            case "shortest":
+                parameters += "&mode=driving&avoid=highways";
+                break;
+            case "avoid_highways":
+                parameters += "&mode=driving&avoid=highways|tolls";
+                break;
+            default:
+                parameters += "&mode=driving";
+                break;
+        }
+        
+        parameters += "&key=" + getString(R.string.google_maps_key);
+        String output = "json";
+        return "https://maps.googleapis.com/maps/api/directions/" + output + "?" + parameters;
     }
 
     private void resetMapOrientation() {
@@ -1139,6 +1451,13 @@ public class RescuerNavigationActivity extends AppCompatActivity implements OnMa
             executorService.shutdown();
         }
         
+        // Remove emergency listener
+        Log.d(TAG, "🚨 RescuerNavigationActivity onDestroy - cleaning up emergency listener");
+        if (emergencyListener != null) {
+            emergencyListener.remove();
+            emergencyListener = null;
+        }
+        
         Log.d(TAG, "RescuerNavigationActivity destroyed and cleaned up");
     }
 
@@ -1150,6 +1469,13 @@ public class RescuerNavigationActivity extends AppCompatActivity implements OnMa
             fusedLocationClient.removeLocationUpdates(locationCallback);
             locationUpdatesActive = false;
         }
+        
+        // Stop emergency listener when activity pauses - EmergencyNotificationService will handle background
+        Log.d(TAG, "🚨 RescuerNavigationActivity onPause - stopping emergency listener");
+        if (emergencyListener != null) {
+            emergencyListener.remove();
+            emergencyListener = null;
+        }
     }
 
     @Override
@@ -1158,6 +1484,12 @@ public class RescuerNavigationActivity extends AppCompatActivity implements OnMa
         // Resume location updates if needed
         if (!locationUpdatesActive) {
             getCurrentLocation();
+        }
+        
+        // Start emergency listener when activity resumes
+        Log.d(TAG, "🚨 RescuerNavigationActivity onResume - starting emergency listener");
+        if (emergencyListener == null) {
+            startEmergencyListener();
         }
     }
 
@@ -1195,5 +1527,134 @@ public class RescuerNavigationActivity extends AppCompatActivity implements OnMa
         public String getFullInstruction() {
             return instruction + (distance != null && !distance.isEmpty() ? " (" + distance + ")" : "");
         }
+    }
+    
+    // =============== EMERGENCY NOTIFICATION SYSTEM ===============
+    
+    /**
+     * Initialize emergency notification system
+     */
+    private void initializeEmergencyNotificationSystem() {
+        Log.d(TAG, "🚨 Initializing emergency notification system in RescuerNavigationActivity");
+        
+        // Get user info from preferences
+        android.content.SharedPreferences prefs = getSharedPreferences("user_prefs", MODE_PRIVATE);
+        userId = prefs.getString("user_id", null);
+        userType = prefs.getString("user_type", null);
+        
+        Log.d(TAG, "🚨 User ID: " + userId + ", User Type: " + userType);
+    }
+    
+    /**
+     * Start emergency listener
+     */
+    private void startEmergencyListener() {
+        Log.d(TAG, "🚨 Starting emergency listener in RescuerNavigationActivity...");
+        
+        // Check if user is a rescuer
+        if (userId == null || userType == null || !userType.equals("rescuer")) {
+            Log.w(TAG, "⚠️ User is not a rescuer, skipping emergency listener");
+            return;
+        }
+        
+        // Prevent duplicate listeners
+        if (emergencyListener != null) {
+            Log.w(TAG, "Emergency listener already exists, removing old one first");
+            emergencyListener.remove();
+            emergencyListener = null;
+        }
+        
+        // Listen for new emergency notifications
+        emergencyListener = db.collection("Sagip")
+                .document("emergencyNotifications")
+                .collection("activeEmergencies")
+                .whereEqualTo("isActive", true)
+                .addSnapshotListener((snapshots, e) -> {
+                    if (e != null) {
+                        Log.e(TAG, "🚨 Emergency listener failed.", e);
+                        return;
+                    }
+                    
+                    Log.d(TAG, "🚨 Emergency listener triggered in RescuerNavigationActivity - snapshots: " + (snapshots != null ? snapshots.size() : "null"));
+                    
+                    if (snapshots != null && !snapshots.isEmpty()) {
+                        for (DocumentChange dc : snapshots.getDocumentChanges()) {
+                            Log.d(TAG, "🚨 Document change type: " + dc.getType() + " for document: " + dc.getDocument().getId());
+                            
+                            if (dc.getType() == DocumentChange.Type.ADDED) {
+                                // New emergency detected!
+                                DocumentSnapshot emergency = dc.getDocument();
+                                Log.d(TAG, "🚨 NEW EMERGENCY DETECTED IN RESCUER_NAVIGATION: " + emergency.getId());
+                                handleNewEmergency(emergency);
+                            }
+                        }
+                    } else {
+                        Log.d(TAG, "🚨 No active emergencies found in RescuerNavigationActivity");
+                    }
+                });
+        
+        Log.d(TAG, "🚨 Emergency listener started successfully in RescuerNavigationActivity");
+    }
+    
+    /**
+     * Handle new emergency notification
+     */
+    private void handleNewEmergency(DocumentSnapshot emergency) {
+        String title = emergency.getString("title");
+        String message = emergency.getString("message");
+        String seniorName = emergency.getString("seniorName");
+        String seniorPhone = emergency.getString("seniorPhone");
+        String locationAddress = emergency.getString("locationAddress");
+        String helpRequestId = emergency.getString("helpRequestId");
+        
+        Log.d(TAG, "🚨🚨🚨 NEW EMERGENCY RECEIVED IN RESCUER_NAVIGATION 🚨🚨🚨");
+        Log.d(TAG, "🚨 Senior: " + seniorName);
+        Log.d(TAG, "🚨 Location: " + locationAddress);
+        Log.d(TAG, "🚨 Help Request ID: " + helpRequestId);
+        
+        // Check if this rescuer has already responded to this emergency
+        String respondedBy = emergency.getString("respondedBy");
+        if (respondedBy != null && respondedBy.equals(userId)) {
+            Log.d(TAG, "Current rescuer already responded to this emergency, skipping notification for: " + helpRequestId);
+            return;
+        }
+        
+        // Show emergency alert dialog
+        showEmergencyAlert(title, message, seniorName, seniorPhone, locationAddress, helpRequestId);
+    }
+    
+    /**
+     * Show emergency alert dialog
+     */
+    private void showEmergencyAlert(String title, String message, String seniorName, 
+                                  String seniorPhone, String locationAddress, String helpRequestId) {
+        
+        String fullMessage = "🚨 EMERGENCY ALERT 🚨\n\n" +
+                "👤 Senior: " + seniorName + "\n" +
+                "📍 Location: " + locationAddress + "\n" +
+                "📞 Phone: " + (seniorPhone != null ? seniorPhone : "Not provided") + "\n\n" +
+                "Please respond immediately!";
+        
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(title != null ? title : "🚨 EMERGENCY HELP REQUEST")
+                .setMessage(fullMessage)
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .setPositiveButton("🚑 RESPOND NOW", (dialog, which) -> {
+                    // Navigate to dashboard to handle emergency
+                    Intent intent = new Intent(this, Rescuer_Dashboard.class);
+                    intent.putExtra("emergency_notification", true);
+                    intent.putExtra("helpRequestId", helpRequestId);
+                    intent.putExtra("senior_name", seniorName);
+                    intent.putExtra("location", locationAddress);
+                    startActivity(intent);
+                    dialog.dismiss();
+                })
+                .setNegativeButton("Close", (dialog, which) -> dialog.dismiss())
+                .setCancelable(false); // Prevent dismissing by tapping outside
+        
+        AlertDialog dialog = builder.create();
+        dialog.show();
+        
+        Log.d(TAG, "✅ Emergency alert shown in RescuerNavigationActivity for: " + seniorName);
     }
 }

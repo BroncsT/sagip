@@ -1,6 +1,5 @@
 package com.example.sagip_prototype;
 
-import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -12,270 +11,297 @@ import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
-
 import androidx.core.app.NotificationCompat;
-
-import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
-
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Service specifically for immediate hospital status update notifications
+ * Polls Firestore every 1 second for new hospital status updates
+ */
 public class HospitalStatusNotificationService extends Service {
+    private static final String TAG = "HospitalStatusNotificationService";
+    private static final String CHANNEL_ID = "hospital_status_notifications";
+    private static final int NOTIFICATION_ID = 4001;
+    private static final int SERVICE_ID = 4002;
     
-    private static final String TAG = "HospitalStatusService";
-    private static final String CHANNEL_ID = "hospital_status_channel";
-    private static final int NOTIFICATION_ID = 1001;
-    private static final String PREF_NAME = "SagipAppPrefs";
-    private static final String KEY_USER_ID = "userId";
-    private static final String KEY_USER_TYPE = "userType";
-    private static final String KEY_NOTIFICATION_SCHEDULED = "notificationScheduled";
-    
-    // Status update requirement (10 minutes)
-    private static final long STATUS_UPDATE_INTERVAL_MS = TimeUnit.MINUTES.toMillis(10);
-    
-    private FirebaseAuth mAuth;
-    private FirebaseFirestore db;
-    private AlarmManager alarmManager;
-    private SharedPreferences sharedPreferences;
+    private ScheduledExecutorService executor;
+    private boolean isMonitoring = false;
+    private String currentUserId;
+    private String currentUserType;
+    private long lastNotificationCheck = 0;
     
     @Override
     public void onCreate() {
         super.onCreate();
-        Log.d(TAG, "Service created");
+        Log.d(TAG, "HospitalStatusNotificationService created");
         
-        mAuth = FirebaseAuth.getInstance();
-        db = FirebaseFirestore.getInstance();
-        alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-        sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
-        
+        // Create notification channel
         createNotificationChannel();
+        
+        // Get user info
+        SharedPreferences prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+        currentUserId = prefs.getString("user_id", null);
+        currentUserType = prefs.getString("user_type", null);
+        
+        executor = Executors.newSingleThreadScheduledExecutor();
     }
     
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.d(TAG, "Service started");
+        Log.d(TAG, "HospitalStatusNotificationService started");
         
         if (intent != null) {
             String action = intent.getStringExtra("action");
-            if ("schedule_notification".equals(action)) {
-                scheduleStatusUpdateNotification();
-            } else if ("cancel_notification".equals(action)) {
-                cancelStatusUpdateNotification();
-            } else if ("check_status".equals(action)) {
-                checkAndNotifyIfNeeded();
+            if ("start_monitoring".equals(action)) {
+                startMonitoring();
+            } else if ("stop_monitoring".equals(action)) {
+                stopMonitoring();
             }
         }
         
         return START_STICKY;
     }
     
-    @Override
-    public IBinder onBind(Intent intent) {
-        return null;
+    private void startMonitoring() {
+        if (isMonitoring || currentUserId == null || !"rescuer".equals(currentUserType)) {
+            Log.d(TAG, "Already monitoring, no user ID, or not a rescuer");
+            return;
+        }
+        
+        Log.d(TAG, "Starting hospital status notification monitoring for rescuer: " + currentUserId);
+        isMonitoring = true;
+        
+        // Start as foreground service
+        startForeground(SERVICE_ID, createServiceNotification());
+        
+        // Start polling every 1 second for immediate notifications
+        executor.scheduleAtFixedRate(this::checkForHospitalStatusUpdates, 0, 1, TimeUnit.SECONDS);
+    }
+    
+    private void stopMonitoring() {
+        Log.d(TAG, "Stopping hospital status notification monitoring");
+        isMonitoring = false;
+        
+        if (executor != null && !executor.isShutdown()) {
+            executor.shutdown();
+        }
+        
+        stopForeground(true);
+        stopSelf();
+    }
+    
+    private void checkForHospitalStatusUpdates() {
+        if (!isMonitoring || currentUserId == null) {
+            Log.d(TAG, "Not monitoring or no user ID");
+            return;
+        }
+        
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        
+        // Use the full collection path as used in NativeNotificationSender
+        db.collection("Sagip")
+            .document("users")
+            .collection("rescuer")
+            .document(currentUserId)
+            .collection("notifications")
+            .whereEqualTo("read", false)
+            .get()
+            .addOnSuccessListener(querySnapshot -> {
+                Log.d(TAG, "Found " + querySnapshot.size() + " unread notifications for rescuer: " + currentUserId);
+                
+                if (querySnapshot.isEmpty()) {
+                    Log.d(TAG, "No unread notifications found for rescuer: " + currentUserId);
+                    return;
+                }
+                
+                // Filter for hospital status updates and recent notifications
+                for (var doc : querySnapshot.getDocuments()) {
+                    String notificationId = doc.getId();
+                    var data = doc.getData();
+                    String type = (String) data.get("type");
+                    Object timestampObj = data.get("timestamp");
+                    
+                    Log.d(TAG, "Checking notification: " + notificationId + ", type: " + type);
+                    
+                    // Filter for hospital status updates
+                    if ("hospital_status_update".equals(type)) {
+                        long timestamp = 0;
+                        if (timestampObj instanceof Long) {
+                            timestamp = (Long) timestampObj;
+                        } else if (timestampObj instanceof Double) {
+                            timestamp = ((Double) timestampObj).longValue();
+                        }
+                        
+                        // Only process recent notifications (within last 5 minutes)
+                        long currentTime = System.currentTimeMillis();
+                        if (timestamp > lastNotificationCheck && (currentTime - timestamp) < 300000) {
+                            Log.d(TAG, "📱 Processing recent hospital status notification: " + notificationId);
+                            handleHospitalStatusNotification(notificationId, data);
+                        } else {
+                            Log.d(TAG, "Skipping old notification: " + notificationId + " (age: " + (currentTime - timestamp) + "ms)");
+                        }
+                    }
+                }
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "Error checking hospital status notifications: " + e.getMessage(), e);
+            });
+    }
+    
+    private void handleHospitalStatusNotification(String notificationId, java.util.Map<String, Object> data) {
+        String title = (String) data.get("title");
+        String message = (String) data.get("message");
+        String hospitalName = (String) data.get("hospitalName");
+        String hospitalStatus = (String) data.get("hospitalStatus");
+        Object availableBedsObj = data.get("availableBeds");
+        Object availableDoctorsObj = data.get("availableDoctors");
+        Object timestampObj = data.get("timestamp");
+        
+        Log.d(TAG, "Handling hospital status notification: " + hospitalName + " - " + hospitalStatus);
+        
+        // Convert objects to proper types
+        int availableBeds = 0;
+        int availableDoctors = 0;
+        long timestamp = 0;
+        
+        if (availableBedsObj instanceof Long) {
+            availableBeds = ((Long) availableBedsObj).intValue();
+        } else if (availableBedsObj instanceof Double) {
+            availableBeds = ((Double) availableBedsObj).intValue();
+        }
+        
+        if (availableDoctorsObj instanceof Long) {
+            availableDoctors = ((Long) availableDoctorsObj).intValue();
+        } else if (availableDoctorsObj instanceof Double) {
+            availableDoctors = ((Double) availableDoctorsObj).intValue();
+        }
+        
+        if (timestampObj instanceof Long) {
+            timestamp = (Long) timestampObj;
+        } else if (timestampObj instanceof Double) {
+            timestamp = ((Double) timestampObj).longValue();
+        }
+        
+        // Update last check time
+        if (timestamp > lastNotificationCheck) {
+            lastNotificationCheck = timestamp;
+        }
+        
+        // Show immediate notification
+        showHospitalStatusNotification(notificationId, title, message, hospitalName, hospitalStatus, 
+                                     availableBeds, availableDoctors);
+        
+        // Mark as read
+        markNotificationAsRead(notificationId);
+    }
+    
+    private void showHospitalStatusNotification(String notificationId, String title, String message, 
+                                             String hospitalName, String hospitalStatus, 
+                                             int availableBeds, int availableDoctors) {
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        
+        Log.d(TAG, "Creating notification with data - Hospital: " + hospitalName + 
+            ", Status: " + hospitalStatus + ", Beds: " + availableBeds + ", Doctors: " + availableDoctors);
+        
+        Intent intent = new Intent(this, Rescuer_List.class);
+        intent.putExtra("notification_type", "hospital_status_update");
+        intent.putExtra("hospital_name", hospitalName);
+        intent.putExtra("hospital_status", hospitalStatus);
+        intent.putExtra("available_beds", availableBeds);
+        intent.putExtra("available_doctors", availableDoctors);
+        intent.putExtra("highlight_hospital", hospitalName); // To highlight the specific hospital
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+            this, 
+            notificationId.hashCode(), 
+            intent, 
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        
+        Log.d(TAG, "PendingIntent created for notification: " + notificationId.hashCode());
+        
+        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setVibrate(new long[]{0, 500, 200, 500})
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setShowWhen(true)
+            .setWhen(System.currentTimeMillis())
+            .setTicker(message) // Show message in status bar
+            .setStyle(new NotificationCompat.BigTextStyle().bigText(message))
+            .build();
+        
+        notificationManager.notify(notificationId.hashCode(), notification);
+        Log.d(TAG, "Hospital status notification displayed: " + title);
+        Log.d(TAG, "Notification ID: " + notificationId.hashCode() + ", Intent: " + intent.getComponent());
+        Log.d(TAG, "Notification clickable: " + (pendingIntent != null ? "YES" : "NO"));
+    }
+    
+    private void markNotificationAsRead(String notificationId) {
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        String collectionPath = "Sagip/users/rescuer/" + currentUserId + "/notifications";
+        
+        db.collection(collectionPath)
+            .document(notificationId)
+            .update("read", true)
+            .addOnSuccessListener(aVoid -> {
+                Log.d(TAG, "Hospital status notification marked as read: " + notificationId);
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "Error marking hospital status notification as read: " + e.getMessage());
+            });
+    }
+    
+    private Notification createServiceNotification() {
+        return new NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Hospital Status Monitoring")
+            .setContentText("Monitoring for hospital status updates...")
+            .setSmallIcon(R.drawable.ic_notification)
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build();
     }
     
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID,
-                "Hospital Status Updates",
+                "Hospital Status Notifications",
                 NotificationManager.IMPORTANCE_HIGH
             );
-            channel.setDescription("Notifications for hospital status update reminders");
+            channel.setDescription("Immediate hospital status update notifications");
             channel.enableVibration(true);
+            channel.setVibrationPattern(new long[]{0, 500, 200, 500});
+            channel.enableLights(true);
+            channel.setLightColor(0xFF2196F3);
             channel.setShowBadge(true);
+            channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
             
             NotificationManager notificationManager = getSystemService(NotificationManager.class);
             notificationManager.createNotificationChannel(channel);
+            Log.d(TAG, "Notification channel created: " + CHANNEL_ID);
         }
-    }
-    
-    private void scheduleStatusUpdateNotification() {
-        String userId = sharedPreferences.getString(KEY_USER_ID, null);
-        String userType = sharedPreferences.getString(KEY_USER_TYPE, null);
-        
-        if (userId == null || !"hospital".equals(userType)) {
-            Log.d(TAG, "Not a hospital user or no userId, skipping notification scheduling");
-            return;
-        }
-        
-        // Check current status and schedule next notification
-        db.collection("Sagip")
-                .document("users")
-                .collection("hospital")
-                .document(userId)
-                .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    if (documentSnapshot.exists()) {
-                        com.google.firebase.Timestamp lastUpdated = documentSnapshot.getTimestamp("lastUpdated");
-                        if (lastUpdated != null) {
-                            long lastUpdateTime = lastUpdated.toDate().getTime();
-                            long currentTime = System.currentTimeMillis();
-                            long timeSinceLastUpdate = currentTime - lastUpdateTime;
-                            
-                            if (timeSinceLastUpdate < STATUS_UPDATE_INTERVAL_MS) {
-                                // Schedule notification for when update is due
-                                long timeUntilUpdate = STATUS_UPDATE_INTERVAL_MS - timeSinceLastUpdate;
-                                scheduleNotification(timeUntilUpdate);
-                                Log.d(TAG, "Scheduled notification in " + (timeUntilUpdate / (1000 * 60)) + " minutes");
-                            } else {
-                                // Update is overdue, show notification immediately
-                                showStatusUpdateNotification();
-                                Log.d(TAG, "Status update is overdue, showing notification immediately");
-                            }
-                        } else {
-                            // No lastUpdated timestamp, show notification immediately
-                            showStatusUpdateNotification();
-                            Log.d(TAG, "No lastUpdated timestamp, showing notification immediately");
-                        }
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Failed to check hospital status", e);
-                });
-    }
-    
-    private void scheduleNotification(long delayMs) {
-        Intent notificationIntent = new Intent(this, HospitalStatusNotificationService.class);
-        notificationIntent.putExtra("action", "check_status");
-        
-        PendingIntent pendingIntent = PendingIntent.getService(
-            this, 
-            NOTIFICATION_ID, 
-            notificationIntent, 
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
-        
-        long triggerTime = System.currentTimeMillis() + delayMs;
-        
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            alarmManager.setExactAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                triggerTime,
-                pendingIntent
-            );
-        } else {
-            alarmManager.setExact(
-                AlarmManager.RTC_WAKEUP,
-                triggerTime,
-                pendingIntent
-            );
-        }
-        
-        // Mark notification as scheduled
-        sharedPreferences.edit()
-                .putBoolean(KEY_NOTIFICATION_SCHEDULED, true)
-                .apply();
-        
-        Log.d(TAG, "Notification scheduled for " + new java.util.Date(triggerTime));
-    }
-    
-    private void checkAndNotifyIfNeeded() {
-        String userId = sharedPreferences.getString(KEY_USER_ID, null);
-        String userType = sharedPreferences.getString(KEY_USER_TYPE, null);
-        
-        if (userId == null || !"hospital".equals(userType)) {
-            Log.d(TAG, "Not a hospital user or no userId, skipping notification check");
-            return;
-        }
-        
-        // Check if user is still logged in
-        if (mAuth.getCurrentUser() == null) {
-            Log.d(TAG, "User logged out, canceling notifications");
-            cancelStatusUpdateNotification();
-            return;
-        }
-        
-        // Check current status
-        db.collection("Sagip")
-                .document("users")
-                .collection("hospital")
-                .document(userId)
-                .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    if (documentSnapshot.exists()) {
-                        com.google.firebase.Timestamp lastUpdated = documentSnapshot.getTimestamp("lastUpdated");
-                        if (lastUpdated != null) {
-                            long lastUpdateTime = lastUpdated.toDate().getTime();
-                            long currentTime = System.currentTimeMillis();
-                            long timeSinceLastUpdate = currentTime - lastUpdateTime;
-                            
-                            if (timeSinceLastUpdate >= STATUS_UPDATE_INTERVAL_MS) {
-                                // Time to update, show notification
-                                showStatusUpdateNotification();
-                                // Schedule next notification
-                                scheduleNotification(STATUS_UPDATE_INTERVAL_MS);
-                            } else {
-                                // Not time yet, reschedule
-                                long timeUntilUpdate = STATUS_UPDATE_INTERVAL_MS - timeSinceLastUpdate;
-                                scheduleNotification(timeUntilUpdate);
-                            }
-                        } else {
-                            // No timestamp, show notification
-                            showStatusUpdateNotification();
-                            scheduleNotification(STATUS_UPDATE_INTERVAL_MS);
-                        }
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Failed to check hospital status", e);
-                });
-    }
-    
-    private void showStatusUpdateNotification() {
-        Intent intent = new Intent(this, Hospital_Dashboard.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        
-        PendingIntent pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
-        
-        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("Hospital Status Update Required")
-                .setContentText("Your hospital status needs to be updated. Please update your current bed and doctor availability.")
-                .setSmallIcon(R.drawable.baseline_notifications_active_24)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setCategory(NotificationCompat.CATEGORY_REMINDER)
-                .setAutoCancel(true)
-                .setContentIntent(pendingIntent)
-                .setVibrate(new long[]{0, 1000, 500, 1000})
-                .build();
-        
-        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        notificationManager.notify(NOTIFICATION_ID, notification);
-        
-        Log.d(TAG, "Status update notification shown");
-    }
-    
-    private void cancelStatusUpdateNotification() {
-        Intent notificationIntent = new Intent(this, HospitalStatusNotificationService.class);
-        PendingIntent pendingIntent = PendingIntent.getService(
-            this,
-            NOTIFICATION_ID,
-            notificationIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
-        
-        alarmManager.cancel(pendingIntent);
-        
-        // Cancel any existing notifications
-        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        notificationManager.cancel(NOTIFICATION_ID);
-        
-        // Mark notification as not scheduled
-        sharedPreferences.edit()
-                .putBoolean(KEY_NOTIFICATION_SCHEDULED, false)
-                .apply();
-        
-        Log.d(TAG, "Status update notifications canceled");
     }
     
     @Override
     public void onDestroy() {
         super.onDestroy();
-        Log.d(TAG, "Service destroyed");
+        Log.d(TAG, "HospitalStatusNotificationService destroyed");
+        stopMonitoring();
+    }
+    
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
     }
 }

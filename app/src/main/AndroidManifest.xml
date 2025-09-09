@@ -22,6 +22,20 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    
+    <!-- Navigation SDK permissions -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
@@ -59,6 +73,13 @@
             android:exported="false"
             android:label="Emergency Location Map (Google)" />
 
+        <!-- Senior Google Maps Activity -->
+        <activity
+            android:name=".Senior_GoogleMap"
+            android:exported="false"
+            android:label="Senior Emergency Map"
+            android:screenOrientation="portrait" />
+
         <!-- Rescuer Navigation Activity -->
         <activity
             android:name=".RescuerNavigationActivity"
@@ -66,12 +87,21 @@
             android:label="Rescuer Navigation"
             android:screenOrientation="portrait" />
 
-        <!-- Google Navigation Activity -->
+        <!-- Rescuer Navigation SDK Activity -->
         <activity
-            android:name=".GoogleNavigationActivity"
+            android:name=".RescuerNavigationSDKActivity"
             android:exported="false"
-            android:label="Google Navigation"
+            android:label="Rescuer Navigation (SDK)"
             android:screenOrientation="portrait" />
+
+        <!-- Emergency List Activity -->
+        <activity
+            android:name=".EmergencyListActivity"
+            android:exported="false"
+            android:label="Emergency List"
+            android:screenOrientation="portrait" />
+
+
 
         <activity
             android:name=".Senior_add_Emergency_Contact"
@@ -114,7 +144,8 @@
             android:exported="false" />
         <activity
             android:name=".Hospital_Status_Edit"
-            android:exported="false" /> <!-- File provider declaration -->
+            android:exported="false" />
+        <!-- File provider declaration -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="com.example.sagip_prototype.fileprovider"
@@ -180,18 +211,71 @@
             android:exported="false"
             android:label="@string/admin_feedback_title" />
 
-        <!-- Hospital Status Notification Service -->
-        <service
-            android:name=".HospitalStatusNotificationService"
-            android:enabled="true"
-            android:exported="false" />
 
-        <!-- Global Timer Service for continuous countdown -->
+        <!-- Rescuer Background Notification Service -->
         <service
-            android:name=".GlobalTimerService"
+            android:name=".RescuerBackgroundNotificationService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+
+        <!-- Firebase Cloud Messaging Service -->
+        <service
+            android:name=".FCMNotificationService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- Background Notification Listener Service -->
+        <service
+            android:name=".BackgroundNotificationListener"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <!-- Background Notification Service for monitoring notifications when app is closed -->
+        <service
+            android:name=".BackgroundNotificationService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <!-- Rescuer Foreground Service for ensuring rescuers get notifications when app is closed -->
+        <service
+            android:name=".RescuerForegroundService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+        
+        <!-- WebSocket-based notification service (FCM alternative) -->
+        <service
+            android:name=".WebSocketNotificationService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <service
+            android:name=".HospitalStatusReminderService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <service
+            android:name=".HospitalStatusNotificationService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <!-- Emergency Notification Service for real-time SOS alerts -->
+        <service
+            android:name=".EmergencyNotificationService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <!-- GlobalTimerService removed - using simple timer with SharedPreferences -->
 
         <!-- Boot Receiver for rescheduling notifications -->
         <receiver
@@ -217,7 +301,8 @@
 
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="@string/google_maps_api_key" />
+            android:value="${MAPS_API_KEY}" />
+
 
     </application>
 

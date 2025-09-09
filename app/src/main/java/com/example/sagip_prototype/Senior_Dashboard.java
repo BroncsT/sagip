@@ -2,6 +2,7 @@ package com.example.sagip_prototype;
 
 import android.Manifest;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
@@ -30,8 +31,10 @@ import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QuerySnapshot;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -42,8 +45,15 @@ import java.util.Map;
 public class Senior_Dashboard extends AppCompatActivity {
 
     private static final String TAG = "SeniorDashboard";
+    private static final String PREF_NAME = "SagipAppPrefs";
+    private static final String KEY_USER_ID = "userId";
+    private static final String KEY_USER_TYPE = "userType";
+    private static final String KEY_IS_LOGGED_IN = "isLoggedIn";
+    private static final String KEY_USER_PHONE = "userPhone";
+    
     FirebaseAuth mAuth;
     FirebaseFirestore db;
+    private SharedPreferences sharedPreferences;
 
     TextView tvFullName, tvCurrentLocation;
     Button btnFindHospital, btnHelp;
@@ -56,6 +66,7 @@ public class Senior_Dashboard extends AppCompatActivity {
     private String currentLocationAddress = "";
 
     private ActivityResultLauncher<String[]> locationPermissionRequest;
+    private boolean helpRequestInProgress = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -70,15 +81,10 @@ public class Senior_Dashboard extends AppCompatActivity {
 
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
+        sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
 
-        if (mAuth.getCurrentUser() == null) {
-            startActivity(new Intent(Senior_Dashboard.this, MainActivity.class));
-            finish();
-            return;
-        }
-        
-        // Additional check: Verify user status before proceeding
-        checkUserStatus();
+        // Check authentication state with persistence
+        checkAuthStateWithPersistence();
 
         initializeViews();
         initializeLocationServices();
@@ -125,11 +131,18 @@ public class Senior_Dashboard extends AppCompatActivity {
     private void sendHelpRequest() {
         Log.d(TAG, "Help button pressed - Creating help request");
 
+        // Prevent multiple help requests
+        if (helpRequestInProgress) {
+            Toast.makeText(this, "Help request already in progress. Please wait...", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         if (currentLat == 0.0 && currentLong == 0.0) {
             Toast.makeText(this, "Current location not available. Please wait or check location permissions.", Toast.LENGTH_LONG).show();
             return;
         }
 
+        helpRequestInProgress = true;
         Toast.makeText(this, "Creating help request...", Toast.LENGTH_SHORT).show();
 
         // Get current user info first
@@ -149,61 +162,55 @@ public class Senior_Dashboard extends AppCompatActivity {
                                 firstName + " " + lastName : "Senior User";
                         String phoneNumber = documentSnapshot.getString("phoneNumber");
 
-                        // Create help request
+                        // Create help request (this will also open the map)
                         createHelpRequest(seniorName, phoneNumber, uid);
-
-                        // Open MyGoogleMAp with current location
-                        openMyGoogleMapWithLocation();
                     } else {
                         createHelpRequest("Senior User", "", uid);
-                        openMyGoogleMapWithLocation();
                     }
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error getting user info", e);
                     createHelpRequest("Senior User", "", uid);
-                    openMyGoogleMapWithLocation();
                 });
     }
 
-    // New method to open MyGoogleMAp with current location
+    // New method to open Senior_GoogleMap with current location
     private void openMyGoogleMapWithLocation() {
         try {
-            Intent mapIntent = new Intent(Senior_Dashboard.this, MyGoogleMAp.class);
+            Intent mapIntent = new Intent(Senior_Dashboard.this, Senior_GoogleMap.class);
 
-            // Pass current location data to MyGoogleMAp
+            // Pass current location data to Senior_GoogleMap
             mapIntent.putExtra("latitude", currentLat);
             mapIntent.putExtra("longitude", currentLong);
             mapIntent.putExtra("locationAddress", currentLocationAddress);
-            mapIntent.putExtra("isEmergency", true);
+            mapIntent.putExtra("seniorName", tvFullName.getText().toString());
 
             startActivity(mapIntent);
-            Log.d(TAG, "Opened MyGoogleMAp with current location");
+            Log.d(TAG, "Opened Senior_GoogleMap with current location");
 
         } catch (Exception e) {
-            Log.e(TAG, "Error opening MyGoogleMAp", e);
+            Log.e(TAG, "Error opening Senior_GoogleMap", e);
             Toast.makeText(this, "Error opening map", Toast.LENGTH_SHORT).show();
         }
     }
 
-    // New method to open MyGoogleMAp in tracking mode
+    // New method to open Senior_GoogleMap in tracking mode
     private void openMyGoogleMapWithTracking(String helpRequestId) {
         try {
-            Intent mapIntent = new Intent(Senior_Dashboard.this, MyGoogleMAp.class);
+            Intent mapIntent = new Intent(Senior_Dashboard.this, Senior_GoogleMap.class);
 
-            // Pass current location data to MyGoogleMAp
+            // Pass current location data to Senior_GoogleMap
             mapIntent.putExtra("latitude", currentLat);
             mapIntent.putExtra("longitude", currentLong);
             mapIntent.putExtra("locationAddress", currentLocationAddress);
-            mapIntent.putExtra("isSeniorTrackingMode", true);
             mapIntent.putExtra("helpRequestIdForTracking", helpRequestId);
             mapIntent.putExtra("seniorName", tvFullName.getText().toString());
 
             startActivity(mapIntent);
-            Log.d(TAG, "Opened MyGoogleMAp in tracking mode with help request ID: " + helpRequestId);
+            Log.d(TAG, "Opened Senior_GoogleMap in tracking mode with help request ID: " + helpRequestId);
 
         } catch (Exception e) {
-            Log.e(TAG, "Error opening MyGoogleMAp in tracking mode", e);
+            Log.e(TAG, "Error opening Senior_GoogleMap in tracking mode", e);
             Toast.makeText(this, "Error opening map", Toast.LENGTH_SHORT).show();
         }
     }
@@ -237,10 +244,12 @@ public class Senior_Dashboard extends AppCompatActivity {
                      openMyGoogleMapWithTracking(requestId);
 
                     Toast.makeText(this, "Help request sent to rescuers!", Toast.LENGTH_LONG).show();
+                    helpRequestInProgress = false;
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error creating help request", e);
                     Toast.makeText(this, "Failed to create help request. Please try again.", Toast.LENGTH_LONG).show();
+                    helpRequestInProgress = false;
                 });
     }
 
@@ -499,28 +508,136 @@ public class Senior_Dashboard extends AppCompatActivity {
                             // Account not approved - sign out and redirect to login
                             Log.d(TAG, "Senior account not approved during status check, status: " + status);
                             mAuth.signOut();
+                            clearStoredCredentials();
                             Toast.makeText(Senior_Dashboard.this, 
                                 "Your account is not yet approved. Please wait for administrator approval.", 
                                 Toast.LENGTH_LONG).show();
-                            startActivity(new Intent(Senior_Dashboard.this, MainActivity.class));
-                            finish();
+                            navigateToLogin();
                             return;
                         }
                         // Status is approved, continue with normal flow
                         Log.d(TAG, "Senior account status verified as approved");
                     } else {
-                        Log.e(TAG, "User document not found during status check");
-                        mAuth.signOut();
-                        startActivity(new Intent(Senior_Dashboard.this, MainActivity.class));
-                        finish();
+                        Log.e(TAG, "User document not found during status check, trying alternative search");
+                        // Try to find user by phone number as fallback
+                        tryAlternativeUserSearch();
                     }
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error checking user status", e);
-                    mAuth.signOut();
-                    startActivity(new Intent(Senior_Dashboard.this, MainActivity.class));
-                    finish();
+                    // Try alternative search before giving up
+                    tryAlternativeUserSearch();
                 });
+    }
+
+    private void checkAuthStateWithPersistence() {
+        // Check if user was previously logged in
+        boolean isLoggedIn = sharedPreferences.getBoolean(KEY_IS_LOGGED_IN, false);
+        String userId = sharedPreferences.getString(KEY_USER_ID, null);
+        String storedUserType = sharedPreferences.getString(KEY_USER_TYPE, null);
+
+        if (isLoggedIn && userId != null && storedUserType != null) {
+            // User was previously logged in, verify Firebase Auth state
+            FirebaseUser currentUser = mAuth.getCurrentUser();
+            if (currentUser != null) {
+                // Firebase user is still authenticated, check status
+                checkUserStatus();
+            } else {
+                // Firebase session expired, redirect to login
+                clearStoredCredentials();
+                navigateToLogin();
+            }
+        } else {
+            // No stored login, check Firebase Auth
+            FirebaseUser currentUser = mAuth.getCurrentUser();
+            if (currentUser == null) {
+                // User is not logged in, redirect to login
+                navigateToLogin();
+            } else {
+                // User is logged in but not stored in SharedPreferences
+                saveUserCredentials(currentUser.getUid(), "seniors", currentUser.getPhoneNumber());
+                checkUserStatus();
+            }
+        }
+    }
+
+    private void saveUserCredentials(String userId, String userType, String phoneNumber) {
+        Log.d(TAG, "Saving user credentials: " + userId + ", " + userType);
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putBoolean(KEY_IS_LOGGED_IN, true);
+        editor.putString(KEY_USER_ID, userId);
+        editor.putString(KEY_USER_TYPE, userType);
+        if (phoneNumber != null) {
+            editor.putString(KEY_USER_PHONE, phoneNumber);
+        }
+        editor.apply();
+    }
+
+    private void clearStoredCredentials() {
+        Log.d(TAG, "Clearing stored credentials");
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.remove(KEY_IS_LOGGED_IN);
+        editor.remove(KEY_USER_ID);
+        editor.remove(KEY_USER_TYPE);
+        editor.remove(KEY_USER_PHONE);
+        editor.apply();
+    }
+
+    private void navigateToLogin() {
+        Intent intent = new Intent(Senior_Dashboard.this, MainActivity.class);
+        intent.putExtra("LOGOUT_ACTION", true);
+        startActivity(intent);
+        finish();
+    }
+
+    private void tryAlternativeUserSearch() {
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) {
+            mAuth.signOut();
+            clearStoredCredentials();
+            navigateToLogin();
+            return;
+        }
+
+        String phoneNumber = currentUser.getPhoneNumber();
+        if (phoneNumber != null) {
+            // Try searching by phone number
+            String searchNumber = phoneNumber.startsWith("+63") ? phoneNumber.substring(3) : phoneNumber;
+            
+            db.collection("Sagip")
+                    .document("users")
+                    .collection("seniors")
+                    .whereEqualTo("mobileNumber", searchNumber)
+                    .get()
+                    .addOnSuccessListener(querySnapshot -> {
+                        if (!querySnapshot.isEmpty()) {
+                            Log.d(TAG, "Found user by phone number alternative search");
+                            // User found, continue with normal flow
+                        } else {
+                            Log.e(TAG, "User not found even with alternative search");
+                            mAuth.signOut();
+                            clearStoredCredentials();
+                            Toast.makeText(Senior_Dashboard.this, 
+                                "User profile not found. Please login again.", 
+                                Toast.LENGTH_LONG).show();
+                            navigateToLogin();
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "Alternative search failed", e);
+                        mAuth.signOut();
+                        clearStoredCredentials();
+                        Toast.makeText(Senior_Dashboard.this, 
+                            "Error finding user profile. Please login again.", 
+                            Toast.LENGTH_LONG).show();
+                        navigateToLogin();
+                    });
+        } else {
+            Log.e(TAG, "No phone number available for alternative search");
+            mAuth.signOut();
+            clearStoredCredentials();
+            navigateToLogin();
+        }
     }
 
     private void loadUserData() {

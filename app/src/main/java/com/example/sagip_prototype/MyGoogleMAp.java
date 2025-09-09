@@ -50,8 +50,13 @@ import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.Dash;
+import com.google.android.gms.maps.model.Gap;
+import com.google.android.gms.maps.model.BitmapDescriptor;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
@@ -113,6 +118,9 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
     private Polyline routePolyline = null; // Add this missing variable
     private List<LatLng> routePoints = new ArrayList<>();
     private boolean routeDisplayed = false;
+    
+    // Rescuer route tracking variables
+    private Map<String, Polyline> rescuerRoutes = new HashMap<>();
 
     // UI Elements
     private LinearLayout emergencyInfoCard;
@@ -675,7 +683,10 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
         // Add marker for the received location
         MarkerOptions markerOptions = new MarkerOptions()
                 .position(receivedLocation)
-                .title(isRescuerMode ? "🚨 Emergency Location" : "📍 Destination");
+                .title(isRescuerMode ? "🚨 Emergency Location" : "📍 Senior Location");
+
+        // Set blue pin for senior location
+        markerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE));
 
         if (receivedAddress != null && !receivedAddress.isEmpty()) {
             markerOptions.snippet("📍 " + receivedAddress);
@@ -852,7 +863,7 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
     }
 
     private void requestLocationPermission() {
-        Log.d(TAG, "requestLocationPermission called");
+        Log.d(TAG, "requestLocationPermission called");  
         
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             locationPermissionRequest.launch(new String[]{
@@ -863,7 +874,7 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
     }
 
     // =============== TRACKING METHODS ===============
-    
+
     private void startRescuerTracking() {
         Log.d(TAG, "startRescuerTracking called for help request: " + helpRequestId);
         
@@ -903,7 +914,8 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
                                 MarkerOptions markerOptions = new MarkerOptions()
                                     .position(rescuerLocation)
                                     .title("🚑 Rescuer: " + (rescuerName != null ? rescuerName : "Unknown"))
-                                    .snippet("📞 " + (rescuerPhone != null ? rescuerPhone : "No phone"));
+                                    .snippet("📞 " + (rescuerPhone != null ? rescuerPhone : "No phone"))
+                                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
                                 
                                 Marker marker = myMap.addMarker(markerOptions);
                                 rescuerMarkers.put(rescuerId, marker);
@@ -949,9 +961,255 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
                         if (helpRequestListener != null) {
                             helpRequestListener.remove();
                         }
+                        if (rescuerLocationListener != null) {
+                            rescuerLocationListener.remove();
+                        }
                     }
                 }
             });
+
+        // Listen for rescuer location updates
+        startRescuerLocationTracking();
+    }
+
+    private void startRescuerLocationTracking() {
+        Log.d(TAG, "startRescuerLocationTracking called for help request: " + helpRequestIdForTracking);
+        
+        rescuerLocationListener = db.collection("Sagip")
+            .document("helpRequests")
+            .collection("activeRequests")
+            .document(helpRequestIdForTracking)
+            .collection("rescuerLocations")
+            .addSnapshotListener((snapshot, e) -> {
+                if (e != null) {
+                    Log.e(TAG, "Error listening to rescuer location updates", e);
+                    return;
+                }
+
+                if (snapshot != null && !snapshot.isEmpty()) {
+                    Log.d(TAG, "Received " + snapshot.size() + " rescuer location updates");
+                    
+                    // Clear existing rescuer markers and routes
+                    clearRescuerMarkersAndRoutes();
+                    
+                    // Process each rescuer location update
+                    for (DocumentSnapshot document : snapshot.getDocuments()) {
+                        if (document.exists()) {
+                            updateRescuerMarkerAndRoute(document);
+                        }
+                    }
+                } else {
+                    Log.d(TAG, "No rescuer locations found");
+                }
+            });
+    }
+
+    private void clearRescuerMarkersAndRoutes() {
+        // Clear existing rescuer markers
+        for (Marker marker : rescuerMarkers.values()) {
+            marker.remove();
+        }
+        rescuerMarkers.clear();
+        rescuerNames.clear();
+        rescuerPhones.clear();
+        
+        // Clear existing rescuer routes
+        for (Polyline route : rescuerRoutes.values()) {
+            route.remove();
+        }
+        rescuerRoutes.clear();
+        
+        // Clear existing routes
+        if (currentRoute != null) {
+            currentRoute.remove();
+            currentRoute = null;
+        }
+    }
+
+    private void updateRescuerMarkerAndRoute(DocumentSnapshot document) {
+        try {
+            String rescuerId = document.getId();
+            Double latitude = document.getDouble("latitude");
+            Double longitude = document.getDouble("longitude");
+            String rescuerName = document.getString("rescuerName");
+            Long timestamp = document.getLong("timestamp");
+            
+            if (latitude != null && longitude != null) {
+                LatLng rescuerLocation = new LatLng(latitude, longitude);
+                
+                // Update or create rescuer marker
+                Marker existingMarker = rescuerMarkers.get(rescuerId);
+                if (existingMarker != null) {
+                    // Update existing marker position
+                    existingMarker.setPosition(rescuerLocation);
+                } else {
+                    // Create new marker with red pin for rescuer
+                    MarkerOptions markerOptions = new MarkerOptions()
+                            .position(rescuerLocation)
+                            .title("🚑 Rescuer: " + (rescuerName != null ? rescuerName : "Unknown"))
+                            .snippet("Click to see route")
+                            .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED));
+                    
+                    Marker marker = myMap.addMarker(markerOptions);
+                    rescuerMarkers.put(rescuerId, marker);
+                    rescuerNames.put(rescuerId, rescuerName != null ? rescuerName : "Unknown");
+                }
+                
+                // Show route from rescuer to senior location
+                if (receivedLat != 0.0 && receivedLong != 0.0) {
+                    showRouteFromRescuerToSenior(rescuerLocation, rescuerId);
+                }
+                
+                // Update UI with rescuer information
+                updateEmergencyInfoWithRescuers();
+                
+                Log.d(TAG, "Updated rescuer marker for: " + rescuerName + " at " + latitude + ", " + longitude);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error updating rescuer marker", e);
+        }
+    }
+
+    private void showRouteFromRescuerToSenior(LatLng rescuerLocation, String rescuerId) {
+        if (receivedLat == 0.0 || receivedLong == 0.0) {
+            Log.e(TAG, "Senior location not available for routing");
+            return;
+        }
+        
+        LatLng seniorLocation = new LatLng(receivedLat, receivedLong);
+        
+        // Get route from Google Directions API
+        getRouteFromGoogleDirections(rescuerLocation, seniorLocation, rescuerId);
+    }
+
+    private void getRouteFromGoogleDirections(LatLng origin, LatLng destination, String rescuerId) {
+        // Use a background thread for API call
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        executor.execute(() -> {
+            try {
+                String url = "https://maps.googleapis.com/maps/api/directions/json?" +
+                        "origin=" + origin.latitude + "," + origin.longitude +
+                        "&destination=" + destination.latitude + "," + destination.longitude +
+                        "&key=" + getString(R.string.google_maps_key);
+                
+                Log.d(TAG, "Requesting route from Google Directions API");
+                
+                HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
+                connection.setRequestMethod("GET");
+                
+                BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+                
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
+                }
+                reader.close();
+                
+                JSONObject jsonResponse = new JSONObject(response.toString());
+                
+                if (jsonResponse.getString("status").equals("OK")) {
+                    JSONArray routes = jsonResponse.getJSONArray("routes");
+                    if (routes.length() > 0) {
+                        JSONObject route = routes.getJSONObject(0);
+                        JSONObject overviewPolyline = route.getJSONObject("overview_polyline");
+                        String encodedPolyline = overviewPolyline.getString("points");
+                        
+                        // Decode polyline and draw route on main thread
+                        runOnUiThread(() -> drawRouteFromPolyline(encodedPolyline, rescuerId));
+                    }
+                } else {
+                    Log.e(TAG, "Google Directions API error: " + jsonResponse.getString("status"));
+                }
+                
+            } catch (Exception e) {
+                Log.e(TAG, "Error getting route from Google Directions API", e);
+            }
+        });
+    }
+
+    private void drawRouteFromPolyline(String encodedPolyline, String rescuerId) {
+        try {
+            List<LatLng> routePoints = decodePolyline(encodedPolyline);
+            
+            if (routePoints.size() > 1) {
+                // Remove existing route for this rescuer
+                Polyline existingRoute = rescuerRoutes.get(rescuerId);
+                if (existingRoute != null) {
+                    existingRoute.remove();
+                }
+                
+                // Create new route with different colors for different rescuers
+                int routeColor = getRouteColorForRescuer(rescuerId);
+                
+                PolylineOptions polylineOptions = new PolylineOptions()
+                        .addAll(routePoints)
+                        .color(routeColor)
+                        .width(8)
+                        .pattern(Arrays.asList(new Dash(20), new Gap(10))); // Dashed line
+                
+                Polyline route = myMap.addPolyline(polylineOptions);
+                
+                // Store route for this specific rescuer
+                rescuerRoutes.put(rescuerId, route);
+                
+                Log.d(TAG, "Drawn route for rescuer: " + rescuerId + " with color: " + Integer.toHexString(routeColor));
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error drawing route", e);
+        }
+    }
+
+    private int getRouteColorForRescuer(String rescuerId) {
+        // Assign different colors for different rescuers
+        int hash = rescuerId.hashCode();
+        int[] colors = {
+            0xFF00FF00, // Green
+            0xFF0000FF, // Blue
+            0xFFFF0000, // Red
+            0xFFFFFF00, // Yellow
+            0xFFFF00FF, // Magenta
+            0xFF00FFFF, // Cyan
+            0xFFFFA500, // Orange
+            0xFF800080  // Purple
+        };
+        return colors[Math.abs(hash) % colors.length];
+    }
+
+    private BitmapDescriptor getMarkerIconForUserType(String userType) {
+        switch (userType.toLowerCase()) {
+            case "senior":
+                return BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE);
+            case "rescuer":
+                return BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED);
+            default:
+                return BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE);
+        }
+    }
+
+    private void updateEmergencyInfoWithRescuers() {
+        if (isSeniorTrackingMode && emergencyInfoCard != null) {
+            int rescuerCount = rescuerMarkers.size();
+            if (rescuerCount > 0) {
+                StringBuilder rescuerInfo = new StringBuilder();
+                rescuerInfo.append("🚑 ").append(rescuerCount).append(" rescuer(s) responding:\n");
+                
+                for (String rescuerId : rescuerNames.keySet()) {
+                    String rescuerName = rescuerNames.get(rescuerId);
+                    rescuerInfo.append("• ").append(rescuerName).append("\n");
+                }
+                
+                if (tvDistanceTime != null) {
+                    tvDistanceTime.setText(rescuerInfo.toString());
+                }
+                
+                Log.d(TAG, "Updated emergency info with " + rescuerCount + " rescuers");
+            } else {
+                if (tvDistanceTime != null) {
+                    tvDistanceTime.setText("⏳ Waiting for rescuers to respond...");
+                }
+            }
+        }
     }
 
     private void callSenior() {
@@ -1080,10 +1338,14 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
         rescuerLocation.put("timestamp", System.currentTimeMillis());
         rescuerLocation.put("rescuerId", currentUserId);
         
-        // Add rescuer name and phone if available
+        // Add rescuer name and team information if available
         String rescuerName = getCurrentRescuerName();
+        String rescuerTeam = getCurrentRescuerTeam();
         if (rescuerName != null) {
             rescuerLocation.put("rescuerName", rescuerName);
+        }
+        if (rescuerTeam != null) {
+            rescuerLocation.put("rescuerTeam", rescuerTeam);
         }
 
         // Update rescuer location in Firebase
@@ -1126,6 +1388,31 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
         return "Rescuer";
     }
 
+    private String getCurrentRescuerTeam() {
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser != null) {
+            // Get team information from Firestore
+            db.collection("Sagip")
+                .document("users")
+                .collection("rescuer")
+                .document(currentUser.getUid())
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String teamName = documentSnapshot.getString("rescuegroup");
+                        if (teamName != null && !teamName.isEmpty()) {
+                            // Store team name for later use
+                            Log.d(TAG, "Rescuer team: " + teamName);
+                        }
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error getting rescuer team info", e);
+                });
+        }
+        return null; // This will be updated asynchronously
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
@@ -1148,6 +1435,9 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
             helpRequestListener.remove();
             helpRequestListener = null;
         }
+        
+        // Clear all rescuer markers and routes
+        clearRescuerMarkersAndRoutes();
         
         // Shutdown executor service
         if (executorService != null) {

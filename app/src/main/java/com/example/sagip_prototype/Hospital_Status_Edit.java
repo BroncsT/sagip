@@ -1,5 +1,6 @@
 package com.example.sagip_prototype;
 
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
@@ -336,85 +337,59 @@ public class Hospital_Status_Edit extends AppCompatActivity {
         tvDatabaseTotalBeds.setText("Loading...");
         tvDatabaseTotalDoctors.setText("Loading...");
         
+        // Load only the current hospital's data, not all hospitals
         db.collection("Sagip")
                 .document("users")
                 .collection("hospital")
+                .document(userId)  // Load only current hospital's document
                 .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    int totalBeds = 0;
-                    int totalDoctors = 0;
-                    
-                    for (com.google.firebase.firestore.DocumentSnapshot document : queryDocumentSnapshots.getDocuments()) {
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
                         // Try both field names for backward compatibility
-                        Long beds = document.getLong("totalBeds");
-                        if (beds == null) {
-                            beds = document.getLong("emergencyRoomBeds");
+                        Long totalBeds = documentSnapshot.getLong("totalBeds");
+                        if (totalBeds == null) {
+                            totalBeds = documentSnapshot.getLong("emergencyRoomBeds");
                         }
-                        if (beds != null) {
-                            totalBeds += beds.intValue();
-                            Log.d("Hospital_Status_Edit", "Found beds: " + beds.intValue() + " from hospital: " + document.getString("hospitalName"));
+                        
+                        Long totalDoctors = documentSnapshot.getLong("totalDoctors");
+                        if (totalDoctors == null) {
+                            totalDoctors = documentSnapshot.getLong("emergencyRoomDoctors");
+                        }
+                        
+                        if (totalBeds != null) {
+                            databaseTotalBeds = totalBeds.intValue();
+                            tvDatabaseTotalBeds.setText(String.valueOf(databaseTotalBeds));
+                            Log.d("Hospital_Status_Edit", "Loaded total beds: " + databaseTotalBeds + " for hospital: " + documentSnapshot.getString("hospitalName"));
                         } else {
-                            Log.w("Hospital_Status_Edit", "No beds data found for hospital: " + document.getString("hospitalName"));
+                            Log.w("Hospital_Status_Edit", "No beds data found for current hospital");
+                            tvDatabaseTotalBeds.setText("N/A");
                         }
+                        
+                        if (totalDoctors != null) {
+                            databaseTotalDoctors = totalDoctors.intValue();
+                            tvDatabaseTotalDoctors.setText(String.valueOf(databaseTotalDoctors));
+                            Log.d("Hospital_Status_Edit", "Loaded total doctors: " + databaseTotalDoctors + " for hospital: " + documentSnapshot.getString("hospitalName"));
+                        } else {
+                            Log.w("Hospital_Status_Edit", "No doctors data found for current hospital");
+                            tvDatabaseTotalDoctors.setText("N/A");
+                        }
+                        
+                        // Update status calculation with new database totals
+                        updateAutoStatus();
+                    } else {
+                        Log.w("Hospital_Status_Edit", "Current hospital document not found");
+                        tvDatabaseTotalBeds.setText("N/A");
+                        tvDatabaseTotalDoctors.setText("N/A");
                     }
-                    
-                    Log.d("Hospital_Status_Edit", "Total beds calculated: " + totalBeds);
-                    
-                    // Get total doctors from a separate collection or document
-                    // For now, we'll use a fixed value or get it from a system settings document
-                    loadTotalDoctorsFromSystem();
-                    
-                    // Store totals for calculation
-                    databaseTotalBeds = totalBeds;
-                    
-                    // Update UI with totals
-                    tvDatabaseTotalBeds.setText(String.valueOf(totalBeds));
-                    
-                    // Update status calculation with new database totals
-                    updateAutoStatus();
                 })
                 .addOnFailureListener(e -> {
                     tvDatabaseTotalBeds.setText("Error");
                     tvDatabaseTotalDoctors.setText("Error");
-                    Toast.makeText(this, "Failed to load database totals: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Failed to load hospital data: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    Log.e("Hospital_Status_Edit", "Failed to load hospital data", e);
                 });
     }
 
-    private void loadTotalDoctorsFromSystem() {
-        // Load total doctors by summing up all doctors registered during hospital registration
-        db.collection("Sagip")
-                .document("users")
-                .collection("hospital")
-                .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    int totalRegisteredDoctors = 0;
-                    
-                    for (com.google.firebase.firestore.DocumentSnapshot document : queryDocumentSnapshots.getDocuments()) {
-                        // Try both field names for backward compatibility
-                        Long registeredDoctors = document.getLong("totalDoctors");
-                        if (registeredDoctors == null) {
-                            registeredDoctors = document.getLong("emergencyRoomDoctors");
-                        }
-                        if (registeredDoctors != null) {
-                            totalRegisteredDoctors += registeredDoctors.intValue();
-                            Log.d("Hospital_Status_Edit", "Found doctors: " + registeredDoctors.intValue() + " from hospital: " + document.getString("hospitalName"));
-                        } else {
-                            Log.w("Hospital_Status_Edit", "No doctors data found for hospital: " + document.getString("hospitalName"));
-                        }
-                    }
-                    
-                    Log.d("Hospital_Status_Edit", "Total doctors calculated: " + totalRegisteredDoctors);
-                    
-                    databaseTotalDoctors = totalRegisteredDoctors;
-                    tvDatabaseTotalDoctors.setText(String.valueOf(totalRegisteredDoctors));
-                    updateAutoStatus();
-                })
-                .addOnFailureListener(e -> {
-                    tvDatabaseTotalDoctors.setText("Error");
-                    Toast.makeText(this, "Failed to load total registered doctors: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                    updateAutoStatus();
-                });
-    }
 
     private void saveHospitalStatus() {
         if (userId == null) {
@@ -474,6 +449,12 @@ public class Hospital_Status_Edit extends AppCompatActivity {
                         // Clear the status update notification
                         clearStatusUpdateNotification();
                         
+                        // Notify the reminder service that status was updated
+                        notifyStatusUpdateToReminderService();
+                        
+                        // Notify all rescuer users about the hospital status update using native notifications
+                        getHospitalNameAndNotify(status, availableBeds, doctorsAvailable);
+                        
                         // Refresh database totals after successful update
                         loadDatabaseTotals();
                         
@@ -489,6 +470,80 @@ public class Hospital_Status_Edit extends AppCompatActivity {
         } catch (NumberFormatException e) {
             Toast.makeText(this, getString(R.string.enter_valid_numbers), Toast.LENGTH_SHORT).show();
         }
+    }
+    
+    /**
+     * Notifies all rescuer users about the hospital status update using native notifications
+     */
+    private void notifyRescuersOfStatusUpdate(String hospitalName, String status, int availableBeds, int availableDoctors) {
+        Log.d("Hospital_Status_Edit", "=== NOTIFYING RESCUERS OF STATUS UPDATE VIA NATIVE NOTIFICATIONS ===");
+        Log.d("Hospital_Status_Edit", "Hospital: " + hospitalName);
+        Log.d("Hospital_Status_Edit", "Status: " + status);
+        Log.d("Hospital_Status_Edit", "Available Beds: " + availableBeds);
+        Log.d("Hospital_Status_Edit", "Available Doctors: " + availableDoctors);
+        
+        // Send native notification to all rescuers (works when app is closed)
+        NativeNotificationSender.sendHospitalUpdateNotificationToRescuers(
+            hospitalName, 
+            status, 
+            availableBeds, 
+            availableDoctors
+        );
+        
+        Log.d("Hospital_Status_Edit", "✅ Native notification sent successfully");
+    }
+    
+    /**
+     * Gets the hospital name from the database and sends native notifications
+     */
+    private void getHospitalNameAndNotify(String status, int availableBeds, int availableDoctors) {
+        Log.d("Hospital_Status_Edit", "=== GETTING HOSPITAL NAME AND SENDING NATIVE NOTIFICATIONS ===");
+        Log.d("Hospital_Status_Edit", "User ID: " + userId);
+        Log.d("Hospital_Status_Edit", "Status: " + status);
+        Log.d("Hospital_Status_Edit", "Available Beds: " + availableBeds);
+        Log.d("Hospital_Status_Edit", "Available Doctors: " + availableDoctors);
+        
+        if (userId == null) {
+            Log.w("Hospital_Status_Edit", "userId is null, cannot get hospital name");
+            return;
+        }
+        
+        db.collection("Sagip")
+                .document("users")
+                .collection("hospital")
+                .document(userId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    Log.d("Hospital_Status_Edit", "Hospital document retrieved successfully");
+                    if (documentSnapshot.exists()) {
+                        String hospitalName = documentSnapshot.getString("hospitalName");
+                        Log.d("Hospital_Status_Edit", "Hospital name from database: " + hospitalName);
+                        if (hospitalName != null && !hospitalName.isEmpty()) {
+                            Log.d("Hospital_Status_Edit", "✅ Hospital name valid, calling native notification service");
+                            notifyRescuersOfStatusUpdate(hospitalName, status, availableBeds, availableDoctors);
+                        } else {
+                            Log.w("Hospital_Status_Edit", "❌ Hospital name is null or empty");
+                        }
+                    } else {
+                        Log.w("Hospital_Status_Edit", "❌ Hospital document not found");
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("Hospital_Status_Edit", "❌ Failed to get hospital name: " + e.getMessage(), e);
+                });
+    }
+    
+    /**
+     * Notifies the reminder service that status was updated
+     */
+    private void notifyStatusUpdateToReminderService() {
+        Log.d("Hospital_Status_Edit", "Notifying reminder service of status update");
+        Intent serviceIntent = new Intent(this, HospitalStatusReminderService.class);
+        serviceIntent.putExtra("action", "update_status_time");
+        serviceIntent.putExtra("last_update_time", System.currentTimeMillis());
+        startService(serviceIntent);
+        
+        Log.d("Hospital_Status_Edit", "Reminder service notified of status update");
     }
     
     /**

@@ -27,13 +27,14 @@
         android:elevation="8dp"
         android:visibility="visible">
 
-        <!-- Turn arrow icon -->
+        <!-- Turn arrow icon (dynamic based on instruction) -->
         <ImageView
             android:id="@+id/ivTurnArrow"
             android:layout_width="32dp"
             android:layout_height="32dp"
             android:src="@drawable/ic_turn_right"
-            android:layout_marginEnd="12dp" />
+            android:layout_marginEnd="12dp"
+            android:contentDescription="Turn Direction" />
 
         <!-- Distance and street name -->
         <LinearLayout

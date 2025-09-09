@@ -202,6 +202,17 @@
                     android:background="@drawable/hospital_button_background"
                     android:layout_marginBottom="12dp"/>
 
+                <!-- Test Navigation Button -->
+                <Button
+                    android:id="@+id/testNavigationButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:text="🧪 Test Navigation to Christ in You Heale Parish"
+                    android:textSize="14sp"
+                    android:textColor="@color/white"
+                    android:background="@drawable/button_background"
+                    android:layout_marginBottom="12dp"/>
+
                 <!-- Additional quick action buttons can be added here -->
 
             </LinearLayout>

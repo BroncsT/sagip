@@ -2,6 +2,7 @@ package com.example.sagip_prototype;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -13,15 +14,25 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.DocumentChange;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 
 public class Rescuer_Profile extends BaseProfileActivity {
 
+    private static final String TAG = "Rescuer_Profile";
+    
     FirebaseAuth mAuth;
     FirebaseFirestore db;
     FirebaseStorage storage;
+    
+    // Emergency notification system variables
+    private ListenerRegistration emergencyListener;
+    private String userId;
+    private String userType;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -263,5 +274,172 @@ public class Rescuer_Profile extends BaseProfileActivity {
                                 Toast.makeText(this, getString(R.string.delete_account_failed), Toast.LENGTH_SHORT).show();
                             });
                 });
+    }
+    
+    @Override
+    protected void onResume() {
+        super.onResume();
+        Log.d(TAG, "🚨 Rescuer_Profile onResume - starting emergency listener");
+        
+        // Initialize emergency notification system
+        initializeEmergencyNotificationSystem();
+        
+        // Start emergency listener when activity resumes
+        if (emergencyListener == null) {
+            startEmergencyListener();
+        }
+    }
+    
+    @Override
+    protected void onPause() {
+        super.onPause();
+        Log.d(TAG, "🚨 Rescuer_Profile onPause - stopping emergency listener");
+        
+        // Stop emergency listener when activity pauses - EmergencyNotificationService will handle background
+        if (emergencyListener != null) {
+            emergencyListener.remove();
+            emergencyListener = null;
+        }
+    }
+    
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        Log.d(TAG, "🚨 Rescuer_Profile onDestroy - cleaning up emergency listener");
+        
+        // Remove emergency listener
+        if (emergencyListener != null) {
+            emergencyListener.remove();
+            emergencyListener = null;
+        }
+    }
+    
+    // =============== EMERGENCY NOTIFICATION SYSTEM ===============
+    
+    /**
+     * Initialize emergency notification system
+     */
+    private void initializeEmergencyNotificationSystem() {
+        Log.d(TAG, "🚨 Initializing emergency notification system in Rescuer_Profile");
+        
+        // Get user info from preferences
+        android.content.SharedPreferences prefs = getSharedPreferences("user_prefs", MODE_PRIVATE);
+        userId = prefs.getString("user_id", null);
+        userType = prefs.getString("user_type", null);
+        
+        Log.d(TAG, "🚨 User ID: " + userId + ", User Type: " + userType);
+    }
+    
+    /**
+     * Start emergency listener
+     */
+    private void startEmergencyListener() {
+        Log.d(TAG, "🚨 Starting emergency listener in Rescuer_Profile...");
+        
+        // Check if user is a rescuer
+        if (userId == null || userType == null || !userType.equals("rescuer")) {
+            Log.w(TAG, "⚠️ User is not a rescuer, skipping emergency listener");
+            return;
+        }
+        
+        // Prevent duplicate listeners
+        if (emergencyListener != null) {
+            Log.w(TAG, "Emergency listener already exists, removing old one first");
+            emergencyListener.remove();
+            emergencyListener = null;
+        }
+        
+        // Listen for new emergency notifications
+        emergencyListener = db.collection("Sagip")
+                .document("emergencyNotifications")
+                .collection("activeEmergencies")
+                .whereEqualTo("isActive", true)
+                .addSnapshotListener((snapshots, e) -> {
+                    if (e != null) {
+                        Log.e(TAG, "🚨 Emergency listener failed.", e);
+                        return;
+                    }
+                    
+                    Log.d(TAG, "🚨 Emergency listener triggered in Rescuer_Profile - snapshots: " + (snapshots != null ? snapshots.size() : "null"));
+                    
+                    if (snapshots != null && !snapshots.isEmpty()) {
+                        for (DocumentChange dc : snapshots.getDocumentChanges()) {
+                            Log.d(TAG, "🚨 Document change type: " + dc.getType() + " for document: " + dc.getDocument().getId());
+                            
+                            if (dc.getType() == DocumentChange.Type.ADDED) {
+                                // New emergency detected!
+                                DocumentSnapshot emergency = dc.getDocument();
+                                Log.d(TAG, "🚨 NEW EMERGENCY DETECTED IN RESCUER_PROFILE: " + emergency.getId());
+                                handleNewEmergency(emergency);
+                            }
+                        }
+                    } else {
+                        Log.d(TAG, "🚨 No active emergencies found in Rescuer_Profile");
+                    }
+                });
+        
+        Log.d(TAG, "🚨 Emergency listener started successfully in Rescuer_Profile");
+    }
+    
+    /**
+     * Handle new emergency notification
+     */
+    private void handleNewEmergency(DocumentSnapshot emergency) {
+        String title = emergency.getString("title");
+        String message = emergency.getString("message");
+        String seniorName = emergency.getString("seniorName");
+        String seniorPhone = emergency.getString("seniorPhone");
+        String locationAddress = emergency.getString("locationAddress");
+        String helpRequestId = emergency.getString("helpRequestId");
+        
+        Log.d(TAG, "🚨🚨🚨 NEW EMERGENCY RECEIVED IN RESCUER_PROFILE 🚨🚨🚨");
+        Log.d(TAG, "🚨 Senior: " + seniorName);
+        Log.d(TAG, "🚨 Location: " + locationAddress);
+        Log.d(TAG, "🚨 Help Request ID: " + helpRequestId);
+        
+        // Check if this rescuer has already responded to this emergency
+        String respondedBy = emergency.getString("respondedBy");
+        if (respondedBy != null && respondedBy.equals(userId)) {
+            Log.d(TAG, "Current rescuer already responded to this emergency, skipping notification for: " + helpRequestId);
+            return;
+        }
+        
+        // Show emergency alert dialog
+        showEmergencyAlert(title, message, seniorName, seniorPhone, locationAddress, helpRequestId);
+    }
+    
+    /**
+     * Show emergency alert dialog
+     */
+    private void showEmergencyAlert(String title, String message, String seniorName, 
+                                  String seniorPhone, String locationAddress, String helpRequestId) {
+        
+        String fullMessage = "🚨 EMERGENCY ALERT 🚨\n\n" +
+                "👤 Senior: " + seniorName + "\n" +
+                "📍 Location: " + locationAddress + "\n" +
+                "📞 Phone: " + (seniorPhone != null ? seniorPhone : "Not provided") + "\n\n" +
+                "Please respond immediately!";
+        
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(title != null ? title : "🚨 EMERGENCY HELP REQUEST")
+                .setMessage(fullMessage)
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .setPositiveButton("🚑 RESPOND NOW", (dialog, which) -> {
+                    // Navigate to dashboard to handle emergency
+                    Intent intent = new Intent(this, Rescuer_Dashboard.class);
+                    intent.putExtra("emergency_notification", true);
+                    intent.putExtra("helpRequestId", helpRequestId);
+                    intent.putExtra("senior_name", seniorName);
+                    intent.putExtra("location", locationAddress);
+                    startActivity(intent);
+                    dialog.dismiss();
+                })
+                .setNegativeButton("Close", (dialog, which) -> dialog.dismiss())
+                .setCancelable(false); // Prevent dismissing by tapping outside
+        
+        AlertDialog dialog = builder.create();
+        dialog.show();
+        
+        Log.d(TAG, "✅ Emergency alert shown in Rescuer_Profile for: " + seniorName);
     }
 }

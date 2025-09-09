@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/light_gray"
+    android:padding="16dp">
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="16dp">
+
+        <Button
+            android:id="@+id/backButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/ic_arrow_back"
+            android:contentDescription="Back"
+            android:layout_marginEnd="16dp" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="🚨 Emergency List"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textColor="@color/primary_blue"
+            android:gravity="center" />
+
+        <Button
+            android:id="@+id/refreshButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/ic_refresh"
+            android:contentDescription="Refresh"
+            android:layout_marginStart="16dp" />
+
+    </LinearLayout>
+
+    <!-- Subtitle -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Active emergencies within 5km radius"
+        android:textSize="16sp"
+        android:textColor="@color/gray"
+        android:gravity="center"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Emergency List -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/emergencyRecyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingBottom="16dp" />
+
+    <!-- No Emergencies Message -->
+    <TextView
+        android:id="@+id/noEmergenciesText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="No active emergencies within 5km radius"
+        android:textSize="18sp"
+        android:textColor="@color/gray"
+        android:gravity="center"
+        android:padding="32dp"
+        android:visibility="gone" />
+
+    <!-- FIFO Info -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="@drawable/card_background"
+        android:padding="12dp"
+        android:layout_marginTop="16dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="🔄 FIFO Processing: First reported = First processed"
+            android:textSize="12sp"
+            android:textColor="@color/gray"
+            android:gravity="center" />
+
+    </LinearLayout>
+
+</LinearLayout>

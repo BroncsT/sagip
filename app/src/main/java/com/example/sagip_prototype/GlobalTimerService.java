@@ -15,10 +15,7 @@ import android.util.Log;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Global timer service that runs continuously across all activities
- * This ensures the countdown timer continues even when navigating between pages
- */
+
 public class GlobalTimerService extends Service {
     private static final String TAG = "GlobalTimerService";
     private static final long STATUS_UPDATE_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
@@ -187,6 +184,23 @@ public class GlobalTimerService extends Service {
      */
     public boolean isTimerRunning() {
         return isTimerRunning;
+    }
+    
+    /**
+     * Restores timer state from database
+     * This is called when the service starts to ensure timer state is correct
+     */
+    public void restoreTimerStateFromDatabase(String userId) {
+        if (userId == null) {
+            Log.w(TAG, "Cannot restore timer state - userId is null");
+            return;
+        }
+        
+        Log.d(TAG, "Restoring timer state from database for userId: " + userId);
+        
+        // This method should be called from the activity to restore timer state
+        // The actual database query will be handled by the activity
+        // This is just a placeholder for the service to know it should restore state
     }
     
     /**

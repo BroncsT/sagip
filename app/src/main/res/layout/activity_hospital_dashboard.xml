@@ -203,14 +203,34 @@
 
             </LinearLayout>
 
-            <!-- Edit Status Button -->
-            <Button
-                android:id="@+id/btnEditStatus"
+            <!-- Action Buttons -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:backgroundTint="#2196F3"
-                android:text="@string/edit_status"
-                android:textColor="@android:color/white" />
+                android:orientation="horizontal"
+                android:gravity="center">
+
+                <Button
+                    android:id="@+id/btnEditStatus"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:backgroundTint="#2196F3"
+                    android:text="@string/edit_status"
+                    android:textColor="@android:color/white"
+                    android:layout_marginEnd="8dp" />
+
+                <Button
+                    android:id="@+id/btnNavigateToHospital"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:backgroundTint="#4CAF50"
+                    android:text="Navigate"
+                    android:textColor="@android:color/white"
+                    android:layout_marginStart="8dp" />
+
+            </LinearLayout>
 
         </LinearLayout>
     </androidx.cardview.widget.CardView>

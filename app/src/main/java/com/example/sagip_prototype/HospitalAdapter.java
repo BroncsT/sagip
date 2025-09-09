@@ -15,10 +15,16 @@ public class HospitalAdapter extends RecyclerView.Adapter<HospitalAdapter.Hospit
 
     List<HospitalLIst> hospitalList;
     private Context context;
+    private String highlightHospitalName = null;
 
     public HospitalAdapter(List<HospitalLIst> hospitalList, Context context) {
         this.hospitalList = hospitalList;
         this.context = context;
+    }
+    
+    public void setHighlightHospital(String hospitalName) {
+        this.highlightHospitalName = hospitalName;
+        notifyDataSetChanged(); // Refresh to apply highlighting
     }
 
     @NonNull
@@ -69,6 +75,32 @@ public class HospitalAdapter extends RecyclerView.Adapter<HospitalAdapter.Hospit
             holder.hospitalDoctorInfoTextView.setText(doctorInfo);
         } else {
             holder.hospitalDoctorInfoTextView.setText(context.getString(R.string.doctor_info_not_available));
+        }
+        
+        // Apply highlighting if this hospital matches the highlight name
+        if (highlightHospitalName != null && 
+            hospital.getHospitalName() != null && 
+            hospital.getHospitalName().equalsIgnoreCase(highlightHospitalName)) {
+            
+            // Highlight the card with a different background color
+            holder.cardView.setCardBackgroundColor(0xFFFFF3CD); // Light yellow background
+            holder.cardView.setCardElevation(8); // Increase elevation for emphasis
+            
+            // Add a subtle animation or pulse effect
+            holder.cardView.animate()
+                .scaleX(1.02f)
+                .scaleY(1.02f)
+                .setDuration(200)
+                .withEndAction(() -> {
+                    holder.cardView.animate()
+                        .scaleX(1.0f)
+                        .scaleY(1.0f)
+                        .setDuration(200);
+                });
+        } else {
+            // Reset to normal appearance
+            holder.cardView.setCardBackgroundColor(0xFFFFFFFF); // White background
+            holder.cardView.setCardElevation(4); // Normal elevation
         }
     }
 

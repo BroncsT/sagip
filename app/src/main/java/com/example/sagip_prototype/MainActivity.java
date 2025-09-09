@@ -67,6 +67,18 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
 
+        // Initialize native notification system
+        NativeNotificationSender.createNotificationChannel(this);
+        
+        // Initialize FCM token manager
+        new Thread(() -> {
+            try {
+                FCMTokenManager.registerFCMToken(this);
+            } catch (Exception e) {
+                Log.e(TAG, "Error initializing FCM token: " + e.getMessage());
+            }
+        }).start();
+
         // Apply saved language preference
         String savedLanguage = LanguageSelectionActivity.getSavedLanguage(this);
         LanguageSelectionActivity.setAppLanguage(this, savedLanguage);
@@ -157,6 +169,96 @@ public class MainActivity extends AppCompatActivity {
             editor.putString(KEY_USER_PHONE, phoneNumber);
         }
         editor.apply();
+        
+        // Also save to user_prefs for notification services
+        SharedPreferences userPrefs = getSharedPreferences("user_prefs", MODE_PRIVATE);
+        SharedPreferences.Editor userEditor = userPrefs.edit();
+        userEditor.putString("user_id", userId);
+        userEditor.putString("user_type", userType);
+        if (phoneNumber != null) {
+            userEditor.putString("user_phone", phoneNumber);
+        }
+        userEditor.apply();
+        
+        // Start notification services in background thread to prevent ANR
+        new Thread(() -> {
+            try {
+                // Verify FCM token registration for notifications
+                FCMTokenManager.verifyTokenRegistration(this);
+                
+                // Start appropriate notification service based on user type
+                if ("rescuer".equals(userType)) {
+                    // Start dedicated rescuer foreground service for reliable notifications when app is closed
+                    startRescuerForegroundService();
+                    // Start hospital status notification service for immediate hospital updates
+                    startHospitalStatusNotificationService();
+                    // Start emergency notification service for real-time SOS alerts
+                    startEmergencyNotificationService();
+                } else if ("hospital".equals(userType)) {
+                    // Start hospital status reminder service for status update notifications
+                    startHospitalStatusReminderService();
+                } else {
+                    // Start general background service for other user types
+                    startBackgroundNotificationService();
+                }
+                
+                // Also start WorkManager for reliable background notifications (FCM alternative)
+                NotificationWorkManager.startNotificationMonitoring(this);
+                
+                // Start alternative notification manager (no FCM required)
+                AlternativeNotificationManager.getInstance(this).startMonitoring();
+                
+            } catch (Exception e) {
+                Log.e(TAG, "Error starting notification services: " + e.getMessage());
+            }
+        }).start();
+    }
+    
+    /**
+     * Starts the rescuer foreground service for reliable notifications when app is closed
+     */
+    private void startRescuerForegroundService() {
+        Log.d(TAG, "Starting rescuer foreground service for reliable notifications when app is closed");
+        Intent serviceIntent = new Intent(this, RescuerForegroundService.class);
+        startForegroundService(serviceIntent);
+    }
+    
+    /**
+     * Starts the hospital status notification service for rescuers
+     */
+    private void startHospitalStatusNotificationService() {
+        Log.d(TAG, "Starting hospital status notification service for immediate hospital updates");
+        Intent serviceIntent = new Intent(this, HospitalStatusNotificationService.class);
+        serviceIntent.putExtra("action", "start_monitoring");
+        startForegroundService(serviceIntent);
+    }
+    
+    /**
+     * Starts the emergency notification service for real-time SOS alerts
+     */
+    private void startEmergencyNotificationService() {
+        Log.d(TAG, "🚨 Starting emergency notification service for real-time SOS alerts");
+        Intent serviceIntent = new Intent(this, EmergencyNotificationService.class);
+        startForegroundService(serviceIntent);
+    }
+    
+    /**
+     * Starts the hospital status reminder service for hospital users
+     */
+    private void startHospitalStatusReminderService() {
+        Log.d(TAG, "Starting hospital status reminder service for status update notifications");
+        Intent serviceIntent = new Intent(this, HospitalStatusReminderService.class);
+        serviceIntent.putExtra("action", "start_monitoring");
+        startForegroundService(serviceIntent);
+    }
+    
+    /**
+     * Starts the background notification service for other user types
+     */
+    private void startBackgroundNotificationService() {
+        Log.d(TAG, "Starting background notification service for user");
+        Intent serviceIntent = new Intent(this, BackgroundNotificationService.class);
+        startForegroundService(serviceIntent);
     }
 
     private void clearStoredCredentials() {
@@ -688,9 +790,8 @@ public class MainActivity extends AppCompatActivity {
     private void checkAuthenticatedUserTypeByPhone(String phoneNumber, String[] userTypes, int index) {
         if (index >= userTypes.length) {
             Log.e(TAG, "User is authenticated but not found in any collection: " + phoneNumber);
-            Toast.makeText(MainActivity.this, "Error finding user profile. Please login again.", Toast.LENGTH_SHORT).show();
-            auth.signOut();
-            clearStoredCredentials();
+            // Try alternative search methods before giving up
+            tryAlternativeUserSearch(phoneNumber);
             return;
         }
 
@@ -781,9 +882,8 @@ public class MainActivity extends AppCompatActivity {
     private void checkAuthenticatedUserTypeByUID(String uid, String[] userTypes, int index) {
         if (index >= userTypes.length) {
             Log.e(TAG, "User is authenticated but not found in any collection: " + uid);
-            Toast.makeText(MainActivity.this, "Error finding user profile. Please login again.", Toast.LENGTH_SHORT).show();
-            auth.signOut();
-            clearStoredCredentials();
+            // Try alternative search methods before giving up
+            tryAlternativeUserSearchByUID(uid);
             return;
         }
 
@@ -1205,6 +1305,115 @@ public class MainActivity extends AppCompatActivity {
         SharedPreferences.Editor editor = prefs.edit();
         editor.putString("language", languageCode);
         editor.apply();
+    }
+
+    private void tryAlternativeUserSearch(String phoneNumber) {
+        Log.d(TAG, "Trying alternative search methods for phone: " + phoneNumber);
+        
+        // Try searching with different phone number formats
+        String[] searchFormats = {
+            phoneNumber, // Original format
+            phoneNumber.startsWith("+63") ? phoneNumber.substring(3) : "+63" + phoneNumber, // Toggle +63
+            phoneNumber.startsWith("+63") ? "0" + phoneNumber.substring(3) : phoneNumber, // Add 0 prefix
+        };
+        
+        String[] userTypes = {"seniors", "rescuer", "barangay", "hospital"};
+        
+        for (String searchFormat : searchFormats) {
+            for (String userType : userTypes) {
+                Log.d(TAG, "Trying format: " + searchFormat + " in collection: " + userType);
+                
+                db.collection("Sagip")
+                        .document("users")
+                        .collection(userType)
+                        .whereEqualTo("mobileNumber", searchFormat)
+                        .get()
+                        .addOnCompleteListener(task -> {
+                            if (task.isSuccessful() && !task.getResult().isEmpty()) {
+                                Log.d(TAG, "Found user with alternative search: " + searchFormat + " in " + userType);
+                                for (QueryDocumentSnapshot document : task.getResult()) {
+                                    String status = document.getString("status");
+                                    if (userType.equals("seniors")) {
+                                        if (status != null && status.equals("approved")) {
+                                            FirebaseUser currentUser = auth.getCurrentUser();
+                                            if (currentUser != null) {
+                                                saveUserCredentials(currentUser.getUid(), userType, phoneNumber);
+                                            }
+                                            redirectToUserDashboard(userType);
+                                            return;
+                                        } else {
+                                            showPendingApprovalMessage();
+                                            auth.signOut();
+                                            clearStoredCredentials();
+                                            return;
+                                        }
+                                    } else {
+                                        FirebaseUser currentUser = auth.getCurrentUser();
+                                        if (currentUser != null) {
+                                            saveUserCredentials(currentUser.getUid(), userType, phoneNumber);
+                                        }
+                                        redirectToUserDashboard(userType);
+                                        return;
+                                    }
+                                }
+                            }
+                        });
+            }
+        }
+        
+        // If all alternative searches fail, show error
+        Toast.makeText(MainActivity.this, "Error finding user profile. Please login again.", Toast.LENGTH_SHORT).show();
+        auth.signOut();
+        clearStoredCredentials();
+    }
+
+    private void tryAlternativeUserSearchByUID(String uid) {
+        Log.d(TAG, "Trying alternative UID search for: " + uid);
+        
+        String[] userTypes = {"seniors", "rescuer", "barangay", "hospital"};
+        
+        for (String userType : userTypes) {
+            Log.d(TAG, "Trying UID search in collection: " + userType);
+            
+            db.collection("Sagip")
+                    .document("users")
+                    .collection(userType)
+                    .document(uid)
+                    .get()
+                    .addOnSuccessListener(document -> {
+                        if (document.exists()) {
+                            Log.d(TAG, "Found user with UID in collection: " + userType);
+                            String status = document.getString("status");
+                            if (userType.equals("seniors")) {
+                                if (status != null && status.equals("approved")) {
+                                    FirebaseUser currentUser = auth.getCurrentUser();
+                                    if (currentUser != null) {
+                                        saveUserCredentials(currentUser.getUid(), userType, currentUser.getPhoneNumber());
+                                    }
+                                    redirectToUserDashboard(userType);
+                                    return;
+                                } else {
+                                    showPendingApprovalMessage();
+                                    auth.signOut();
+                                    clearStoredCredentials();
+                                    return;
+                                }
+                            } else {
+                                FirebaseUser currentUser = auth.getCurrentUser();
+                                if (currentUser != null) {
+                                    saveUserCredentials(currentUser.getUid(), userType, currentUser.getPhoneNumber());
+                                }
+                                redirectToUserDashboard(userType);
+                                return;
+                            }
+                        }
+                    });
+        }
+        
+        // If all UID searches fail, show error
+        Toast.makeText(MainActivity.this, "Error finding user profile. Please login again.", Toast.LENGTH_SHORT).show();
+        auth.signOut();
+        clearStoredCredentials();
     }
 
 }
