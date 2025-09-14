@@ -663,7 +663,7 @@ public class FaceVerification extends AppCompatActivity {
         Map<String, Object> verificationData = new HashMap<>();
         verificationData.put("frontIdPhotoUrl", frontIdPhotoUrl);
         verificationData.put("backIdPhotoUrl", backIdPhotoUrl);
-        verificationData.put("faceVerificationUrl", uploadedImageUrl);
+        verificationData.put("selfieVerificationUrl", uploadedImageUrl);
         verificationData.put("idType", idType);
         verificationData.put("verificationSubmittedAt", System.currentTimeMillis());
         verificationData.put("status", "pending");

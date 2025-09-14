@@ -44,8 +44,12 @@ public class EmergencyContactAdapter extends RecyclerView.Adapter<EmergencyConta
     @Override
     public void onBindViewHolder(@NonNull EmergencyContactAdapter.ViewHolder holder, int position) {
         Emergency_Contacts contact = emergencyContacts.get(position);
+        
+        // Set the actual contact data (not the labels)
         holder.name.setText(contact.getName());
         holder.number.setText(contact.getNumber());
+        holder.address.setText(contact.getAddress());
+        holder.relationship.setText(contact.getRelationship());
 
         // Set click listeners for buttons
         holder.deleteButton.setOnClickListener(v -> {
@@ -80,7 +84,7 @@ public class EmergencyContactAdapter extends RecyclerView.Adapter<EmergencyConta
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
-        TextView name, number;
+        TextView name, number, address, relationship;
         Button deleteButton, updateButton;
 
         public ViewHolder(@NonNull View itemView) {
@@ -88,6 +92,8 @@ public class EmergencyContactAdapter extends RecyclerView.Adapter<EmergencyConta
 
             name = itemView.findViewById(R.id.contactNameTextView);
             number = itemView.findViewById(R.id.phoneNumberTextView);
+            address = itemView.findViewById(R.id.addressTextView);
+            relationship = itemView.findViewById(R.id.relationshipTextView);
             deleteButton = itemView.findViewById(R.id.deleteButton);
             updateButton = itemView.findViewById(R.id.updateButton);
         }

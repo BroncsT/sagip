@@ -62,9 +62,7 @@ public class Barangay_Profile extends BaseProfileActivity {
         gotoLogut.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mAuth.signOut();
-                startActivity(new Intent(Barangay_Profile.this, MainActivity.class));
-                finish();
+                showLogoutConfirmationDialog();
             }
         });
 
@@ -130,6 +128,45 @@ public class Barangay_Profile extends BaseProfileActivity {
         if (logoutText != null) {
             logoutText.setText(getString(R.string.logout));
         }
+    }
+    
+    // Helper method to clear stored credentials
+    private void clearStoredCredentials() {
+        android.content.SharedPreferences prefs = getSharedPreferences("user_prefs", MODE_PRIVATE);
+        android.content.SharedPreferences.Editor editor = prefs.edit();
+        editor.remove("user_id");
+        editor.remove("user_type");
+        editor.remove("is_logged_in");
+        editor.remove("user_phone");
+        editor.remove("user_email");
+        editor.apply();
+    }
+    
+    private void showLogoutConfirmationDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Logout")
+                .setMessage("Are you sure you want to log out?")
+                .setPositiveButton("Yes", (dialog, which) -> {
+                    // Proceed with logout
+                    // Clear stored credentials first
+                    clearStoredCredentials();
+                    
+                    // Sign out from Firebase
+                    mAuth.signOut();
+                    
+                    // Navigate to login screen
+                    Intent intent = new Intent(Barangay_Profile.this, MainActivity.class);
+                    intent.putExtra("LOGOUT_ACTION", true);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(intent);
+                    finish();
+                })
+                .setNegativeButton("Cancel", (dialog, which) -> {
+                    // Dismiss dialog, do nothing
+                    dialog.dismiss();
+                })
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .show();
     }
 
     private void showDeleteAccountConfirmationDialog() {

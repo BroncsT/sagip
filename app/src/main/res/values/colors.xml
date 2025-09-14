@@ -23,4 +23,8 @@
     <color name="hospital_green">#16A34A</color>
     <color name="info_blue">#3B82F6</color>
     <color name="bottom_nav_color">#374151</color>
+    <color name="secondary_blue">#2B6CB0</color>
+    <color name="success_green">#16A34A</color>
+    <color name="background_light">#F8F9FA</color>
+    <color name="text_secondary">#6B7280</color>
 </resources>

@@ -1,8 +1,11 @@
 package com.example.sagip_prototype;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -19,9 +22,15 @@ import com.google.firebase.storage.StorageReference;
 
 public class Senior_Profile extends BaseProfileActivity {
 
+    private static final String PREF_NAME = "SagipAppPrefs";
+    private static final String KEY_CACHED_FULL_NAME = "cachedFullName";
+    private static final String KEY_CACHED_MOBILE_NUMBER = "cachedMobileNumber";
+    private static final String TAG = "Senior_Profile";
+
     FirebaseAuth mAuth;
     FirebaseFirestore db;
     FirebaseStorage storage;
+    private SharedPreferences sharedPreferences;
 
 
     @Override
@@ -33,6 +42,8 @@ public class Senior_Profile extends BaseProfileActivity {
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
         storage = FirebaseStorage.getInstance();
+        sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        
         
         // Add language selection functionality
         addLanguageSelectionToLayout();
@@ -75,6 +86,9 @@ public class Senior_Profile extends BaseProfileActivity {
             }
         });
 
+        // Load cached data immediately for instant display
+        loadCachedData(tvFullName, tvnumber);
+
         String uid = mAuth.getCurrentUser().getUid();
         String userType = "seniors";
 
@@ -93,13 +107,16 @@ public class Senior_Profile extends BaseProfileActivity {
                         String fullName = firstName + " " + middleName + " " + lastName;
 
                         tvFullName.setText(fullName);
-                        tvnumber.setText(mobileNumber);
+                        tvnumber.setText(PhoneNumberUtils.formatPhoneNumber(mobileNumber));
+                        
+                        
+                        // Cache the data for future instant loading
+                        cacheUserData(fullName, mobileNumber);
                     }
                 });
 
 
         BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavBar2);
-
 
         bottomNavigationView.setSelectedItemId(R.id.senior_profile);
 
@@ -130,8 +147,15 @@ public class Senior_Profile extends BaseProfileActivity {
                 .setMessage("Are you sure you want to log out?")
                 .setPositiveButton("Yes", (dialog, which) -> {
                     // Proceed with logout
+                    // Clear stored credentials first
+                    clearStoredCredentials();
+                    
+                    // Then sign out from Firebase
                     mAuth.signOut();
+                    
+                    // Navigate to login screen
                     Intent intent = new Intent(Senior_Profile.this, MainActivity.class);
+                    intent.putExtra("LOGOUT_ACTION", true);
                     intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                     startActivity(intent);
                     finish();
@@ -260,6 +284,57 @@ public class Senior_Profile extends BaseProfileActivity {
         TextView logoutText = findViewById(R.id.logoutText);
         if (logoutText != null) {
             logoutText.setText(getString(R.string.logout));
+        }
+    }
+
+    private void loadCachedData(TextView tvFullName, TextView tvNumber) {
+        String cachedName = sharedPreferences.getString(KEY_CACHED_FULL_NAME, null);
+        String cachedNumber = sharedPreferences.getString(KEY_CACHED_MOBILE_NUMBER, null);
+        
+        if (cachedName != null && !cachedName.isEmpty()) {
+            tvFullName.setText(cachedName);
+        } else {
+            tvFullName.setText("Loading...");
+        }
+        
+        if (cachedNumber != null && !cachedNumber.isEmpty()) {
+            tvNumber.setText(PhoneNumberUtils.formatPhoneNumber(cachedNumber));
+        } else {
+            tvNumber.setText("Loading...");
+        }
+    }
+
+    private void cacheUserData(String fullName, String mobileNumber) {
+        sharedPreferences.edit()
+                .putString(KEY_CACHED_FULL_NAME, fullName)
+                .putString(KEY_CACHED_MOBILE_NUMBER, mobileNumber)
+                .apply();
+    }
+    
+    // Helper method to clear stored credentials
+    private void clearStoredCredentials() {
+        Log.d(TAG, "Clearing stored credentials");
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.remove(KEY_CACHED_FULL_NAME);
+        editor.remove(KEY_CACHED_MOBILE_NUMBER);
+        editor.remove("KEY_IS_LOGGED_IN");
+        editor.remove("KEY_USER_ID");
+        editor.remove("KEY_USER_TYPE");
+        editor.remove("KEY_USER_PHONE");
+        editor.remove("KEY_USER_EMAIL");
+        editor.apply();
+    }
+    
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        
+        // Load cached data immediately when returning to profile
+        TextView tvFullName = findViewById(R.id.seniorProfileName);
+        TextView tvNumber = findViewById(R.id.seniorProfileNumber);
+        if (tvFullName != null && tvNumber != null) {
+            loadCachedData(tvFullName, tvNumber);
         }
     }
 }

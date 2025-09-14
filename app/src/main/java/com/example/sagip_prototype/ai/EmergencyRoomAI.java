@@ -81,13 +81,28 @@ public class EmergencyRoomAI {
     private void getAvailableHospitals(Emergency emergency, double radiusKm, HospitalListCallback callback) {
         List<Hospital> hospitals = new ArrayList<>();
         
+        System.out.println("🔍 AI: Querying hospitals from database...");
+        System.out.println("🔍 AI: Emergency location: " + emergency.location.getLatitude() + ", " + emergency.location.getLongitude());
+        System.out.println("🔍 AI: Search radius: " + radiusKm + " km");
+        
         // Query hospitals from Firestore
         db.collection("Sagip")
           .document("users")
           .collection("hospital")
           .get()
           .addOnSuccessListener(queryDocumentSnapshots -> {
+              System.out.println("🔍 AI: Found " + queryDocumentSnapshots.size() + " hospital documents in database");
+              
+              if (queryDocumentSnapshots.isEmpty()) {
+                  System.out.println("❌ AI: No hospital documents found in database!");
+                  callback.onHospitalsLoaded(hospitals);
+                  return;
+              }
+              
               for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
+                  System.out.println("🔍 AI: Processing hospital document: " + document.getId());
+                  System.out.println("🔍 AI: Document data: " + document.getData().keySet());
+                  
                   // Create hospital object manually to handle field name differences
                   Hospital hospital = new Hospital();
                   hospital.hospitalId = document.getId();
@@ -97,6 +112,7 @@ public class EmergencyRoomAI {
                   if (hospital.name == null) {
                       hospital.name = document.getString("name");
                   }
+                  System.out.println("🔍 AI: Hospital name: " + hospital.name);
                   
                   // Handle location field - try different possible field names
                   com.google.firebase.firestore.GeoPoint location = document.getGeoPoint("currentLocation");
@@ -104,6 +120,7 @@ public class EmergencyRoomAI {
                       location = document.getGeoPoint("location");
                   }
                   hospital.location = location;
+                  System.out.println("🔍 AI: Hospital location: " + (location != null ? location.getLatitude() + ", " + location.getLongitude() : "NULL"));
                   
                   // Set other fields
                   hospital.address = document.getString("hospitalAddress");
@@ -120,20 +137,65 @@ public class EmergencyRoomAI {
                   Boolean isOperational = document.getBoolean("isOperational");
                   hospital.isOperational = isOperational != null ? isOperational : true;
                   
+                  // Set ER status - check for emergency room availability
+                  String erStatus = document.getString("erStatus");
+                  if (erStatus == null) {
+                      erStatus = document.getString("emergencyRoomStatus");
+                  }
+                  if (erStatus == null) {
+                      erStatus = "available"; // Default to available if not specified
+                  }
+                  hospital.operationalStatus = erStatus;
+                  System.out.println("🔍 AI: ER Status: " + erStatus);
+                  
+                  // Set ER capacity and availability
+                  Integer erBeds = document.getLong("erBeds") != null ? document.getLong("erBeds").intValue() : 0;
+                  Integer availableErBeds = document.getLong("availableErBeds") != null ? document.getLong("availableErBeds").intValue() : 0;
+                  hospital.emergencyBeds = erBeds;
+                  hospital.availableEmergencyBeds = availableErBeds;
+                  
+                  // Set general bed availability
+                  Integer totalBeds = document.getLong("totalBeds") != null ? document.getLong("totalBeds").intValue() : 0;
+                  Integer availableBeds = document.getLong("availableBeds") != null ? document.getLong("availableBeds").intValue() : 0;
+                  hospital.totalBeds = totalBeds;
+                  hospital.availableBeds = availableBeds;
+                  
                   // Only process if we have required fields
-                  if (hospital.name != null && hospital.location != null) {
-                      // Check if within radius
-                      double distance = calculateDistance(
-                          emergency.location.getLatitude(), emergency.location.getLongitude(),
-                          hospital.location.getLatitude(), hospital.location.getLongitude()
-                      );
-                      
-                      if (distance <= radiusKm) {
+                  if (hospital.name != null) {
+                      if (hospital.location != null) {
+                          // Check if within radius
+                          double distance = calculateDistance(
+                              emergency.location.getLatitude(), emergency.location.getLongitude(),
+                              hospital.location.getLatitude(), hospital.location.getLongitude()
+                          );
+                          
+                          System.out.println("🔍 AI: Distance to " + hospital.name + ": " + String.format("%.2f", distance) + " km");
+                          
+                          if (distance <= radiusKm) {
+                              hospital.distanceFromSenior = distance;
+                              hospitals.add(hospital);
+                              System.out.println("✅ AI: Added hospital " + hospital.name + " (within radius)");
+                          } else {
+                              System.out.println("❌ AI: Hospital " + hospital.name + " is too far (" + String.format("%.2f", distance) + " km > " + radiusKm + " km)");
+                          }
+                      } else {
+                          // Hospital has no location data - use default Angeles City location and add with warning
+                          System.out.println("⚠️ AI: Hospital " + hospital.name + " has no location data, using default Angeles City location");
+                          hospital.location = new com.google.firebase.firestore.GeoPoint(15.1475, 120.5847); // Angeles City default
+                          double distance = calculateDistance(
+                              emergency.location.getLatitude(), emergency.location.getLongitude(),
+                              hospital.location.getLatitude(), hospital.location.getLongitude()
+                          );
                           hospital.distanceFromSenior = distance;
                           hospitals.add(hospital);
+                          System.out.println("✅ AI: Added hospital " + hospital.name + " with default location (distance: " + String.format("%.2f", distance) + " km)");
                       }
+                  } else {
+                      System.out.println("❌ AI: Skipping hospital - missing name field");
                   }
               }
+              
+              System.out.println("🔍 AI: Total hospitals found within radius: " + hospitals.size());
               
               // Call callback with loaded hospitals
               callback.onHospitalsLoaded(hospitals);

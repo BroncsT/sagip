@@ -5,7 +5,10 @@ import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.EditText;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Button;
 import android.widget.Toast;
@@ -28,6 +31,46 @@ public class Senior_Registration extends AppCompatActivity {
     FirebaseFirestore db;
 
     String userType = "seniors";
+    private Spinner barangaySpinner;
+    private String selectedBarangay = "";
+    
+    // List of all barangays in Angeles City
+    private final String[] barangays = {
+        "BARANGAY",
+        "Agapito del Rosario",
+        "Amsic",
+        "Anunas",
+        "Balibago",
+        "Capaya",
+        "Claro M. Recto",
+        "Cuayan",
+        "Cutcut",
+        "Cutud",
+        "Lourdes North West",
+        "Lourdes Sur",
+        "Lourdes Sur East",
+        "Malabañas",
+        "Margot",
+        "Mining",
+        "Ninoy Aquino",
+        "Pampang",
+        "Pandan",
+        "Pulung Cacutud",
+        "Pulung Maragul",
+        "Pulungbulu",
+        "Salapungan",
+        "San Jose",
+        "San Nicolas",
+        "Santa Teresita",
+        "Santa Trinidad",
+        "Santo Cristo",
+        "Santo Domingo",
+        "Santo Rosario",
+        "Sapalibutad",
+        "Sapangbato",
+        "Tabun",
+        "Virgen Delos Remedios"
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -44,7 +87,7 @@ public class Senior_Registration extends AppCompatActivity {
         EditText getFirstName = findViewById(R.id.firstName);
         EditText getMiddleName = findViewById(R.id.middleName);
         EditText getLastName = findViewById(R.id.lastName);
-        EditText getAddress = findViewById(R.id.emerContact_Number);
+        barangaySpinner = findViewById(R.id.barangaySpinner);
         EditText getEmailAddress = findViewById(R.id.emailAddress);
         TextView getMobileNumber = findViewById(R.id.mobileNumber);
         Button continueButton = findViewById(R.id.addEmerContact);
@@ -56,6 +99,9 @@ public class Senior_Registration extends AppCompatActivity {
         // Get passed phone number from intent
         String number = getIntent().getStringExtra("MOBILE_NUMBER");
         getMobileNumber.setText(number);
+        
+        // Setup barangay spinner
+        setupBarangaySpinner();
 
         // Save data on button click
         continueButton.setOnClickListener(new View.OnClickListener() {
@@ -65,12 +111,11 @@ public class Senior_Registration extends AppCompatActivity {
                 String middleName = getMiddleName.getText().toString().trim();
                 String lastName = getLastName.getText().toString().trim();
                 String birthday = birthdayEditText.getText().toString().trim();
-                String address = getAddress.getText().toString().trim();
                 String emailAddress = getEmailAddress.getText().toString().trim();
                 String mobileNumber = getMobileNumber.getText().toString().trim();
 
-                if (firstName.isEmpty() || lastName.isEmpty() || birthday.isEmpty() || address.isEmpty()) {
-                    Toast.makeText(Senior_Registration.this, "Please fill in all fields", Toast.LENGTH_SHORT).show();
+                if (firstName.isEmpty() || lastName.isEmpty() || birthday.isEmpty() || selectedBarangay.isEmpty() || selectedBarangay.equals("BARANGAY")) {
+                    Toast.makeText(Senior_Registration.this, "Please fill in all fields and select a barangay", Toast.LENGTH_SHORT).show();
                     return;
                 }
 
@@ -101,7 +146,7 @@ public class Senior_Registration extends AppCompatActivity {
                                 usrData.put("middleName", middleName);
                                 usrData.put("lastName", lastName);
                                 usrData.put("birthday", birthday);
-                                usrData.put("address", address);
+                                usrData.put("barangay", selectedBarangay);
                                 usrData.put("mobileNumber", mobileNumber);
                                 if (!emailAddress.isEmpty()) {
                                     usrData.put("email", emailAddress);
@@ -168,6 +213,28 @@ public class Senior_Registration extends AppCompatActivity {
                 birthdayEditText.setText(formatted.toString());
                 birthdayEditText.setSelection(formatted.length());
                 birthdayEditText.addTextChangedListener(this);
+            }
+        });
+    }
+    
+    private void setupBarangaySpinner() {
+        // Create ArrayAdapter for the spinner
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, barangays);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        
+        // Set the adapter to the spinner
+        barangaySpinner.setAdapter(adapter);
+        
+        // Set up item selection listener
+        barangaySpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                selectedBarangay = barangays[position];
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                selectedBarangay = "";
             }
         });
     }

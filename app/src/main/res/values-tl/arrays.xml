@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="relationship_options">
+        <item>@string/select_relationship</item>
+        <item>@string/relationship_son</item>
+        <item>@string/relationship_daughter</item>
+        <item>@string/relationship_spouse</item>
+        <item>@string/relationship_sibling</item>
+        <item>@string/relationship_cousin</item>
+        <item>@string/relationship_nephew</item>
+        <item>@string/relationship_niece</item>
+        <item>@string/relationship_grandchild</item>
+        <item>@string/relationship_parent</item>
+        <item>@string/relationship_grandparent</item>
+        <item>@string/relationship_friend</item>
+        <item>@string/relationship_neighbor</item>
+        <item>@string/relationship_caregiver</item>
+        <item>@string/relationship_other</item>
+    </string-array>
+</resources>

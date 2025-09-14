@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="angeles_city_barangays">
+        <item>@string/select_barangay</item>
+        <item>@string/barangay_agapito_del_rosario</item>
+        <item>@string/barangay_amsic</item>
+        <item>@string/barangay_anunas</item>
+        <item>@string/barangay_balibago</item>
+        <item>@string/barangay_capaya</item>
+        <item>@string/barangay_claro_m_recto</item>
+        <item>@string/barangay_cuayan</item>
+        <item>@string/barangay_cutcut</item>
+        <item>@string/barangay_cutud</item>
+        <item>@string/barangay_lourdes_north_west</item>
+        <item>@string/barangay_lourdes_sur</item>
+        <item>@string/barangay_lourdes_sur_east</item>
+        <item>@string/barangay_malabanas</item>
+        <item>@string/barangay_margot</item>
+        <item>@string/barangay_mining</item>
+        <item>@string/barangay_ninoy_aquino</item>
+        <item>@string/barangay_pampang</item>
+        <item>@string/barangay_pandan</item>
+        <item>@string/barangay_pulung_cacutud</item>
+        <item>@string/barangay_pulung_maragul</item>
+        <item>@string/barangay_pulungbulu</item>
+        <item>@string/barangay_salapungan</item>
+        <item>@string/barangay_san_jose</item>
+        <item>@string/barangay_san_nicolas</item>
+        <item>@string/barangay_santa_teresita</item>
+        <item>@string/barangay_santa_trinidad</item>
+        <item>@string/barangay_santo_cristo</item>
+        <item>@string/barangay_santo_domingo</item>
+        <item>@string/barangay_santo_rosario</item>
+        <item>@string/barangay_sapalibutad</item>
+        <item>@string/barangay_sapangbato</item>
+        <item>@string/barangay_tabun</item>
+        <item>@string/barangay_virgen_delos_remedios</item>
+    </string-array>
+
+    <string-array name="relationship_options">
+        <item>@string/select_relationship</item>
+        <item>@string/relationship_son</item>
+        <item>@string/relationship_daughter</item>
+        <item>@string/relationship_spouse</item>
+        <item>@string/relationship_sibling</item>
+        <item>@string/relationship_cousin</item>
+        <item>@string/relationship_nephew</item>
+        <item>@string/relationship_niece</item>
+        <item>@string/relationship_grandchild</item>
+        <item>@string/relationship_parent</item>
+        <item>@string/relationship_grandparent</item>
+        <item>@string/relationship_friend</item>
+        <item>@string/relationship_neighbor</item>
+        <item>@string/relationship_caregiver</item>
+        <item>@string/relationship_other</item>
+    </string-array>
+</resources>

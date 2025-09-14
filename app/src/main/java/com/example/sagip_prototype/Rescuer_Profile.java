@@ -10,10 +10,8 @@ import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
-import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentChange;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -21,11 +19,10 @@ import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 
-public class Rescuer_Profile extends BaseProfileActivity {
+public class Rescuer_Profile extends BaseRescuerActivity {
 
     private static final String TAG = "Rescuer_Profile";
     
-    FirebaseAuth mAuth;
     FirebaseFirestore db;
     FirebaseStorage storage;
     
@@ -40,7 +37,6 @@ public class Rescuer_Profile extends BaseProfileActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_rescuer_profile);
 
-        mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
         storage = FirebaseStorage.getInstance();
 
@@ -125,6 +121,9 @@ public class Rescuer_Profile extends BaseProfileActivity {
 
     // Method to handle logout and clear emergency state
     private void handleLogout() {
+        // Clear stored credentials first
+        clearStoredCredentials();
+        
         // Sign out from Firebase
         mAuth.signOut();
         
@@ -133,6 +132,19 @@ public class Rescuer_Profile extends BaseProfileActivity {
         intent.putExtra("LOGOUT_ACTION", true); // Signal that this is a logout action
         startActivity(intent);
         finish();
+    }
+    
+    // Helper method to clear stored credentials
+    private void clearStoredCredentials() {
+        Log.d(TAG, "Clearing stored credentials");
+        android.content.SharedPreferences prefs = getSharedPreferences("user_prefs", MODE_PRIVATE);
+        android.content.SharedPreferences.Editor editor = prefs.edit();
+        editor.remove("user_id");
+        editor.remove("user_type");
+        editor.remove("is_logged_in");
+        editor.remove("user_phone");
+        editor.remove("user_email");
+        editor.apply();
     }
 
     private void setupBottomNavigation() {

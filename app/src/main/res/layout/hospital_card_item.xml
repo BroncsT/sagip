@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="8dp"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="6dp"
+    app:cardBackgroundColor="@color/white">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:gravity="center_vertical">
+
+        <!-- Hospital Icon -->
+        <ImageView
+            android:id="@+id/hospitalImageView"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:background="@drawable/circle_background"
+            android:padding="12dp"
+            android:src="@drawable/ic_hospital"
+            android:scaleType="centerCrop" />
+
+        <!-- Hospital Details -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginStart="16dp">
+
+            <!-- Hospital Name -->
+            <TextView
+                android:id="@+id/hospitalNameText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Hospital Name"
+                android:textColor="@color/black"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <!-- Address -->
+            <TextView
+                android:id="@+id/hospitalAddressText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Address"
+                android:textColor="@color/gray"
+                android:textSize="14sp"
+                android:layout_marginTop="2dp"
+                android:maxLines="2"
+                android:ellipsize="end" />
+
+            <!-- Contact -->
+            <TextView
+                android:id="@+id/hospitalContactText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Contact"
+                android:textColor="@color/gray"
+                android:textSize="14sp"
+                android:layout_marginTop="2dp" />
+
+            <!-- Specialization -->
+            <TextView
+                android:id="@+id/hospitalSpecializationText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Specialization"
+                android:textColor="@color/primary_blue"
+                android:textSize="12sp"
+                android:layout_marginTop="4dp"
+                android:visibility="gone" />
+
+        </LinearLayout>
+
+        <!-- Status and Beds Info -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="end">
+
+            <!-- Status -->
+            <TextView
+                android:id="@+id/hospitalStatusText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Open"
+                android:textColor="@color/success_green"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <!-- Bed Capacity -->
+            <TextView
+                android:id="@+id/hospitalBedsText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Beds"
+                android:textColor="@color/gray"
+                android:textSize="12sp"
+                android:layout_marginTop="4dp" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</androidx.cardview.widget.CardView>

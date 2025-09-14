@@ -1,12 +1,17 @@
 package com.example.sagip_prototype;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.text.InputFilter;
 import android.text.Spanned;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.EditText;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -25,11 +30,29 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 public class Senior_Emergency_Contact extends AppCompatActivity implements EmergencyContactAdapter.OnContactActionListener {
 
+    private static final String PREF_NAME = "SagipAppPrefs";
+    private static final String KEY_CACHED_FULL_NAME = "cachedFullName";
+    private static final String KEY_CACHED_EMERGENCY_CONTACTS = "cachedEmergencyContacts";
+    
+    // Store reference to active dialogs for language refresh
+    private AlertDialog activeUpdateDialog;
+    private AlertDialog activeDeleteDialog;
+    private int activeUpdatePosition;
+    private Emergency_Contacts activeUpdateContact;
+    private int activeDeletePosition;
+    private Emergency_Contacts activeDeleteContact;
+    
+    // Track current language for change detection
+    private String currentLanguage;
+
     FirebaseFirestore db;
     FirebaseAuth mAuth;
+    private SharedPreferences sharedPreferences;
 
     RecyclerView recyclerView;
     EmergencyContactAdapter adapter;
@@ -52,6 +75,22 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
 
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
+        sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        
+        // Initialize current language and check for changes
+        String newLanguage = getResources().getConfiguration().locale.getLanguage();
+        Log.d("Senior_Emergency_Contact", "Language in onCreate: " + newLanguage);
+        
+        // Check if language has changed from previous session
+        String previousLanguage = sharedPreferences.getString("last_language", null);
+        if (previousLanguage != null && !previousLanguage.equals(newLanguage)) {
+            Log.d("Senior_Emergency_Contact", "Language changed from " + previousLanguage + " to " + newLanguage);
+            Toast.makeText(this, "Language changed to: " + newLanguage, Toast.LENGTH_SHORT).show();
+        }
+        
+        // Store current language for next session
+        sharedPreferences.edit().putString("last_language", newLanguage).apply();
+        currentLanguage = newLanguage;
 
         labelProfile = findViewById(R.id.labelProfile);
         BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavBar2);
@@ -88,12 +127,95 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
     }
 
     @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        
+        // Load cached profile name immediately when returning to page via new intent
+        loadCachedProfileName();
+        
+        Log.d("Senior_Emergency_Contact", "onNewIntent called - reloading cached profile name");
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
+        
+        // Load cached profile name immediately when returning to page
+        loadCachedProfileName();
+        
         fetchEmergencyContacts();
+        
+        // Check for language change as backup method
+        checkForLanguageChange();
+        
+        // Force refresh UI elements to ensure language consistency
+        refreshAllUIElements();
+        
+        // Check if we need to show any dialogs that were open before recreation
+        checkForPendingDialogs();
+    }
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        
+        // Handle language change without recreating activity
+        Log.d("Senior_Emergency_Contact", "=== CONFIGURATION CHANGED ===");
+        Log.d("Senior_Emergency_Contact", "Configuration changed - language change detected");
+        Log.d("Senior_Emergency_Contact", "Active update dialog: " + (activeUpdateDialog != null ? "exists" : "null"));
+        Log.d("Senior_Emergency_Contact", "Active delete dialog: " + (activeDeleteDialog != null ? "exists" : "null"));
+        
+        // Show a toast to confirm the method is being called
+        Toast.makeText(this, "Language change detected!", Toast.LENGTH_SHORT).show();
+        
+        // Reload cached profile name to ensure it's still displayed
+        loadCachedProfileName();
+        
+        // Refresh active update dialog if it exists
+        if (activeUpdateDialog != null && activeUpdateDialog.isShowing()) {
+            Log.d("Senior_Emergency_Contact", "Refreshing active update dialog with new language");
+            try {
+                activeUpdateDialog.dismiss();
+                // Small delay to ensure dialog is fully dismissed
+                new android.os.Handler().postDelayed(() -> {
+                    if (activeUpdateContact != null) {
+                        showUpdateDialog(activeUpdatePosition, activeUpdateContact);
+                    }
+                }, 200);
+            } catch (Exception e) {
+                Log.e("Senior_Emergency_Contact", "Error refreshing update dialog", e);
+            }
+        }
+        
+        // Refresh active delete dialog if it exists
+        if (activeDeleteDialog != null && activeDeleteDialog.isShowing()) {
+            Log.d("Senior_Emergency_Contact", "Refreshing active delete dialog with new language");
+            try {
+                activeDeleteDialog.dismiss();
+                // Small delay to ensure dialog is fully dismissed
+                new android.os.Handler().postDelayed(() -> {
+                    if (activeDeleteContact != null) {
+                        onDeleteContact(activeDeletePosition, activeDeleteContact);
+                    }
+                }, 200);
+            } catch (Exception e) {
+                Log.e("Senior_Emergency_Contact", "Error refreshing delete dialog", e);
+            }
+        }
+        
+        // Log the current language for debugging
+        String currentLang = getResources().getConfiguration().locale.getLanguage();
+        Log.d("Senior_Emergency_Contact", "Current language: " + currentLang);
+        
+        // Force refresh all UI elements
+        refreshAllUIElements();
     }
 
     private void loadUserProfile() {
+        // Load cached name immediately for instant display
+        loadCachedProfileName();
+
         String uid = mAuth.getCurrentUser().getUid();
         String userType = "seniors";
 
@@ -110,11 +232,54 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
 
                         String fullName = firstName + " " + middleName + " " + lastName + "\n\nEmergency contact list";
                         labelProfile.setText(fullName);
+                        
+                        // Cache the name for future instant loading
+                        cacheProfileName(fullName);
                     }
                 });
     }
 
+    private void loadCachedProfileName() {
+        // Ensure SharedPreferences is initialized
+        if (sharedPreferences == null) {
+            sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        }
+        
+        String cachedName = sharedPreferences.getString(KEY_CACHED_FULL_NAME, null);
+        if (cachedName != null && !cachedName.isEmpty()) {
+            labelProfile.setText(cachedName + "\n\nEmergency contact list");
+            Log.d("Senior_Emergency_Contact", "Loaded cached profile name: " + cachedName);
+        } else {
+            // Try to load from alternative cache
+            String alternativeCache = getAlternativeCachedName();
+            if (alternativeCache != null && !alternativeCache.isEmpty()) {
+                labelProfile.setText(alternativeCache + "\n\nEmergency contact list");
+                // Restore to main cache
+                cacheProfileName(alternativeCache);
+                Log.d("Senior_Emergency_Contact", "Loaded from alternative cache: " + alternativeCache);
+            } else {
+                labelProfile.setText("Loading...\n\nEmergency contact list");
+                Log.d("Senior_Emergency_Contact", "No cached profile name found, showing loading...");
+            }
+        }
+    }
+
+    private String getAlternativeCachedName() {
+        // Try to get from a more persistent storage
+        SharedPreferences altPrefs = getSharedPreferences("SagipAppPrefs", MODE_PRIVATE);
+        return altPrefs.getString(KEY_CACHED_FULL_NAME, null);
+    }
+
+    private void cacheProfileName(String fullName) {
+        sharedPreferences.edit()
+                .putString(KEY_CACHED_FULL_NAME, fullName)
+                .apply();
+    }
+
     private void fetchEmergencyContacts() {
+        // Load cached contacts immediately for instant display
+        loadCachedEmergencyContacts();
+
         String uid = mAuth.getCurrentUser().getUid();
         String userType = "seniors";
 
@@ -133,30 +298,52 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
                             for (Map<String, Object> contactMap : contactList) {
                                 String name = contactMap.get("name").toString();
                                 String number = contactMap.get("number").toString();
+                                String address = contactMap.get("address") != null ? contactMap.get("address").toString() : "";
+                                String relationship = contactMap.get("relationship") != null ? contactMap.get("relationship").toString() : "";
 
-                                Emergency_Contacts contact = new Emergency_Contacts(name, number);
+                                Emergency_Contacts contact = new Emergency_Contacts(name, number, address, relationship);
                                 emergencyContacts.add(contact);
                             }
                         }
+                        
+                        // Cache the contacts for future instant loading
+                        cacheEmergencyContacts(emergencyContacts);
+                        
                         adapter.notifyDataSetChanged();
+                        Log.d("Senior_Emergency_Contact", "Loaded " + emergencyContacts.size() + " emergency contacts from Firestore");
                     }
                 })
                 .addOnFailureListener(e -> {
                     Toast.makeText(this, "Failed to load contacts: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    Log.e("Senior_Emergency_Contact", "Failed to load emergency contacts", e);
                 });
     }
 
     @Override
     public void onDeleteContact(int position, Emergency_Contacts contact) {
+        // Store references for language refresh
+        activeDeletePosition = position;
+        activeDeleteContact = contact;
+        
         // Show confirmation dialog
-        new AlertDialog.Builder(this)
-                .setTitle("Delete Contact")
-                .setMessage("Are you sure you want to delete " + contact.getName() + "?")
-                .setPositiveButton("Delete", (dialog, which) -> {
+        String deleteTitle = getString(R.string.delete_contact_title);
+        String deleteMessage = String.format(getString(R.string.delete_contact_message), contact.getName());
+        String deleteButton = getString(R.string.delete_button);
+        String cancelButton = getString(R.string.cancel_dialog_button);
+        
+        Log.d("Senior_Emergency_Contact", "Delete dialog - Title: " + deleteTitle + ", Message: " + deleteMessage);
+        
+        AlertDialog.Builder builder = new AlertDialog.Builder(this)
+                .setTitle(deleteTitle)
+                .setMessage(deleteMessage)
+                .setPositiveButton(deleteButton, (dialog, which) -> {
                     deleteContactFromFirestore(position, contact);
                 })
-                .setNegativeButton("Cancel", null)
-                .show();
+                .setNegativeButton(cancelButton, null);
+        
+        // Store dialog reference and show
+        activeDeleteDialog = builder.create();
+        activeDeleteDialog.show();
     }
 
     @Override
@@ -189,6 +376,10 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
                 .addOnSuccessListener(aVoid -> {
                     // Remove from local list and update adapter
                     adapter.removeItem(position);
+                    
+                    // Update cache after successful deletion
+                    cacheEmergencyContacts(emergencyContacts);
+                    
                     Toast.makeText(this, "Contact deleted successfully", Toast.LENGTH_SHORT).show();
                 })
                 .addOnFailureListener(e -> {
@@ -197,12 +388,23 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
     }
 
     private void showUpdateDialog(int position, Emergency_Contacts contact) {
+        // Store references for language refresh
+        activeUpdatePosition = position;
+        activeUpdateContact = contact;
+        
+        Log.d("Senior_Emergency_Contact", "Creating update dialog for contact: " + contact.getName());
+        
         // Create dialog layout programmatically
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_update_contact, null);
 
         EditText nameEditText = dialogView.findViewById(R.id.editTextName);
         EditText numberEditText = dialogView.findViewById(R.id.editTextNumber);
+        EditText addressEditText = dialogView.findViewById(R.id.editTextAddress);
+        Spinner relationshipSpinner = dialogView.findViewById(R.id.spinnerRelationship);
+        
+        // Setup relationship spinner
+        setupRelationshipSpinnerForDialog(relationshipSpinner, contact.getRelationship());
 
         // Add input filter to restrict phone number input to digits only
         numberEditText.setFilters(new InputFilter[]{new InputFilter() {
@@ -220,29 +422,56 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
         // Pre-fill with current values
         nameEditText.setText(contact.getName());
         numberEditText.setText(contact.getNumber());
+        addressEditText.setText(contact.getAddress());
 
         builder.setView(dialogView)
-                .setTitle("Update Contact")
-                .setPositiveButton("Update", (dialog, which) -> {
+                .setTitle(getString(R.string.update_contact_title))
+                .setPositiveButton(getString(R.string.update_dialog_button), (dialog, which) -> {
                     String newName = nameEditText.getText().toString().trim();
                     String newNumber = numberEditText.getText().toString().trim();
+                    String newAddress = addressEditText.getText().toString().trim();
+                    String newRelationship = relationshipSpinner.getSelectedItem().toString();
 
-                    if (!newName.isEmpty() && !newNumber.isEmpty()) {
+                    if (!newName.isEmpty() && !newNumber.isEmpty() && !newAddress.isEmpty() && !newRelationship.equals(getString(R.string.select_relationship))) {
                         if (!isValidPhoneNumber(newNumber)) {
                             Toast.makeText(this, getString(R.string.valid_mobile_error), Toast.LENGTH_SHORT).show();
                             return;
                         }
                         // Check for duplicate phone numbers before updating
-                        checkForDuplicateAndUpdate(position, contact, newName, newNumber);
+                        checkForDuplicateAndUpdate(position, contact, newName, newNumber, newAddress, newRelationship);
                     } else {
-                        Toast.makeText(this, "Please fill all fields", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, getString(R.string.fill_all_fields_error), Toast.LENGTH_SHORT).show();
                     }
                 })
-                .setNegativeButton("Cancel", null)
-                .show();
+                .setNegativeButton(getString(R.string.cancel_dialog_button), null);
+        
+        // Store dialog reference and show
+        activeUpdateDialog = builder.create();
+        activeUpdateDialog.show();
     }
 
-    private void updateContactInFirestore(int position, Emergency_Contacts oldContact, String newName, String newNumber) {
+    private void setupRelationshipSpinnerForDialog(Spinner spinner, String currentRelationship) {
+        // Create adapter for the spinner
+        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(
+                this,
+                R.array.relationship_options,
+                android.R.layout.simple_spinner_item
+        );
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+
+        // Set the current relationship as selected
+        if (currentRelationship != null && !currentRelationship.isEmpty()) {
+            for (int i = 0; i < adapter.getCount(); i++) {
+                if (adapter.getItem(i).toString().equals(currentRelationship)) {
+                    spinner.setSelection(i);
+                    break;
+                }
+            }
+        }
+    }
+
+    private void updateContactInFirestore(int position, Emergency_Contacts oldContact, String newName, String newNumber, String newAddress, String newRelationship) {
         String uid = mAuth.getCurrentUser().getUid();
         String userType = "seniors";
 
@@ -256,10 +485,14 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
                 // Update this contact
                 contactMap.put("name", newName);
                 contactMap.put("number", newNumber);
+                contactMap.put("address", newAddress);
+                contactMap.put("relationship", newRelationship);
             } else {
                 // Keep existing contact data
                 contactMap.put("name", contact.getName());
                 contactMap.put("number", contact.getNumber());
+                contactMap.put("address", contact.getAddress());
+                contactMap.put("relationship", contact.getRelationship());
             }
             updatedContactList.add(contactMap);
         }
@@ -272,8 +505,12 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
                 .update("emergencyContacts", updatedContactList)
                 .addOnSuccessListener(aVoid -> {
                     // Update local contact object
-                    Emergency_Contacts updatedContact = new Emergency_Contacts(newName, newNumber);
+                    Emergency_Contacts updatedContact = new Emergency_Contacts(newName, newNumber, newAddress, newRelationship);
                     adapter.updateItem(position, updatedContact);
+                    
+                    // Update cache after successful update
+                    cacheEmergencyContacts(emergencyContacts);
+                    
                     Toast.makeText(this, "Contact updated successfully", Toast.LENGTH_SHORT).show();
                 })
                 .addOnFailureListener(e -> {
@@ -281,14 +518,14 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
                 });
     }
 
-    private void checkForDuplicateAndUpdate(int position, Emergency_Contacts oldContact, String newName, String newNumber) {
+    private void checkForDuplicateAndUpdate(int position, Emergency_Contacts oldContact, String newName, String newNumber, String newAddress, String newRelationship) {
         String uid = mAuth.getCurrentUser().getUid();
         String userType = "seniors";
 
         // Check if the new number is different from the old number
         if (oldContact.getNumber().equals(newNumber)) {
-            // Same number, just update the name
-            updateContactInFirestore(position, oldContact, newName, newNumber);
+            // Same number, just update the name, address and relationship
+            updateContactInFirestore(position, oldContact, newName, newNumber, newAddress, newRelationship);
             return;
         }
 
@@ -307,11 +544,163 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
         if (isDuplicate) {
             Toast.makeText(this, "Phone number already exists in emergency contacts", Toast.LENGTH_SHORT).show();
         } else {
-            updateContactInFirestore(position, oldContact, newName, newNumber);
+            updateContactInFirestore(position, oldContact, newName, newNumber, newAddress, newRelationship);
         }
     }
 
     private boolean isValidPhoneNumber(String number) {
         return !number.isEmpty() && number.matches("09\\d{9}");
+    }
+
+    private void loadCachedEmergencyContacts() {
+        // Ensure SharedPreferences is initialized
+        if (sharedPreferences == null) {
+            sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        }
+        
+        String cachedContactsJson = sharedPreferences.getString(KEY_CACHED_EMERGENCY_CONTACTS, null);
+        if (cachedContactsJson != null && !cachedContactsJson.isEmpty()) {
+            try {
+                emergencyContacts.clear();
+                JSONArray jsonArray = new JSONArray(cachedContactsJson);
+                
+                for (int i = 0; i < jsonArray.length(); i++) {
+                    JSONObject contactJson = jsonArray.getJSONObject(i);
+                    String name = contactJson.getString("name");
+                    String number = contactJson.getString("number");
+                    String address = contactJson.optString("address", "");
+                    String relationship = contactJson.optString("relationship", "");
+                    
+                    Emergency_Contacts contact = new Emergency_Contacts(name, number, address, relationship);
+                    emergencyContacts.add(contact);
+                }
+                
+                adapter.notifyDataSetChanged();
+                Log.d("Senior_Emergency_Contact", "Loaded " + emergencyContacts.size() + " cached emergency contacts");
+            } catch (Exception e) {
+                Log.e("Senior_Emergency_Contact", "Error loading cached emergency contacts", e);
+            }
+        } else {
+            Log.d("Senior_Emergency_Contact", "No cached emergency contacts found");
+        }
+    }
+
+    private void cacheEmergencyContacts(List<Emergency_Contacts> contacts) {
+        try {
+            JSONArray jsonArray = new JSONArray();
+            
+            for (Emergency_Contacts contact : contacts) {
+                JSONObject contactJson = new JSONObject();
+                contactJson.put("name", contact.getName());
+                contactJson.put("number", contact.getNumber());
+                contactJson.put("address", contact.getAddress());
+                contactJson.put("relationship", contact.getRelationship());
+                jsonArray.put(contactJson);
+            }
+            
+            String contactsJson = jsonArray.toString();
+            sharedPreferences.edit()
+                    .putString(KEY_CACHED_EMERGENCY_CONTACTS, contactsJson)
+                    .apply();
+            
+            Log.d("Senior_Emergency_Contact", "Cached " + contacts.size() + " emergency contacts");
+        } catch (Exception e) {
+            Log.e("Senior_Emergency_Contact", "Error caching emergency contacts", e);
+        }
+    }
+
+    private void refreshAllUIElements() {
+        Log.d("Senior_Emergency_Contact", "Refreshing all UI elements for language change");
+        
+        // Force recreate the RecyclerView adapter to pick up new string resources
+        if (adapter != null && recyclerView != null) {
+            // Store current data
+            List<Emergency_Contacts> currentContacts = new ArrayList<>(emergencyContacts);
+            
+            // Create new adapter with current data
+            adapter = new EmergencyContactAdapter(currentContacts, this);
+            adapter.setOnContactActionListener(this);
+            recyclerView.setAdapter(adapter);
+            
+            Log.d("Senior_Emergency_Contact", "Adapter recreated with new language");
+        }
+        
+        // Clear dialog references to prevent stale dialogs
+        activeUpdateDialog = null;
+        activeDeleteDialog = null;
+        
+        // Force refresh the relationship spinner if it exists
+        refreshRelationshipSpinner();
+        
+        Log.d("Senior_Emergency_Contact", "UI elements refreshed");
+    }
+
+    private void refreshRelationshipSpinner() {
+        // This method will be called to refresh any relationship spinners
+        // The main spinner is refreshed in setupRelationshipSpinner()
+        Log.d("Senior_Emergency_Contact", "Refreshing relationship spinner with new language");
+    }
+
+    private void checkForPendingDialogs() {
+        // Check if there were any dialogs that should be shown after activity recreation
+        // This is a placeholder for future implementation if needed
+        Log.d("Senior_Emergency_Contact", "Checking for pending dialogs after activity recreation");
+    }
+
+    private void checkForLanguageChange() {
+        String newLanguage = getResources().getConfiguration().locale.getLanguage();
+        
+        if (currentLanguage == null) {
+            // First time, just store the current language
+            currentLanguage = newLanguage;
+            Log.d("Senior_Emergency_Contact", "Initial language set to: " + currentLanguage);
+        } else if (!currentLanguage.equals(newLanguage)) {
+            // Language has changed
+            Log.d("Senior_Emergency_Contact", "Language changed from " + currentLanguage + " to " + newLanguage);
+            currentLanguage = newLanguage;
+            
+            // Show toast to confirm language change detection
+            Toast.makeText(this, "Language changed to: " + newLanguage, Toast.LENGTH_SHORT).show();
+            
+            // Refresh all UI elements
+            refreshAllUIElements();
+            
+            // Refresh active dialogs if they exist
+            refreshActiveDialogs();
+        }
+    }
+
+    private void refreshActiveDialogs() {
+        Log.d("Senior_Emergency_Contact", "Refreshing active dialogs due to language change");
+        
+        // Refresh active update dialog if it exists
+        if (activeUpdateDialog != null && activeUpdateDialog.isShowing()) {
+            Log.d("Senior_Emergency_Contact", "Refreshing active update dialog with new language");
+            try {
+                activeUpdateDialog.dismiss();
+                new android.os.Handler().postDelayed(() -> {
+                    if (activeUpdateContact != null) {
+                        showUpdateDialog(activeUpdatePosition, activeUpdateContact);
+                    }
+                }, 300);
+            } catch (Exception e) {
+                Log.e("Senior_Emergency_Contact", "Error refreshing update dialog", e);
+            }
+        }
+        
+        // Refresh active delete dialog if it exists
+        if (activeDeleteDialog != null && activeDeleteDialog.isShowing()) {
+            Log.d("Senior_Emergency_Contact", "Refreshing active delete dialog with new language");
+            try {
+                activeDeleteDialog.dismiss();
+                new android.os.Handler().postDelayed(() -> {
+                    if (activeDeleteContact != null) {
+                        onDeleteContact(activeDeletePosition, activeDeleteContact);
+                    }
+                }, 300);
+            } catch (Exception e) {
+                Log.e("Senior_Emergency_Contact", "Error refreshing delete dialog", e);
+            }
+        }
     }
 }

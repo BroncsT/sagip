@@ -1,21 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-
+    <!-- Core app permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -24,18 +28,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    
-    <!-- Navigation SDK permissions -->
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
-    <uses-permission android:name="android.permission.BLUETOOTH" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.VIBRATE" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
@@ -53,61 +46,60 @@
         android:required="false" />
     <uses-feature
         android:name="android.hardware.location.gps"
-        android:required="true" />
+        android:required="false" />
 
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
+        android:extractNativeLibs="true"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.SAGIP_prototype"
-        tools:targetApi="31"
-        android:extractNativeLibs="true">
-
-        <!-- Google Maps Activity -->
+        tools:targetApi="31">
+        <activity
+            android:name=".Barangay_List"
+            android:exported="false" />
+        <activity
+            android:name=".Senior_Details_Activity"
+            android:exported="false" />
+        <!-- Google Maps API Key -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="@string/google_maps_key" /> <!-- Google Maps Activity -->
         <activity
             android:name=".MyGoogleMAp"
             android:exported="false"
-            android:label="Emergency Location Map (Google)" />
-
-        <!-- Senior Google Maps Activity -->
+            android:label="Emergency Location Map (Google)" /> <!-- Senior Google Maps Activity -->
         <activity
             android:name=".Senior_GoogleMap"
             android:exported="false"
             android:label="Senior Emergency Map"
-            android:screenOrientation="portrait" />
-
-        <!-- Rescuer Navigation Activity -->
+            android:screenOrientation="portrait" /> <!-- Rescuer Navigation Activity -->
         <activity
             android:name=".RescuerNavigationActivity"
             android:exported="false"
             android:label="Rescuer Navigation"
-            android:screenOrientation="portrait" />
-
-        <!-- Rescuer Navigation SDK Activity -->
+            android:screenOrientation="portrait" /> <!-- Rescuer Navigation SDK Activity -->
         <activity
             android:name=".RescuerNavigationSDKActivity"
             android:exported="false"
             android:label="Rescuer Navigation (SDK)"
-            android:screenOrientation="portrait" />
-
-        <!-- Emergency List Activity -->
+            android:screenOrientation="portrait" /> <!-- Emergency List Activity -->
         <activity
             android:name=".EmergencyListActivity"
             android:exported="false"
             android:label="Emergency List"
             android:screenOrientation="portrait" />
-
-
-
         <activity
             android:name=".Senior_add_Emergency_Contact"
+            android:configChanges="locale|orientation|screenSize|keyboardHidden"
             android:exported="false" />
         <activity
             android:name=".Barangay_Registration"
+            android:configChanges="locale|orientation|screenSize|keyboardHidden"
             android:exported="false" />
         <activity
             android:name=".Hospital_List"
@@ -122,30 +114,31 @@
             android:name=".Rescuer_Profile"
             android:exported="false" />
         <activity
-            android:name=".Barangay_List"
-            android:exported="false" />
-        <activity
             android:name=".Barangay_Profile"
             android:exported="false" />
         <activity
             android:name=".Hospital_Registration"
+            android:configChanges="locale|orientation|screenSize|keyboardHidden"
             android:exported="false" />
         <activity
             android:name=".Rescuer_Registration"
+            android:configChanges="locale|orientation|screenSize|keyboardHidden"
             android:exported="false" />
         <activity
             android:name=".Senior_Update_Profile"
+            android:configChanges="locale|orientation|screenSize|keyboardHidden"
             android:exported="false" />
         <activity
             android:name=".Senior_Profile"
+            android:configChanges="locale|orientation|screenSize|keyboardHidden"
             android:exported="false" />
         <activity
             android:name=".Senior_Emergency_Contact"
+            android:configChanges="locale|orientation|screenSize|keyboardHidden"
             android:exported="false" />
         <activity
             android:name=".Hospital_Status_Edit"
-            android:exported="false" />
-        <!-- File provider declaration -->
+            android:exported="false" /> <!-- File provider declaration -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="com.example.sagip_prototype.fileprovider"
@@ -158,15 +151,24 @@
 
         <activity
             android:name=".Barangay_Dashboard"
+            android:configChanges="locale|orientation|screenSize|keyboardHidden"
             android:exported="false" />
         <activity
             android:name=".Hospital_Dashboard"
+            android:configChanges="locale|orientation|screenSize|keyboardHidden"
             android:exported="false" />
         <activity
             android:name=".Rescuer_Dashboard"
+            android:configChanges="locale|orientation|screenSize|keyboardHidden"
             android:exported="false" />
         <activity
+            android:name=".EmergencyAssignmentActivity"
+            android:configChanges="locale|orientation|screenSize|keyboardHidden"
+            android:exported="false"
+            android:label="Emergency Assignment" />
+        <activity
             android:name=".Senior_Dashboard"
+            android:configChanges="locale|orientation|screenSize|keyboardHidden"
             android:exported="false" />
         <activity
             android:name=".Selfie_verification"
@@ -176,16 +178,21 @@
             android:exported="false" />
         <activity
             android:name=".IdCameraCapture"
-            android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden"
+            android:exported="false"
             android:screenOrientation="unspecified" />
+        <activity
+            android:name=".IdCropActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:exported="false"
+            android:screenOrientation="portrait" />
         <activity
             android:name=".FaceVerification"
             android:exported="false"
             android:screenOrientation="portrait" />
-
         <activity
             android:name=".Senior_Registration"
+            android:configChanges="locale|orientation|screenSize|keyboardHidden"
             android:exported="false" />
         <activity
             android:name=".OTP_PAGE"
@@ -195,9 +202,7 @@
             android:exported="false" />
         <activity
             android:name=".EmailVerificationActivity"
-            android:exported="false" />
-
-        <!-- Feedback and Reporting Activities -->
+            android:exported="false" /> <!-- Feedback and Reporting Activities -->
         <activity
             android:name=".FeedbackActivity"
             android:exported="false"
@@ -209,17 +214,12 @@
         <activity
             android:name=".AdminFeedbackActivity"
             android:exported="false"
-            android:label="@string/admin_feedback_title" />
-
-
-        <!-- Rescuer Background Notification Service -->
+            android:label="@string/admin_feedback_title" /> <!-- Rescuer Background Notification Service -->
         <service
             android:name=".RescuerBackgroundNotificationService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="dataSync" />
-
-        <!-- Firebase Cloud Messaging Service -->
+            android:foregroundServiceType="dataSync" />         <!-- Firebase Cloud Messaging Service -->
         <service
             android:name=".FCMNotificationService"
             android:exported="false">
@@ -227,56 +227,64 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
-
-        <!-- Background Notification Listener Service -->
+        
+        <!-- Barangay FCM Service for background notifications -->
+        <service
+            android:name=".BarangayFCMService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+        
+        <!-- Senior FCM Service for background notifications -->
+        <service
+            android:name=".SeniorFCMService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service> <!-- Background Notification Listener Service -->
         <service
             android:name=".BackgroundNotificationListener"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="dataSync" />
-
-        <!-- Background Notification Service for monitoring notifications when app is closed -->
+            android:foregroundServiceType="dataSync" /> <!-- Background Notification Service for monitoring notifications when app is closed -->
         <service
             android:name=".BackgroundNotificationService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="dataSync" />
-
-        <!-- Rescuer Foreground Service for ensuring rescuers get notifications when app is closed -->
+            android:foregroundServiceType="dataSync" /> <!-- Rescuer Foreground Service for ensuring rescuers get notifications when app is closed -->
         <service
             android:name=".RescuerForegroundService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="dataSync" />
-        
-        <!-- WebSocket-based notification service (FCM alternative) -->
+            android:foregroundServiceType="dataSync" /> <!-- WebSocket-based notification service (FCM alternative) -->
         <service
             android:name=".WebSocketNotificationService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
-
         <service
             android:name=".HospitalStatusReminderService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
-
         <service
             android:name=".HospitalStatusNotificationService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="dataSync" />
-
-        <!-- Emergency Notification Service for real-time SOS alerts -->
+            android:foregroundServiceType="dataSync" /> <!-- Emergency Notification Service for real-time SOS alerts -->
         <service
             android:name=".EmergencyNotificationService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="dataSync" />
-
-        <!-- GlobalTimerService removed - using simple timer with SharedPreferences -->
-
+            android:foregroundServiceType="dataSync" /> <!-- Emergency SOS Background Service for monitoring SOS alerts when app is closed -->
+        <service
+            android:name=".EmergencySOSBackgroundService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" /> <!-- GlobalTimerService removed - using simple timer with SharedPreferences -->
         <!-- Boot Receiver for rescheduling notifications -->
         <receiver
             android:name=".BootReceiver"
@@ -286,6 +294,7 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.PACKAGE_REPLACED" />
+
                 <data android:scheme="package" />
             </intent-filter>
         </receiver>
@@ -295,15 +304,10 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="${MAPS_API_KEY}" />
-
-
     </application>
 
 </manifest>

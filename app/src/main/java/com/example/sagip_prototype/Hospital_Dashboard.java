@@ -58,6 +58,7 @@ public class Hospital_Dashboard extends AppCompatActivity {
     private static final String PREF_NAME = "SagipAppPrefs";
     private static final String KEY_USER_ID = "userId";
     private static final String KEY_USER_TYPE = "userType";
+    private static final String KEY_CACHED_HOSPITAL_NAME = "cachedHospitalName";
     
     // Status update requirement (10 minutes)
     private static final long STATUS_UPDATE_INTERVAL_MINUTES = 10;
@@ -159,6 +160,9 @@ public class Hospital_Dashboard extends AppCompatActivity {
         Log.d("Hospital_Dashboard", "Current time: " + new java.util.Date());
         Log.d("Hospital_Dashboard", "Is timer running: " + isTimerRunning);
         
+        // Load cached hospital name immediately when returning to dashboard
+        loadCachedHospitalName();
+        
         // Clear navigation flag
         isNavigatingBetweenPages = false;
         
@@ -195,6 +199,17 @@ public class Hospital_Dashboard extends AppCompatActivity {
         
         // Start notification service for status updates
         startStatusNotificationService();
+    }
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        
+        // Handle language change without recreating activity
+        Log.d("Hospital_Dashboard", "Configuration changed - language change detected");
+        
+        // Reload cached hospital name to ensure it's still displayed
+        loadCachedHospitalName();
     }
 
     @Override
@@ -690,10 +705,15 @@ public class Hospital_Dashboard extends AppCompatActivity {
     private void processHospitalData(com.google.firebase.firestore.DocumentSnapshot documentSnapshot) {
         Log.d("Hospital_Dashboard", "Processing hospital data...");
         
+        // Load cached hospital name immediately for instant display
+        loadCachedHospitalName();
+        
         // Load hospital name
         String hospitalName = documentSnapshot.getString("hospitalName");
         if (hospitalName != null && tvHospitalName != null && !hospitalName.equals(tvHospitalName.getText().toString())) {
             tvHospitalName.setText(hospitalName);
+            // Cache the name for future instant loading
+            cacheHospitalName(hospitalName);
             Log.d("Hospital_Dashboard", "Hospital name set: " + hospitalName);
         }
 
@@ -1501,5 +1521,23 @@ public class Hospital_Dashboard extends AppCompatActivity {
             timerStartTime = 0;
             timerDuration = 0;
         }
+    }
+
+    private void loadCachedHospitalName() {
+        String cachedName = sharedPreferences.getString(KEY_CACHED_HOSPITAL_NAME, null);
+        if (cachedName != null && !cachedName.isEmpty()) {
+            tvHospitalName.setText(cachedName);
+            Log.d("Hospital_Dashboard", "Loaded cached hospital name: " + cachedName);
+        } else {
+            tvHospitalName.setText("Loading...");
+            Log.d("Hospital_Dashboard", "No cached hospital name found, showing loading...");
+        }
+    }
+
+    private void cacheHospitalName(String hospitalName) {
+        sharedPreferences.edit()
+                .putString(KEY_CACHED_HOSPITAL_NAME, hospitalName)
+                .apply();
+        Log.d("Hospital_Dashboard", "Cached hospital name: " + hospitalName);
     }
 }

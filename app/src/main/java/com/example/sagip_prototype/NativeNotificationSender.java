@@ -13,6 +13,7 @@ import androidx.core.app.NotificationCompat;
 
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.firestore.SetOptions;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -271,7 +272,7 @@ public class NativeNotificationSender {
                 .document("users")
                 .collection(userType)
                 .document(userId)
-                .update(tokenData)
+                .set(tokenData, SetOptions.merge())
                 .addOnSuccessListener(aVoid -> {
                     Log.d(TAG, "✅ FCM token updated successfully for user: " + userId);
                 })

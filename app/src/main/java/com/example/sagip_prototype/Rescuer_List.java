@@ -24,12 +24,12 @@ import com.google.firebase.firestore.QuerySnapshot;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Rescuer_List extends AppCompatActivity {
+public class Rescuer_List extends BaseRescuerActivity implements HospitalLIstAdapter.OnHospitalLIstClickListener {
 
     private static final String TAG = "Rescuer_List";
     
     RecyclerView recyclerView;
-    HospitalAdapter hospitalAdapter;
+    HospitalLIstAdapter hospitalAdapter;
     List<HospitalLIst> hospitalList;
 
     FirebaseFirestore  db;
@@ -130,7 +130,7 @@ public class Rescuer_List extends AppCompatActivity {
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
         hospitalList = new ArrayList<>();
-        hospitalAdapter = new HospitalAdapter(hospitalList, this);
+        hospitalAdapter = new HospitalLIstAdapter(hospitalList, this);
         recyclerView.setAdapter(hospitalAdapter);
 
         db = FirebaseFirestore.getInstance();
@@ -202,7 +202,6 @@ public class Rescuer_List extends AppCompatActivity {
                             
                             // Scroll to and highlight the specific hospital if opened from notification
                             if (highlightHospitalName != null) {
-                                hospitalAdapter.setHighlightHospital(highlightHospitalName);
                                 scrollToAndHighlightHospital(highlightHospitalName);
                             }
                         }
@@ -384,5 +383,14 @@ public class Rescuer_List extends AppCompatActivity {
         dialog.show();
         
         Log.d(TAG, "✅ Emergency alert shown in Rescuer_List for: " + seniorName);
+    }
+    
+    // =============== HOSPITAL CLICK LISTENER ===============
+    
+    @Override
+    public void onHospitalClick(HospitalLIst hospital) {
+        Log.d(TAG, "Hospital clicked: " + hospital.getHospitalName());
+        // You can add hospital click handling here
+        // For example, show hospital details or navigate to hospital dashboard
     }
 }

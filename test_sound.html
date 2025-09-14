@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Your Alarm Sound</title>
+</head>
+<body>
+    <h2>Test Your Alarm Sound File</h2>
+    <p>Click the button below to test your alarm sound file:</p>
+    <audio controls>
+        <source src="app/src/main/res/raw/emergency_alarm.mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+    <br><br>
+    <button onclick="playSound()">Play Alarm Sound</button>
+    
+    <script>
+        function playSound() {
+            const audio = new Audio('app/src/main/res/raw/emergency_alarm.mp3');
+            audio.play().catch(e => {
+                alert('Error playing sound: ' + e.message);
+            });
+        }
+    </script>
+</body>
+</html>

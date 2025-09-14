@@ -515,7 +515,7 @@ public class Selfie_verification extends AppCompatActivity {
         Map<String, Object> verificationData = new HashMap<>();
         verificationData.put("frontIdPhotoUrl", frontIdPhotoUrl);
         verificationData.put("backIdPhotoUrl", backIdPhotoUrl);
-        verificationData.put("selfieUrl", selfieUrl);
+        verificationData.put("selfieVerificationUrl", selfieUrl);
         verificationData.put("idType", idType);
         verificationData.put("verificationSubmittedAt", System.currentTimeMillis());
         verificationData.put("status", "pending"); // Ensure status is set to pending
@@ -532,10 +532,10 @@ public class Selfie_verification extends AppCompatActivity {
                 .addOnSuccessListener(new OnSuccessListener<Void>() {
                     @Override
                     public void onSuccess(Void aVoid) {
-                        // Show success message
-                        instructionsTextView.setText(getString(R.string.verification_submitted_success_instructions));
+                        // Show simple success message
+                        instructionsTextView.setText("✅ ID is accepted\n\nYour verification has been submitted successfully.");
                         
-                        Toast.makeText(Selfie_verification.this, getString(R.string.verification_submitted_success_toast), Toast.LENGTH_LONG).show();
+                        Toast.makeText(Selfie_verification.this, "ID is accepted", Toast.LENGTH_LONG).show();
                         
                         // Delay before redirecting to show success message
                         new android.os.Handler().postDelayed(new Runnable() {
@@ -551,7 +551,7 @@ public class Selfie_verification extends AppCompatActivity {
                                 startActivity(intent);
                                 finish();
                             }
-                        }, 2000); // 2 second delay
+                        }, 3000); // 3 second delay to show the acceptance message
                     }
                 })
                 .addOnFailureListener(new OnFailureListener() {

@@ -1,8 +1,10 @@
 package com.example.sagip_prototype;
 
 import android.Manifest;
+import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -10,6 +12,7 @@ import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
+import android.media.AudioAttributes;
 import android.media.MediaPlayer;
 import android.media.RingtoneManager;
 import android.net.Uri;
@@ -31,10 +34,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 
-import com.example.sagip_prototype.ai.EmergencyRoomAI;
 import com.example.sagip_prototype.models.Hospital;
-import com.example.sagip_prototype.models.Emergency;
-import com.example.sagip_prototype.models.RouteOption;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
@@ -46,6 +46,7 @@ import com.google.android.gms.tasks.Task;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.Query;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.firestore.DocumentChange;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -53,8 +54,6 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.GeoPoint;
 import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
-import com.example.sagip_prototype.models.Hospital;
-import com.example.sagip_prototype.models.Emergency;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -131,6 +130,7 @@ public class Rescuer_Dashboard extends AppCompatActivity {
     private static final String KEY_USER_TYPE = "userType";
     private static final String KEY_IS_LOGGED_IN = "isLoggedIn";
     private static final String KEY_USER_PHONE = "userPhone";
+    private static final String KEY_CACHED_DISPLAY_NAME = "cachedDisplayName";
 
     private FirebaseAuth mAuth;
     private FirebaseFirestore db;
@@ -181,6 +181,14 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         db = FirebaseFirestore.getInstance();
         brgyName = findViewById(R.id.barangayStaffName);
         currentLocationText = findViewById(R.id.currentLocationValue);
+        
+        // Initialize emergency queue manager
+        EmergencyQueueManager.getInstance(this).loadActiveEmergenciesFromDatabase();
+        
+        // Handle emergency notification if app was opened from notification
+        handleEmergencyNotificationIntent();
+        
+        // Test custom alarm sound removed as requested
 
         // Initialize navigate to hospital button
         navigateToHospitalButton = findViewById(R.id.navigateToHospitalButton);
@@ -210,9 +218,9 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                 if (currentLat != 0.0 && currentLong != 0.0) {
                     // Use RescuerNavigationActivity to navigate to SOS location
                     openSOSNavigation();
-                    Toast.makeText(Rescuer_Dashboard.this, "🚨 Opening SOS Navigation", Toast.LENGTH_LONG).show();
+                    Toast.makeText(Rescuer_Dashboard.this, getString(R.string.toast_opening_sos_navigation), Toast.LENGTH_LONG).show();
                 } else {
-                    Toast.makeText(Rescuer_Dashboard.this, "📍 Getting your current location first...", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(Rescuer_Dashboard.this, getString(R.string.toast_getting_location), Toast.LENGTH_SHORT).show();
                     // Request location update and then start navigation
                     requestLocationAndStartSOSNavigation();
                 }
@@ -229,9 +237,6 @@ public class Rescuer_Dashboard extends AppCompatActivity {
 
         // Initialize emergency notification components
         initializeEmergencyNotificationComponents();
-        
-        // Initialize AI system
-        initializeAISystem();
 
         // Setup bottom navigation
         setupBottomNavigation();
@@ -265,8 +270,19 @@ public class Rescuer_Dashboard extends AppCompatActivity {
     }
 
     @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        Log.d(TAG, "=== ON_NEW_INTENT CALLED ===");
+        setIntent(intent);
+        handleNotificationClick();
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
+
+        // Load cached display name immediately when returning to dashboard
+        loadCachedDisplayName();
 
         // Handle notification click if this activity was opened from a notification
         handleNotificationClick();
@@ -285,8 +301,20 @@ public class Rescuer_Dashboard extends AppCompatActivity {
             Log.d(TAG, "Emergency listener already active, skipping start");
         }
         
+        // Start emergency SOS notification listener
+        startEmergencySOSListener();
+        
+        // Start background service for emergency SOS monitoring
+        startEmergencySOSBackgroundService();
+        
+        // Disable RescuerNotificationManager to prevent duplicate notifications
+        // RescuerNotificationManager.startMonitoring(this);
+        
         // Test emergency notification system
         testEmergencyNotificationSystem();
+        
+        // Debug: Check if there are any existing emergency notifications
+        checkForExistingEmergencyNotifications();
 
         // Clear any old notifications when app comes to foreground
         clearOldEmergencyNotifications();
@@ -330,6 +358,17 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         } else {
             Log.d(TAG, "Skipping notification check - User Type: " + userType + ", User ID: " + userId);
         }
+    }
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        
+        // Handle language change without recreating activity
+        Log.d(TAG, "Configuration changed - language change detected");
+        
+        // Reload cached display name to ensure it's still displayed
+        loadCachedDisplayName();
     }
 
     @Override
@@ -391,25 +430,174 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         }
     }
 
+    private void handleEmergencyNotificationIntent() {
+        // Check if this activity was opened from an emergency SOS notification
+        Intent intent = getIntent();
+        if (intent != null) {
+            boolean isEmergencySOS = intent.getBooleanExtra("emergency_sos_clicked", false) || 
+                                   intent.getBooleanExtra("from_emergency_notification", false);
+            
+            if (isEmergencySOS) {
+                String seniorName = intent.getStringExtra("senior_name");
+                String seniorPhone = intent.getStringExtra("senior_phone");
+                String locationAddress = intent.getStringExtra("location_address");
+                
+                Log.d(TAG, "🚨 App opened from emergency SOS notification in onCreate - Senior: " + seniorName);
+                
+                // Show emergency alert dialog immediately after a short delay to ensure UI is ready
+                if (seniorName != null && locationAddress != null) {
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                        showEmergencySOSAlert(seniorName, seniorPhone, locationAddress, System.currentTimeMillis());
+                    }, 1000); // 1 second delay to ensure UI is fully loaded
+                }
+                
+                // Clear the intent extras to prevent repeated handling
+                intent.removeExtra("emergency_sos_clicked");
+                intent.removeExtra("from_emergency_notification");
+                intent.removeExtra("senior_name");
+                intent.removeExtra("senior_phone");
+                intent.removeExtra("location_address");
+            }
+        }
+    }
+
     private void handleNotificationClick() {
         // Check if this activity was opened from a notification click
         Intent intent = getIntent();
-        if (intent != null && intent.getBooleanExtra("notification_clicked", false)) {
-            String helpRequestId = intent.getStringExtra("helpRequestId");
-            Log.d(TAG, "Activity opened from notification click for helpRequestId: " + helpRequestId);
+        if (intent != null) {
+            String notificationType = intent.getStringExtra("notification_type");
+            Log.d(TAG, "Activity opened from notification - Type: " + notificationType);
             
-            // Clear the specific notification
-            if (helpRequestId != null) {
-                clearEmergencyNotification(helpRequestId);
-                Log.d(TAG, "Cleared notification for helpRequestId: " + helpRequestId);
+            if ("hospital_update".equals(notificationType) || "hospital_status_update".equals(notificationType)) {
+                // Handle hospital status update notification
+                String hospitalName = intent.getStringExtra("hospital_name");
+                String hospitalStatus = intent.getStringExtra("hospital_status");
+                int availableBeds = intent.getIntExtra("available_beds", 0);
+                int availableDoctors = intent.getIntExtra("available_doctors", 0);
+                
+                Log.d(TAG, "Hospital status update notification - Hospital: " + hospitalName + 
+                    ", Status: " + hospitalStatus + ", Beds: " + availableBeds + ", Doctors: " + availableDoctors);
+                
+                // Show hospital status update info
+                showHospitalStatusUpdateDialog(hospitalName, hospitalStatus, availableBeds, availableDoctors);
+                
+                // Clear the intent extras to prevent repeated handling
+                intent.removeExtra("notification_type");
+                intent.removeExtra("hospital_name");
+                intent.removeExtra("hospital_status");
+                intent.removeExtra("available_beds");
+                intent.removeExtra("available_doctors");
+                
+            } else if (intent.getBooleanExtra("assignment_confirmed", false)) {
+                // Handle assignment confirmation notification
+                String seniorName = intent.getStringExtra("senior_name");
+                String locationAddress = intent.getStringExtra("location_address");
+                
+                Log.d(TAG, "App opened from assignment confirmation - Senior: " + seniorName);
+                
+                if (seniorName != null && locationAddress != null) {
+                    // Show assignment confirmation dialog
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                        showRescuerAssignmentPopup(seniorName, locationAddress, mAuth.getCurrentUser().getUid(), null);
+                    }, 1000);
+                }
+                
+                // Clear the intent extras
+                intent.removeExtra("assignment_confirmed");
+                intent.removeExtra("senior_name");
+                intent.removeExtra("location_address");
+                
+            } else if (intent.getBooleanExtra("emergency_sos_clicked", false) || intent.getBooleanExtra("from_emergency_notification", false)) {
+                // Handle emergency SOS notification - app opened from closed state
+                String seniorName = intent.getStringExtra("senior_name");
+                String seniorPhone = intent.getStringExtra("senior_phone");
+                String locationAddress = intent.getStringExtra("location_address");
+                
+                Log.d(TAG, "🚨 App opened from emergency SOS notification - Senior: " + seniorName);
+                
+                // Show emergency alert dialog immediately
+                if (seniorName != null && locationAddress != null) {
+                    showEmergencySOSAlert(seniorName, seniorPhone, locationAddress, System.currentTimeMillis());
+                }
+                
+                // Clear the intent extras to prevent repeated handling
+                intent.removeExtra("emergency_sos_clicked");
+                intent.removeExtra("from_emergency_notification");
+                intent.removeExtra("senior_name");
+                intent.removeExtra("senior_phone");
+                intent.removeExtra("location_address");
+                
+            } else if (intent.getBooleanExtra("notification_clicked", false)) {
+                // Handle emergency notification
+                String helpRequestId = intent.getStringExtra("helpRequestId");
+                Log.d(TAG, "Activity opened from emergency notification click for helpRequestId: " + helpRequestId);
+                
+                // Clear the specific notification
+                if (helpRequestId != null) {
+                    clearEmergencyNotification(helpRequestId);
+                    Log.d(TAG, "Cleared notification for helpRequestId: " + helpRequestId);
+                }
+                
+                // Show a toast to confirm
+                Toast.makeText(this, getString(R.string.emergency_notification_cleared), Toast.LENGTH_SHORT).show();
+                
+                // Clear the intent extras to prevent repeated handling
+                intent.removeExtra("notification_clicked");
+                intent.removeExtra("helpRequestId");
             }
-            
-            // Show a toast to confirm
-            Toast.makeText(this, getString(R.string.emergency_notification_cleared), Toast.LENGTH_SHORT).show();
-            
-            // Clear the intent extras to prevent repeated handling
-            intent.removeExtra("notification_clicked");
-            intent.removeExtra("helpRequestId");
+        }
+    }
+    
+    private void showHospitalStatusUpdateDialog(String hospitalName, String hospitalStatus, int availableBeds, int availableDoctors) {
+        String statusEmoji = getStatusEmoji(hospitalStatus);
+        String message = "🏥 " + hospitalName + "\n\n" +
+                        "Status: " + statusEmoji + " " + hospitalStatus.toUpperCase() + "\n" +
+                        "Available Beds: " + availableBeds + "\n" +
+                        "Available Doctors: " + availableDoctors + "\n\n" +
+                        "This information will help with emergency response planning.";
+        
+        new AlertDialog.Builder(this)
+                .setTitle(getString(R.string.dialog_hospital_status_update))
+                .setMessage(message)
+                .setPositiveButton("View Hospital List", (dialog, which) -> {
+                    // Navigate to hospital list with highlighting
+                    Intent intent = new Intent(this, Rescuer_List.class);
+                    intent.putExtra("highlight_hospital", hospitalName);
+                    intent.putExtra("notification_type", "hospital_status_update");
+                    intent.putExtra("hospital_status", hospitalStatus);
+                    intent.putExtra("available_beds", availableBeds);
+                    intent.putExtra("available_doctors", availableDoctors);
+                    startActivity(intent);
+                })
+                .setNeutralButton("View Dashboard", (dialog, which) -> {
+                    // Stay on dashboard but scroll to hospital section if available
+                    Toast.makeText(this, getString(R.string.text_hospital_status_updated, hospitalName, statusEmoji, hospitalStatus.toUpperCase()), Toast.LENGTH_LONG).show();
+                })
+                .setNegativeButton("Dismiss", (dialog, which) -> {
+                    // Just dismiss the dialog
+                    dialog.dismiss();
+                })
+                .setCancelable(true)
+                .setIcon(android.R.drawable.ic_dialog_info)
+                .show();
+    }
+    
+    private String getStatusEmoji(String status) {
+        if (status == null) return "❓";
+        
+        switch (status.toLowerCase()) {
+            case "operational":
+                return "🟢";
+            case "busy":
+                return "🟡";
+            case "overcrowded":
+                return "🟠";
+            case "closed":
+                return "🔴";
+            case "emergency_only":
+                return "🚨";
+            default:
+                return "❓";
         }
     }
 
@@ -467,12 +655,38 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         } else {
             Log.w(TAG, "⚠️ Location not available yet");
         }
+    }
+    
+    private void checkForExistingEmergencyNotifications() {
+        Log.d(TAG, "🔍 Checking for existing emergency notifications...");
         
-        Log.d(TAG, "🧪 Emergency notification system test completed");
-        Log.d(TAG, "✅ OneSignal has been completely removed from the project");
-        Log.d(TAG, "✅ Emergency alerts now use EmergencyNotificationService (background service)");
-        Log.d(TAG, "✅ Hospital notifications use FCM (Firebase Cloud Messaging)");
-        Log.d(TAG, "✅ EmergencyNotificationService runs continuously for real-time SOS alerts");
+        if (userId == null) {
+            Log.w(TAG, "Cannot check notifications - userId is null");
+            return;
+        }
+        
+        // Check for unread emergency notifications
+        db.collection("Sagip")
+          .document("users")
+          .collection("rescuer")
+          .document(userId)
+          .collection("emergencyNotifications")
+          .whereEqualTo("isRead", false)
+          .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+          .limit(5)
+          .get()
+          .addOnSuccessListener(querySnapshot -> {
+              Log.d(TAG, "Found " + querySnapshot.size() + " unread emergency notifications");
+              for (QueryDocumentSnapshot document : querySnapshot) {
+                  String type = document.getString("type");
+                  String seniorName = document.getString("seniorName");
+                  Long timestamp = document.getLong("timestamp");
+                  Log.d(TAG, "Unread notification: " + type + " from " + seniorName + " at " + timestamp);
+              }
+          })
+          .addOnFailureListener(e -> {
+              Log.e(TAG, "Error checking existing notifications: " + e.getMessage());
+          });
     }
 
     private void initializeEmergencyNotificationComponents() {
@@ -696,7 +910,7 @@ public class Rescuer_Dashboard extends AppCompatActivity {
 
     private void playNotificationSound() {
         try {
-            Uri notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+            Uri notification = getCustomAlarmSound();
             MediaPlayer mp = MediaPlayer.create(getApplicationContext(), notification);
             if (mp != null) {
                 mp.start();
@@ -710,11 +924,6 @@ public class Rescuer_Dashboard extends AppCompatActivity {
 
     private void showEmergencyAlertFIFO(EmergencyItem emergency) {
         // Update title to show FIFO queue status
-        String queueInfo = totalActiveEmergencies > 1 ? 
-            " (FIFO Queue: #" + emergency.queuePosition + " of " + totalActiveEmergencies + ")" : 
-            " (FIFO Queue: #" + emergency.queuePosition + ")";
-        String fullTitle = emergency.title + queueInfo;
-        
         String fullMessage = emergency.message + "\n\n" +
                 "Senior: " + emergency.seniorName + "\n" +
                 "Phone: " + (emergency.seniorPhone != null && !emergency.seniorPhone.isEmpty() ? emergency.seniorPhone : "Not provided") + "\n" +
@@ -723,18 +932,14 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                 "⏰ Time in Queue: " + getTimeInQueueText(emergency.getTimeInQueue());
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle(fullTitle);
         builder.setMessage(fullMessage);
         builder.setIcon(android.R.drawable.ic_dialog_alert);
 
         // RESPOND button - most important action
         builder.setPositiveButton("🚑 RESPOND NOW", (dialog, which) -> {
+            Log.d(TAG, "🚨 OLD SYSTEM: RESPOND NOW clicked for emergency: " + emergency.helpRequestId);
             clearEmergencyNotification(emergency.helpRequestId);
             respondToEmergency(emergency.helpRequestId, emergency.emergencyId);
-            
-            // Show AI hospital selection
-            selectOptimalHospitalWithAI(emergency.helpRequestId, "general", "high", 
-                                      emergency.latitude, emergency.longitude);
             
             dialog.dismiss();
             handleEmergencyDialogDismissed();
@@ -958,445 +1163,14 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         startActivity(intent);
     }
     
-    // AI System Integration
-    private EmergencyRoomAI emergencyRoomAI;
-    private AlertDialog loadingDialog;
-    
-    private void initializeAISystem() {
-        emergencyRoomAI = new EmergencyRoomAI(db);
-    }
-    
-    private void selectOptimalHospitalWithAI(String helpRequestId, String emergencyType, 
-                                           String severity, double seniorLat, double seniorLon) {
-        
-        if (emergencyRoomAI == null) {
-            initializeAISystem();
-        }
-        
-        // Show loading dialog
-        showLoadingDialog("Finding optimal hospital...");
-        
-        // Create emergency object for AI
-        Emergency emergency = new Emergency();
-        emergency.helpRequestId = helpRequestId;
-        emergency.emergencyType = emergencyType;
-        emergency.severity = severity;
-        emergency.location = new com.google.firebase.firestore.GeoPoint(seniorLat, seniorLon);
-        emergency.timestamp = System.currentTimeMillis();
-        
-        // Get AI recommendation (async)
-        emergencyRoomAI.selectOptimalHospital(emergency, currentLat, currentLong, 
-            new EmergencyRoomAI.HospitalSelectionCallback() {
-                @Override
-                public void onResult(EmergencyRoomAI.AIRecommendationResult result) {
-                    // Hide loading dialog
-                    hideLoadingDialog();
-                    
-                    // Show AI recommendation
-                    showAIRecommendation(result, helpRequestId);
-                }
-            });
-    }
-    
-    private void showAIRecommendation(EmergencyRoomAI.AIRecommendationResult result, String helpRequestId) {
-        
-        if (result.recommendedHospital == null) {
-            // Show better error dialog with options
-            showNoHospitalFoundDialog(helpRequestId, result.message);
-            return;
-        }
-        
-        StringBuilder message = new StringBuilder();
-        message.append("🤖 AI RECOMMENDATION\n\n");
-        message.append("🏥 Hospital: ").append(result.recommendedHospital.name).append("\n");
-        message.append("📍 Distance: ").append(String.format("%.1f km", result.recommendedHospital.distanceFromSenior)).append("\n");
-        message.append("⏱️ Travel Time: ").append(result.optimalRoute != null ? result.optimalRoute.getDurationInMinutes() : "Unknown").append(" min\n");
-        message.append("🎯 Confidence: ").append(String.format("%.1f%%", result.confidenceScore * 100)).append("\n\n");
-        
-        // Add confidence indicator
-        if (result.isHighConfidence()) {
-            message.append("✅ High confidence recommendation");
-        } else if (result.isMediumConfidence()) {
-            message.append("⚠️ Medium confidence recommendation");
-        } else {
-            message.append("❌ Low confidence - consider alternatives");
-        }
-        
-        // Show alternatives if available
-        if (!result.alternativeHospitals.isEmpty()) {
-            message.append("\n\n🔄 Alternative Options:\n");
-            for (int i = 0; i < Math.min(2, result.alternativeHospitals.size()); i++) {
-                Hospital alt = result.alternativeHospitals.get(i);
-                message.append("• ").append(alt.name).append(" (").append(String.format("%.1f km", alt.distanceFromSenior)).append(")\n");
-            }
-        }
-        
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("🤖 AI Hospital Recommendation");
-        builder.setMessage(message.toString());
-        builder.setIcon(android.R.drawable.ic_dialog_info);
-        
-        // Accept AI recommendation
-        builder.setPositiveButton("✅ ACCEPT AI RECOMMENDATION", (dialog, which) -> {
-            navigateToRecommendedHospital(result, helpRequestId);
-            dialog.dismiss();
-        });
-        
-        // Show alternatives
-        if (!result.alternativeHospitals.isEmpty()) {
-            builder.setNeutralButton("🔄 VIEW ALTERNATIVES", (dialog, which) -> {
-                showAlternativeHospitals(result.alternativeHospitals, helpRequestId);
-                dialog.dismiss();
-            });
-        }
-        
-        // Manual selection
-        builder.setNegativeButton("👤 SELECT MANUALLY", (dialog, which) -> {
-            // Open hospital list for manual selection
-            openHospitalSelection(helpRequestId);
-            dialog.dismiss();
-        });
-        
-        AlertDialog dialog = builder.create();
-        dialog.show();
-    }
-    
-    private void navigateToRecommendedHospital(EmergencyRoomAI.AIRecommendationResult result, String helpRequestId) {
-        
-        Hospital hospital = result.recommendedHospital;
-        RouteOption route = result.optimalRoute;
-        
-        // Update help request with selected hospital
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("selectedHospitalId", hospital.hospitalId);
-        updates.put("selectedHospitalName", hospital.name);
-        updates.put("aiRecommendation", true);
-        updates.put("aiConfidenceScore", result.confidenceScore);
-        updates.put("selectedAt", System.currentTimeMillis());
-        
-        db.collection("Sagip")
-          .document("helpRequests")
-          .collection("activeRequests")
-          .document(helpRequestId)
-          .update(updates)
-          .addOnSuccessListener(aVoid -> {
-              // Send notification to hospital staff
-              sendHospitalNotification(hospital, helpRequestId, result);
-              
-              // Navigate to hospital
-              openGoogleNavigation(
-                  hospital.location.getLatitude(), 
-                  hospital.location.getLongitude(),
-                  hospital.address,
-                  "AI Recommended: " + hospital.name,
-                  hospital.phone,
-                  helpRequestId
-              );
-              
-              // Show success message
-              Toast.makeText(this, "Navigating to AI recommended hospital: " + hospital.name, Toast.LENGTH_LONG).show();
-          })
-          .addOnFailureListener(e -> {
-              Log.e(TAG, "Failed to update help request with hospital selection", e);
-              Toast.makeText(this, "Failed to save hospital selection", Toast.LENGTH_SHORT).show();
-          });
-    }
-    
-    private void showAlternativeHospitals(List<Hospital> alternatives, String helpRequestId) {
-        
-        StringBuilder message = new StringBuilder();
-        message.append("🔄 ALTERNATIVE HOSPITALS\n\n");
-        
-        for (int i = 0; i < alternatives.size(); i++) {
-            Hospital hospital = alternatives.get(i);
-            message.append((i + 1)).append(". ").append(hospital.name).append("\n");
-            message.append("   📍 ").append(String.format("%.1f km", hospital.distanceFromSenior)).append("\n");
-            message.append("   🏥 Beds: ").append(hospital.availableBeds).append("/").append(hospital.totalBeds).append("\n");
-            message.append("   ⏱️ Response: ").append(String.format("%.1f min", hospital.avgResponseTime)).append("\n\n");
-        }
-        
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Alternative Hospital Options");
-        builder.setMessage(message.toString());
-        builder.setIcon(android.R.drawable.ic_dialog_info);
-        
-        // Create buttons for each alternative
-        for (int i = 0; i < Math.min(3, alternatives.size()); i++) {
-            final Hospital hospital = alternatives.get(i);
-            final int index = i;
-            
-            builder.setPositiveButton("Select #" + (i + 1), (dialog, which) -> {
-                // Send notification to selected alternative hospital
-                sendAlternativeHospitalNotification(hospital, helpRequestId);
-                
-                // Navigate to selected alternative
-                openGoogleNavigation(
-                    hospital.location.getLatitude(),
-                    hospital.location.getLongitude(),
-                    hospital.address,
-                    "Alternative: " + hospital.name,
-                    hospital.phone,
-                    helpRequestId
-                );
-            });
-        }
-        
-        builder.setNegativeButton("❌ Cancel", (dialog, which) -> dialog.dismiss());
-        
-        AlertDialog dialog = builder.create();
-        dialog.show();
-    }
-    
-    private void openHospitalSelection(String helpRequestId) {
-        // Open hospital list activity for manual selection
-        Intent intent = new Intent(this, Hospital_List.class);
-        intent.putExtra("helpRequestId", helpRequestId);
-        intent.putExtra("selectionMode", "emergency");
-        startActivity(intent);
-    }
-    
-    // Hospital Notification System
-    private void sendHospitalNotification(Hospital hospital, String helpRequestId, 
-                                        EmergencyRoomAI.AIRecommendationResult aiResult) {
-        
-        // Get emergency details from help request
-        db.collection("Sagip")
-          .document("helpRequests")
-          .collection("activeRequests")
-          .document(helpRequestId)
-          .get()
-          .addOnSuccessListener(documentSnapshot -> {
-              if (documentSnapshot.exists()) {
-                  String seniorName = documentSnapshot.getString("seniorName");
-                  String seniorPhone = documentSnapshot.getString("seniorPhone");
-                  String locationAddress = documentSnapshot.getString("locationAddress");
-                  String emergencyType = documentSnapshot.getString("emergencyType");
-                  String severity = documentSnapshot.getString("severity");
-                  String rescuerName = documentSnapshot.getString("rescuerName");
-                  String rescuerPhone = documentSnapshot.getString("rescuerPhone");
-                  
-                  // Create hospital notification
-                  createHospitalNotification(hospital, helpRequestId, seniorName, seniorPhone, 
-                                           locationAddress, emergencyType, severity, rescuerName, 
-                                           rescuerPhone, aiResult);
-              }
-          })
-          .addOnFailureListener(e -> {
-              Log.e(TAG, "Failed to get emergency details for hospital notification", e);
-          });
-    }
-    
-    private void createHospitalNotification(Hospital hospital, String helpRequestId, String seniorName, 
-                                         String seniorPhone, String locationAddress, String emergencyType, 
-                                         String severity, String rescuerName, String rescuerPhone,
-                                         EmergencyRoomAI.AIRecommendationResult aiResult) {
-        
-        // Create notification data for hospital
-        Map<String, Object> hospitalNotification = new HashMap<>();
-        hospitalNotification.put("notificationId", "hospital_" + helpRequestId + "_" + System.currentTimeMillis());
-        hospitalNotification.put("helpRequestId", helpRequestId);
-        hospitalNotification.put("hospitalId", hospital.hospitalId);
-        hospitalNotification.put("hospitalName", hospital.name);
-        hospitalNotification.put("notificationType", "incoming_emergency");
-        hospitalNotification.put("timestamp", System.currentTimeMillis());
-        hospitalNotification.put("status", "pending");
-        
-        // Emergency details
-        hospitalNotification.put("seniorName", seniorName);
-        hospitalNotification.put("seniorPhone", seniorPhone);
-        hospitalNotification.put("locationAddress", locationAddress);
-        hospitalNotification.put("emergencyType", emergencyType != null ? emergencyType : "General Emergency");
-        hospitalNotification.put("severity", severity != null ? severity : "High");
-        
-        // Rescuer details
-        hospitalNotification.put("rescuerName", rescuerName);
-        hospitalNotification.put("rescuerPhone", rescuerPhone);
-        hospitalNotification.put("rescuerId", userId);
-        
-        // AI recommendation details
-        hospitalNotification.put("aiRecommended", true);
-        hospitalNotification.put("aiConfidenceScore", aiResult.confidenceScore);
-        hospitalNotification.put("estimatedArrivalTime", aiResult.optimalRoute != null ? 
-                               aiResult.optimalRoute.getDurationInMinutes() : 0);
-        hospitalNotification.put("distanceFromHospital", hospital.distanceFromSenior);
-        
-        // Priority based on severity and AI confidence
-        int priority = calculateHospitalNotificationPriority(severity, aiResult.confidenceScore);
-        hospitalNotification.put("priority", priority);
-        
-        // Save notification to Firestore
-        db.collection("Sagip")
-          .document("hospitalNotifications")
-          .collection("pendingNotifications")
-          .add(hospitalNotification)
-          .addOnSuccessListener(documentReference -> {
-              Log.d(TAG, "Hospital notification sent successfully to " + hospital.name);
-              
-              // Send push notification to hospital staff
-              sendPushNotificationToHospital(hospital, helpRequestId, seniorName, emergencyType, severity);
-              
-              // Show confirmation to rescuer
-              Toast.makeText(this, "🏥 Hospital " + hospital.name + " has been notified!", Toast.LENGTH_SHORT).show();
-          })
-          .addOnFailureListener(e -> {
-              Log.e(TAG, "Failed to send hospital notification", e);
-              Toast.makeText(this, "Failed to notify hospital", Toast.LENGTH_SHORT).show();
-          });
-    }
-    
-    private int calculateHospitalNotificationPriority(String severity, double aiConfidence) {
-        int basePriority = 1; // Default priority
-        
-        // Severity multiplier
-        if (severity != null) {
-            switch (severity.toLowerCase()) {
-                case "critical":
-                    basePriority = 4;
-                    break;
-                case "high":
-                    basePriority = 3;
-                    break;
-                case "medium":
-                    basePriority = 2;
-                    break;
-                case "low":
-                    basePriority = 1;
-                    break;
-            }
-        }
-        
-        // AI confidence bonus
-        if (aiConfidence >= 0.9) {
-            basePriority += 1; // High confidence gets priority boost
-        }
-        
-        return Math.min(5, basePriority); // Cap at priority 5
-    }
-    
-    private void sendPushNotificationToHospital(Hospital hospital, String helpRequestId, 
-                                             String seniorName, String emergencyType, String severity) {
-        
-        // Create push notification payload
-        Map<String, Object> notificationData = new HashMap<>();
-        notificationData.put("title", "🚨 INCOMING EMERGENCY");
-        notificationData.put("body", "Emergency from " + seniorName + " - " + 
-                           (emergencyType != null ? emergencyType : "General Emergency"));
-        notificationData.put("helpRequestId", helpRequestId);
-        notificationData.put("hospitalId", hospital.hospitalId);
-        notificationData.put("notificationType", "incoming_emergency");
-        notificationData.put("severity", severity);
-        notificationData.put("timestamp", System.currentTimeMillis());
-        
-        // Send to hospital staff devices
-        db.collection("Sagip")
-          .document("hospitals")
-          .collection("registeredHospitals")
-          .document(hospital.hospitalId)
-          .collection("staff")
-          .whereEqualTo("isActive", true)
-          .whereEqualTo("notificationEnabled", true)
-          .get()
-          .addOnSuccessListener(queryDocumentSnapshots -> {
-              for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
-                  String staffToken = document.getString("fcmToken");
-                  String staffName = document.getString("name");
-                  String staffRole = document.getString("role");
-                  
-                  if (staffToken != null) {
-                      // Send FCM notification (simplified for now)
-                      Log.d(TAG, "Would send FCM notification to " + staffName + " (" + staffRole + ")");
-                  }
-              }
-          })
-          .addOnFailureListener(e -> {
-              Log.e(TAG, "Failed to get hospital staff for notifications", e);
-          });
-    }
     
     
-    private void sendAlternativeHospitalNotification(Hospital hospital, String helpRequestId) {
-        
-        // Get emergency details from help request
-        db.collection("Sagip")
-          .document("helpRequests")
-          .collection("activeRequests")
-          .document(helpRequestId)
-          .get()
-          .addOnSuccessListener(documentSnapshot -> {
-              if (documentSnapshot.exists()) {
-                  String seniorName = documentSnapshot.getString("seniorName");
-                  String seniorPhone = documentSnapshot.getString("seniorPhone");
-                  String locationAddress = documentSnapshot.getString("locationAddress");
-                  String emergencyType = documentSnapshot.getString("emergencyType");
-                  String severity = documentSnapshot.getString("severity");
-                  String rescuerName = documentSnapshot.getString("rescuerName");
-                  String rescuerPhone = documentSnapshot.getString("rescuerPhone");
-                  
-                  // Create alternative hospital notification
-                  createAlternativeHospitalNotification(hospital, helpRequestId, seniorName, seniorPhone, 
-                                                      locationAddress, emergencyType, severity, rescuerName, rescuerPhone);
-              }
-          })
-          .addOnFailureListener(e -> {
-              Log.e(TAG, "Failed to get emergency details for alternative hospital notification", e);
-          });
-    }
     
-    private void createAlternativeHospitalNotification(Hospital hospital, String helpRequestId, String seniorName, 
-                                                     String seniorPhone, String locationAddress, String emergencyType, 
-                                                     String severity, String rescuerName, String rescuerPhone) {
-        
-        // Create notification data for alternative hospital
-        Map<String, Object> hospitalNotification = new HashMap<>();
-        hospitalNotification.put("notificationId", "alt_hospital_" + helpRequestId + "_" + System.currentTimeMillis());
-        hospitalNotification.put("helpRequestId", helpRequestId);
-        hospitalNotification.put("hospitalId", hospital.hospitalId);
-        hospitalNotification.put("hospitalName", hospital.name);
-        hospitalNotification.put("notificationType", "incoming_emergency_alternative");
-        hospitalNotification.put("timestamp", System.currentTimeMillis());
-        hospitalNotification.put("status", "pending");
-        hospitalNotification.put("isAlternative", true);
-        
-        // Emergency details
-        hospitalNotification.put("seniorName", seniorName);
-        hospitalNotification.put("seniorPhone", seniorPhone);
-        hospitalNotification.put("locationAddress", locationAddress);
-        hospitalNotification.put("emergencyType", emergencyType != null ? emergencyType : "General Emergency");
-        hospitalNotification.put("severity", severity != null ? severity : "High");
-        
-        // Rescuer details
-        hospitalNotification.put("rescuerName", rescuerName);
-        hospitalNotification.put("rescuerPhone", rescuerPhone);
-        hospitalNotification.put("rescuerId", userId);
-        
-        // Alternative selection details
-        hospitalNotification.put("aiRecommended", false);
-        hospitalNotification.put("isAlternative", true);
-        hospitalNotification.put("distanceFromHospital", hospital.distanceFromSenior);
-        
-        // Priority based on severity
-        int priority = calculateHospitalNotificationPriority(severity, 0.7); // Medium confidence for alternatives
-        hospitalNotification.put("priority", priority);
-        
-        // Save notification to Firestore
-        db.collection("Sagip")
-          .document("hospitalNotifications")
-          .collection("pendingNotifications")
-          .add(hospitalNotification)
-          .addOnSuccessListener(documentReference -> {
-              Log.d(TAG, "Alternative hospital notification sent successfully to " + hospital.name);
-              
-              // Send push notification to hospital staff
-              sendPushNotificationToHospital(hospital, helpRequestId, seniorName, emergencyType, severity);
-              
-              // Show confirmation to rescuer
-              Toast.makeText(this, "🏥 Alternative hospital " + hospital.name + " has been notified!", Toast.LENGTH_SHORT).show();
-          })
-          .addOnFailureListener(e -> {
-              Log.e(TAG, "Failed to send alternative hospital notification", e);
-              Toast.makeText(this, "Failed to notify alternative hospital", Toast.LENGTH_SHORT).show();
-          });
-    }
+    
+    
+    
+    
+    
 
     private String getTimeInQueueText(long timeInQueueMs) {
         long seconds = timeInQueueMs / 1000;
@@ -1442,7 +1216,7 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         summary.append("• Fair and predictable processing");
         
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("🔄 FIFO Emergency Queue");
+        builder.setTitle(getString(R.string.text_fifo_emergency_queue));
         builder.setMessage(summary.toString());
         builder.setIcon(android.R.drawable.ic_dialog_alert);
         
@@ -1478,7 +1252,7 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         }
         
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("📋 Emergency Summary");
+        builder.setTitle(getString(R.string.text_emergency_summary));
         builder.setMessage(summary.toString());
         builder.setIcon(android.R.drawable.ic_dialog_alert);
         
@@ -1512,6 +1286,8 @@ public class Rescuer_Dashboard extends AppCompatActivity {
     }
 
     private void respondToEmergency(String helpRequestId, String emergencyId) {
+        Log.d(TAG, "🚨 [RESCUER_DASHBOARD] Responding to emergency - Help Request ID: " + helpRequestId + ", Emergency ID: " + emergencyId);
+        
         // Clear the system notification immediately
         clearEmergencyNotification(helpRequestId);
         
@@ -1530,8 +1306,14 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                 .addOnSuccessListener(aVoid -> {
                     Toast.makeText(this, getString(R.string.response_recorded), Toast.LENGTH_LONG).show();
 
+                    // Show assignment popup
+                    showAssignmentPopupForOldSystem(helpRequestId);
+
                     // Also update the rescuer's own document with current location for tracking
                     updateRescuerLocationForTracking();
+
+                    // Send notification to senior about rescuer response
+                    sendRescuerResponseNotificationToSenior(helpRequestId);
 
                     // Deactivate the emergency notification so other rescuers know it's handled
                     db.collection("Sagip")
@@ -1550,13 +1332,117 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                                         .collection("activeEmergencies")
                                         .document(emergencyId)
                                         .update("timestamp", System.currentTimeMillis() - (2 * 60 * 60 * 1000)) // Set to 2 hours ago
-                                        .addOnSuccessListener(aVoid2 -> Log.d(TAG, "Emergency timestamp updated to prevent re-showing"));
+                                        .addOnSuccessListener(aVoid2 -> {
+                                            Log.d(TAG, "Emergency timestamp updated to prevent re-showing");
+                                            
+                                        });
                             });
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error updating emergency response", e);
                     Toast.makeText(this, getString(R.string.error_recording_response), Toast.LENGTH_SHORT).show();
                 });
+    }
+    
+    private void sendRescuerResponseNotificationToSenior(String helpRequestId) {
+        Log.d(TAG, "📤 [RESCUER_DASHBOARD] Sending rescuer response notification to senior for help request: " + helpRequestId);
+        Log.d(TAG, "📤 [RESCUER_DASHBOARD] Current user ID: " + userId);
+        
+        // First get the help request details to find the senior information
+        db.collection("Sagip")
+                .document("helpRequests")
+                .collection("activeRequests")
+                .document(helpRequestId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String seniorUid = documentSnapshot.getString("seniorUid");
+                        String seniorName = documentSnapshot.getString("seniorName");
+                        String seniorPhone = documentSnapshot.getString("seniorPhone");
+                        String locationAddress = documentSnapshot.getString("locationAddress");
+                        
+                        Log.d(TAG, "📤 Help request details - Senior UID: " + seniorUid + ", Name: " + seniorName);
+                        
+                        if (seniorUid != null && !seniorUid.isEmpty()) {
+                            // Get current rescuer information
+                            String rescuerName = getCurrentRescuerName();
+                            String rescuerPhone = getCurrentRescuerPhone();
+                            String rescuerTeam = getCurrentRescuerTeam();
+                            
+                            // Create notification data for senior
+                            Map<String, Object> rescuerResponseNotification = new HashMap<>();
+                            rescuerResponseNotification.put("type", "RESCUER_RESPONSE");
+                            rescuerResponseNotification.put("title", "🚑 Help is on the way! (Dashboard)");
+                            rescuerResponseNotification.put("message", rescuerName + " from " + (rescuerTeam != null ? rescuerTeam : "Rescue Team") + " is responding to your emergency [via RescuerDashboard]");
+                            rescuerResponseNotification.put("rescuerName", rescuerName);
+                            rescuerResponseNotification.put("rescuerPhone", rescuerPhone);
+                            rescuerResponseNotification.put("rescuerTeam", rescuerTeam);
+                            rescuerResponseNotification.put("requestId", helpRequestId);
+                            rescuerResponseNotification.put("locationAddress", locationAddress);
+                            rescuerResponseNotification.put("timestamp", System.currentTimeMillis());
+                            rescuerResponseNotification.put("isRead", false);
+                            rescuerResponseNotification.put("isActive", true);
+                            
+                            // Send notification to senior's notification collection
+                            String notificationPath = "Sagip/users/seniors/" + seniorUid + "/notifications";
+                            Log.d(TAG, "📤 Sending notification to path: " + notificationPath);
+                            Log.d(TAG, "📤 Notification data: " + rescuerResponseNotification.toString());
+                            
+                            db.collection(notificationPath)
+                                    .add(rescuerResponseNotification)
+                                    .addOnSuccessListener(documentReference -> {
+                                        Log.d(TAG, "✅ Rescuer response notification sent to senior: " + seniorName);
+                                        Log.d(TAG, "📱 Notification ID: " + documentReference.getId());
+                                        Log.d(TAG, "📱 Notification details - Rescuer: " + rescuerName + ", Phone: " + rescuerPhone + ", Team: " + rescuerTeam);
+                                    })
+                                    .addOnFailureListener(e -> {
+                                        Log.e(TAG, "❌ Failed to send rescuer response notification to senior", e);
+                                        Log.e(TAG, "❌ Error details: " + e.getMessage());
+                                    });
+                        } else {
+                            Log.w(TAG, "⚠️ Senior UID not found in help request: " + helpRequestId);
+                        }
+                    } else {
+                        Log.w(TAG, "⚠️ Help request not found: " + helpRequestId);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Error getting help request details for notification", e);
+                });
+    }
+    
+    private String getCurrentRescuerName() {
+        // Get rescuer name from current user data
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser != null) {
+            String displayName = currentUser.getDisplayName();
+            if (displayName != null && !displayName.isEmpty()) {
+                return displayName;
+            }
+        }
+        
+        // Fallback to user ID if no display name
+        return userId != null ? "Rescuer " + userId.substring(0, Math.min(8, userId.length())) : "Unknown Rescuer";
+    }
+    
+    private String getCurrentRescuerPhone() {
+        // Get rescuer phone from current user data
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser != null) {
+            String phoneNumber = currentUser.getPhoneNumber();
+            if (phoneNumber != null && !phoneNumber.isEmpty()) {
+                return phoneNumber;
+            }
+        }
+        
+        // Fallback to a default phone number or get from user profile
+        return "Not available";
+    }
+    
+    private String getCurrentRescuerTeam() {
+        // Get rescuer team from current user data
+        // This would typically come from the user's profile in Firestore
+        return "Emergency Response Team";
     }
 
     // Method to clear emergency notification
@@ -1585,6 +1471,251 @@ public class Rescuer_Dashboard extends AppCompatActivity {
             Log.d(TAG, "Dismissed emergency popup dialog when returning to dashboard");
         }
     }
+    
+    private void startEmergencySOSListener() {
+        if (userId == null) {
+            Log.w(TAG, "Cannot start emergency SOS listener - userId is null");
+            return;
+        }
+        
+        Log.d(TAG, "🚨 Starting emergency SOS listener for rescuer: " + userId);
+        
+        // Listen for emergency SOS notifications in real-time
+        db.collection("Sagip")
+          .document("users")
+          .collection("rescuer")
+          .document(userId)
+          .collection("emergencyNotifications")
+          .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+          .limit(1)
+          .addSnapshotListener((querySnapshot, error) -> {
+              if (error != null) {
+                  Log.e(TAG, "Error listening to emergency SOS notifications: " + error.getMessage(), error);
+                  return;
+              }
+              
+              if (querySnapshot != null && !querySnapshot.isEmpty()) {
+                  for (QueryDocumentSnapshot document : querySnapshot) {
+                      handleEmergencySOSNotification(document);
+                  }
+              }
+          });
+    }
+    
+    private void handleEmergencySOSNotification(QueryDocumentSnapshot document) {
+        try {
+            String type = document.getString("type");
+            String title = document.getString("title");
+            String message = document.getString("message");
+            String seniorName = document.getString("seniorName");
+            String seniorPhone = document.getString("seniorPhone");
+            String locationAddress = document.getString("locationAddress");
+            String requestId = document.getString("requestId");
+            Long timestamp = document.getLong("timestamp");
+            Boolean isRead = document.getBoolean("isRead");
+            
+            // Only process unread emergency SOS notifications
+            if ("EMERGENCY_SOS".equals(type) && (isRead == null || !isRead)) {
+                Log.d(TAG, "🚨 Received emergency SOS notification: " + seniorName + " (Request ID: " + requestId + ")");
+                
+                // Show emergency alert dialog with request ID
+                showEmergencySOSAlert(seniorName, seniorPhone, locationAddress, timestamp, requestId);
+                
+                // Mark notification as read
+                document.getReference().update("isRead", true);
+                
+                // Note: System notification is now handled by EmergencySOSBackgroundService
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error handling emergency SOS notification: " + e.getMessage(), e);
+        }
+    }
+    
+    private void showEmergencySOSAlert(String seniorName, String seniorPhone, String locationAddress, Long timestamp) {
+        showEmergencySOSAlert(seniorName, seniorPhone, locationAddress, timestamp, null);
+    }
+    
+    private void showEmergencySOSAlert(String seniorName, String seniorPhone, String locationAddress, Long timestamp, String requestId) {
+        // Check if activity is still valid before showing dialog
+        if (isFinishing() || isDestroyed()) {
+            Log.w(TAG, "Cannot show emergency alert dialog - activity is not in valid state");
+            return;
+        }
+        
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(getString(R.string.dialog_emergency_sos_alert));
+        
+        String timeStr = "Unknown time";
+        if (timestamp != null) {
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("MMM dd, yyyy HH:mm:ss", Locale.getDefault());
+            timeStr = sdf.format(new java.util.Date(timestamp));
+        }
+        
+        String message = "🚨 URGENT: Senior needs immediate help!\n\n" +
+                        "👤 Senior: " + seniorName + "\n" +
+                        "📞 Phone: " + seniorPhone + "\n" +
+                        "📍 Location: " + locationAddress + "\n" +
+                        "⏰ Time: " + timeStr + "\n\n" +
+                        "⚠️ Please respond immediately!";
+        
+        builder.setMessage(message);
+        builder.setIcon(android.R.drawable.ic_dialog_alert);
+        builder.setCancelable(false);
+        
+        // Respond to emergency button
+        builder.setPositiveButton(getString(R.string.button_respond_now), (dialog, which) -> {
+            Log.d(TAG, "🚨 NEW SYSTEM: RESPOND NOW clicked for emergency: " + requestId);
+            
+            // Clear all emergency notifications and dialogs
+            clearAllEmergencyNotifications();
+            Log.d(TAG, "Cleared all emergency notifications and dialogs");
+            
+            // Dismiss dialog immediately
+            dialog.dismiss();
+            
+            // Assign this rescuer to the emergency (this will launch Emergency Assignment Activity)
+            if (requestId != null) {
+                assignRescuerToEmergencyById(requestId);
+            } else {
+                assignRescuerToEmergency(seniorName, locationAddress, timestamp);
+            }
+            
+            // Show confirmation to rescuer
+            Toast.makeText(this, getString(R.string.toast_assigned_to_emergency), Toast.LENGTH_LONG).show();
+        });
+        
+        // Call senior button
+        builder.setNeutralButton(getString(R.string.button_call_senior), (dialog, which) -> {
+            // Open phone dialer
+            Intent callIntent = new Intent(Intent.ACTION_DIAL);
+            callIntent.setData(Uri.parse("tel:" + seniorPhone));
+            startActivity(callIntent);
+            dialog.dismiss();
+        });
+        
+        // Dismiss button
+        builder.setNegativeButton(getString(R.string.button_dismiss), (dialog, which) -> {
+            dialog.dismiss();
+        });
+        
+        AlertDialog dialog = builder.create();
+        dialog.show();
+        
+        // Store reference to current emergency dialog
+        currentEmergencyDialog = dialog;
+        
+        // Set white background for better readability
+        dialog.getWindow().getDecorView().setBackgroundColor(0xFFFFFFFF); // White background
+    }
+    
+    private void showEmergencySOSSystemNotification(String seniorName, String locationAddress, String notificationId) {
+        Log.d(TAG, "🔔 Creating emergency SOS system notification for: " + seniorName);
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        
+        // Create intent for when notification is tapped
+        Intent notificationIntent = new Intent(this, Rescuer_Dashboard.class);
+        notificationIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        notificationIntent.putExtra("emergency_sos_clicked", true);
+        notificationIntent.putExtra("senior_name", seniorName);
+        notificationIntent.putExtra("location_address", locationAddress);
+        
+        // Create pending intent
+        android.app.PendingIntent pendingIntent = android.app.PendingIntent.getActivity(
+                this, 
+                notificationId.hashCode(), 
+                notificationIntent, 
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT | android.app.PendingIntent.FLAG_IMMUTABLE
+        );
+        
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "emergency_channel")
+                .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                .setContentTitle(getString(R.string.text_emergency_sos_title, seniorName))
+                .setContentText(getString(R.string.text_emergency_sos_content, locationAddress))
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+                .setSound(getCustomAlarmSound())
+                .setVibrate(new long[]{0, 1000, 500, 1000, 500, 1000}) // Longer vibration pattern
+                .setLights(0xFFFF0000, 1000, 1000) // Red light blinking
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
+        
+        notificationManager.notify(notificationId.hashCode(), builder.build());
+        Log.d(TAG, "Emergency SOS system notification sent for: " + seniorName);
+    }
+    
+    
+    private void openNavigationToSenior(String seniorName, String locationAddress) {
+        try {
+            // For now, open general navigation to the area
+            // In a real implementation, you'd get the exact coordinates
+            String destination = "Angeles City, Pampanga"; // Default to Angeles City
+            
+            Uri uri = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=" + 
+                Uri.encode(destination) + "&travelmode=driving");
+            Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+            intent.setPackage("com.google.android.apps.maps");
+            
+            if (intent.resolveActivity(getPackageManager()) != null) {
+                startActivity(intent);
+                Toast.makeText(this, getString(R.string.toast_opening_navigation_to, seniorName), Toast.LENGTH_LONG).show();
+            } else {
+                // Fallback to web browser
+                intent = new Intent(Intent.ACTION_VIEW, uri);
+                startActivity(intent);
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error opening navigation to senior: " + e.getMessage(), e);
+            Toast.makeText(this, getString(R.string.toast_error_opening_navigation, e.getMessage()), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void startEmergencySOSBackgroundService() {
+        if (userType != null && userType.equals("rescuer")) {
+            Log.d(TAG, "Starting EmergencySOSBackgroundService for rescuer");
+            
+            Intent serviceIntent = new Intent(this, EmergencySOSBackgroundService.class);
+            serviceIntent.putExtra("action", "start_monitoring");
+            
+            // Start foreground service
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent);
+            } else {
+                startService(serviceIntent);
+            }
+        }
+    }
+    
+    
+    private Uri getCustomAlarmSound() {
+        try {
+            // Try to use custom alarm sound
+            Uri customSound = Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.emergency_alarm);
+            Log.d(TAG, "Custom alarm sound URI: " + customSound.toString());
+            Log.d(TAG, "Package name: " + getPackageName());
+            Log.d(TAG, "Resource ID: " + R.raw.emergency_alarm);
+            
+            // Test if the resource exists
+            try {
+                android.content.res.AssetFileDescriptor afd = getResources().openRawResourceFd(R.raw.emergency_alarm);
+                if (afd != null) {
+                    afd.close();
+                    Log.d(TAG, "✅ Custom alarm sound file exists and is accessible");
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "⚠️ Custom alarm sound file not accessible: " + e.getMessage());
+            }
+            
+            return customSound;
+        } catch (Exception e) {
+            // Fallback to system alarm sound if custom file doesn't exist
+            Log.w(TAG, "Custom alarm sound not found, using system alarm sound. Error: " + e.getMessage());
+            return RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+        }
+    }
+    
 
     private void openLocationInInternalMap(Double latitude, Double longitude, String address,
                                            String seniorName, String seniorPhone, String helpRequestId) {
@@ -1602,7 +1733,7 @@ public class Rescuer_Dashboard extends AppCompatActivity {
             startActivity(mapIntent);
             
             // Show toast to guide rescuer
-            Toast.makeText(this, "🗺️ Opening dedicated navigation to " + seniorName + "'s location", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, getString(R.string.text_opening_dedicated_navigation, seniorName), Toast.LENGTH_LONG).show();
         } else {
             Toast.makeText(this, getString(R.string.emergency_location_not_available), Toast.LENGTH_SHORT).show();
         }
@@ -1628,10 +1759,10 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                 startActivity(navigationIntent);
                 
                 // Show toast to guide rescuer
-                Toast.makeText(this, "🗺️ Opening Google Maps to " + seniorName + "'s location", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, getString(R.string.text_opening_google_maps_to, seniorName), Toast.LENGTH_LONG).show();
             } catch (Exception e) {
                 Log.e("Rescuer_Dashboard", "Error starting RescuerNavigationActivity", e);
-                Toast.makeText(this, "Error opening navigation: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(this, getString(R.string.text_error_opening_navigation_long, e.getMessage()), Toast.LENGTH_LONG).show();
             }
         } else {
             Log.e("Rescuer_Dashboard", "Invalid coordinates: " + latitude + ", " + longitude);
@@ -1687,12 +1818,12 @@ public class Rescuer_Dashboard extends AppCompatActivity {
 
     private void openExternalGoogleMapsNavigation(Double latitude, Double longitude, String destinationAddress, String seniorName, String seniorPhone, String helpRequestId) {
         if (latitude == null || longitude == null) {
-            Toast.makeText(this, "Destination location not available", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.text_destination_not_available), Toast.LENGTH_SHORT).show();
             return;
         }
 
         if (currentLat == 0.0 && currentLong == 0.0) {
-            Toast.makeText(this, "Your current location is not available yet. Please wait for location update.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, getString(R.string.text_current_location_wait_long), Toast.LENGTH_LONG).show();
             return;
         }
 
@@ -1726,7 +1857,7 @@ public class Rescuer_Dashboard extends AppCompatActivity {
 
     private void showEmergencyDetailsDialog(String seniorName, String seniorPhone, String destinationAddress, String helpRequestId) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("🚨 Emergency Response Details");
+        builder.setTitle(getString(R.string.text_emergency_response_details));
         builder.setMessage(String.format(
             "Senior: %s\n" +
             "Phone: %s\n" +
@@ -1778,7 +1909,7 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setAutoCancel(true)
                 .setContentIntent(pendingIntent) // Set the pending intent
-                .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM))
+                .setSound(getCustomAlarmSound())
                 .setVibrate(new long[]{0, 1000, 500, 1000})
                 .setLights(0xFFFF0000, 1000, 1000); // Red light blinking
 
@@ -1803,13 +1934,24 @@ public class Rescuer_Dashboard extends AppCompatActivity {
             NotificationChannel channel = new NotificationChannel(
                     "emergency_channel",
                     "Emergency Notifications",
-                    NotificationManager.IMPORTANCE_HIGH
+                    NotificationManager.IMPORTANCE_MAX
             );
             channel.setDescription("Emergency help requests from seniors");
             channel.enableVibration(true);
-            channel.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM), null);
+            channel.setVibrationPattern(new long[]{0, 1000, 500, 1000, 500, 1000});
+            
+            // Set custom alarm sound with proper audio attributes
+            Uri alarmSound = getCustomAlarmSound();
+            AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .setFlags(AudioAttributes.FLAG_AUDIBILITY_ENFORCED) // Ensure sound plays even in silent mode
+                    .build();
+            channel.setSound(alarmSound, audioAttributes);
             channel.enableLights(true);
             channel.setLightColor(0xFFFF0000); // Red light
+            channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+            channel.setShowBadge(true);
 
             NotificationManager notificationManager = getSystemService(NotificationManager.class);
             notificationManager.createNotificationChannel(channel);
@@ -1823,8 +1965,8 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         
         // Show confirmation dialog
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("🧪 Test Navigation");
-        builder.setMessage("Test navigation to Christ in You Heale Parish in Magalang, Pampanga?");
+        builder.setTitle(getString(R.string.text_test_navigation));
+        builder.setMessage(getString(R.string.text_test_navigation_message));
         builder.setIcon(android.R.drawable.ic_dialog_map);
         
         builder.setPositiveButton("🗺️ Start Test", (dialog, which) -> {
@@ -1850,15 +1992,15 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                         // Get hospital location from database instead of hardcoded coordinates
                         getHospitalLocationAndStartNavigation("Christ in You Heale Parish");
                     } else {
-                        Toast.makeText(this, "❌ Could not get current location. Please try again.", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, getString(R.string.text_could_not_get_location), Toast.LENGTH_SHORT).show();
                     }
                 })
                 .addOnFailureListener(e -> {
                     Log.e("Rescuer_Dashboard", "Error getting current location", e);
-                    Toast.makeText(this, "❌ Error getting location: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, getString(R.string.text_error_getting_location, e.getMessage()), Toast.LENGTH_SHORT).show();
                 });
         } else {
-            Toast.makeText(this, "❌ Location permission required for navigation", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.text_location_permission_required), Toast.LENGTH_SHORT).show();
         }
     }
     
@@ -1887,17 +2029,17 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                           "09123456789", 
                           "test123"
                       );
-                      Toast.makeText(this, "🗺️ Testing Navigation to " + hospitalName + " (Database Location)", Toast.LENGTH_LONG).show();
+                      Toast.makeText(this, getString(R.string.text_testing_navigation_to, hospitalName), Toast.LENGTH_LONG).show();
                   } else {
-                      Toast.makeText(this, "❌ Hospital location not found in database", Toast.LENGTH_SHORT).show();
+                      Toast.makeText(this, getString(R.string.text_hospital_location_not_found), Toast.LENGTH_SHORT).show();
                   }
               } else {
-                  Toast.makeText(this, "❌ Hospital '" + hospitalName + "' not found in database", Toast.LENGTH_SHORT).show();
+                  Toast.makeText(this, getString(R.string.text_hospital_not_found, hospitalName), Toast.LENGTH_SHORT).show();
               }
           })
           .addOnFailureListener(e -> {
               Log.e("Rescuer_Dashboard", "Error retrieving hospital location from database", e);
-              Toast.makeText(this, "❌ Error retrieving hospital location: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+              Toast.makeText(this, getString(R.string.text_error_retrieving_hospital, e.getMessage()), Toast.LENGTH_SHORT).show();
           });
     }
     
@@ -1923,7 +2065,7 @@ public class Rescuer_Dashboard extends AppCompatActivity {
     // =============== AUTHENTICATION & USER MANAGEMENT ===============
 
     private void checkAuthState() {
-        Log.d(TAG, "Checking authentication state...");
+        Log.d(TAG, "🔐 Checking authentication state...");
 
         // Always check Firebase Auth first to ensure user is still authenticated
         FirebaseUser currentUser = mAuth.getCurrentUser();
@@ -1933,20 +2075,17 @@ public class Rescuer_Dashboard extends AppCompatActivity {
             // User is authenticated in Firebase
             userId = currentUser.getUid();
             String phoneNumber = currentUser.getPhoneNumber();
+            
+            // Debug information
+            Log.d(TAG, "✅ User authenticated in Firebase");
+            Log.d(TAG, "User ID: " + userId);
+            Log.d(TAG, "Phone Number: " + phoneNumber);
+            Log.d(TAG, "Email: " + currentUser.getEmail());
 
-            // Check if we have stored user type, otherwise detect it
-            String storedUserType = sharedPreferences.getString(KEY_USER_TYPE, null);
-
-            if (storedUserType != null) {
-                Log.d(TAG, "Using stored user type: " + storedUserType);
-                this.userType = storedUserType;
-                // Check user status before loading data
-                checkUserStatusAndRedirect();
-            } else {
-                Log.d(TAG, "No stored user type, detecting from database...");
-                // User type not stored, need to detect it from database
-                detectAndLoadUserType(userId, phoneNumber);
-            }
+            // Always detect user type from database for consistency across devices
+            // This ensures the same behavior regardless of SharedPreferences state
+            Log.d(TAG, "Detecting user type from database for consistency...");
+            detectAndLoadUserType(userId, phoneNumber);
         } else {
             // No Firebase user, check if we have any stored credentials to clear
             boolean wasLoggedIn = sharedPreferences.getBoolean(KEY_IS_LOGGED_IN, false);
@@ -1980,15 +2119,29 @@ public class Rescuer_Dashboard extends AppCompatActivity {
 
         Log.d(TAG, "Checking user status for userId: " + userId);
 
+        // Add timeout handling
+        android.os.Handler timeoutHandler = new android.os.Handler(Looper.getMainLooper());
+        Runnable timeoutRunnable = () -> {
+            Log.w(TAG, "Database query timeout, showing retry dialog");
+            showRetryDialog("Request timed out. Please check your internet connection and try again.");
+        };
+        
+        // Set 10-second timeout
+        timeoutHandler.postDelayed(timeoutRunnable, 10000);
+
         db.collection("Sagip")
                 .document("users")
                 .collection("rescuer")
                 .document(userId)
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
+                    // Cancel timeout since we got a response
+                    timeoutHandler.removeCallbacks(timeoutRunnable);
+                    
                     if (documentSnapshot.exists()) {
                         String status = documentSnapshot.getString("status");
                         Log.d(TAG, "User status: " + status);
+                        Log.d(TAG, "Document data: " + documentSnapshot.getData());
                         
                         if ("new".equals(status)) {
                             Log.d(TAG, "User status is 'new', redirecting to registration");
@@ -1997,6 +2150,10 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                             startActivity(intent);
                             finish();
+                        } else if (status == null || status.isEmpty()) {
+                            Log.w(TAG, "User status is null or empty, treating as registered");
+                            // Status is null/empty, treat as registered and proceed
+                            loadUserData(userId);
                         } else {
                             Log.d(TAG, "User status is not 'new', proceeding to dashboard");
                             // User is registered, proceed with dashboard initialization
@@ -2012,13 +2169,31 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                     }
                 })
                 .addOnFailureListener(e -> {
+                    // Cancel timeout since we got an error
+                    timeoutHandler.removeCallbacks(timeoutRunnable);
                     Log.e(TAG, "Error checking user status: " + e.getMessage(), e);
-                    // On error, redirect to registration to be safe
+                    // Instead of immediately redirecting on error, show a retry dialog
+                    showRetryDialog("Unable to verify your registration status. Please check your internet connection and try again.");
+                });
+    }
+
+    private void showRetryDialog(String message) {
+        new AlertDialog.Builder(this)
+                .setTitle("Connection Error")
+                .setMessage(message)
+                .setPositiveButton("Retry", (dialog, which) -> {
+                    // Retry the status check
+                    checkUserStatusAndRedirect();
+                })
+                .setNegativeButton("Go to Registration", (dialog, which) -> {
+                    // User chooses to go to registration
                     Intent intent = new Intent(Rescuer_Dashboard.this, Rescuer_Registration.class);
                     intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                     startActivity(intent);
                     finish();
-                });
+                })
+                .setCancelable(false)
+                .show();
     }
 
     private void navigateToLogin() {
@@ -2080,28 +2255,24 @@ public class Rescuer_Dashboard extends AppCompatActivity {
     }
 
     private void detectAndLoadUserType(String uid, String phoneNumber) {
-        Log.d(TAG, "Detecting user type for UID: " + uid);
+        Log.d(TAG, "🔍 Starting user type detection...");
+        Log.d(TAG, "UID: " + uid);
+        Log.d(TAG, "Phone: " + phoneNumber);
+        Log.d(TAG, "Firebase User: " + (mAuth.getCurrentUser() != null ? "Available" : "Null"));
 
-        // Check for phone-based users first (seniors, user, rescuer, admin)
-        String[] phoneUserTypes = {"rescuer", "seniors"};
-
-        if (phoneNumber != null) {
-            Log.d(TAG, "Phone number available: " + phoneNumber + ", checking phone-based collections...");
-            checkPhoneBasedUserTypes(uid, phoneNumber, phoneUserTypes, 0);
-        } else {
-            Log.d(TAG, "No phone number, checking UID-based collections...");
-            // Check UID-based users (hospital, barangay, etc.)
-            String[] uidUserTypes = {"rescuer", "hospital", "barangay", "senior"};
-            checkUIDBasedUserTypes(uid, uidUserTypes, 0);
-        }
+        // Always check UID-based first for rescuer users to ensure consistency
+        // This prevents device-specific behavior based on phone number availability
+        // Use consistent order: rescuer first, then others
+        String[] uidUserTypes = {"rescuer", "hospital", "barangay", "seniors"};
+        Log.d(TAG, "Checking UID-based collections first for consistency...");
+        Log.d(TAG, "Collections to check: " + java.util.Arrays.toString(uidUserTypes));
+        checkUIDBasedUserTypes(uid, uidUserTypes, 0);
     }
 
     private void checkPhoneBasedUserTypes(String uid, String phoneNumber, String[] userTypes, int index) {
         if (index >= userTypes.length) {
-            Log.d(TAG, "Phone-based user not found, checking UID-based collections...");
-            // Not found in phone-based collections, try UID-based
-            String[] uidUserTypes = {"rescuer", "hospital", "barangay", "senior"};
-            checkUIDBasedUserTypes(uid, uidUserTypes, 0);
+            Log.d(TAG, "Phone-based user not found, all search methods exhausted");
+            showUserNotFoundError();
             return;
         }
 
@@ -2139,16 +2310,17 @@ public class Rescuer_Dashboard extends AppCompatActivity {
 
     private void checkUIDBasedUserTypes(String uid, String[] userTypes, int index) {
         if (index >= userTypes.length) {
-            Log.e(TAG, "User not found in any collection");
-            Toast.makeText(this, getString(R.string.user_profile_not_found), Toast.LENGTH_LONG).show();
-            clearStoredCredentials();
-            mAuth.signOut();
-            navigateToLogin();
+            Log.e(TAG, "User not found in any collection after checking all types");
+            Log.e(TAG, "UID: " + uid + ", Collections checked: " + java.util.Arrays.toString(userTypes));
+            
+            // Try alternative search methods before giving up
+            Log.d(TAG, "Trying alternative search methods...");
+            tryAlternativeUserSearch(uid);
             return;
         }
 
         String currentUserType = userTypes[index];
-        Log.d(TAG, "Checking UID-based user type: " + currentUserType);
+        Log.d(TAG, "Checking UID-based user type: " + currentUserType + " for UID: " + uid);
 
         db.collection("Sagip")
                 .document("users")
@@ -2157,7 +2329,8 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                 .get()
                 .addOnSuccessListener(document -> {
                     if (document.exists()) {
-                        Log.d(TAG, "User found in UID-based collection: " + currentUserType);
+                        Log.d(TAG, "✅ User found in UID-based collection: " + currentUserType);
+                        Log.d(TAG, "Document data: " + document.getData());
                         this.userType = currentUserType;
                         FirebaseUser currentUser = mAuth.getCurrentUser();
                         String phoneNumber = currentUser != null ? currentUser.getPhoneNumber() : null;
@@ -2166,6 +2339,7 @@ public class Rescuer_Dashboard extends AppCompatActivity {
 
                         // Emergency listener will be started in onResume()
                     } else {
+                        Log.d(TAG, "❌ User not found in collection: " + currentUserType);
                         // Try next user type
                         checkUIDBasedUserTypes(uid, userTypes, index + 1);
                     }
@@ -2178,6 +2352,9 @@ public class Rescuer_Dashboard extends AppCompatActivity {
     }
 
     private void loadUserDataFromDocument(DocumentSnapshot document) {
+        // Load cached name immediately for instant display
+        loadCachedDisplayName();
+
         // Check for different name fields based on user type
         String displayName = null;
 
@@ -2195,6 +2372,8 @@ public class Rescuer_Dashboard extends AppCompatActivity {
 
         if (displayName != null) {
             brgyName.setText(displayName);
+            // Cache the name for future instant loading
+            cacheDisplayName(displayName);
         } else {
             brgyName.setText(getString(R.string.user_name_not_available));
         }
@@ -2312,9 +2491,6 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         }
     }
     
-    /**
-     * Requests battery optimization exemption for better background service execution
-     */
     private void requestBatteryOptimizationExemption() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             try {
@@ -2336,9 +2512,6 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         }
     }
     
-    /**
-     * Checks if a service is currently running
-     */
     private boolean isServiceRunning(Class<?> serviceClass) {
         android.app.ActivityManager manager = (android.app.ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
         for (android.app.ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
@@ -2461,6 +2634,36 @@ public class Rescuer_Dashboard extends AppCompatActivity {
             });
     }
 
+    private void tryAlternativeUserSearch(String uid) {
+        Log.d(TAG, "Trying alternative user search for UID: " + uid);
+        
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) {
+            Log.e(TAG, "No Firebase user available for alternative search");
+            showUserNotFoundError();
+            return;
+        }
+        
+        String phoneNumber = currentUser.getPhoneNumber();
+        if (phoneNumber != null) {
+            Log.d(TAG, "Trying phone-based search with number: " + phoneNumber);
+            // Try phone-based search as fallback
+            String[] phoneUserTypes = {"rescuer", "seniors", "barangay", "hospital"};
+            checkPhoneBasedUserTypes(uid, phoneNumber, phoneUserTypes, 0);
+        } else {
+            Log.e(TAG, "No phone number available for alternative search");
+            showUserNotFoundError();
+        }
+    }
+    
+    private void showUserNotFoundError() {
+        Log.e(TAG, "User not found after all search methods");
+        Toast.makeText(this, getString(R.string.user_profile_not_found), Toast.LENGTH_LONG).show();
+        clearStoredCredentials();
+        mAuth.signOut();
+        navigateToLogin();
+    }
+
     private void clearStoredCredentials() {
         Log.d(TAG, "Clearing stored credentials...");
         SharedPreferences.Editor editor = sharedPreferences.edit();
@@ -2469,6 +2672,7 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         editor.remove(KEY_USER_TYPE);
         editor.remove(KEY_USER_PHONE);
         editor.apply();
+        Log.d(TAG, "All stored credentials cleared");
     }
 
     // =============== LOCATION SERVICES ===============
@@ -2763,15 +2967,15 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                         // Get hospital location from database instead of hardcoded coordinates
                         getHospitalLocationAndStartNavigation("Christ in You Heale Parish");
                     } else {
-                        Toast.makeText(this, "❌ Could not get current location. Please try again.", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, getString(R.string.text_could_not_get_location), Toast.LENGTH_SHORT).show();
                     }
                 })
                 .addOnFailureListener(e -> {
                     Log.e("Rescuer_Dashboard", "Error getting current location", e);
-                    Toast.makeText(this, "❌ Error getting location: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, getString(R.string.text_error_getting_location, e.getMessage()), Toast.LENGTH_SHORT).show();
                 });
         } else {
-            Toast.makeText(this, "❌ Location permission required for navigation", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.text_location_permission_required), Toast.LENGTH_SHORT).show();
         }
     }
     
@@ -2812,266 +3016,415 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                         openSOSNavigation();
                         Toast.makeText(this, "🚨 SOS Navigation from your current location", Toast.LENGTH_LONG).show();
                     } else {
-                        Toast.makeText(this, "❌ Could not get current location. Please try again.", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, getString(R.string.text_could_not_get_location), Toast.LENGTH_SHORT).show();
                     }
                 })
                 .addOnFailureListener(e -> {
                     Log.e("Rescuer_Dashboard", "Error getting current location", e);
-                    Toast.makeText(this, "❌ Error getting location: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, getString(R.string.text_error_getting_location, e.getMessage()), Toast.LENGTH_SHORT).show();
                 });
         } else {
-            Toast.makeText(this, "❌ Location permission required for navigation", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.text_location_permission_required), Toast.LENGTH_SHORT).show();
         }
     }
     
-    // Loading dialog methods
-    private void showLoadingDialog(String message) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("🤖 AI Processing");
-        builder.setMessage(message);
-        builder.setCancelable(false);
-        
-        // Add progress bar
-        ProgressBar progressBar = new ProgressBar(this);
-        progressBar.setIndeterminate(true);
-        builder.setView(progressBar);
-        
-        loadingDialog = builder.create();
-        loadingDialog.show();
-    }
-    
-    private void hideLoadingDialog() {
-        if (loadingDialog != null && loadingDialog.isShowing()) {
-            loadingDialog.dismiss();
-            loadingDialog = null;
+    private void loadCachedDisplayName() {
+        String cachedName = sharedPreferences.getString(KEY_CACHED_DISPLAY_NAME, null);
+        if (cachedName != null && !cachedName.isEmpty()) {
+            brgyName.setText(cachedName);
+            Log.d(TAG, "Loaded cached display name: " + cachedName);
+        } else {
+            brgyName.setText("Loading...");
+            Log.d(TAG, "No cached display name found, showing loading...");
         }
     }
+
+    private void cacheDisplayName(String displayName) {
+        sharedPreferences.edit()
+                .putString(KEY_CACHED_DISPLAY_NAME, displayName)
+                .apply();
+        Log.d(TAG, "Cached display name: " + displayName);
+    }
     
-    private void showNoHospitalFoundDialog(String helpRequestId, String errorMessage) {
+    // Multiple Emergency Handling Methods
+    private void showMultipleEmergenciesAlert(List<EmergencyQueueManager.EmergencyRequest> emergencies) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("🏥 No Hospital Found");
-        builder.setMessage("❌ " + (errorMessage != null ? errorMessage : "No suitable hospital found within 15km radius") + 
-                          "\n\nPlease try one of these options:");
-        builder.setIcon(android.R.drawable.ic_dialog_alert);
-        
-        // Option 1: Expand search radius
-        builder.setPositiveButton("🔍 EXPAND SEARCH (30km)", (dialog, which) -> {
-            expandHospitalSearch(helpRequestId, 30.0);
-        });
-        
-        // Option 2: Manual selection
-        builder.setNeutralButton("👤 SELECT MANUALLY", (dialog, which) -> {
-            openHospitalSelection(helpRequestId);
-        });
-        
-        // Option 3: Navigate to emergency location first
-        builder.setNegativeButton("🚑 GO TO EMERGENCY", (dialog, which) -> {
-            // Navigate to emergency location first, then find nearest hospital
-            navigateToEmergencyFirst(helpRequestId);
-        });
-        
-        AlertDialog dialog = builder.create();
-        dialog.show();
-    }
-    
-    private void expandHospitalSearch(String helpRequestId, double radiusKm) {
-        // Show loading dialog
-        showLoadingDialog("Searching hospitals within " + radiusKm + "km...");
-        
-        // Get emergency details and search with expanded radius
-        db.collection("Sagip")
-          .document("helpRequests")
-          .collection("activeRequests")
-          .document(helpRequestId)
-          .get()
-          .addOnSuccessListener(documentSnapshot -> {
-              if (documentSnapshot.exists()) {
-                  double seniorLat = documentSnapshot.getDouble("latitude");
-                  double seniorLon = documentSnapshot.getDouble("longitude");
-                  String emergencyType = documentSnapshot.getString("emergencyType");
-                  String severity = documentSnapshot.getString("severity");
-                  
-                  // Create emergency object for AI
-                  Emergency emergency = new Emergency();
-                  emergency.helpRequestId = helpRequestId;
-                  emergency.emergencyType = emergencyType != null ? emergencyType : "general";
-                  emergency.severity = severity != null ? severity : "high";
-                  emergency.location = new com.google.firebase.firestore.GeoPoint(seniorLat, seniorLon);
-                  emergency.timestamp = System.currentTimeMillis();
-                  
-                  // Search with expanded radius
-                  searchHospitalsWithRadius(emergency, radiusKm, helpRequestId);
-              } else {
-                  hideLoadingDialog();
-                  Toast.makeText(this, "Emergency details not found", Toast.LENGTH_SHORT).show();
-              }
-          })
-          .addOnFailureListener(e -> {
-              hideLoadingDialog();
-              Toast.makeText(this, "Error loading emergency details", Toast.LENGTH_SHORT).show();
-          });
-    }
-    
-    private void searchHospitalsWithRadius(Emergency emergency, double radiusKm, String helpRequestId) {
-        // Query hospitals with expanded radius
-        db.collection("Sagip")
-          .document("users")
-          .collection("hospital")
-          .get()
-          .addOnSuccessListener(queryDocumentSnapshots -> {
-              List<Hospital> hospitals = new ArrayList<>();
-              
-              for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
-                  // Create hospital object manually to handle field name differences
-                  Hospital hospital = new Hospital();
-                  hospital.hospitalId = document.getId();
-                  
-                  // Map field names from your database structure
-                  hospital.name = document.getString("hospitalName");
-                  if (hospital.name == null) {
-                      hospital.name = document.getString("name");
-                  }
-                  
-                  // Handle location field - try different possible field names
-                  com.google.firebase.firestore.GeoPoint location = document.getGeoPoint("currentLocation");
-                  if (location == null) {
-                      location = document.getGeoPoint("location");
-                  }
-                  hospital.location = location;
-                  
-                  // Set other fields
-                  hospital.address = document.getString("hospitalAddress");
-                  if (hospital.address == null) {
-                      hospital.address = document.getString("address");
-                  }
-                  
-                  hospital.phone = document.getString("mobileNumber");
-                  if (hospital.phone == null) {
-                      hospital.phone = document.getString("phone");
-                  }
-                  
-                  // Set operational status - default to true if not specified
-                  Boolean isOperational = document.getBoolean("isOperational");
-                  hospital.isOperational = isOperational != null ? isOperational : true;
-                  
-                  // Only process if we have required fields
-                  if (hospital.name != null && hospital.location != null) {
-                      // Check if within expanded radius
-                      double distance = calculateDistance(
-                          emergency.location.getLatitude(), emergency.location.getLongitude(),
-                          hospital.location.getLatitude(), hospital.location.getLongitude()
-                      );
-                      
-                      if (distance <= radiusKm) {
-                          hospital.distanceFromSenior = distance;
-                          hospitals.add(hospital);
-                      }
-                  }
-              }
-              
-              hideLoadingDialog();
-              
-              if (hospitals.isEmpty()) {
-                  Toast.makeText(this, "No hospitals found within " + radiusKm + "km", Toast.LENGTH_LONG).show();
-                  openHospitalSelection(helpRequestId);
-              } else {
-                  // Show found hospitals for manual selection
-                  showHospitalSelectionDialog(hospitals, helpRequestId);
-              }
-          })
-          .addOnFailureListener(e -> {
-              hideLoadingDialog();
-              Toast.makeText(this, "Error searching hospitals", Toast.LENGTH_SHORT).show();
-          });
-    }
-    
-    private void showHospitalSelectionDialog(List<Hospital> hospitals, String helpRequestId) {
-        // Sort hospitals by distance
-        hospitals.sort((h1, h2) -> Double.compare(h1.distanceFromSenior, h2.distanceFromSenior));
+        builder.setTitle("🚨 MULTIPLE EMERGENCIES DETECTED");
         
         StringBuilder message = new StringBuilder();
-        message.append("🏥 Found ").append(hospitals.size()).append(" hospitals:\n\n");
+        message.append("🚨 ").append(emergencies.size()).append(" active emergencies detected!\n\n");
+        message.append("📋 Emergency Queue (FIFO):\n\n");
         
-        for (int i = 0; i < Math.min(5, hospitals.size()); i++) {
-            Hospital hospital = hospitals.get(i);
-            message.append("• ").append(hospital.name)
-                   .append(" (").append(String.format("%.1f km", hospital.distanceFromSenior)).append(")\n");
+        for (int i = 0; i < emergencies.size(); i++) {
+            EmergencyQueueManager.EmergencyRequest emergency = emergencies.get(i);
+            String status = emergency.status.equals("pending") ? "⏳ PENDING" : "👤 ASSIGNED";
+            String timeStr = new java.text.SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+                    .format(new java.util.Date(emergency.timestamp));
+            
+            message.append((i + 1)).append(". ").append(emergency.seniorName)
+                   .append(" - ").append(status).append(" (⏰ ").append(timeStr).append(")\n");
         }
         
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("🏥 Select Hospital");
-        builder.setMessage(message.toString());
+        message.append("\n⚠️ Please respond to the first emergency in queue!");
         
-        // Show first 3 hospitals as quick options
-        for (int i = 0; i < Math.min(3, hospitals.size()); i++) {
-            final Hospital hospital = hospitals.get(i);
-            builder.setPositiveButton("🏥 " + hospital.name, (dialog, which) -> {
-                navigateToSelectedHospital(hospital, helpRequestId);
+        builder.setMessage(message.toString());
+        builder.setIcon(android.R.drawable.ic_dialog_alert);
+        
+        // View all emergencies button
+        builder.setPositiveButton("📋 VIEW ALL", (dialog1, which) -> {
+            showEmergencyListDialog(emergencies);
+        });
+        
+        // Handle first in queue button
+        if (!emergencies.isEmpty()) {
+            EmergencyQueueManager.EmergencyRequest firstInQueue = emergencies.get(0);
+            builder.setNeutralButton("🚨 HANDLE #1", (dialog1, which) -> {
+                showEmergencySOSAlert(
+                    firstInQueue.seniorName,
+                    firstInQueue.seniorPhone,
+                    firstInQueue.locationAddress,
+                    firstInQueue.timestamp
+                );
             });
         }
         
-        // Show all hospitals option
-        builder.setNeutralButton("📋 VIEW ALL", (dialog, which) -> {
-            openHospitalSelection(helpRequestId);
+        // Cancel button
+        builder.setNegativeButton("CANCEL", (dialog1, which) -> {
+            dialog1.dismiss();
         });
-        
-        builder.setNegativeButton("❌ Cancel", (dialog, which) -> dialog.dismiss());
         
         AlertDialog dialog = builder.create();
         dialog.show();
     }
     
-    private void navigateToEmergencyFirst(String helpRequestId) {
-        // Get emergency location and navigate there first
-        db.collection("Sagip")
-          .document("helpRequests")
-          .collection("activeRequests")
-          .document(helpRequestId)
-          .get()
-          .addOnSuccessListener(documentSnapshot -> {
-              if (documentSnapshot.exists()) {
-                  double seniorLat = documentSnapshot.getDouble("latitude");
-                  double seniorLon = documentSnapshot.getDouble("longitude");
-                  String locationAddress = documentSnapshot.getString("locationAddress");
-                  String seniorName = documentSnapshot.getString("seniorName");
-                  String seniorPhone = documentSnapshot.getString("seniorPhone");
-                  
-                  // Navigate to emergency location
-                  openGoogleNavigation(seniorLat, seniorLon, locationAddress, seniorName, seniorPhone, helpRequestId);
-                  
-                  Toast.makeText(this, "🚑 Navigating to emergency location. Find nearest hospital when you arrive.", Toast.LENGTH_LONG).show();
-              }
-          });
+    private void showEmergencyListDialog(List<EmergencyQueueManager.EmergencyRequest> emergencies) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("📋 Emergency Queue (" + emergencies.size() + " active)");
+        
+        // Create list items
+        String[] items = new String[emergencies.size()];
+        for (int i = 0; i < emergencies.size(); i++) {
+            EmergencyQueueManager.EmergencyRequest emergency = emergencies.get(i);
+            String status = emergency.status.equals("pending") ? "PENDING" : "ASSIGNED";
+            String timeStr = new java.text.SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+                    .format(new java.util.Date(emergency.timestamp));
+            items[i] = (i + 1) + ". " + emergency.seniorName + " - " + status + " (⏰ " + timeStr + ")";
+        }
+        
+        builder.setItems(items, (dialog, which) -> {
+            EmergencyQueueManager.EmergencyRequest selected = emergencies.get(which);
+            showEmergencySOSAlert(
+                selected.seniorName,
+                selected.seniorPhone,
+                selected.locationAddress,
+                selected.timestamp
+            );
+        });
+        
+        builder.setNegativeButton("CLOSE", (dialog, which) -> dialog.dismiss());
+        
+        AlertDialog dialog = builder.create();
+        dialog.show();
     }
     
-    private void navigateToSelectedHospital(Hospital hospital, String helpRequestId) {
-        // Update help request with selected hospital
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("selectedHospitalId", hospital.hospitalId);
-        updates.put("selectedHospitalName", hospital.name);
-        updates.put("aiRecommendation", false);
-        updates.put("selectedAt", System.currentTimeMillis());
+    private void assignRescuerToEmergency(String seniorName, String locationAddress, Long timestamp) {
+        // Get current rescuer ID
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) {
+            Log.e(TAG, "No authenticated user found");
+            return;
+        }
         
-        db.collection("Sagip")
-          .document("helpRequests")
-          .collection("activeRequests")
-          .document(helpRequestId)
-          .update(updates)
-          .addOnSuccessListener(aVoid -> {
-              // Navigate to hospital
-              openGoogleNavigation(
-                  hospital.location.getLatitude(), 
-                  hospital.location.getLongitude(),
-                  hospital.address,
-                  "Selected: " + hospital.name,
-                  hospital.phone,
-                  helpRequestId
-              );
-              
-              Toast.makeText(this, "Navigating to " + hospital.name, Toast.LENGTH_SHORT).show();
-          })
-          .addOnFailureListener(e -> {
-              Toast.makeText(this, "Failed to save hospital selection", Toast.LENGTH_SHORT).show();
-          });
+        String rescuerId = currentUser.getUid();
+        Log.d(TAG, "🔍 Looking for emergency to assign rescuer: " + rescuerId);
+        Log.d(TAG, "🔍 Searching for: " + seniorName + " at " + locationAddress + " at " + timestamp);
+        
+        // Find the emergency request by senior name and timestamp
+        List<EmergencyQueueManager.EmergencyRequest> activeEmergencies = 
+                EmergencyQueueManager.getInstance(this).getActiveEmergencies();
+        
+        Log.d(TAG, "🔍 Found " + activeEmergencies.size() + " active emergencies");
+        
+        boolean found = false;
+        for (EmergencyQueueManager.EmergencyRequest emergency : activeEmergencies) {
+            Log.d(TAG, "🔍 Checking emergency: " + emergency.seniorName + " at " + emergency.locationAddress + " at " + emergency.timestamp);
+            Log.d(TAG, "🔍 Name match: " + emergency.seniorName.equals(seniorName));
+            Log.d(TAG, "🔍 Location match: " + emergency.locationAddress.equals(locationAddress));
+            Log.d(TAG, "🔍 Time diff: " + Math.abs(emergency.timestamp - timestamp) + " (threshold: 60000)");
+            
+            if (emergency.seniorName.equals(seniorName) && 
+                emergency.locationAddress.equals(locationAddress) &&
+                Math.abs(emergency.timestamp - timestamp) < 60000) { // Within 1 minute
+                
+                // Assign this rescuer to the emergency
+                EmergencyQueueManager.getInstance(this).assignRescuer(emergency.requestId, rescuerId);
+                
+                // Show popup confirmation to rescuer
+                showRescuerAssignmentPopup(seniorName, locationAddress, rescuerId, emergency.requestId);
+                
+                Log.d(TAG, "👤 Rescuer " + rescuerId + " assigned to emergency: " + emergency.requestId);
+                found = true;
+                break;
+            }
+        }
+        
+        if (!found) {
+            Log.w(TAG, "⚠️ No matching emergency found for assignment");
+            Toast.makeText(this, "⚠️ Emergency not found in queue", Toast.LENGTH_SHORT).show();
+        }
     }
+    
+    private void assignRescuerToEmergencyById(String requestId) {
+        // Get current rescuer ID
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) {
+            Log.e(TAG, "No authenticated user found");
+            return;
+        }
+        
+        String rescuerId = currentUser.getUid();
+        Log.d(TAG, "🔍 Assigning rescuer " + rescuerId + " to emergency: " + requestId);
+        
+        // First try to get the emergency from local EmergencyQueueManager
+        EmergencyQueueManager.EmergencyRequest emergency = 
+                EmergencyQueueManager.getInstance(this).getEmergencyById(requestId);
+        
+        if (emergency != null) {
+            // Emergency found in local queue, assign rescuer
+            EmergencyQueueManager.getInstance(this).assignRescuer(requestId, rescuerId);
+            
+            // Show popup confirmation to rescuer
+            showRescuerAssignmentPopup(emergency.seniorName, emergency.locationAddress, rescuerId, requestId);
+            
+            Log.d(TAG, "👤 Rescuer " + rescuerId + " assigned to emergency: " + requestId);
+        } else {
+            // Emergency not found in local queue, try to load from database
+            Log.d(TAG, "⚠️ Emergency not found in local queue, loading from database...");
+            loadEmergencyFromDatabaseAndAssign(requestId, rescuerId);
+        }
+    }
+    
+    private void loadEmergencyFromDatabaseAndAssign(String requestId, String rescuerId) {
+        // Load emergency from database using EmergencyQueueManager
+        EmergencyQueueManager.getInstance(this).loadEmergencyByIdFromDatabase(requestId, new EmergencyQueueManager.EmergencyLoadCallback() {
+            @Override
+            public void onEmergencyLoaded(EmergencyQueueManager.EmergencyRequest emergency) {
+                if (emergency != null) {
+                    // Assign rescuer to emergency
+                    EmergencyQueueManager.getInstance(Rescuer_Dashboard.this).assignRescuer(requestId, rescuerId);
+                    
+                    // Show popup confirmation to rescuer
+                    showRescuerAssignmentPopup(emergency.seniorName, emergency.locationAddress, rescuerId, requestId);
+                    
+                    Log.d(TAG, "👤 Rescuer " + rescuerId + " assigned to emergency from database: " + requestId);
+                } else {
+                    Log.w(TAG, "⚠️ Emergency not found in database with ID: " + requestId);
+                    Toast.makeText(Rescuer_Dashboard.this, "⚠️ Emergency not found in database", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+    }
+    
+    private void showRescuerAssignmentPopup(String seniorName, String locationAddress, String rescuerId, String requestId) {
+        Log.d(TAG, "🎉 showRescuerAssignmentPopup called for: " + seniorName + " at " + locationAddress + " (requestId: " + requestId + ")");
+        
+        // Check if activity is still valid before showing dialog
+        if (isFinishing() || isDestroyed()) {
+            Log.w(TAG, "Cannot show assignment popup - activity is not in valid state");
+            return;
+        }
+        
+        // Launch the new Emergency Assignment Activity
+        launchEmergencyAssignmentActivity(seniorName, locationAddress, rescuerId, requestId);
+    }
+    
+    private void launchEmergencyAssignmentActivity(String seniorName, String locationAddress, String rescuerId, String requestId) {
+        Intent intent = new Intent(this, EmergencyAssignmentActivity.class);
+        intent.putExtra("senior_name", seniorName);
+        intent.putExtra("location_address", locationAddress);
+        intent.putExtra("rescuer_id", rescuerId);
+        intent.putExtra("assignment_time", System.currentTimeMillis());
+        intent.putExtra("request_id", requestId);
+        
+        if (requestId != null) {
+            // Get emergency data to extract senior's location and phone
+            EmergencyQueueManager.EmergencyRequest emergency = EmergencyQueueManager.getInstance(this).getEmergencyById(requestId);
+            
+            if (emergency != null) {
+                // Debug: Check emergency data
+                Log.d(TAG, "🔍 Emergency data debug:");
+                Log.d(TAG, "  - requestId: " + emergency.requestId);
+                Log.d(TAG, "  - seniorName: " + emergency.seniorName);
+                Log.d(TAG, "  - seniorPhone: " + emergency.seniorPhone);
+                Log.d(TAG, "  - locationAddress: " + emergency.locationAddress);
+                
+                // Use phone number from emergency data first (same as senior dashboard)
+                String emergencyPhone = emergency.seniorPhone != null ? emergency.seniorPhone : "Not available";
+                intent.putExtra("senior_phone", emergencyPhone);
+                Log.d(TAG, "📞 Using phone from emergency data: " + emergencyPhone);
+                
+                // Get senior's coordinates from database
+                getSeniorLocationAndLaunch(intent, emergency, rescuerId);
+            } else {
+                // Fallback if emergency not found in local cache
+                intent.putExtra("senior_phone", "Not available");
+        intent.putExtra("senior_lat", 0.0);
+        intent.putExtra("senior_lng", 0.0);
+        
+        // Generate emergency ID for tracking
+        String emergencyId = "EMERGENCY_" + System.currentTimeMillis() + "_" + rescuerId;
+        intent.putExtra("emergency_id", emergencyId);
+                
+                // Debug: Check intent before launching
+                String phoneInIntent = intent.getStringExtra("senior_phone");
+                Log.d(TAG, "🔍 Phone in intent before launch (fallback): " + phoneInIntent);
+        
+        startActivity(intent);
+                Log.d(TAG, "🚀 Launched EmergencyAssignmentActivity for: " + seniorName + " (fallback mode)");
+            }
+        } else {
+            // Old system - no requestId available
+            intent.putExtra("senior_phone", "Not available");
+            intent.putExtra("senior_lat", 0.0);
+            intent.putExtra("senior_lng", 0.0);
+            
+            // Generate emergency ID for tracking
+            String emergencyId = "EMERGENCY_" + System.currentTimeMillis() + "_" + rescuerId;
+            intent.putExtra("emergency_id", emergencyId);
+            
+            // Debug: Check intent before launching
+            String phoneInIntent = intent.getStringExtra("senior_phone");
+            Log.d(TAG, "🔍 Phone in intent before launch (old system): " + phoneInIntent);
+            
+            startActivity(intent);
+            Log.d(TAG, "🚀 Launched EmergencyAssignmentActivity for: " + seniorName + " (old system)");
+        }
+    }
+    
+    private void getSeniorLocationAndLaunch(Intent intent, EmergencyQueueManager.EmergencyRequest emergency, String rescuerId) {
+        // Get senior's current location and phone number from database
+        String seniorUserId = extractUserIdFromRequestId(emergency.requestId);
+        if (seniorUserId != null) {
+            db.collection("Sagip/users/seniors")
+                    .document(seniorUserId)
+                    .get()
+                    .addOnSuccessListener(documentSnapshot -> {
+                        if (documentSnapshot.exists()) {
+                            // Get location coordinates
+                            Double lat = documentSnapshot.getDouble("latitude");
+                            Double lng = documentSnapshot.getDouble("longitude");
+                            
+                            if (lat != null && lng != null) {
+                                intent.putExtra("senior_lat", lat);
+                                intent.putExtra("senior_lng", lng);
+                                Log.d(TAG, "📍 Got senior location from database: " + lat + ", " + lng);
+                            } else {
+                                // Fallback: Use a default location (you can change this to your city's coordinates)
+                                double defaultLat = 14.5995; // Manila coordinates as fallback
+                                double defaultLng = 120.9842;
+                                intent.putExtra("senior_lat", defaultLat);
+                                intent.putExtra("senior_lng", defaultLng);
+                                Log.w(TAG, "⚠️ Senior location not available in database, using fallback: " + defaultLat + ", " + defaultLng);
+                            }
+                            
+                            // Phone number already set from emergency data, just log database phone for comparison
+                            String databasePhone = documentSnapshot.getString("mobileNumber");
+                            Log.d(TAG, "📞 Database phone (for comparison): " + databasePhone);
+                            Log.d(TAG, "📞 Using emergency data phone (already set)");
+                        } else {
+                            // Fallback: Use a default location
+                            double defaultLat = 14.5995; // Manila coordinates as fallback
+                            double defaultLng = 120.9842;
+                            intent.putExtra("senior_lat", defaultLat);
+                            intent.putExtra("senior_lng", defaultLng);
+                            Log.w(TAG, "⚠️ Senior document not found, using fallback location: " + defaultLat + ", " + defaultLng);
+                        }
+                        
+                        // Generate emergency ID for tracking
+                        String emergencyId = "EMERGENCY_" + System.currentTimeMillis() + "_" + rescuerId;
+                        intent.putExtra("emergency_id", emergencyId);
+                        
+                        // Debug: Check intent before launching
+                        String phoneInIntent = intent.getStringExtra("senior_phone");
+                        Log.d(TAG, "🔍 Phone in intent before launch: " + phoneInIntent);
+                        
+                        startActivity(intent);
+                        Log.d(TAG, "🚀 Launched EmergencyAssignmentActivity for: " + emergency.seniorName + " with location and phone");
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "❌ Failed to get senior data: " + e.getMessage());
+                        // Fallback: Use a default location
+                        double defaultLat = 14.5995; // Manila coordinates as fallback
+                        double defaultLng = 120.9842;
+                        intent.putExtra("senior_lat", defaultLat);
+                        intent.putExtra("senior_lng", defaultLng);
+                        Log.w(TAG, "⚠️ Database query failed, using fallback location: " + defaultLat + ", " + defaultLng);
+                        
+                        String emergencyId = "EMERGENCY_" + System.currentTimeMillis() + "_" + rescuerId;
+                        intent.putExtra("emergency_id", emergencyId);
+                        
+                        // Debug: Check intent before launching
+                        String phoneInIntent = intent.getStringExtra("senior_phone");
+                        Log.d(TAG, "🔍 Phone in intent before launch (failed): " + phoneInIntent);
+                        
+                        startActivity(intent);
+                        Log.d(TAG, "🚀 Launched EmergencyAssignmentActivity for: " + emergency.seniorName + " (data failed)");
+                    });
+        } else {
+            // No senior user ID, use fallback
+            double defaultLat = 14.5995; // Manila coordinates as fallback
+            double defaultLng = 120.9842;
+            intent.putExtra("senior_lat", defaultLat);
+            intent.putExtra("senior_lng", defaultLng);
+            Log.w(TAG, "⚠️ No senior user ID, using fallback location: " + defaultLat + ", " + defaultLng);
+            
+            String emergencyId = "EMERGENCY_" + System.currentTimeMillis() + "_" + rescuerId;
+            intent.putExtra("emergency_id", emergencyId);
+            
+            // Debug: Check intent before launching
+            String phoneInIntent = intent.getStringExtra("senior_phone");
+            Log.d(TAG, "🔍 Phone in intent before launch (no user ID): " + phoneInIntent);
+            
+            startActivity(intent);
+            Log.d(TAG, "🚀 Launched EmergencyAssignmentActivity for: " + emergency.seniorName + " (no user ID)");
+        }
+    }
+    
+    private String extractUserIdFromRequestId(String requestId) {
+        // Request ID format: "SOS_timestamp_userId"
+        String[] parts = requestId.split("_");
+        if (parts.length >= 3) {
+            return parts[2];
+        }
+        return null;
+    }
+    
+    private void showAssignmentPopupForOldSystem(String helpRequestId) {
+        // Get emergency details from the help request
+        db.collection("Sagip")
+                .document("helpRequests")
+                .collection("activeRequests")
+                .document(helpRequestId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String seniorName = documentSnapshot.getString("seniorName");
+                        String locationAddress = documentSnapshot.getString("locationAddress");
+                        String rescuerId = mAuth.getCurrentUser().getUid();
+                        
+                        if (seniorName != null && locationAddress != null) {
+                            // Show the assignment popup
+                            showRescuerAssignmentPopup(seniorName, locationAddress, rescuerId, null);
+                        } else {
+                            Log.w(TAG, "⚠️ Missing senior name or location for popup");
+                        }
+                    } else {
+                        Log.w(TAG, "⚠️ Help request document not found: " + helpRequestId);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Error getting help request details: " + e.getMessage());
+                });
+    }
+    
 }

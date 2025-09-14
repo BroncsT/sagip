@@ -5,6 +5,7 @@ import android.content.SharedPreferences;
 import android.util.Log;
 
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.messaging.FirebaseMessaging;
 
 import java.util.HashMap;
@@ -76,7 +77,7 @@ public class FCMTokenManager {
                 .document("users")
                 .collection(userType)
                 .document(userId)
-                .update(tokenData)
+                .set(tokenData, SetOptions.merge())
                 .addOnSuccessListener(aVoid -> {
                     Log.d(TAG, "✅ FCM token updated successfully in database for user: " + userId);
                 })

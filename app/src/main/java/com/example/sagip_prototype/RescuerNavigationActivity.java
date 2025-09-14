@@ -68,7 +68,7 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-public class RescuerNavigationActivity extends AppCompatActivity implements OnMapReadyCallback {
+public class RescuerNavigationActivity extends BaseRescuerActivity implements OnMapReadyCallback {
 
     private static final String TAG = "RescuerNavigation";
     private GoogleMap googleMap;
@@ -161,7 +161,6 @@ public class RescuerNavigationActivity extends AppCompatActivity implements OnMa
 
         // Initialize Firebase
         db = FirebaseFirestore.getInstance();
-        mAuth = FirebaseAuth.getInstance();
 
         // Initialize emergency notification system
         initializeEmergencyNotificationSystem();

@@ -8,83 +8,321 @@
     android:background="#F5F5F5"
     tools:context=".Barangay_Dashboard">
 
-    <TextView
-        android:id="@+id/greetings"
-        android:layout_width="70dp"
-        android:layout_height="30dp"
-        android:text="Hello, "
-        android:textAlignment="center"
-        android:textSize="25sp"
-        android:textStyle="bold"
-        app:layout_constraintBottom_toTopOf="@id/guidelineHorizontal2"
-        app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
-        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1" />
-
-    <TextView
-        android:id="@+id/barangayStaffName"
-        android:layout_width="wrap_content"
-        android:layout_height="30dp"
-        android:hint="Barangay"
-        android:textAlignment="center"
-        android:textSize="25sp"
-        android:textStyle="bold"
-        app:layout_constraintBottom_toTopOf="@id/guidelineHorizontal2"
-        app:layout_constraintStart_toEndOf="@id/greetings"
-        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1" />
-
-    <ImageView
-        android:id="@+id/notification"
-        android:layout_width="30dp"
-        android:layout_height="30dp"
-        app:layout_constraintBottom_toBottomOf="@id/guidelineHorizontal2"
-        app:layout_constraintEnd_toEndOf="@id/guidelineVertical5"
-        app:layout_constraintStart_toStartOf="@id/guidelineVertical4"
-        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1"
-        app:srcCompat="@drawable/baseline_notifications_active_24" />
-
-    <!-- Current Location Section -->
-    <TextView
-        android:id="@+id/currentLocationLabel"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Current Location: "
-        android:textColor="@color/black"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
-        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal2" />
-
-    <TextView
-        android:id="@+id/currentLocationValue"
+    <!-- Header Section -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/headerCard"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:textSize="16sp"
-        app:layout_constraintEnd_toStartOf="@id/guidelineVertical5"
-        app:layout_constraintStart_toEndOf="@id/currentLocationLabel"
-        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal2" />
+        android:layout_marginTop="8dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="8dp"
+        app:cardBackgroundColor="@color/white"
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical5"
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
+        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1">
 
-    <!-- Senior Info CardView -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="20dp"
+            android:gravity="center_vertical">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Welcome back,"
+                    android:textColor="@color/gray"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:id="@+id/barangayStaffName"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:hint="Barangay"
+                    android:textColor="@color/primaryRed"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:layout_marginTop="4dp" />
+
+            </LinearLayout>
+
+            <ImageView
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:src="@drawable/ic_brgy"
+                android:background="@drawable/circle_background"
+                android:padding="12dp" />
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Notification Icon -->
+    <ImageView
+        android:id="@+id/notification"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="@drawable/circle_background"
+        android:padding="8dp"
+        android:src="@drawable/baseline_notifications_active_24"
+        android:tint="@color/primaryRed"
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical5"
+        app:layout_constraintTop_toTopOf="@id/headerCard" />
+
+    <!-- Current Location Section -->
     <androidx.cardview.widget.CardView
-        android:id="@+id/currentLocationCard"
+        android:id="@+id/locationCard"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         app:cardCornerRadius="16dp"
-        app:cardElevation="10dp"
+        app:cardElevation="6dp"
+        app:cardBackgroundColor="@color/white"
         app:layout_constraintEnd_toEndOf="@id/guidelineVertical5"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
-        app:layout_constraintTop_toBottomOf="@id/currentLocationLabel" />
+        app:layout_constraintTop_toBottomOf="@id/headerCard">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="16dp"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/baseline_location_pin_24"
+                android:tint="@color/primaryRed"
+                android:layout_marginEnd="12dp" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Current Location"
+                    android:textColor="@color/gray"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/currentLocationValue"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Getting location..."
+                    android:textColor="@color/black"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:layout_marginTop="2dp" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Statistics Cards -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/seniorCountCard"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="8dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="8dp"
+        app:cardBackgroundColor="@color/white"
+        app:layout_constraintEnd_toStartOf="@id/guidelineVertical3"
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
+        app:layout_constraintTop_toBottomOf="@id/locationCard">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="20dp"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@drawable/ic_senior_person"
+                android:background="@drawable/circle_background"
+                android:padding="12dp"
+                android:tint="@color/primaryRed"
+                android:layout_marginEnd="16dp" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Total Seniors"
+                    android:textColor="@color/gray"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/totalSeniorsCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0"
+                    android:textColor="@color/primaryRed"
+                    android:textSize="28sp"
+                    android:textStyle="bold"
+                    android:layout_marginTop="4dp" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Nearby Hospitals Card -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/hospitalsCard"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:layout_marginStart="8dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="8dp"
+        app:cardBackgroundColor="@color/white"
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical5"
+        app:layout_constraintStart_toEndOf="@id/guidelineVertical3"
+        app:layout_constraintTop_toBottomOf="@id/locationCard">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="20dp"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@drawable/ic_hospital"
+                android:background="@drawable/circle_background"
+                android:padding="12dp"
+                android:tint="@color/primaryRed"
+                android:layout_marginEnd="16dp" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Nearby Hospitals"
+                    android:textColor="@color/gray"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/hospitalsCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0 found"
+                    android:textColor="@color/primaryRed"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_marginTop="4dp" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Hospital List -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/hospitalListCard"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="16dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="8dp"
+        app:cardBackgroundColor="@color/white"
+        app:layout_constraintBottom_toTopOf="@id/navigateToHospitalButton"
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical5"
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
+        app:layout_constraintTop_toBottomOf="@id/seniorCountCard">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="16dp">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_hospital"
+                    android:tint="@color/primaryRed"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Nearby Hospitals"
+                    android:textColor="@color/black"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+            </LinearLayout>
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:scrollbars="vertical">
+
+                <LinearLayout
+                    android:id="@+id/hospitalListContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+
+            </ScrollView>
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
 
     <!-- Navigation Button -->
     <Button
         android:id="@+id/navigateToHospitalButton"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_height="56dp"
         android:layout_marginBottom="16dp"
-        android:background="@drawable/rounded_button"
-        android:padding="12dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:background="@drawable/button_primary_background"
         android:text="Navigate to Nearest Hospital"
         android:textAllCaps="false"
+        android:textColor="@color/white"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:elevation="4dp"
         app:layout_constraintBottom_toTopOf="@id/bottomNavBar2"
         app:layout_constraintEnd_toEndOf="@id/guidelineVertical5"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical1" />
@@ -164,13 +402,5 @@
         android:orientation="horizontal"
         app:layout_constraintGuide_percent="0.25" />
 
-    <TextView
-        android:id="@+id/textView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="256dp"
-        android:text="hellloooo"
-        app:layout_constraintTop_toTopOf="parent"
-        tools:layout_editor_absoluteX="145dp" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

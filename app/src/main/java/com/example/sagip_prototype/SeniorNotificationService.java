@@ -1,0 +1,341 @@
+package com.example.sagip_prototype;
+
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
+import android.media.AudioAttributes;
+import android.media.RingtoneManager;
+import android.net.Uri;
+import android.os.Build;
+import android.util.Log;
+import androidx.core.app.NotificationCompat;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+
+public class SeniorNotificationService {
+    private static final String TAG = "SeniorNotificationService";
+    private static final String CHANNEL_ID = "senior_notifications";
+    private static SeniorNotificationService instance;
+    private Context context;
+    private FirebaseFirestore db;
+    private FirebaseAuth mAuth;
+    private ListenerRegistration notificationListener;
+    
+    public static synchronized SeniorNotificationService getInstance(Context context) {
+        if (instance == null) {
+            instance = new SeniorNotificationService(context);
+        }
+        return instance;
+    }
+    
+    private SeniorNotificationService(Context context) {
+        this.context = context;
+        this.db = FirebaseFirestore.getInstance();
+        this.mAuth = FirebaseAuth.getInstance();
+        createNotificationChannel();
+    }
+    
+    public void startListening() {
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) {
+            Log.w(TAG, "No authenticated user, cannot start listening");
+            return;
+        }
+        
+        String userId = currentUser.getUid();
+        Log.d(TAG, "🔔 Starting senior notification listener for user: " + userId);
+        
+        // Listen to senior's notifications
+        String notificationPath = "Sagip/users/seniors/" + userId + "/notifications";
+        Log.d(TAG, "🔔 Listening to notification path: " + notificationPath);
+        
+        notificationListener = db.collection(notificationPath)
+                .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .addSnapshotListener((querySnapshot, error) -> {
+                    if (error != null) {
+                        Log.e(TAG, "Error listening to notifications: " + error.getMessage());
+                        return;
+                    }
+                    
+                    Log.d(TAG, "📱 Notification listener triggered - documents: " + (querySnapshot != null ? querySnapshot.size() : 0));
+                    
+                    if (querySnapshot != null && !querySnapshot.isEmpty()) {
+                        int unreadCount = 0;
+                        for (QueryDocumentSnapshot document : querySnapshot) {
+                            // Filter for unread notifications in code instead of query
+                            Boolean isRead = document.getBoolean("isRead");
+                            if (isRead == null || !isRead) {
+                                Log.d(TAG, "📱 Processing unread notification document: " + document.getId());
+                                handleNotification(document);
+                                unreadCount++;
+                            }
+                        }
+                        Log.d(TAG, "📱 Processed " + unreadCount + " unread notifications out of " + querySnapshot.size() + " total");
+                    } else {
+                        Log.d(TAG, "📱 No notifications found");
+                    }
+                });
+    }
+    
+    public void stopListening() {
+        if (notificationListener != null) {
+            notificationListener.remove();
+            notificationListener = null;
+            Log.d(TAG, "🛑 Stopped senior notification listener");
+        }
+    }
+    
+    private void handleNotification(QueryDocumentSnapshot document) {
+        try {
+            String type = document.getString("type");
+            String title = document.getString("title");
+            String message = document.getString("message");
+            String rescuerName = document.getString("rescuerName");
+            String rescuerPhone = document.getString("rescuerPhone");
+            String requestId = document.getString("requestId");
+            Long timestamp = document.getLong("timestamp");
+            Boolean isRead = document.getBoolean("isRead");
+            
+            Log.d(TAG, "📱 Handling notification - Type: " + type + ", Title: " + title + ", isRead: " + isRead);
+            
+            // Only process unread notifications
+            if (isRead == null || !isRead) {
+                Log.d(TAG, "📱 Processing unread notification: " + type);
+                
+                if ("RESCUER_RESPONSE".equals(type)) {
+                    Log.d(TAG, "📱 Showing rescuer response notification for: " + rescuerName);
+                    showRescuerResponseNotification(title, message, rescuerName, rescuerPhone, requestId, timestamp);
+                } else {
+                    Log.d(TAG, "📱 Unknown notification type: " + type);
+                }
+                
+                // Mark notification as read
+                document.getReference().update("isRead", true)
+                        .addOnSuccessListener(aVoid -> Log.d(TAG, "📱 Notification marked as read"))
+                        .addOnFailureListener(e -> Log.e(TAG, "📱 Failed to mark notification as read", e));
+            } else {
+                Log.d(TAG, "📱 Skipping already read notification: " + type);
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error handling notification: " + e.getMessage(), e);
+        }
+    }
+    
+    private void showRescuerResponseNotification(String title, String message, String rescuerName, 
+                                               String rescuerPhone, String requestId, Long timestamp) {
+        Log.d(TAG, "🚨 Showing rescuer response notification for: " + rescuerName);
+        
+        // First try to get emergency data from local EmergencyQueueManager
+        EmergencyQueueManager.EmergencyRequest emergency = EmergencyQueueManager.getInstance(context).getEmergencyById(requestId);
+        
+        if (emergency != null) {
+            // Emergency found in local queue, show notification with full data
+            showRescuerResponseNotificationWithData(title, message, rescuerName, rescuerPhone, requestId, emergency);
+        } else {
+            // Emergency not found in local queue, load from database
+            Log.d(TAG, "⚠️ Emergency not found in local queue, loading from database...");
+            loadEmergencyAndShowNotification(title, message, rescuerName, rescuerPhone, requestId);
+        }
+    }
+    
+    private void loadEmergencyAndShowNotification(String title, String message, String rescuerName, 
+                                                String rescuerPhone, String requestId) {
+        EmergencyQueueManager.getInstance(context).loadEmergencyByRequestIdFromDatabase(requestId, 
+            new EmergencyQueueManager.EmergencyLoadCallback() {
+                @Override
+                public void onEmergencyLoaded(EmergencyQueueManager.EmergencyRequest emergency) {
+                    if (emergency != null) {
+                        // Emergency loaded from database, show notification with full data
+                        showRescuerResponseNotificationWithData(title, message, rescuerName, rescuerPhone, requestId, emergency);
+                    } else {
+                        // Emergency not found in database, show basic notification
+                        Log.w(TAG, "⚠️ Emergency not found in database, showing basic notification");
+                        showBasicRescuerResponseNotification(title, message, rescuerName, rescuerPhone, requestId);
+                    }
+                }
+            });
+    }
+    
+    private void showRescuerResponseNotificationWithData(String title, String message, String rescuerName, 
+                                                       String rescuerPhone, String requestId, 
+                                                       EmergencyQueueManager.EmergencyRequest emergency) {
+        Log.d(TAG, "📱 Showing rescuer response notification with emergency data");
+        Log.d(TAG, "📱 Rescuer: " + rescuerName + ", Phone: " + rescuerPhone + ", Request ID: " + requestId);
+        
+        NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        
+        // Create intent to open senior dashboard
+        Intent intent = new Intent(context, Senior_Dashboard.class);
+        intent.putExtra("notification_type", "rescuer_response");
+        intent.putExtra("rescuer_name", rescuerName);
+        intent.putExtra("rescuer_phone", rescuerPhone);
+        intent.putExtra("request_id", requestId);
+        intent.putExtra("emergency_status", emergency.status);
+        intent.putExtra("assigned_rescuer_id", emergency.assignedRescuerId);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                context, 
+                requestId.hashCode(), 
+                intent, 
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        
+        // Create call intent
+        Intent callIntent = new Intent(Intent.ACTION_DIAL);
+        callIntent.setData(android.net.Uri.parse("tel:" + rescuerPhone));
+        PendingIntent callPendingIntent = PendingIntent.getActivity(
+                context,
+                (requestId + "_call").hashCode(),
+                callIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        
+        // Create enhanced notification with emergency data
+        String statusText = "assigned".equals(emergency.status) ? "✅ Assigned" : "⏳ Pending";
+        String priorityText = getPriorityText(emergency.priority);
+        
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                .setContentTitle(title)
+                .setContentText(message)
+                .setStyle(new NotificationCompat.BigTextStyle()
+                        .bigText("🚨 Help is on the way!\n\n" +
+                                "👤 Rescuer: " + rescuerName + "\n" +
+                                "📞 Phone: " + rescuerPhone + "\n" +
+                                "🆔 Request ID: " + requestId + "\n" +
+                                "📍 Location: " + emergency.locationAddress + "\n" +
+                                "📊 Status: " + statusText + "\n" +
+                                "⚡ Priority: " + priorityText + "\n\n" +
+                                "Your rescuer is responding to your emergency!"))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+                .setSound(getCustomAlarmSound())
+                .setVibrate(new long[]{0, 1000, 500, 1000})
+                .setLights(0xFF00FF00, 1000, 1000) // Green light
+                .addAction(android.R.drawable.ic_menu_call, "📞 CALL RESCUER", callPendingIntent)
+                .setOngoing(false);
+        
+        notificationManager.notify(requestId.hashCode(), builder.build());
+        Log.d(TAG, "📤 Enhanced rescuer response notification sent to senior");
+    }
+    
+    private void showBasicRescuerResponseNotification(String title, String message, String rescuerName, 
+                                                    String rescuerPhone, String requestId) {
+        Log.d(TAG, "📱 Showing basic rescuer response notification");
+        
+        NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        
+        // Create intent to open senior dashboard
+        Intent intent = new Intent(context, Senior_Dashboard.class);
+        intent.putExtra("notification_type", "rescuer_response");
+        intent.putExtra("rescuer_name", rescuerName);
+        intent.putExtra("rescuer_phone", rescuerPhone);
+        intent.putExtra("request_id", requestId);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                context, 
+                requestId.hashCode(), 
+                intent, 
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        
+        // Create call intent
+        Intent callIntent = new Intent(Intent.ACTION_DIAL);
+        callIntent.setData(android.net.Uri.parse("tel:" + rescuerPhone));
+        PendingIntent callPendingIntent = PendingIntent.getActivity(
+                context,
+                (requestId + "_call").hashCode(),
+                callIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        
+        // Create basic notification
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                .setContentTitle(title)
+                .setContentText(message)
+                .setStyle(new NotificationCompat.BigTextStyle()
+                        .bigText("🚨 Help is on the way!\n\n" +
+                                "👤 Rescuer: " + rescuerName + "\n" +
+                                "📞 Phone: " + rescuerPhone + "\n" +
+                                "🆔 Request ID: " + requestId + "\n\n" +
+                                "Your rescuer is responding to your emergency!"))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+                .setSound(getCustomAlarmSound())
+                .setVibrate(new long[]{0, 1000, 500, 1000})
+                .setLights(0xFF00FF00, 1000, 1000) // Green light
+                .addAction(android.R.drawable.ic_menu_call, "📞 CALL RESCUER", callPendingIntent)
+                .setOngoing(false);
+        
+        notificationManager.notify(requestId.hashCode(), builder.build());
+        Log.d(TAG, "📤 Basic rescuer response notification sent to senior");
+    }
+    
+    private String getPriorityText(int priority) {
+        switch (priority) {
+            case 1: return "🔴 Critical";
+            case 2: return "🟠 High";
+            case 3: return "🟡 Medium";
+            case 4: return "🟢 Low";
+            default: return "⚪ Unknown";
+        }
+    }
+    
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID,
+                    "Senior Notifications",
+                    NotificationManager.IMPORTANCE_HIGH
+            );
+            channel.setDescription("Notifications for seniors about emergency responses");
+            channel.enableVibration(true);
+            channel.setVibrationPattern(new long[]{0, 1000, 500, 1000});
+            
+            // Set custom alarm sound
+            Uri alarmSound = getCustomAlarmSound();
+            AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build();
+            channel.setSound(alarmSound, audioAttributes);
+            
+            channel.enableLights(true);
+            channel.setLightColor(0xFF00FF00); // Green light
+            channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+            channel.setShowBadge(true);
+            
+            NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (notificationManager != null) {
+                notificationManager.createNotificationChannel(channel);
+                Log.d(TAG, "📱 Senior notification channel created");
+            }
+        }
+    }
+    
+    private Uri getCustomAlarmSound() {
+        try {
+            Uri customSound = Uri.parse("android.resource://" + context.getPackageName() + "/" + R.raw.emergency_alarm);
+            Log.d(TAG, "🔊 Using custom alarm sound: " + customSound.toString());
+            return customSound;
+        } catch (Exception e) {
+            Log.w(TAG, "Custom alarm sound not found, using system sound. Error: " + e.getMessage());
+            return RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+        }
+    }
+}

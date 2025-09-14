@@ -22,7 +22,7 @@ import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.libraries.navigation.SupportNavigationFragment;
 import com.google.android.libraries.navigation.Waypoint;
 
-public class RescuerNavigationSDKActivity extends AppCompatActivity implements OnMapReadyCallback {
+public class RescuerNavigationSDKActivity extends BaseRescuerActivity implements OnMapReadyCallback {
 
     private static final String TAG = "RescuerNavigationSDK";
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1001;

@@ -97,6 +97,14 @@ public class HospitalStatusUpdateNotificationService {
         Intent intent = new Intent(context, Rescuer_Dashboard.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         
+        // Add hospital data to intent for notification click handling
+        intent.putExtra("notification_type", "hospital_status_update");
+        intent.putExtra("hospital_name", hospitalName);
+        intent.putExtra("hospital_status", hospitalStatus);
+        intent.putExtra("available_beds", availableBeds);
+        intent.putExtra("available_doctors", availableDoctors);
+        intent.putExtra("highlight_hospital", hospitalName);
+        
         PendingIntent pendingIntent = PendingIntent.getActivity(
             context,
             rescuerId.hashCode(), // Unique request code for each rescuer

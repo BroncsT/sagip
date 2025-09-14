@@ -1,6 +1,7 @@
 package com.example.sagip_prototype;
 
 import android.Manifest;
+import android.app.NotificationManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -8,8 +9,10 @@ import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Looper;
+import android.provider.Settings;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.TextView;
@@ -35,6 +38,10 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QuerySnapshot;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.firestore.GeoPoint;
+import com.google.firebase.firestore.SetOptions;
+import com.google.firebase.messaging.FirebaseMessaging;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -50,13 +57,15 @@ public class Senior_Dashboard extends AppCompatActivity {
     private static final String KEY_USER_TYPE = "userType";
     private static final String KEY_IS_LOGGED_IN = "isLoggedIn";
     private static final String KEY_USER_PHONE = "userPhone";
+    private static final String KEY_CACHED_FULL_NAME = "cachedFullName";
+    private static final String KEY_NOTIFICATION_TOAST_SHOWN = "notificationToastShown";
     
     FirebaseAuth mAuth;
     FirebaseFirestore db;
     private SharedPreferences sharedPreferences;
 
     TextView tvFullName, tvCurrentLocation;
-    Button btnFindHospital, btnHelp;
+    Button btnFindHospital, btnSOS;
 
     private FusedLocationProviderClient fusedLocationClient;
     private LocationCallback locationCallback;
@@ -64,9 +73,9 @@ public class Senior_Dashboard extends AppCompatActivity {
     private double currentLat = 0.0;
     private double currentLong = 0.0;
     private String currentLocationAddress = "";
+    private String currentBarangay = "";
 
     private ActivityResultLauncher<String[]> locationPermissionRequest;
-    private boolean helpRequestInProgress = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -87,21 +96,41 @@ public class Senior_Dashboard extends AppCompatActivity {
         checkAuthStateWithPersistence();
 
         initializeViews();
+        
+        // Load cached name immediately after views are initialized
+        loadCachedName();
+        
         initializeLocationServices();
         registerLocationPermissionLauncher();
         loadUserData();
         setupBottomNavigation();
         requestLocationPermissions();
+        
+        // Start listening for rescuer response notifications immediately
+        SeniorNotificationService.getInstance(this).startListening();
+        
+        // Check and request notification permission
+        checkAndRequestNotificationPermission();
+        
+        // Register for FCM notifications
+        registerForFCMNotifications();
+        
+        
+        // Handle rescuer response notification if app was opened from notification
+        // Add a delay to ensure UI is fully loaded
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            handleRescuerResponseNotification(getIntent());
+        }, 1000); // 1 second delay to ensure UI is fully loaded
     }
 
     private void initializeViews() {
         tvFullName = findViewById(R.id.seniorName);
         tvCurrentLocation = findViewById(R.id.tvCurrentLocation);
         btnFindHospital = findViewById(R.id.findhospital);
-        btnHelp = findViewById(R.id.sosButton);
+        btnSOS = findViewById(R.id.sosButton);
 
         btnFindHospital.setOnClickListener(v -> navigateToNearestHospital());
-        btnHelp.setOnClickListener(v -> showHelpConfirmationDialog());
+        btnSOS.setOnClickListener(v -> showSOSConfirmationDialog());
     }
 
     private void setupBottomNavigation() {
@@ -128,51 +157,6 @@ public class Senior_Dashboard extends AppCompatActivity {
         });
     }
 
-    private void sendHelpRequest() {
-        Log.d(TAG, "Help button pressed - Creating help request");
-
-        // Prevent multiple help requests
-        if (helpRequestInProgress) {
-            Toast.makeText(this, "Help request already in progress. Please wait...", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        if (currentLat == 0.0 && currentLong == 0.0) {
-            Toast.makeText(this, "Current location not available. Please wait or check location permissions.", Toast.LENGTH_LONG).show();
-            return;
-        }
-
-        helpRequestInProgress = true;
-        Toast.makeText(this, "Creating help request...", Toast.LENGTH_SHORT).show();
-
-        // Get current user info first
-        String uid = mAuth.getCurrentUser().getUid();
-        String userType = "seniors";
-
-        db.collection("Sagip")
-                .document("users")
-                .collection(userType)
-                .document(uid)
-                .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    if (documentSnapshot.exists()) {
-                        String firstName = documentSnapshot.getString("firstName");
-                        String lastName = documentSnapshot.getString("lastName");
-                        String seniorName = (firstName != null && lastName != null) ?
-                                firstName + " " + lastName : "Senior User";
-                        String phoneNumber = documentSnapshot.getString("phoneNumber");
-
-                        // Create help request (this will also open the map)
-                        createHelpRequest(seniorName, phoneNumber, uid);
-                    } else {
-                        createHelpRequest("Senior User", "", uid);
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error getting user info", e);
-                    createHelpRequest("Senior User", "", uid);
-                });
-    }
 
     // New method to open Senior_GoogleMap with current location
     private void openMyGoogleMapWithLocation() {
@@ -190,125 +174,58 @@ public class Senior_Dashboard extends AppCompatActivity {
 
         } catch (Exception e) {
             Log.e(TAG, "Error opening Senior_GoogleMap", e);
-            Toast.makeText(this, "Error opening map", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.toast_error_opening_map), Toast.LENGTH_SHORT).show();
         }
     }
 
-    // New method to open Senior_GoogleMap in tracking mode
-    private void openMyGoogleMapWithTracking(String helpRequestId) {
-        try {
-            Intent mapIntent = new Intent(Senior_Dashboard.this, Senior_GoogleMap.class);
-
-            // Pass current location data to Senior_GoogleMap
-            mapIntent.putExtra("latitude", currentLat);
-            mapIntent.putExtra("longitude", currentLong);
-            mapIntent.putExtra("locationAddress", currentLocationAddress);
-            mapIntent.putExtra("helpRequestIdForTracking", helpRequestId);
-            mapIntent.putExtra("seniorName", tvFullName.getText().toString());
-
-            startActivity(mapIntent);
-            Log.d(TAG, "Opened Senior_GoogleMap in tracking mode with help request ID: " + helpRequestId);
-
-        } catch (Exception e) {
-            Log.e(TAG, "Error opening Senior_GoogleMap in tracking mode", e);
-            Toast.makeText(this, "Error opening map", Toast.LENGTH_SHORT).show();
+    private void showSOSConfirmationDialog() {
+        // Get senior information
+        String seniorName = tvFullName.getText().toString();
+        String currentLocation = tvCurrentLocation.getText().toString();
+        
+        // Get phone number from Firebase Auth
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        String phoneNumber = getString(R.string.text_not_available);
+        
+        if (currentUser != null) {
+            phoneNumber = currentUser.getPhoneNumber();
+            if (phoneNumber == null || phoneNumber.isEmpty()) {
+                phoneNumber = getString(R.string.text_not_provided);
+            }
         }
+        
+        // Show confirmation dialog with senior information
+        showSOSDialogWithInfo(seniorName, currentLocation, phoneNumber);
     }
-
-    private void createHelpRequest(String seniorName, String phoneNumber, String seniorUid) {
-        Map<String, Object> helpRequest = new HashMap<>();
-        helpRequest.put("seniorUid", seniorUid);
-        helpRequest.put("seniorName", seniorName);
-        helpRequest.put("seniorPhone", phoneNumber != null ? phoneNumber : "");
-        helpRequest.put("latitude", currentLat);
-        helpRequest.put("longitude", currentLong);
-        helpRequest.put("locationAddress", currentLocationAddress);
-        helpRequest.put("timestamp", System.currentTimeMillis());
-        helpRequest.put("status", "active");
-        helpRequest.put("type", "emergency_help");
-        helpRequest.put("description", "Senior needs immediate assistance");
-
-        // Add to help requests collection
-        db.collection("Sagip")
-                .document("helpRequests")
-                .collection("activeRequests")
-                .add(helpRequest)
-                .addOnSuccessListener(documentReference -> {
-                    String requestId = documentReference.getId();
-                    Log.d(TAG, "Help request created: " + requestId);
-
-                    // Notify all rescuers
-                    notifyAllRescuers(helpRequest, requestId);
-
-                                         // Open map in tracking mode with the help request ID
-                     openMyGoogleMapWithTracking(requestId);
-
-                    Toast.makeText(this, "Help request sent to rescuers!", Toast.LENGTH_LONG).show();
-                    helpRequestInProgress = false;
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error creating help request", e);
-                    Toast.makeText(this, "Failed to create help request. Please try again.", Toast.LENGTH_LONG).show();
-                    helpRequestInProgress = false;
-                });
-    }
-
-    // New method to notify all rescuers
-    private void notifyAllRescuers(Map<String, Object> helpRequest, String requestId) {
-        // Create a simple notification document that rescuers will listen to
-        Map<String, Object> notification = new HashMap<>();
-        notification.put("type", "emergency_help");
-        notification.put("title", "🚨 Emergency Help Request");
-        notification.put("message", helpRequest.get("seniorName") + " needs help!");
-        notification.put("helpRequestId", requestId);
-        notification.put("seniorUid", helpRequest.get("seniorUid"));
-        notification.put("seniorName", helpRequest.get("seniorName"));
-        notification.put("seniorPhone", helpRequest.get("seniorPhone"));
-        notification.put("latitude", helpRequest.get("latitude"));
-        notification.put("longitude", helpRequest.get("longitude"));
-        notification.put("locationAddress", helpRequest.get("locationAddress"));
-        notification.put("timestamp", System.currentTimeMillis());
-        notification.put("isActive", true);
-
-        // Add to global emergency notifications that rescuers will listen to
-        db.collection("Sagip")
-                .document("emergencyNotifications")
-                .collection("activeEmergencies")
-                .document(requestId) // Use same ID as help request
-                .set(notification)
-                .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "Emergency notification sent to all rescuers");
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Failed to send emergency notification", e);
-                });
-    }
-
-    private void showHelpConfirmationDialog() {
+    
+    private void showSOSDialogWithInfo(String seniorName, String currentLocation, String phoneNumber) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("🚨 Emergency Help Request");
-        builder.setMessage("Are you sure you need help?\n\nThis will:\n• Alert all nearby rescuers immediately\n• Send your location to them\n• Open your location on the map\n\nOnly use this if you really need help!");
-
+        builder.setTitle(getString(R.string.dialog_emergency_help_request));
+        
+        // Create detailed message with senior information
+        String message = getString(R.string.dialog_emergency_help_message, seniorName, currentLocation, phoneNumber);
+        
+        builder.setMessage(message);
         builder.setIcon(android.R.drawable.ic_dialog_alert);
-
-        // Positive button - Confirm help request
-        builder.setPositiveButton("YES, I NEED HELP", (dialog, which) -> {
+        
+        // Send Help button
+        builder.setPositiveButton(getString(R.string.button_send_help), (dialog, which) -> {
             dialog.dismiss();
-            sendHelpRequest();
+            sendSOSRequest(seniorName, phoneNumber);
         });
-
-        // Negative button - Cancel
-        builder.setNegativeButton("Cancel", (dialog, which) -> {
+        
+        // Cancel button
+        builder.setNegativeButton(getString(R.string.button_cancel), (dialog, which) -> {
             dialog.dismiss();
-            Toast.makeText(Senior_Dashboard.this, "Help request cancelled", Toast.LENGTH_SHORT).show();
+            Toast.makeText(Senior_Dashboard.this, getString(R.string.toast_help_request_cancelled), Toast.LENGTH_SHORT).show();
         });
-
-        // Make dialog non-cancelable by back button or outside touch for safety
+        
+        // Make dialog non-cancelable by back button for safety
         builder.setCancelable(false);
-
+        
         AlertDialog dialog = builder.create();
-
-        // Style the buttons for better visibility
+        
+        // Style the buttons
         dialog.setOnShowListener(dialogInterface -> {
             try {
                 // Make the positive button red to indicate emergency
@@ -320,18 +237,149 @@ public class Senior_Dashboard extends AppCompatActivity {
                     dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.darker_gray));
                 }
                 dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextSize(16);
-                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setText("🚨 YES, I NEED HELP");
             } catch (Exception e) {
                 Log.e(TAG, "Error styling dialog buttons", e);
             }
         });
-
+        
         dialog.show();
+    }
+    
+    private void sendSOSRequest(String seniorName, String phoneNumber) {
+        Log.d(TAG, "SOS request sent for: " + seniorName);
+        
+        // Create emergency request with unique ID
+        String requestId = "SOS_" + System.currentTimeMillis() + "_" + mAuth.getCurrentUser().getUid();
+        EmergencyQueueManager.EmergencyRequest emergencyRequest = new EmergencyQueueManager.EmergencyRequest(
+                requestId,
+                mAuth.getCurrentUser().getUid(), // Add senior UID
+                seniorName,
+                phoneNumber,
+                currentLocationAddress,
+                currentBarangay, // Add barangay information
+                System.currentTimeMillis(),
+                getString(R.string.text_medical) // Default to medical emergency, can be enhanced later
+        );
+        
+        // Add to emergency queue
+        EmergencyQueueManager.getInstance(this).addEmergencyRequest(emergencyRequest);
+        
+        // Show confirmation with queue information
+        showSOSConfirmationDialog(seniorName, phoneNumber, requestId);
+    }
+    
+    private void showSOSConfirmationDialog(String seniorName, String phoneNumber, String requestId) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(getString(R.string.dialog_emergency_help_sent));
+        builder.setMessage(getString(R.string.dialog_emergency_help_sent_message));
+        
+        builder.setIcon(android.R.drawable.ic_dialog_alert);
+        builder.setPositiveButton(getString(R.string.button_ok), (dialog, which) -> {
+            dialog.dismiss();
+        });
+        
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+    
+    private void sendEmergencyAlertToRescuers(String seniorName, String phoneNumber) {
+        Log.d(TAG, "🚨 Sending emergency alert to all rescuers...");
+        
+        // Create emergency data
+        Map<String, Object> emergencyData = new HashMap<>();
+        emergencyData.put("seniorName", seniorName);
+        emergencyData.put("seniorPhone", phoneNumber);
+        emergencyData.put("location", new GeoPoint(currentLat, currentLong));
+        emergencyData.put("locationAddress", currentLocationAddress);
+        emergencyData.put("emergencyType", getString(R.string.text_sos));
+        emergencyData.put("severity", getString(R.string.text_high));
+        emergencyData.put("timestamp", System.currentTimeMillis());
+        emergencyData.put("status", getString(R.string.text_active));
+        emergencyData.put("seniorId", mAuth.getCurrentUser().getUid());
+        
+        // Get all rescuers and send them the emergency alert
+        db.collection("Sagip")
+          .document("users")
+          .collection("rescuer")
+          .get()
+          .addOnSuccessListener(querySnapshot -> {
+              Log.d(TAG, "Found " + querySnapshot.size() + " rescuers to notify");
+              
+              if (querySnapshot.isEmpty()) {
+                  Log.w(TAG, "No rescuers found in database!");
+                  return;
+              }
+              
+              // Send notification to each rescuer
+              for (QueryDocumentSnapshot document : querySnapshot) {
+                  String rescuerId = document.getId();
+                  String rescuerName = document.getString("rescuegroup");
+                  if (rescuerName == null) {
+                      rescuerName = document.getString("name");
+                  }
+                  
+                  Log.d(TAG, "Sending emergency alert to rescuer: " + rescuerName + " (ID: " + rescuerId + ")");
+                  
+                  // Save emergency notification to rescuer's database
+                  saveEmergencyNotificationToRescuer(rescuerId, emergencyData);
+              }
+              
+              // Also save the emergency request to a general emergency collection
+              saveEmergencyRequestToDatabase(emergencyData);
+              
+          })
+          .addOnFailureListener(e -> {
+              Log.e(TAG, "Failed to get rescuers: " + e.getMessage(), e);
+              Toast.makeText(this, getString(R.string.toast_failed_send_emergency), Toast.LENGTH_SHORT).show();
+          });
+    }
+    
+    private void saveEmergencyNotificationToRescuer(String rescuerId, Map<String, Object> emergencyData) {
+        // Create notification data for the rescuer
+        Map<String, Object> notificationData = new HashMap<>();
+        notificationData.put("type", getString(R.string.text_emergency_sos_type));
+        notificationData.put("title", getString(R.string.text_emergency_sos_alert));
+        notificationData.put("message", getString(R.string.text_senior_needs_help, emergencyData.get("seniorName")));
+        notificationData.put("seniorName", emergencyData.get("seniorName"));
+        notificationData.put("seniorPhone", emergencyData.get("seniorPhone"));
+        notificationData.put("location", emergencyData.get("location"));
+        notificationData.put("locationAddress", emergencyData.get("locationAddress"));
+        notificationData.put("timestamp", System.currentTimeMillis());
+        notificationData.put("isRead", false);
+        notificationData.put("priority", getString(R.string.text_high_priority));
+        
+        // Save to rescuer's notifications collection
+        db.collection("Sagip")
+          .document("users")
+          .collection("rescuer")
+          .document(rescuerId)
+          .collection("emergencyNotifications")
+          .add(notificationData)
+          .addOnSuccessListener(documentReference -> {
+              Log.d(TAG, "Emergency notification saved for rescuer: " + rescuerId);
+          })
+          .addOnFailureListener(e -> {
+              Log.e(TAG, "Failed to save emergency notification for rescuer " + rescuerId + ": " + e.getMessage());
+          });
+    }
+    
+    private void saveEmergencyRequestToDatabase(Map<String, Object> emergencyData) {
+        // Save to general emergency requests collection
+        db.collection("Sagip")
+          .document("emergencyRequests")
+          .collection("activeRequests")
+          .add(emergencyData)
+          .addOnSuccessListener(documentReference -> {
+              Log.d(TAG, "Emergency request saved to database with ID: " + documentReference.getId());
+          })
+          .addOnFailureListener(e -> {
+              Log.e(TAG, "Failed to save emergency request: " + e.getMessage());
+          });
     }
 
     private void navigateToNearestHospital() {
         if (currentLat == 0.0 && currentLong == 0.0) {
-            Toast.makeText(this, "Current location not available. Please wait or check permissions.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.current_location_not_available_permissions), Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -362,8 +410,8 @@ public class Senior_Dashboard extends AppCompatActivity {
                     } else if (coarseLocationGranted != null && coarseLocationGranted) {
                         startLocationUpdates();
                     } else {
-                        Toast.makeText(this, "Location permission needed for location services", Toast.LENGTH_SHORT).show();
-                        tvCurrentLocation.setText("Location permission denied");
+                        Toast.makeText(this, getString(R.string.toast_location_permission_needed), Toast.LENGTH_SHORT).show();
+                        tvCurrentLocation.setText(getString(R.string.text_location_permission_denied));
                     }
                 }
         );
@@ -405,7 +453,7 @@ public class Senior_Dashboard extends AppCompatActivity {
 
         fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
         locationUpdatesActive = true;
-        tvCurrentLocation.setText("Fetching current location...");
+        tvCurrentLocation.setText(getString(R.string.text_fetching_location));
     }
 
     private void stopLocationUpdates() {
@@ -451,11 +499,11 @@ public class Senior_Dashboard extends AppCompatActivity {
                 tvCurrentLocation.setText(currentLocationAddress);
                 Log.d(TAG, "Current location: " + currentLocationAddress);
             } else {
-                currentLocationAddress = "Location found but address unknown";
+                currentLocationAddress = getString(R.string.text_not_available);
                 tvCurrentLocation.setText(currentLocationAddress);
             }
         } catch (IOException e) {
-            currentLocationAddress = "Unable to get address from location";
+            currentLocationAddress = getString(R.string.text_not_available);
             tvCurrentLocation.setText(currentLocationAddress);
             Log.e(TAG, "Error getting address from location", e);
         }
@@ -465,7 +513,7 @@ public class Senior_Dashboard extends AppCompatActivity {
         if (mAuth.getCurrentUser() == null) return;
 
         String uid = mAuth.getCurrentUser().getUid();
-        String userType = "seniors";
+        String userType = "seniors"; // Use consistent collection name
 
         Map<String, Object> locationData = new HashMap<>();
         locationData.put("latitude", location.getLatitude());
@@ -494,7 +542,7 @@ public class Senior_Dashboard extends AppCompatActivity {
 
     private void checkUserStatus() {
         String uid = mAuth.getCurrentUser().getUid();
-        String userType = "seniors";
+        String userType = "seniors"; // Use consistent collection name
         
         db.collection("Sagip")
                 .document("users")
@@ -580,6 +628,7 @@ public class Senior_Dashboard extends AppCompatActivity {
         editor.remove(KEY_USER_ID);
         editor.remove(KEY_USER_TYPE);
         editor.remove(KEY_USER_PHONE);
+        editor.remove(KEY_NOTIFICATION_TOAST_SHOWN); // Reset notification toast flag
         editor.apply();
     }
 
@@ -642,7 +691,10 @@ public class Senior_Dashboard extends AppCompatActivity {
 
     private void loadUserData() {
         String uid = mAuth.getCurrentUser().getUid();
-        String userType = "seniors";
+        String userType = "seniors"; // Use consistent collection name
+
+        // Load cached name immediately for instant display
+        loadCachedName();
 
         db.collection("Sagip")
                 .document("users")
@@ -655,6 +707,7 @@ public class Senior_Dashboard extends AppCompatActivity {
                         String middleName = documentSnapshot.getString("middleName");
                         String lastName = documentSnapshot.getString("lastName");
                         String currentLocation = documentSnapshot.getString("currentLocation");
+                        String barangay = documentSnapshot.getString("barangay");
 
                         if (documentSnapshot.getDouble("latitude") != null && documentSnapshot.getDouble("longitude") != null) {
                             currentLat = documentSnapshot.getDouble("latitude");
@@ -664,30 +717,218 @@ public class Senior_Dashboard extends AppCompatActivity {
                         if (firstName != null && middleName != null && lastName != null) {
                             String fullName = firstName + " " + middleName + " " + lastName;
                             tvFullName.setText(fullName);
+                            // Cache the name for future instant loading
+                            cacheFullName(fullName);
                         } else {
-                            tvFullName.setText("Full Name Not Available");
+                            tvFullName.setText(getString(R.string.text_full_name_not_available));
+                        }
+                        
+                        // Store barangay information
+                        if (barangay != null && !barangay.isEmpty()) {
+                            currentBarangay = barangay;
+                            Log.d(TAG, "Current barangay: " + currentBarangay);
+                        } else {
+                            Log.w(TAG, "No barangay information found for senior");
                         }
 
                         if (currentLocation != null && !currentLocation.isEmpty()) {
                             currentLocationAddress = currentLocation;
                             tvCurrentLocation.setText(currentLocation);
                         } else {
-                            tvCurrentLocation.setText("Waiting for location update...");
+                            tvCurrentLocation.setText(getString(R.string.text_waiting_location_update));
                         }
                     } else {
-                        tvFullName.setText("User data not found.");
+                        tvFullName.setText(getString(R.string.text_user_data_not_found));
                         Log.d(TAG, "Document doesn't exist");
                     }
                 })
                 .addOnFailureListener(e -> {
-                    tvFullName.setText("Failed to load data.");
+                    tvFullName.setText(getString(R.string.text_failed_load_data));
                     Log.e(TAG, "Error fetching user data", e);
                 });
+    }
+
+    private void loadCachedName() {
+        // Ensure SharedPreferences is initialized
+        if (sharedPreferences == null) {
+            sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        }
+        
+        String cachedName = sharedPreferences.getString(KEY_CACHED_FULL_NAME, null);
+        if (cachedName != null && !cachedName.isEmpty()) {
+            tvFullName.setText(cachedName);
+            Log.d(TAG, "Loaded cached name: " + cachedName);
+        } else {
+            // Try to load from alternative cache or show loading
+            String alternativeCache = getAlternativeCachedName();
+            if (alternativeCache != null && !alternativeCache.isEmpty()) {
+                tvFullName.setText(alternativeCache);
+                // Restore to main cache
+                cacheFullName(alternativeCache);
+                Log.d(TAG, "Loaded from alternative cache: " + alternativeCache);
+            } else {
+                // Try one more time with a fresh SharedPreferences instance
+                SharedPreferences freshPrefs = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+                String freshCache = freshPrefs.getString(KEY_CACHED_FULL_NAME, null);
+                if (freshCache != null && !freshCache.isEmpty()) {
+                    tvFullName.setText(freshCache);
+                    Log.d(TAG, "Loaded from fresh SharedPreferences: " + freshCache);
+                } else {
+                    tvFullName.setText(getString(R.string.text_loading));
+                    Log.d(TAG, "No cached name found, showing loading...");
+                }
+            }
+        }
+    }
+
+    private String getAlternativeCachedName() {
+        // Try to get from a more persistent storage
+        SharedPreferences altPrefs = getSharedPreferences("SagipAppPrefs", MODE_PRIVATE);
+        return altPrefs.getString(KEY_CACHED_FULL_NAME, null);
+    }
+
+    private void cacheFullName(String fullName) {
+        sharedPreferences.edit()
+                .putString(KEY_CACHED_FULL_NAME, fullName)
+                .apply();
+        Log.d(TAG, "Cached name: " + fullName);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        
+        // Load cached name immediately when returning to dashboard via new intent
+        loadCachedName();
+        
+        // Handle rescuer response notification
+        handleRescuerResponseNotification(intent);
+        
+        Log.d(TAG, "onNewIntent called - reloading cached name");
+    }
+    
+    private void handleRescuerResponseNotification(Intent intent) {
+        if (intent != null) {
+            String notificationType = intent.getStringExtra("notification_type");
+            Log.d(TAG, "🔍 Checking notification type: " + notificationType);
+            
+            if ("rescuer_response".equals(notificationType)) {
+                String rescuerName = intent.getStringExtra("rescuer_name");
+                String rescuerPhone = intent.getStringExtra("rescuer_phone");
+                String requestId = intent.getStringExtra("request_id");
+                String emergencyStatus = intent.getStringExtra("emergency_status");
+                String assignedRescuerId = intent.getStringExtra("assigned_rescuer_id");
+                
+                Log.d(TAG, "🚨 Received rescuer response notification - Rescuer: " + rescuerName + " (Request ID: " + requestId + ")");
+                Log.d(TAG, "📱 Emergency Status: " + emergencyStatus + ", Assigned Rescuer ID: " + assignedRescuerId);
+                
+                // Show rescuer response dialog
+                showRescuerResponseDialog(rescuerName, rescuerPhone, requestId, emergencyStatus, assignedRescuerId);
+                
+                // Clear the intent extras to prevent repeated handling
+                intent.removeExtra("notification_type");
+                intent.removeExtra("rescuer_name");
+                intent.removeExtra("rescuer_phone");
+                intent.removeExtra("request_id");
+                intent.removeExtra("emergency_status");
+                intent.removeExtra("assigned_rescuer_id");
+            } else {
+                Log.d(TAG, "🔍 No rescuer response notification found, notification type: " + notificationType);
+            }
+        } else {
+            Log.d(TAG, "🔍 Intent is null in handleRescuerResponseNotification");
+        }
+    }
+    
+    private void showRescuerResponseDialog(String rescuerName, String rescuerPhone, String requestId, 
+                                         String emergencyStatus, String assignedRescuerId) {
+        // Check if activity is still valid before showing dialog
+        if (isFinishing() || isDestroyed()) {
+            Log.w(TAG, "Cannot show rescuer response dialog - activity is not in valid state");
+            return;
+        }
+        
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(getString(R.string.text_help_on_way));
+        
+        String statusText = "assigned".equals(emergencyStatus) ? "✅ Assigned" : "⏳ Pending";
+        String message = "A rescuer is responding to your emergency request!\n\n" +
+                        "👤 Rescuer: " + rescuerName + "\n" +
+                        "📞 Phone: " + rescuerPhone + "\n" +
+                        "🆔 Request ID: " + requestId + "\n" +
+                        "📊 Status: " + statusText + "\n\n" +
+                        "Your rescuer is on the way to help you!";
+        
+        builder.setMessage(message);
+        builder.setIcon(android.R.drawable.ic_dialog_alert);
+        builder.setCancelable(false);
+        
+        // Call rescuer button
+        builder.setPositiveButton("📞 CALL RESCUER", (dialog, which) -> {
+            if (rescuerPhone != null && !rescuerPhone.isEmpty()) {
+                Intent callIntent = new Intent(Intent.ACTION_DIAL);
+                callIntent.setData(android.net.Uri.parse("tel:" + rescuerPhone));
+                startActivity(callIntent);
+            } else {
+                Toast.makeText(this, getString(R.string.text_rescuer_phone_not_available), Toast.LENGTH_SHORT).show();
+            }
+            dialog.dismiss();
+        });
+        
+        // OK button
+        builder.setNegativeButton("OK", (dialog, which) -> {
+            dialog.dismiss();
+        });
+        
+        AlertDialog dialog = builder.create();
+        
+        // Style the buttons
+        dialog.setOnShowListener(dialogInterface -> {
+            try {
+                // Make the positive button green to indicate positive action
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark, null));
+                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.darker_gray, null));
+                } else {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.darker_gray));
+                }
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextSize(16);
+            } catch (Exception e) {
+                Log.e(TAG, "Error styling dialog buttons", e);
+            }
+        });
+        
+        dialog.show();
+        Log.d(TAG, "📱 Rescuer response dialog shown for: " + rescuerName);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        
+        // Load cached name immediately when returning to dashboard
+        loadCachedName();
+        
+        // Start listening for rescuer response notifications (if not already started)
+        SeniorNotificationService.getInstance(this).startListening();
+        
+        // Load active emergencies from database to ensure local cache is up to date
+        EmergencyQueueManager.getInstance(this).loadActiveEmergenciesFromDatabase();
+        
+        // Check notification permission status
+        Log.d(TAG, "🔔 App resumed, checking notification status");
+        if (areNotificationsEnabled()) {
+            Log.d(TAG, "🔔 Notifications are now enabled!");
+            // Only show toast once per session
+            if (!sharedPreferences.getBoolean(KEY_NOTIFICATION_TOAST_SHOWN, false)) {
+                Toast.makeText(this, getString(R.string.toast_notifications_enabled_senior), Toast.LENGTH_SHORT).show();
+                // Mark that we've shown the toast
+                sharedPreferences.edit().putBoolean(KEY_NOTIFICATION_TOAST_SHOWN, true).apply();
+            }
+        }
+        
         if (!locationUpdatesActive) {
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
                     ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
@@ -699,7 +940,24 @@ public class Senior_Dashboard extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
+        
+        // Don't stop listening for rescuer response notifications immediately
+        // Let it continue running in background for better notification delivery
+        // SeniorNotificationService.getInstance(this).stopListening();
+        
+        // Stop location updates
         stopLocationUpdates();
+    }
+    
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        
+        // Handle language change without recreating activity
+        Log.d(TAG, "Configuration changed - language change detected");
+        
+        // Reload cached name to ensure it's still displayed
+        loadCachedName();
     }
 
     @Override
@@ -709,5 +967,140 @@ public class Senior_Dashboard extends AppCompatActivity {
         if (locationUpdatesActive) {
             stopLocationUpdates();
         }
+        
+        // Stop listening for rescuer response notifications when activity is destroyed
+        SeniorNotificationService.getInstance(this).stopListening();
     }
+    
+    
+    /**
+     * Get emergency status from database with fallback
+     */
+    public void getEmergencyStatus(String requestId, EmergencyQueueManager.EmergencyStatusCallback callback) {
+        // First try to get from local EmergencyQueueManager
+        EmergencyQueueManager.EmergencyRequest emergency = EmergencyQueueManager.getInstance(this).getEmergencyById(requestId);
+        
+        if (emergency != null) {
+            // Emergency found in local queue
+            callback.onStatusLoaded(emergency.status, emergency.assignedRescuerId, System.currentTimeMillis());
+        } else {
+            // Emergency not found in local queue, load from database
+            Log.d(TAG, "⚠️ Emergency not found in local queue, loading from database...");
+            EmergencyQueueManager.getInstance(this).getEmergencyStatusFromDatabase(requestId, callback);
+        }
+    }
+    
+    // Notification permission request methods
+    private void checkAndRequestNotificationPermission() {
+        Log.d(TAG, "🔔 Checking notification permissions");
+        
+        // Check if notifications are enabled
+        if (!areNotificationsEnabled()) {
+            Log.d(TAG, "🔔 Notifications are disabled, requesting permission");
+            showNotificationPermissionDialog();
+        } else {
+            Log.d(TAG, "🔔 Notifications are enabled");
+        }
+    }
+    
+    private boolean areNotificationsEnabled() {
+        NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (notificationManager == null) {
+            return false;
+        }
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            return notificationManager.areNotificationsEnabled();
+        } else {
+            // For older versions, assume notifications are enabled if the service exists
+            return true;
+        }
+    }
+    
+    private void showNotificationPermissionDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(getString(R.string.dialog_enable_notifications))
+                .setMessage(getString(R.string.dialog_enable_notifications_senior))
+                .setPositiveButton(getString(R.string.button_enable_notifications), (dialog, which) -> {
+                    openNotificationSettings();
+                })
+                .setNegativeButton(getString(R.string.button_later), (dialog, which) -> {
+                    Log.d(TAG, "🔔 User chose to enable notifications later");
+                    // Show a reminder toast
+                    Toast.makeText(this, getString(R.string.toast_notifications_later), Toast.LENGTH_LONG).show();
+                })
+                .setCancelable(false)
+                .show();
+    }
+    
+    private void openNotificationSettings() {
+        Log.d(TAG, "🔔 Opening notification settings");
+        
+        Intent intent;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // For Android 8.0 and above, open app-specific notification settings
+            intent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
+            intent.putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName());
+        } else {
+            // For older versions, open general notification settings
+            intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            intent.setData(Uri.parse("package:" + getPackageName()));
+        }
+        
+        try {
+            startActivity(intent);
+            Toast.makeText(this, getString(R.string.toast_enable_notifications_return), Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            Log.e(TAG, "Error opening notification settings", e);
+            Toast.makeText(this, getString(R.string.toast_could_not_open_settings), Toast.LENGTH_LONG).show();
+        }
+    }
+    
+    // FCM Token Registration
+    private void registerForFCMNotifications() {
+        Log.d(TAG, "🔔 Registering for FCM notifications");
+        
+        FirebaseMessaging.getInstance().getToken()
+                .addOnCompleteListener(task -> {
+                    if (!task.isSuccessful()) {
+                        Log.w(TAG, "❌ Fetching FCM registration token failed", task.getException());
+                        return;
+                    }
+
+                    // Get new FCM registration token
+                    String token = task.getResult();
+                    Log.d(TAG, "🔔 FCM Token: " + token);
+
+                    // Save token to Firestore
+                    saveFCMTokenToDatabase(token);
+                });
+    }
+    
+    private void saveFCMTokenToDatabase(String fcmToken) {
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) {
+            Log.w(TAG, "❌ No authenticated user for FCM token");
+            return;
+        }
+        
+        String userId = currentUser.getUid();
+        Log.d(TAG, "💾 Saving FCM token for user: " + userId);
+        
+        Map<String, Object> tokenData = new HashMap<>();
+        tokenData.put("fcmToken", fcmToken);
+        tokenData.put("lastUpdated", System.currentTimeMillis());
+        
+        db.collection("Sagip")
+                .document("users")
+                .collection("seniors")
+                .document(userId)
+                .set(tokenData, SetOptions.merge())
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "✅ FCM token saved successfully");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Failed to save FCM token", e);
+                });
+    }
+    
 }

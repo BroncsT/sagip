@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">SAGIP</string>
-    
+
     <!-- Google Maps API Key -->
     <string name="google_maps_key">AIzaSyBkf_blEJ4wc5Q_CNxABKK6-LFxDF-gWv0</string>
-    
-    
+
+
     <!-- Language Selection -->
     <string name="language_selection">Language Selection</string>
     <string name="select_language">Select Language</string>
@@ -17,7 +17,7 @@
     <string name="english">English</string>
     <string name="filipino">Filipino</string>
     <string name="continue_button">Continue</string>
-    
+
     <!-- Login/Registration -->
     <string name="login">Login</string>
     <string name="register">Register</string>
@@ -26,16 +26,16 @@
     <string name="already_have_account">Already have an account?</string>
     <string name="sign_up">Sign Up</string>
     <string name="sign_in">Sign In</string>
-    
+
     <!-- User Types -->
     <string name="select_user_type">Select User Type</string>
     <string name="senior_citizen">Senior Citizen</string>
     <string name="rescuer">Rescuer</string>
     <string name="hospital">Hospital</string>
     <string name="barangay">Barangay</string>
-    
+
     <!-- ID Verification -->
-    <string name="id_verification">ID Verification</string>     
+    <string name="id_verification">ID Verification</string>
     <string name="select_id_type">Select ID Type</string>
     <string name="philippine_passport">Philippine Passport</string>
     <string name="drivers_license">Driver\'s License</string>
@@ -52,7 +52,7 @@
     <string name="school_id">School ID</string>
     <string name="company_id">Company ID</string>
     <string name="other_government_id">Other Government ID</string>
-    
+
     <!-- ID Photo Upload -->
     <string name="front_side_id">Front Side of ID</string>
     <string name="back_side_id">Back Side of ID</string>
@@ -64,7 +64,7 @@
     <string name="please_select_id_type">Please select an ID type</string>
     <string name="please_upload_front">Please upload the front side of your ID</string>
     <string name="please_upload_back">Please upload the back side of your ID</string>
-    
+
     <!-- Camera Capture -->
     <string name="position_front_id">Position the FRONT of your ID inside the frame</string>
     <string name="position_back_id">Position the BACK of your ID inside the frame</string>
@@ -81,7 +81,7 @@
     <string name="please_wait_upload">Please wait for upload to complete</string>
     <string name="front_id_captured">Front ID photo captured successfully</string>
     <string name="back_id_captured">Back ID photo captured successfully</string>
-    
+
     <!-- Selfie Verification -->
     <string name="selfie_verification">Selfie Verification</string>
     <string name="automatic_selfie_verification">Automatic Selfie Verification</string>
@@ -125,10 +125,10 @@
     <string name="grant_permission_settings">Please grant permission in Settings or try again.</string>
     <string name="camera_permission_required_verification">Camera permission is required for automatic selfie</string>
     <string name="user_not_authenticated">User not authenticated</string>
-    
+
     <!-- Privacy and Terms -->
     <string name="privacy_text">Your information will be kept secure and used only for verification purposes.</string>
-    
+
     <!-- General -->
     <string name="error">Error</string>
     <string name="success">Success</string>
@@ -138,7 +138,7 @@
     <string name="no">No</string>
     <string name="loading">Loading...</string>
     <string name="please_wait">Please wait...</string>
-    
+
     <!-- Image Source Dialog -->
     <string name="select_image_source">Select Image Source</string>
     <string name="camera">Camera</string>
@@ -152,11 +152,11 @@
     <string name="back_id_uploaded">Back ID photo uploaded successfully</string>
     <string name="front_id_captured_uploaded">Front ID photo captured and uploaded successfully</string>
     <string name="back_id_captured_uploaded">Back ID photo captured and uploaded successfully</string>
-    
+
     <!-- Guidelines -->
     <string name="guidelines_title">Selfie Verification Guidelines</string>
     <string name="guidelines_text">• Ensure your face is clearly visible\n• Remove glasses or hats\n• Use good lighting\n• Look directly at the camera\n• Keep a neutral expression</string>
-    
+
     <!-- Profile Settings -->
     <string name="account_settings">Account Settings</string>
     <string name="change_Info">Change Information</string>
@@ -164,7 +164,7 @@
     <string name="more_options">More Options</string>
     <string name="help_support">Help &amp; Support</string>
     <string name="logout">Logout</string>
-    
+
     <!-- Registration -->
     <string name="back_arrow">Back</string>
     <string name="checkmark">✓</string>
@@ -176,7 +176,7 @@
     <string name="terms_conditions">I agree to the Terms and Conditions</string>
     <string name="privacy_policy">I agree to the Privacy Policy</string>
     <string name="submit_button_text">Submit</string>
-    
+
     <!-- Dashboard -->
     <string name="rescuer_location">Rescuer Location</string>
     <string name="doctor_available">Doctor Available</string>
@@ -186,20 +186,20 @@
     <string name="notify_rescuer_barangay">Notify Rescuer/Barangay</string>
     <string name="update">Update</string>
     <string name="no_button">No</string>
-    
+
     <!-- Hospital Registration -->
     <string name="hospital_name">Hospital Name</string>
     <string name="title_hospital_registration">Hospital Registration</string>
     <string name="emergency_room_info">Emergency Room Information</string>
     <string name="emergency_room_beds">Total Number of Emergency Room Beds</string>
     <string name="emergency_room_doctors">Total Number of Doctors in Emergency Room</string>
-    
+
     <!-- Barangay Registration -->
     <string name="title_barangay_registration">Barangay Registration</string>
     <string name="barangay_address">Barangay Address</string>
     <string name="barangay_captain">Barangay Captain</string>
     <string name="barangay_contact_person">Barangay Contact Person</string>
-    
+
     <!-- Main Activity -->
     <string name="welcome_to">Welcome to</string>
     <string name="enter_number_prompt">Enter your mobile number to continue</string>
@@ -215,20 +215,20 @@
     <string name="rescue_title">Rescuer</string>
     <string name="rescue_description">For emergency responders and rescue teams</string>
     <string name="hospital_description">For hospitals to manage emergency room status</string>
-    
+
     <!-- Map Activities -->
     <string name="btn_navigate">Navigate</string>
     <string name="btn_call_senior">Call Senior</string>
     <string name="btn_show_route">Show Route</string>
     <string name="call_closest_rescuer">Call Closest Rescuer</string>
-    
+
     <!-- OTP Page -->
     <string name="instruction_text_otp">Please enter the verification code sent to your mobile number</string>
     <string name="mobile_number">Mobile Number</string>
     <string name="otp_hint">Enter OTP code</string>
     <string name="verify_button">Verify</string>
     <string name="security_note">For security purposes, please enter the verification code sent to your mobile number</string>
-    
+
     <!-- Rescuer Registration -->
     <string name="content_description_status">Status indicator</string>
     <string name="title_rescue_group_registration">Rescue Group Registration</string>
@@ -242,7 +242,7 @@
     <string name="checkbox_terms_conditions">I agree to the Terms and Conditions</string>
     <string name="checkbox_privacy_policy">I agree to the Privacy Policy</string>
     <string name="button_register_rescue_group">Register Rescue Group</string>
-    
+
     <!-- Selfie Verification Layout -->
     <string name="title_selfie_verification">Selfie Verification</string>
     <string name="selfie_step_indicator">Step 2 of 3: Selfie Verification</string>
@@ -256,12 +256,41 @@
     <string name="guideline_remove_glasses">Remove glasses or hats if possible</string>
     <string name="button_verify_selfie">Verify Selfie</string>
     <string name="selfie_privacy_info">Your selfie photo will be used for verification purposes only</string>
-    
+
     <!-- Senior Citizen Features -->
     <string name="instruction_add_contact">Please fill in the emergency contact information</string>
     <string name="emergency_contact_name">Emergency Contact Name</string>
     <string name="phone_number">Phone Number</string>
     <string name="emergency_address">Emergency Address</string>
+    <string name="relationship">Relationship</string>
+    <string name="select_relationship">Select Relationship</string>
+    <string name="relationship_son">Son</string>
+    <string name="relationship_daughter">Daughter</string>
+    <string name="relationship_spouse">Spouse</string>
+    <string name="relationship_sibling">Sibling</string>
+    <string name="relationship_cousin">Cousin</string>
+    <string name="relationship_nephew">Nephew</string>
+    <string name="relationship_niece">Niece</string>
+    <string name="relationship_grandchild">Grandchild</string>
+    <string name="relationship_parent">Parent</string>
+    <string name="relationship_grandparent">Grandparent</string>
+    <string name="relationship_friend">Friend</string>
+    <string name="relationship_neighbor">Neighbor</string>
+    <string name="relationship_caregiver">Caregiver</string>
+    <string name="relationship_other">Other</string>
+    <string name="update_button">Update</string>
+    <string name="delete_button">Delete</string>
+    <string name="contact_name_hint">Contact Name</string>
+    <string name="phone_number_hint">Phone Number</string>
+    <string name="address_hint">Address</string>
+    <string name="update_contact_title">Update Contact</string>
+    <string name="update_dialog_button">Update</string>
+    <string name="cancel_dialog_button">Cancel</string>
+    <string name="fill_all_fields_error">Fill all fields</string>
+    <string name="delete_contact_title">Tanggalin ang Kontakto</string>
+    <string name="delete_contact_message">Sigurado ka bang gusto mong tanggalin si %s?</string>
+    <string name="contact_name_label">Contact Name</string>
+    <string name="relationship_label">Relationship</string>
     <string name="emergencynote">Emergency Note</string>
     <string name="emergencyguide">Emergency Guide</string>
     <string name="emegencysignalcode">Emergency Signal Code</string>
@@ -273,8 +302,9 @@
     <string name="last_name_hint">Enter last name</string>
     <string name="birthday_hint">Enter birthday</string>
     <string name="emergency_contact_number_hint">Enter emergency contact number</string>
+    <string name="barangay_hint">Select your barangay</string>
     <string name="email_address_optional">Email address (optional)</string>
-    
+
     <!-- Menu Items -->
     <string name="hospital_list">Hospital List</string>
     <string name="hospital_dashboard">Hospital Dashboard</string>
@@ -282,15 +312,15 @@
     <string name="senior_location">Senior Location</string>
     <string name="senior_home">Senior Home</string>
     <string name="senior_profile">Senior Profile</string>
-    
+
     <!-- Rescuer Menu Items -->
     <string name="rescuer_hospital">Rescuer Hospital</string>
     <string name="rescuer_dashboard">Rescuer Dashboard</string>
     <string name="rescuer_profile">Rescuer Profile</string>
-    
+
     <!-- Map and Emergency -->
     <string name="senior_needs_help">%1$s needs help</string>
-    
+
     <!-- Rescuer Dashboard -->
     <string name="welcome_back">Welcome Back!</string>
     <string name="rescuer_name">Rescuer Name</string>
@@ -308,7 +338,7 @@
     <string name="how_it_works">ℹ️ How it works</string>
     <string name="rescuer_instructions">1. Keep the app open to receive emergency alerts\n2. When an emergency occurs, you\'ll get a notification\n3. Use the map to see emergency location and route\n4. Tap \'RESPOND NOW\' to accept the emergency\n5. Use Google Maps integration for turn-by-turn directions</string>
     <string name="user_name_not_available">User Name Not Available</string>
-    
+
     <!-- Rescuer Dashboard Toast Messages -->
     <string name="emergency_notification_cleared">Emergency notification cleared</string>
     <string name="response_recorded">✅ Response recorded - Help is on the way!</string>
@@ -326,7 +356,7 @@
     <string name="user_profile_not_found">User profile not found. Please login again.</string>
     <string name="location_permission_denied">Location permission denied. Unable to update location.</string>
     <string name="error_starting_location_updates">Error starting location updates</string>
-    
+
     <!-- Hospital Dashboard -->
     <string name="hello">Hello, </string>
     <string name="hospital_address">Hospital Address</string>
@@ -335,12 +365,12 @@
     <string name="doctors_info">Doctors: %1$d</string>
     <string name="location_format">Location: %1$s</string>
     <string name="status_not_available_er">⚪ Status not available</string>
-    
+
     <!-- Contact List -->
     <string name="contact_name">Contact Name</string>
     <string name="phone_number_label">Phone Number</string>
     <string name="delete">Delete</string>
-    
+
     <!-- Senior Dashboard -->
     <string name="current_location_label">Current Location: </string>
     <string name="locate_nearest_hospital">locate nearest Hospital</string>
@@ -351,16 +381,16 @@
     <string name="user_data_not_found">User data not found.</string>
     <string name="failed_load_data">Failed to load data.</string>
     <string name="yes_i_need_help">🚨 YES, I NEED HELP</string>
-    
+
     <!-- Senior Update Profile -->
     <string name="update_account_information">Update Account Information</string>
     <string name="mobile_number_label">Mobile Number</string>
     <string name="address_label">Address</string>
     <string name="update_information">Update Information</string>
-    
+
     <!-- Senior Add Emergency Contact -->
     <string name="hi_user">hi user</string>
-    
+
     <!-- Selfie Verification -->
     <string name="start_automatic_capture">Start Automatic Capture</string>
     <string name="manual_capture">Manual Capture</string>
@@ -384,7 +414,7 @@
     <string name="verification_submitted_success_instructions">✅ Verification submitted successfully!\n\nYour account is now pending approval.\nYou will be redirected to the login page.</string>
     <string name="verification_submitted_success_toast">✅ Verification submitted successfully! Your account is pending approval.</string>
     <string name="submission_failed_instructions">❌ Submission failed. Please try again.\n\nCheck your internet connection and try again.</string>
-    
+
     <!-- Delete Account -->
     <string name="delete_account">Delete Account</string>
     <string name="delete_account_confirmation_title">Delete Account</string>
@@ -394,7 +424,7 @@
     <string name="delete_account_success">Account deleted successfully</string>
     <string name="delete_account_failed">Failed to delete account. Please try again.</string>
     <string name="delete_account_progress">Deleting account...</string>
-    
+
     <!-- Hospital Status Edit -->
     <string name="update_emergency_room_status">Update Emergency Room Status</string>
     <string name="bed_information">Bed Information</string>
@@ -406,10 +436,10 @@
     <string name="save_status">Save Status</string>
     <string name="invalid_data_check_inputs">⚪ Invalid data - check your inputs</string>
     <string name="enter_valid_numbers">⚪ Enter valid numbers</string>
-    
+
     <!-- Barangay Dashboard -->
     <string name="rescue_group_not_available">Rescue Group Not Available</string>
-    
+
     <!-- Map Activities -->
     <string name="stop_navigation">📍 Stop Navigation</string>
     <string name="get_route">Get Route</string>
@@ -421,7 +451,7 @@
     <string name="location_address">📍 %1$s</string>
     <string name="waiting_rescuers">⏳ Waiting for rescuers to respond...</string>
     <string name="rescuers_coming">🚑 %1$d rescuer(s) coming to help</string>
-    
+
     <!-- Main Activity -->
     <string name="continue_button_text">Continue</string>
     <string name="enter_mobile_continue">Enter your mobile number to continue</string>
@@ -442,7 +472,6 @@
     <string name="network_error_check_connection">Network error. Please check your connection and try again.</string>
     <string name="failed_send_password_reset">Failed to send password reset email. Please try again or contact support if the problem persists.</string>
     <string name="please_verify_email">Please verify your email to continue.</string>
-    
 
 
     <!-- HospitalAdapter -->
@@ -459,7 +488,7 @@
     <!-- OTP Page -->
     <string name="resend_otp_timer">Resend OTP in %1$d seconds</string>
     <string name="timer_finished">Timer finished</string>
-    
+
     <!-- Hospital Status Edit -->
     <string name="please_fill_all_fields">Please fill in all fields</string>
     <string name="total_beds_greater_than_zero">Total beds must be greater than 0</string>
@@ -469,23 +498,23 @@
     <string name="hospital_status_updated_successfully">Hospital status updated successfully!</string>
     <string name="status_label">Status:</string>
     <string name="failed_to_update_status">Failed to update status</string>
-    
+
     <!-- Hospital Status Edit Layout -->
     <string name="total_er_beds">Total ER Beds</string>
     <string name="available_er_beds">Available ER Beds</string>
     <string name="doctors_available">Doctors Available</string>
-    
+
     <!-- Hospital List -->
     <string name="senior_citizen_list_information">Senior Citizen List Information</string>
-    
+
     <!-- Barangay Dashboard -->
     <string name="user_document_not_exist">User document does not exist</string>
     <string name="unable_load_user_data">Unable to load user data. Check your internet connection.</string>
     <string name="current_location_not_available">Current location not available. Please wait or check permissions.</string>
-    
+
     <!-- Missing String Resources -->
     <string name="password_reset_failed">Password reset failed</string>
-    
+
     <!-- Password Change for Registration -->
     <string name="change_password">Change Password</string>
     <string name="new_password">New Password</string>
@@ -503,7 +532,7 @@
     <string name="uploading_selfie_instructions">📤 Uploading your selfie...</string>
     <string name="upload_failed_try_again_instructions">❌ Upload failed. Please try again.</string>
     <string name="selfie_captured_uploaded_success">✅ Face verification captured and uploaded successfully!</string>
-    
+
     <!-- Feedback and Reporting Module -->
     <string name="feedback_support">Feedback &amp; Support</string>
     <string name="report_issue">Report Issue</string>
@@ -566,7 +595,7 @@
     <string name="feedback_file_too_large">File too large. Maximum size: 5MB</string>
     <string name="feedback_invalid_file_type">This file type is not supported</string>
     <string name="feedback_help_text">How to submit feedback:\n\n1. Choose feedback type\n2. Enter subject and message\n3. Select priority level\n4. Add attachment if needed\n5. Submit feedback</string>
-    
+
     <!-- Admin Feedback Management -->
     <string name="admin_feedback_title">Admin Feedback Management</string>
     <string name="admin_feedback_pending">Pending</string>
@@ -592,7 +621,7 @@
     <string name="current_er_status">Current ER Status</string>
     <string name="available_er_beds_hint">Available ER Beds</string>
     <string name="er_medical_staff_on_duty_hint">ER Medical Staff On-Duty</string>
-    
+
     <!-- ID Camera Capture Strings -->
     <string name="front_of_id">Front of ID</string>
     <string name="back_of_id">Back of ID</string>
@@ -614,7 +643,7 @@
     <string name="no_clear_id_content">No clear ID content detected</string>
     <string name="poor_lighting_contrast">Poor lighting or contrast</string>
     <string name="image_quality_insufficient">Image quality insufficient for verification</string>
-    
+
     <!-- Selfie Verification Strings -->
     <string name="face_verification">Selfie Verification</string>
     <string name="blink">Blink</string>
@@ -631,7 +660,7 @@
     <string name="manual_capture_available">Manual capture is now available</string>
     <string name="please_wait_moment_instructions">Please wait a moment for face detection</string>
     <string name="submission_failed_try_again_instructions">Submission failed. Please try again</string>
-    
+
     <!-- Hospital Status Update Requirements -->
     <string name="status_update_required_title">Status Update Required</string>
     <string name="status_update_required">Your hospital status needs to be updated. Please update your current bed and doctor availability.</string>
@@ -647,4 +676,162 @@
     <string name="countdown_format">%1$02d:%2$02d:%3$02d</string>
     <string name="update_required_now">Update Required Now!</string>
     <string name="status_update_timer">Status Update Timer</string>
+
+    <!-- Barangay Emergency Notifications -->
+    <string name="barangay_emergency_alert_title">🚨 EMERGENCY ALERT</string>
+    <string name="barangay_emergency_alert_content">Senior citizen needs immediate assistance in %1$s</string>
+    <string name="barangay_emergency_alert_location">📍 Location: %1$s</string>
+    <string name="barangay_emergency_alert_time">⏰ Time: %1$s</string>
+    <string name="barangay_emergency_alert_priority">🔴 HIGH PRIORITY</string>
+    <string name="barangay_emergency_alert_action">Tap to view details and respond</string>
+    <string name="barangay_emergency_channel_name">🚨 EMERGENCY ALERTS</string>
+    <string name="barangay_emergency_channel_description">Critical emergency notifications for barangay officials - Maximum priority alerts</string>
+    <string name="barangay_emergency_heads_up_title">🚨 EMERGENCY ALERT - %1$s</string>
+    <string name="barangay_emergency_heads_up_content">Senior citizen needs immediate assistance</string>
+    <string name="barangay_emergency_heads_up_location">📍 %1$s</string>
+    <string name="barangay_emergency_heads_up_time">⏰ %1$s</string>
+    <string name="barangay_emergency_heads_up_priority">🔴 HIGH PRIORITY - Immediate response required</string>
+    <string name="barangay_emergency_heads_up_action">Tap to view emergency details and respond immediately</string>
+    <string name="barangay_emergency_action_call">CALL SENIOR</string>
+    <string name="barangay_emergency_action_view">VIEW DETAILS</string>
+
+    <!-- Toast Messages -->
+    <string name="toast_fill_all_fields">Fill all fields</string>
+    <string name="toast_user_not_authenticated">User not authenticated</string>
+    <string name="toast_phone_number_exists">Phone number already exists in emergency contacts</string>
+    <string name="toast_failed_check_contacts">Failed to check existing contacts: %1$s</string>
+    <string name="toast_contact_added_success">Emergency contact added successfully</string>
+    <string name="toast_contact_add_failed">Failed to add emergency contact</string>
+    <string name="toast_language_change_detected">Language change detected!</string>
+    <string name="toast_notifications_enabled_barangay">✅ Notifications enabled! You will now receive emergency alerts.</string>
+    <string name="toast_current_location_not_available">Current location not available</string>
+    <string name="toast_notifications_later">You can enable notifications later in Settings</string>
+    <string name="toast_enable_notifications_return">Please enable notifications and return to the app</string>
+    <string name="toast_could_not_open_settings">Could not open settings. Please enable notifications manually in your device settings.</string>
+    <string name="toast_error_opening_map">Error opening map</string>
+    <string name="toast_help_request_cancelled">Help request cancelled</string>
+    <string name="toast_failed_send_emergency">Failed to send emergency alert</string>
+    <string name="toast_location_permission_needed">Location permission needed for location services</string>
+    <string name="toast_rescuer_phone_not_available">Rescuer phone number not available</string>
+    <string name="toast_notifications_enabled_senior">✅ Notifications enabled! You will now receive updates about your emergency requests.</string>
+    <string name="toast_opening_sos_navigation">🚨 Opening SOS Navigation</string>
+    <string name="toast_getting_location">📍 Getting your current location first...</string>
+    <string name="toast_hospital_status_updated">Hospital status updated: %1$s is %2$s %3$s</string>
+    <string name="toast_assigned_to_emergency">✅ You are now assigned to this emergency. Senior has been notified!</string>
+    <string name="toast_opening_navigation_to">🗺️ Opening navigation to %1$s\'s location</string>
+    <string name="toast_error_opening_navigation">Error opening navigation: %1$s</string>
+    <string name="toast_opening_dedicated_navigation">🗺️ Opening dedicated navigation to %1$s\'s location</string>
+    <string name="toast_opening_google_maps_to">🗺️ Opening Google Maps to %1$s\'s location</string>
+    <string name="toast_destination_not_available">Destination location not available</string>
+    <string name="toast_current_location_wait">Your current location is not available yet. Please wait for location update.</string>
+    <string name="toast_could_not_get_location">❌ Could not get current location. Please try again.</string>
+
+    <!-- Dialog Titles -->
+    <string name="dialog_emergency_help_request">🚨 Emergency Help Request</string>
+    <string name="dialog_emergency_help_sent">🚨 Emergency Help Request Sent</string>
+    <string name="dialog_help_on_way">🚨 Help is on the way!</string>
+    <string name="dialog_enable_notifications">🔔 Enable Notifications</string>
+    <string name="dialog_hospital_status_update">🏥 Hospital Status Update</string>
+    <string name="dialog_fifo_emergency_queue">🔄 FIFO Emergency Queue</string>
+    <string name="dialog_emergency_summary">📋 Emergency Summary</string>
+    <string name="dialog_emergency_sos_alert">🚨 EMERGENCY SOS ALERT</string>
+    <string name="dialog_emergency_response_details">🚨 Emergency Response Details</string>
+    <string name="dialog_test_navigation">🧪 Test Navigation</string>
+
+    <!-- Dialog Messages -->
+    <string name="dialog_emergency_help_message">Are you sure you want help?\n\n📋 Your Information:\n👤 Name: %1$s\n📍 Location: %2$s\n📞 Phone: %3$s\n\nThis will send your information to nearby rescuers for immediate assistance.</string>
+    <string name="dialog_emergency_help_sent_message">Your emergency request has been added to the queue.\n\nRescuers in your area will be notified and the closest available rescuer will respond to your emergency.\n\nPlease stay safe and wait for help to arrive.</string>
+    <string name="dialog_help_on_way_message">%1$s\n\n👤 Rescuer: %2$s\n📞 Phone: %3$s\n📍 Location: %4$s\n⏰ Response Time: %5$s\n\nHelp is on the way! Stay safe and wait for the rescuer to arrive.</string>
+    <string name="dialog_enable_notifications_barangay">To receive emergency alerts from seniors in your barangay, please enable notifications for this app.\n\nThis is essential for the safety of your community members.</string>
+    <string name="dialog_enable_notifications_senior">To receive updates about your emergency requests and rescuer responses, please enable notifications for this app.\n\nThis ensures you stay informed about your safety.</string>
+    <string name="dialog_test_navigation_message">Test navigation to Christ in You Heale Parish in Magalang, Pampanga?</string>
+
+    <!-- Dialog Buttons -->
+    <string name="button_send_help">🚨 SEND HELP</string>
+    <string name="button_cancel">Cancel</string>
+    <string name="button_enable_notifications">Enable Notifications</string>
+    <string name="button_later">Later</string>
+    <string name="button_respond_now">🚨 RESPOND NOW</string>
+    <string name="button_google_nav">🗺️ GOOGLE NAV</string>
+    <string name="button_call_senior">📞 CALL SENIOR</string>
+    <string name="button_dismiss">Dismiss</string>
+    <string name="button_respond_now_old">🚑 RESPOND NOW</string>
+    <string name="button_ok">OK</string>
+
+    <!-- Additional UI Text -->
+    <string name="text_not_available">Not available</string>
+    <string name="text_not_provided">Not provided</string>
+    <string name="text_location_permission_denied">Location permission denied</string>
+    <string name="text_fetching_location">Fetching current location...</string>
+    <string name="text_full_name_not_available">Full Name Not Available</string>
+    <string name="text_waiting_location_update">Waiting for location update...</string>
+    <string name="text_user_data_not_found">User data not found.</string>
+    <string name="text_failed_load_data">Failed to load data.</string>
+    <string name="text_loading">Loading...</string>
+    <string name="text_help_on_way">🚨 Help is on the way!</string>
+    <string name="text_rescuer_phone_not_available">Rescuer phone number not available</string>
+    <string name="text_hospital_status_updated">Hospital status updated: %1$s is %2$s %3$s</string>
+    <string name="text_fifo_emergency_queue">🔄 FIFO Emergency Queue</string>
+    <string name="text_emergency_summary">📋 Emergency Summary</string>
+    <string name="text_emergency_sos_title">🚨 EMERGENCY SOS - %1$s</string>
+    <string name="text_emergency_sos_content">Senior needs immediate help at %1$s</string>
+    <string name="text_opening_dedicated_navigation">🗺️ Opening dedicated navigation to %1$s\'s location</string>
+    <string name="text_opening_google_maps_to">🗺️ Opening Google Maps to %1$s\'s location</string>
+    <string name="text_error_opening_navigation_long">Error opening navigation: %1$s</string>
+    <string name="text_destination_not_available">Destination location not available</string>
+    <string name="text_current_location_wait_long">Your current location is not available yet. Please wait for location update.</string>
+    <string name="text_emergency_response_details">🚨 Emergency Response Details</string>
+    <string name="text_test_navigation">🧪 Test Navigation</string>
+    <string name="text_test_navigation_message">Test navigation to Christ in You Heale Parish in Magalang, Pampanga?</string>
+    <string name="text_could_not_get_location">❌ Could not get current location. Please try again.</string>
+    <string name="text_error_getting_location">❌ Error getting location: %1$s</string>
+    <string name="text_location_permission_required">❌ Location permission required for navigation</string>
+    <string name="text_testing_navigation_to">🗺️ Testing Navigation to %1$s (Database Location)</string>
+    <string name="text_hospital_location_not_found">❌ Hospital location not found in database</string>
+    <string name="text_hospital_not_found">❌ Hospital \'%1$s\' not found in database</string>
+    <string name="text_error_retrieving_hospital">❌ Error retrieving hospital location: %1$s</string>
+    <string name="text_medical">medical</string>
+    <string name="text_sos">SOS</string>
+    <string name="text_high">HIGH</string>
+    <string name="text_active">ACTIVE</string>
+    <string name="text_emergency_sos_alert">🚨 EMERGENCY SOS ALERT</string>
+    <string name="text_senior_needs_help">Senior %1$s needs immediate help!</string>
+    <string name="text_emergency_sos_type">EMERGENCY_SOS</string>
+    <string name="text_high_priority">HIGH</string>
+
+    <!-- Angeles City Barangays -->
+    <string name="select_barangay">Select Barangay</string>
+    <string name="barangay_agapito_del_rosario">Agapito del Rosario</string>
+    <string name="barangay_amsic">Amsic</string>
+    <string name="barangay_anunas">Anunas</string>
+    <string name="barangay_balibago">Balibago</string>
+    <string name="barangay_capaya">Capaya</string>
+    <string name="barangay_claro_m_recto">Claro M. Recto</string>
+    <string name="barangay_cuayan">Cuayan</string>
+    <string name="barangay_cutcut">Cutcut</string>
+    <string name="barangay_cutud">Cutud</string>
+    <string name="barangay_lourdes_north_west">Lourdes North West</string>
+    <string name="barangay_lourdes_sur">Lourdes Sur</string>
+    <string name="barangay_lourdes_sur_east">Lourdes Sur East</string>
+    <string name="barangay_malabanas">Malabañas</string>
+    <string name="barangay_margot">Margot</string>
+    <string name="barangay_mining">Mining</string>
+    <string name="barangay_ninoy_aquino">Ninoy Aquino (Marisol)</string>
+    <string name="barangay_pampang">Pampang</string>
+    <string name="barangay_pandan">Pandan</string>
+    <string name="barangay_pulung_cacutud">Pulung Cacutud</string>
+    <string name="barangay_pulung_maragul">Pulung Maragul</string>
+    <string name="barangay_pulungbulu">Pulungbulu</string>
+    <string name="barangay_salapungan">Salapungan</string>
+    <string name="barangay_san_jose">San Jose</string>
+    <string name="barangay_san_nicolas">San Nicolas</string>
+    <string name="barangay_santa_teresita">Santa Teresita</string>
+    <string name="barangay_santa_trinidad">Santa Trinidad</string>
+    <string name="barangay_santo_cristo">Santo Cristo</string>
+    <string name="barangay_santo_domingo">Santo Domingo</string>
+    <string name="barangay_santo_rosario">Santo Rosario (Poblacion)</string>
+    <string name="barangay_sapalibutad">Sapalibutad</string>
+    <string name="barangay_sapangbato">Sapangbato</string>
+    <string name="barangay_tabun">Tabun</string>
+    <string name="barangay_virgen_delos_remedios">Virgen Delos Remedios</string>
 </resources>

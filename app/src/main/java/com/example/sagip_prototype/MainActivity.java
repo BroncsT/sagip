@@ -28,6 +28,8 @@ import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.PhoneAuthOptions;
+import com.google.firebase.appcheck.FirebaseAppCheck;
+import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory;
 import com.google.firebase.auth.PhoneAuthProvider;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
@@ -86,6 +88,17 @@ public class MainActivity extends AppCompatActivity {
         auth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
         sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        
+        // Initialize Firebase App Check
+        try {
+            FirebaseAppCheck firebaseAppCheck = FirebaseAppCheck.getInstance();
+            firebaseAppCheck.installAppCheckProviderFactory(
+                PlayIntegrityAppCheckProviderFactory.getInstance()
+            );
+            Log.d(TAG, "Firebase App Check initialized successfully");
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to initialize Firebase App Check: " + e.getMessage());
+        }
 
         // Check if this is a logout action
         Bundle extras = getIntent().getExtras();
@@ -107,32 +120,33 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        // Check if user is already logged in
+        // Check if user is already logged in (only if we have stored credentials)
         if (isUserLoggedIn()) {
-            Log.d(TAG, "User already logged in, redirecting to dashboard");
+            Log.d(TAG, "User already logged in with stored credentials, redirecting to dashboard");
             redirectToStoredUserDashboard();
             return;
         }
 
-        // Check authentication status before setting content view
+        // For fresh installs, always show login screen first
+        // Don't auto-redirect based on Firebase Auth alone - let user choose to login
+        Log.d(TAG, "Fresh install or no stored credentials - showing login screen");
+        
+        // Debug: Check Firebase Auth state for logging purposes
         FirebaseUser currentUser = auth.getCurrentUser();
+        Log.d(TAG, "🔍 Firebase Auth state check:");
+        Log.d(TAG, "  - Firebase user: " + (currentUser != null ? currentUser.getUid() : "null"));
         if (currentUser != null) {
-            String phoneNumber = currentUser.getPhoneNumber();
-            String email = currentUser.getEmail();
-
-            if (phoneNumber != null) {
-                Log.d(TAG, "User already logged in with phone: " + phoneNumber);
-                checkUserTypeAndRedirect(phoneNumber, true);
-                return;
-            } else if (email != null) {
-                Log.d(TAG, "User already logged in with email: " + email);
-                checkUserTypeAndRedirect(currentUser.getUid(), false);
-                return;
-            } else {
-                Log.d(TAG, "User logged in but no phone number or email found");
-                auth.signOut();
-            }
+            Log.d(TAG, "  - Phone: " + currentUser.getPhoneNumber());
+            Log.d(TAG, "  - Email: " + currentUser.getEmail());
         }
+        
+        // Samsung-specific logging
+        String manufacturer = android.os.Build.MANUFACTURER;
+        String model = android.os.Build.MODEL;
+        Log.d(TAG, "🔍 Device info:");
+        Log.d(TAG, "  - Manufacturer: " + manufacturer);
+        Log.d(TAG, "  - Model: " + model);
+        Log.d(TAG, "  - Is Samsung: " + manufacturer.toLowerCase().contains("samsung"));
 
         // Set content view and initialize UI
         setContentView(R.layout.activity_main);
@@ -146,7 +160,37 @@ public class MainActivity extends AppCompatActivity {
         String userId = sharedPreferences.getString(KEY_USER_ID, null);
         String userType = sharedPreferences.getString(KEY_USER_TYPE, null);
 
-        return isLoggedIn && userId != null && userType != null;
+        Log.d(TAG, "🔍 Checking stored login state:");
+        Log.d(TAG, "  - isLoggedIn: " + isLoggedIn);
+        Log.d(TAG, "  - userId: " + userId);
+        Log.d(TAG, "  - userType: " + userType);
+
+        // Check if this is a fresh install by looking for a fresh install flag
+        boolean isFreshInstall = sharedPreferences.getBoolean("FRESH_INSTALL_FLAG", true);
+        Log.d(TAG, "  - isFreshInstall: " + isFreshInstall);
+
+        // Additional Samsung-specific check: if we have stored data but no Firebase user,
+        // it might be restored data from Samsung Cloud/Smart Switch
+        FirebaseUser currentUser = auth.getCurrentUser();
+        boolean hasStoredData = isLoggedIn && userId != null && userType != null;
+        boolean hasFirebaseUser = currentUser != null;
+        
+        Log.d(TAG, "  - hasStoredData: " + hasStoredData);
+        Log.d(TAG, "  - hasFirebaseUser: " + hasFirebaseUser);
+
+        // If it's a fresh install OR we have stored data but no Firebase user (restored data),
+        // don't auto-login and force login screen
+        if (isFreshInstall || (hasStoredData && !hasFirebaseUser)) {
+            Log.d(TAG, "  - Fresh install or restored data detected, forcing login screen");
+            // Mark that we've checked this install
+            sharedPreferences.edit().putBoolean("FRESH_INSTALL_FLAG", false).apply();
+            return false;
+        }
+
+        boolean result = isLoggedIn && userId != null && userType != null;
+        Log.d(TAG, "  - Result: " + result);
+        
+        return result;
     }
 
     private void redirectToStoredUserDashboard() {
@@ -168,6 +212,8 @@ public class MainActivity extends AppCompatActivity {
         if (phoneNumber != null) {
             editor.putString(KEY_USER_PHONE, phoneNumber);
         }
+        // Clear fresh install flag since user has now logged in
+        editor.putBoolean("FRESH_INSTALL_FLAG", false);
         editor.apply();
         
         // Also save to user_prefs for notification services
@@ -192,8 +238,9 @@ public class MainActivity extends AppCompatActivity {
                     startRescuerForegroundService();
                     // Start hospital status notification service for immediate hospital updates
                     startHospitalStatusNotificationService();
-                    // Start emergency notification service for real-time SOS alerts
-                    startEmergencyNotificationService();
+                    // Emergency notification service disabled to prevent duplicate notifications
+                    // EmergencySOSBackgroundService handles emergency notifications
+                    // startEmergencyNotificationService();
                 } else if ("hospital".equals(userType)) {
                     // Start hospital status reminder service for status update notifications
                     startHospitalStatusReminderService();
@@ -268,6 +315,8 @@ public class MainActivity extends AppCompatActivity {
         editor.remove(KEY_USER_ID);
         editor.remove(KEY_USER_TYPE);
         editor.remove(KEY_USER_PHONE);
+        // Reset fresh install flag so next launch will be treated as fresh
+        editor.putBoolean("FRESH_INSTALL_FLAG", true);
         editor.apply();
     }
 

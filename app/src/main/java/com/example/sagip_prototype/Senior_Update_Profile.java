@@ -2,8 +2,12 @@ package com.example.sagip_prototype;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -22,9 +26,48 @@ public class Senior_Update_Profile extends AppCompatActivity {
     private FirebaseFirestore db;
     private EditText mobileNumberInput;
     private EditText emailInput;
-    private EditText addressInput;
+    private Spinner barangaySpinner;
     private Button updateButton;
     private String originalMobileNumber;
+    private String selectedBarangay = "";
+    
+    // List of all barangays in Angeles City
+    private final String[] barangays = {
+        "BARANGAY",
+        "Agapito del Rosario",
+        "Amsic",
+        "Anunas",
+        "Balibago",
+        "Capaya",
+        "Claro M. Recto",
+        "Cuayan",
+        "Cutcut",
+        "Cutud",
+        "Lourdes North West",
+        "Lourdes Sur",
+        "Lourdes Sur East",
+        "Malabañas",
+        "Margot",
+        "Mining",
+        "Ninoy Aquino",
+        "Pampang",
+        "Pandan",
+        "Pulung Cacutud",
+        "Pulung Maragul",
+        "Pulungbulu",
+        "Salapungan",
+        "San Jose",
+        "San Nicolas",
+        "Santa Teresita",
+        "Santa Trinidad",
+        "Santo Cristo",
+        "Santo Domingo",
+        "Santo Rosario",
+        "Sapalibutad",
+        "Sapangbato",
+        "Tabun",
+        "Virgen Delos Remedios"
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,9 +79,12 @@ public class Senior_Update_Profile extends AppCompatActivity {
 
         mobileNumberInput = findViewById(R.id.mobileNumber);
         emailInput = findViewById(R.id.emailAddress);
-        addressInput = findViewById(R.id.addressInput);
+        barangaySpinner = findViewById(R.id.barangaySpinner);
         updateButton = findViewById(R.id.submitButton);
 
+        // Setup barangay spinner
+        setupBarangaySpinner();
+        
         loadUserData();
 
         updateButton.setOnClickListener(v -> updateProfile());
@@ -57,7 +103,7 @@ public class Senior_Update_Profile extends AppCompatActivity {
                     if (documentSnapshot.exists()) {
                         // Get data from Firestore
                         String mobileNumber = documentSnapshot.getString("mobileNumber");
-                        String address = documentSnapshot.getString("address");
+                        String barangay = documentSnapshot.getString("barangay");
                         String email = documentSnapshot.getString("email");
                         
                         // Store original mobile number for comparison
@@ -65,8 +111,18 @@ public class Senior_Update_Profile extends AppCompatActivity {
                         
                         // Display data in UI
                         mobileNumberInput.setText(mobileNumber);
-                        addressInput.setText(address != null ? address : "");
                         emailInput.setText(email != null ? email : "");
+                        
+                        // Set selected barangay in spinner
+                        if (barangay != null && !barangay.isEmpty()) {
+                            for (int i = 0; i < barangays.length; i++) {
+                                if (barangays[i].equals(barangay)) {
+                                    barangaySpinner.setSelection(i);
+                                    selectedBarangay = barangay;
+                                    break;
+                                }
+                            }
+                        }
                     }
                 })
                 .addOnFailureListener(e -> {
@@ -78,12 +134,11 @@ public class Senior_Update_Profile extends AppCompatActivity {
 
     private void updateProfile() {
         // Validate inputs
-        String address = addressInput.getText().toString().trim();
         String mobileNum = mobileNumberInput.getText().toString().trim();
         String email = emailInput.getText().toString().trim();
 
-        if (mobileNum.isEmpty() || address.isEmpty()) {
-            Toast.makeText(this, "Please fill in all required fields", Toast.LENGTH_SHORT).show();
+        if (mobileNum.isEmpty() || selectedBarangay.isEmpty() || selectedBarangay.equals("BARANGAY")) {
+            Toast.makeText(this, "Please fill in all required fields and select a barangay", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -92,21 +147,21 @@ public class Senior_Update_Profile extends AppCompatActivity {
         
         if (mobileNumberChanged) {
             // Show confirmation dialog for phone number change
-            showPhoneChangeConfirmationDialog(mobileNum, address, email);
+            showPhoneChangeConfirmationDialog(mobileNum, selectedBarangay, email);
         } else {
             // Update profile directly
-            updateProfileData(mobileNum, address, email);
+            updateProfileData(mobileNum, selectedBarangay, email);
         }
     }
 
-    private void showPhoneChangeConfirmationDialog(String newMobileNumber, String address, String email) {
+    private void showPhoneChangeConfirmationDialog(String newMobileNumber, String barangay, String email) {
         new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("Phone Number Change")
                 .setMessage("You are changing your phone number from " + originalMobileNumber + " to " + newMobileNumber + 
                            ". This will require phone verification. Do you want to continue?")
                 .setPositiveButton("Continue", (dialog, which) -> {
                     // Start phone verification process
-                    startPhoneVerification(newMobileNumber, address, email);
+                    startPhoneVerification(newMobileNumber, barangay, email);
                 })
                 .setNegativeButton("Cancel", (dialog, which) -> {
                     // Reset phone number to original
@@ -115,7 +170,7 @@ public class Senior_Update_Profile extends AppCompatActivity {
                 .show();
     }
 
-    private void startPhoneVerification(String newMobileNumber, String address, String email) {
+    private void startPhoneVerification(String newMobileNumber, String barangay, String email) {
         // Disable button and show loading
         updateButton.setEnabled(false);
         updateButton.setText("Verifying...");
@@ -125,15 +180,15 @@ public class Senior_Update_Profile extends AppCompatActivity {
         Toast.makeText(this, "Phone verification would be implemented here", Toast.LENGTH_SHORT).show();
         
         // Update profile data
-        updateProfileData(newMobileNumber, address, email);
+        updateProfileData(newMobileNumber, barangay, email);
     }
 
-    private void updateProfileData(String mobileNumber, String address, String email) {
+    private void updateProfileData(String mobileNumber, String barangay, String email) {
         String uid = mAuth.getCurrentUser().getUid();
         String userType = "seniors";
 
         Map<String, Object> updates = new HashMap<>();
-        updates.put("address", address);
+        updates.put("barangay", barangay);
         updates.put("mobileNumber", mobileNumber);
         
         // Only add email if it's not empty
@@ -163,5 +218,27 @@ public class Senior_Update_Profile extends AppCompatActivity {
                     updateButton.setEnabled(true);
                     updateButton.setText("Update Information");
                 });
+    }
+    
+    private void setupBarangaySpinner() {
+        // Create ArrayAdapter for the spinner
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, barangays);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        
+        // Set the adapter to the spinner
+        barangaySpinner.setAdapter(adapter);
+        
+        // Set up item selection listener
+        barangaySpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                selectedBarangay = barangays[position];
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                selectedBarangay = "";
+            }
+        });
     }
 }

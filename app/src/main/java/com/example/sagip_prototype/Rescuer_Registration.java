@@ -31,9 +31,8 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import android.util.Log;
 
-public class Rescuer_Registration extends AppCompatActivity {
+public class Rescuer_Registration extends BaseRescuerActivity {
 
-    FirebaseAuth mAuth;
     FirebaseFirestore db;
     String userType = "rescuer";
 
@@ -60,7 +59,6 @@ public class Rescuer_Registration extends AppCompatActivity {
         // Enable smooth scrolling
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
 
-        mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
 
         rescueGroupName = findViewById(R.id.rescue_group_name);

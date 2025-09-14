@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@android:color/white"
@@ -77,38 +78,65 @@
             android:textSize="14sp" />
 
         <!-- Input Fields -->
-        <EditText
-            android:id="@+id/emerContact_name"
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/input_field_background"
-            android:hint="@string/emergency_contact_name"
-            android:inputType="textPersonName"
-            android:padding="12dp"
-            android:textSize="14sp" />
+            android:layout_marginBottom="16dp"
+            android:hint="@string/emergency_contact_name">
 
-        <EditText
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/emerContact_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textPersonName" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:hint="@string/phone_number">
+
+            <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/emerContact_Number"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/input_field_background"
-            android:hint="@string/phone_number"
-            android:inputType="phone"
-            android:padding="12dp"
-            android:textSize="14sp" />
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="phone" />
+        </com.google.android.material.textfield.TextInputLayout>
 
-        <EditText
-            android:id="@+id/emerContact_add"
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/relationship"
+            android:textSize="16sp"
+            android:textColor="@color/primary_blue"
+            android:layout_marginBottom="8dp"
+            android:textStyle="bold" />
+
+        <Spinner
+            android:id="@+id/emerContact_relationship"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/input_field_background"
-            android:hint="@string/emergency_address"
-            android:inputType="textPersonName"
-            android:padding="12dp"
-            android:textSize="14sp" />
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/spinner_background"
+            android:padding="16dp" />
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:hint="@string/emergency_address">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/emerContact_add"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textPostalAddress" />
+        </com.google.android.material.textfield.TextInputLayout>
 
         <!-- Submit Button -->
         <Button

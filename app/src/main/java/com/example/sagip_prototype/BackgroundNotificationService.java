@@ -8,6 +8,8 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
@@ -263,7 +265,7 @@ public class BackgroundNotificationService extends Service {
                 .setContentIntent(pendingIntent)
                 .setVibrate(new long[]{0, 500, 200, 500})
                 .setLights(0xFF2196F3, 1000, 1000)
-                .setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI)
+                .setSound(getCustomAlarmSound())
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .build();
         
@@ -313,7 +315,7 @@ public class BackgroundNotificationService extends Service {
                 .setContentIntent(pendingIntent)
                 .setVibrate(new long[]{0, 1000, 500, 1000, 500, 1000})
                 .setLights(0xFFFF0000, 1000, 1000)
-                .setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI)
+                .setSound(getCustomAlarmSound())
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setOngoing(true)
                 .build();
@@ -412,6 +414,19 @@ public class BackgroundNotificationService extends Service {
                 return "🆘";
             default:
                 return "🚨";
+        }
+    }
+    
+    private Uri getCustomAlarmSound() {
+        try {
+            // Try to use custom alarm sound
+            Uri customSound = Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.emergency_alarm);
+            Log.d(TAG, "Custom alarm sound URI: " + customSound.toString());
+            return customSound;
+        } catch (Exception e) {
+            // Fallback to system alarm sound if custom file doesn't exist
+            Log.w(TAG, "Custom alarm sound not found, using system alarm sound. Error: " + e.getMessage());
+            return RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
         }
     }
 }

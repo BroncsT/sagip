@@ -170,6 +170,19 @@ public class Hospital_Status_Edit extends AppCompatActivity {
                 int availableBeds = Integer.parseInt(availableBedsStr);
                 int availableDoctors = Integer.parseInt(doctorsStr);
 
+                // Check for validation errors first
+                if (availableBeds > databaseTotalBeds) {
+                    tvAutoStatus.setText("⚠️ Available beds exceed total (" + databaseTotalBeds + ")");
+                    tvAutoStatus.setTextColor(0xFFFF5722);
+                    return;
+                }
+                
+                if (availableDoctors > databaseTotalDoctors) {
+                    tvAutoStatus.setText("⚠️ Available doctors exceed total (" + databaseTotalDoctors + ")");
+                    tvAutoStatus.setTextColor(0xFFFF5722);
+                    return;
+                }
+
                 String status = calculateAutoStatus(availableBeds, availableDoctors);
                 if (!status.equals("unknown")) {
                     String statusEmoji = getStatusEmoji(status);
@@ -206,6 +219,19 @@ public class Hospital_Status_Edit extends AppCompatActivity {
             if (!availableBedsStr.isEmpty() && !doctorsStr.isEmpty() && databaseTotalBeds > 0 && databaseTotalDoctors > 0) {
                 int availableBeds = Integer.parseInt(availableBedsStr);
                 int availableDoctors = Integer.parseInt(doctorsStr);
+
+                // Check for validation errors first
+                if (availableBeds > databaseTotalBeds) {
+                    tvAutoStatus.setText("⚠️ Available beds exceed total (" + databaseTotalBeds + ")");
+                    tvAutoStatus.setTextColor(0xFFFF5722);
+                    return;
+                }
+                
+                if (availableDoctors > databaseTotalDoctors) {
+                    tvAutoStatus.setText("⚠️ Available doctors exceed total (" + databaseTotalDoctors + ")");
+                    tvAutoStatus.setTextColor(0xFFFF5722);
+                    return;
+                }
 
                 String status = calculateAutoStatus(availableBeds, availableDoctors);
                 if (!status.equals("unknown")) {
@@ -418,6 +444,18 @@ public class Hospital_Status_Edit extends AppCompatActivity {
             
             if (doctorsAvailable <= 0) {
                 Toast.makeText(this, getString(R.string.doctors_available_greater_than_zero), Toast.LENGTH_SHORT).show();
+                return;
+            }
+            
+            // Check if available beds exceed registered total beds
+            if (availableBeds > databaseTotalBeds) {
+                Toast.makeText(this, "Available beds (" + availableBeds + ") cannot exceed registered total beds (" + databaseTotalBeds + ")", Toast.LENGTH_LONG).show();
+                return;
+            }
+            
+            // Check if available doctors exceed registered total doctors
+            if (doctorsAvailable > databaseTotalDoctors) {
+                Toast.makeText(this, "Available doctors (" + doctorsAvailable + ") cannot exceed registered total doctors (" + databaseTotalDoctors + ")", Toast.LENGTH_LONG).show();
                 return;
             }
 

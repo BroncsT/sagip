@@ -1,130 +1,125 @@
 package com.example.sagip_prototype;
 
-import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
-import androidx.cardview.widget.CardView;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.squareup.picasso.Picasso;
+
 import java.util.List;
 
 public class HospitalAdapter extends RecyclerView.Adapter<HospitalAdapter.HospitalViewHolder> {
+    private List<Hospital> hospitals;
+    private OnHospitalClickListener listener;
 
-    List<HospitalLIst> hospitalList;
-    private Context context;
-    private String highlightHospitalName = null;
-
-    public HospitalAdapter(List<HospitalLIst> hospitalList, Context context) {
-        this.hospitalList = hospitalList;
-        this.context = context;
+    public interface OnHospitalClickListener {
+        void onHospitalClick(Hospital hospital);
     }
-    
-    public void setHighlightHospital(String hospitalName) {
-        this.highlightHospitalName = hospitalName;
-        notifyDataSetChanged(); // Refresh to apply highlighting
+
+    public HospitalAdapter(List<Hospital> hospitals, OnHospitalClickListener listener) {
+        this.hospitals = hospitals;
+        this.listener = listener;
     }
 
     @NonNull
     @Override
-    public HospitalAdapter.HospitalViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.recycler_data, parent, false);
+    public HospitalViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        View view = LayoutInflater.from(parent.getContext())
+                .inflate(R.layout.hospital_card_item, parent, false);
         return new HospitalViewHolder(view);
-
     }
 
     @Override
-    public void onBindViewHolder(@NonNull HospitalAdapter.HospitalViewHolder holder, int position) {
-        HospitalLIst hospital = hospitalList.get(position);
-        
-        // Set hospital name
-        holder.hospitalNameTextView.setText(hospital.getHospitalName());
-        
-        // Set hospital address
-        if (hospital.getHospitalAddress() != null) {
-            holder.hospitalAddressTextView.setText(hospital.getHospitalAddress());
-        } else {
-            holder.hospitalAddressTextView.setText(context.getString(R.string.address_not_available));
-        }
-        
-        // Set status information (automatically calculated)
-        String calculatedStatus = hospital.getCalculatedStatus();
-        if (!calculatedStatus.equals("unknown")) {
-            String statusText = hospital.getStatusEmoji() + " " + 
-                              calculatedStatus.toUpperCase();
-            holder.hospitalStatusTextView.setText(statusText);
-            holder.hospitalStatusTextView.setTextColor(hospital.getStatusColor());
-        } else {
-            holder.hospitalStatusTextView.setText(context.getString(R.string.status_not_available));
-            holder.hospitalStatusTextView.setTextColor(0xFF9E9E9E);
-        }
-        
-        // Set bed information
-        if (hospital.getAvailableBeds() != null && hospital.getTotalBeds() != null) {
-            String bedInfo = context.getString(R.string.beds_info, hospital.getAvailableBeds(), hospital.getTotalBeds());
-            holder.hospitalBedInfoTextView.setText(bedInfo);
-        } else {
-            holder.hospitalBedInfoTextView.setText(context.getString(R.string.bed_info_not_available));
-        }
-        
-        // Set doctors information
-        if (hospital.getDoctorsAvailable() != null) {
-            String doctorInfo = context.getString(R.string.doctors_info, hospital.getDoctorsAvailable());
-            holder.hospitalDoctorInfoTextView.setText(doctorInfo);
-        } else {
-            holder.hospitalDoctorInfoTextView.setText(context.getString(R.string.doctor_info_not_available));
-        }
-        
-        // Apply highlighting if this hospital matches the highlight name
-        if (highlightHospitalName != null && 
-            hospital.getHospitalName() != null && 
-            hospital.getHospitalName().equalsIgnoreCase(highlightHospitalName)) {
-            
-            // Highlight the card with a different background color
-            holder.cardView.setCardBackgroundColor(0xFFFFF3CD); // Light yellow background
-            holder.cardView.setCardElevation(8); // Increase elevation for emphasis
-            
-            // Add a subtle animation or pulse effect
-            holder.cardView.animate()
-                .scaleX(1.02f)
-                .scaleY(1.02f)
-                .setDuration(200)
-                .withEndAction(() -> {
-                    holder.cardView.animate()
-                        .scaleX(1.0f)
-                        .scaleY(1.0f)
-                        .setDuration(200);
-                });
-        } else {
-            // Reset to normal appearance
-            holder.cardView.setCardBackgroundColor(0xFFFFFFFF); // White background
-            holder.cardView.setCardElevation(4); // Normal elevation
-        }
+    public void onBindViewHolder(@NonNull HospitalViewHolder holder, int position) {
+        Hospital hospital = hospitals.get(position);
+        holder.bind(hospital, listener);
     }
 
     @Override
     public int getItemCount() {
-        return hospitalList.size();
+        return hospitals.size();
     }
 
-    public static class HospitalViewHolder extends RecyclerView.ViewHolder {
-        TextView hospitalNameTextView;
-        TextView hospitalAddressTextView;
-        TextView hospitalStatusTextView;
-        TextView hospitalBedInfoTextView;
-        TextView hospitalDoctorInfoTextView;
-        CardView cardView;
-        
+    public void updateHospitals(List<Hospital> newHospitals) {
+        this.hospitals = newHospitals;
+        notifyDataSetChanged();
+    }
+
+    static class HospitalViewHolder extends RecyclerView.ViewHolder {
+        private ImageView hospitalImageView;
+        private TextView hospitalNameText;
+        private TextView hospitalAddressText;
+        private TextView hospitalContactText;
+        private TextView hospitalStatusText;
+        private TextView hospitalBedsText;
+        private TextView hospitalSpecializationText;
+
         public HospitalViewHolder(@NonNull View itemView) {
             super(itemView);
-            hospitalNameTextView = itemView.findViewById(R.id.hospitalName);
-            hospitalAddressTextView = itemView.findViewById(R.id.hospitalAddress);
-            hospitalStatusTextView = itemView.findViewById(R.id.hospitalStatus);
-            hospitalBedInfoTextView = itemView.findViewById(R.id.hospitalBedInfo);
-            hospitalDoctorInfoTextView = itemView.findViewById(R.id.hospitalDoctorInfo);
-            cardView = itemView.findViewById(R.id.hospitalCardView);
+            hospitalImageView = itemView.findViewById(R.id.hospitalImageView);
+            hospitalNameText = itemView.findViewById(R.id.hospitalNameText);
+            hospitalAddressText = itemView.findViewById(R.id.hospitalAddressText);
+            hospitalContactText = itemView.findViewById(R.id.hospitalContactText);
+            hospitalStatusText = itemView.findViewById(R.id.hospitalStatusText);
+            hospitalBedsText = itemView.findViewById(R.id.hospitalBedsText);
+            hospitalSpecializationText = itemView.findViewById(R.id.hospitalSpecializationText);
+        }
+
+        public void bind(Hospital hospital, OnHospitalClickListener listener) {
+            // Set hospital name
+            hospitalNameText.setText(hospital.getHospitalName() != null ? hospital.getHospitalName() : "Unknown Hospital");
+
+            // Set address
+            hospitalAddressText.setText(hospital.getAddress() != null ? hospital.getAddress() : "Address not available");
+
+            // Set contact number
+            hospitalContactText.setText(hospital.getContactNumber() != null ? hospital.getContactNumber() : "Contact not available");
+
+            // Set status with color coding
+            String status = hospital.getStatusDisplay();
+            hospitalStatusText.setText(status);
+            if (status.equals("Open")) {
+                hospitalStatusText.setTextColor(itemView.getContext().getResources().getColor(R.color.success_green));
+            } else if (status.equals("Busy")) {
+                hospitalStatusText.setTextColor(itemView.getContext().getResources().getColor(R.color.emergency_red));
+            } else {
+                hospitalStatusText.setTextColor(itemView.getContext().getResources().getColor(R.color.gray));
+            }
+
+            // Set bed capacity
+            hospitalBedsText.setText(hospital.getBedStatus());
+
+            // Set specialization
+            if (hospital.getSpecialization() != null && !hospital.getSpecialization().isEmpty()) {
+                hospitalSpecializationText.setText(hospital.getSpecialization());
+                hospitalSpecializationText.setVisibility(View.VISIBLE);
+            } else {
+                hospitalSpecializationText.setVisibility(View.GONE);
+            }
+
+            // Set profile image
+            if (hospital.getProfileImageUrl() != null && !hospital.getProfileImageUrl().isEmpty()) {
+                Picasso.get()
+                        .load(hospital.getProfileImageUrl())
+                        .placeholder(R.drawable.ic_hospital)
+                        .error(R.drawable.ic_hospital)
+                        .transform(new CircleTransform())
+                        .into(hospitalImageView);
+            } else {
+                hospitalImageView.setImageResource(R.drawable.ic_hospital);
+            }
+
+            // Set click listener
+            itemView.setOnClickListener(v -> {
+                if (listener != null) {
+                    listener.onHospitalClick(hospital);
+                }
+            });
         }
     }
 }

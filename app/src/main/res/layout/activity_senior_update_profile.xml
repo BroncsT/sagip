@@ -77,11 +77,11 @@
                 android:textSize="16sp" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Address Section -->
+        <!-- Barangay Section -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Address"
+            android:text="Barangay"
             android:textColor="#505050"
             android:textSize="16sp"
             android:layout_marginBottom="8dp" />
@@ -93,17 +93,11 @@
             app:boxStrokeColor="#3E69E0"
             app:hintEnabled="false">
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/addressInput"
+            <Spinner
+                android:id="@+id/barangaySpinner"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@drawable/input_field_background"
-                android:hint="Enter your address"
-                android:inputType="textPostalAddress"
-                android:padding="16dp"
-                android:minLines="2"
-                android:gravity="top|start"
-                android:textSize="16sp" />
+                android:padding="16dp" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <!-- Receive Updates Checkbox -->

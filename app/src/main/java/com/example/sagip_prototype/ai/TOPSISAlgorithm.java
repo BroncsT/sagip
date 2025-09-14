@@ -8,13 +8,14 @@ import java.util.ArrayList;
 public class TOPSISAlgorithm {
     
     // Criteria weights for hospital evaluation
-    private static final double WEIGHT_DISTANCE = 0.25;
-    private static final double WEIGHT_AVAILABILITY = 0.20;
-    private static final double WEIGHT_SPECIALIZATION = 0.20;
-    private static final double WEIGHT_RESPONSE_TIME = 0.15;
-    private static final double WEIGHT_CAPACITY = 0.10;
-    private static final double WEIGHT_TRAFFIC = 0.05;
-    private static final double WEIGHT_WEATHER = 0.05;
+    private static final double WEIGHT_DISTANCE = 0.20;
+    private static final double WEIGHT_ER_STATUS = 0.25;        // ER status is most important for emergencies
+    private static final double WEIGHT_AVAILABILITY = 0.15;
+    private static final double WEIGHT_SPECIALIZATION = 0.15;
+    private static final double WEIGHT_RESPONSE_TIME = 0.10;
+    private static final double WEIGHT_CAPACITY = 0.08;
+    private static final double WEIGHT_TRAFFIC = 0.04;
+    private static final double WEIGHT_WEATHER = 0.03;
     
     public TOPSISResult evaluateHospitals(List<Hospital> hospitals, Emergency emergency, 
                                         double rescuerLat, double rescuerLon) {
@@ -30,7 +31,7 @@ public class TOPSISAlgorithm {
         double[][] normalizedMatrix = normalizeMatrix(decisionMatrix);
         
         // Step 3: Calculate weighted normalized matrix
-        double[] weights = {WEIGHT_DISTANCE, WEIGHT_AVAILABILITY, WEIGHT_SPECIALIZATION, 
+        double[] weights = {WEIGHT_DISTANCE, WEIGHT_ER_STATUS, WEIGHT_AVAILABILITY, WEIGHT_SPECIALIZATION, 
                            WEIGHT_RESPONSE_TIME, WEIGHT_CAPACITY, WEIGHT_TRAFFIC, WEIGHT_WEATHER};
         double[][] weightedMatrix = calculateWeightedMatrix(normalizedMatrix, weights);
         
@@ -70,7 +71,7 @@ public class TOPSISAlgorithm {
                                           double rescuerLat, double rescuerLon) {
         
         int numHospitals = hospitals.size();
-        int numCriteria = 7; // distance, availability, specialization, response_time, capacity, traffic, weather
+        int numCriteria = 8; // distance, er_status, availability, specialization, response_time, capacity, traffic, weather
         
         double[][] matrix = new double[numHospitals][numCriteria];
         
@@ -84,23 +85,26 @@ public class TOPSISAlgorithm {
             );
             matrix[i][0] = 1.0 / (1.0 + distance); // Inverse distance
             
-            // Criterion 2: Availability (higher is better)
-            matrix[i][1] = hospital.getAvailabilityScore();
+            // Criterion 2: ER Status (most important for emergencies)
+            matrix[i][1] = calculateERStatusScore(hospital);
             
-            // Criterion 3: Specialization match (higher is better)
-            matrix[i][2] = calculateSpecializationScore(hospital, emergency.emergencyType);
+            // Criterion 3: Availability (higher is better)
+            matrix[i][2] = hospital.getAvailabilityScore();
             
-            // Criterion 4: Response time (lower is better - inverse)
-            matrix[i][3] = hospital.getResponseTimeScore();
+            // Criterion 4: Specialization match (higher is better)
+            matrix[i][3] = calculateSpecializationScore(hospital, emergency.emergencyType);
             
-            // Criterion 5: Capacity utilization (higher is better)
-            matrix[i][4] = hospital.getCapacityScore();
+            // Criterion 5: Response time (lower is better - inverse)
+            matrix[i][4] = hospital.getResponseTimeScore();
             
-            // Criterion 6: Traffic level (lower is better - inverse)
-            matrix[i][5] = 1.0 / (1.0 + hospital.trafficLevel);
+            // Criterion 6: Capacity utilization (higher is better)
+            matrix[i][5] = hospital.getCapacityScore();
             
-            // Criterion 7: Weather impact (higher is better)
-            matrix[i][6] = calculateWeatherScore(hospital.location);
+            // Criterion 7: Traffic level (lower is better - inverse)
+            matrix[i][6] = 1.0 / (1.0 + hospital.trafficLevel);
+            
+            // Criterion 8: Weather impact (higher is better)
+            matrix[i][7] = calculateWeatherScore(hospital.location);
         }
         
         return matrix;
@@ -299,6 +303,24 @@ public class TOPSISAlgorithm {
         public HospitalScore(Hospital hospital, double score) {
             this.hospital = hospital;
             this.score = score;
+        }
+    }
+    
+    private double calculateERStatusScore(Hospital hospital) {
+        if (hospital.operationalStatus == null) {
+            return 0.5; // Default score if status unknown
+        }
+        
+        String status = hospital.operationalStatus.toLowerCase();
+        switch (status) {
+            case "available":
+                return 1.0; // Best score - ER is available and ready
+            case "busy":
+                return 0.6; // Moderate score - ER is busy but operational
+            case "overcrowded":
+                return 0.3; // Lower score - ER is overcrowded
+            default:
+                return 0.5; // Default score for unknown status
         }
     }
 }

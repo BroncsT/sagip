@@ -49,12 +49,6 @@
             android:orientation="vertical"
             android:layout_margin="15dp">
 
-            <ImageView
-                android:id="@+id/seniorProfileImgView"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                tools:srcCompat="@tools:sample/avatars" />
-
             <TextView
                 android:id="@+id/seniorProfileName"
                 android:layout_width="match_parent"
@@ -76,7 +70,6 @@
     </androidx.cardview.widget.CardView>
 
     <!-- Senior ViewCard Account Settings -->
-
     <androidx.cardview.widget.CardView
         android:id="@+id/settingsCard"
         android:layout_width="0dp"
@@ -219,7 +212,6 @@
     </androidx.cardview.widget.CardView>
 
     <!-- Senior ViewCard More Options -->
-
     <androidx.cardview.widget.CardView
         android:id="@+id/additionalSettingsCard"
         android:layout_width="0dp"

@@ -7,6 +7,8 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.Build;
 import android.util.Log;
 
@@ -113,9 +115,12 @@ public class FCMNotificationService extends FirebaseMessagingService {
         createNotificationChannel();
         
         Intent intent = new Intent(this, Rescuer_Dashboard.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         intent.putExtra("notification_type", "hospital_update");
         intent.putExtra("hospital_name", hospitalName);
+        intent.putExtra("hospital_status", hospitalStatus);
+        intent.putExtra("available_beds", availableBeds);
+        intent.putExtra("available_doctors", availableDoctors);
         
         PendingIntent pendingIntent = PendingIntent.getActivity(
             this,
@@ -142,7 +147,7 @@ public class FCMNotificationService extends FirebaseMessagingService {
                 .setContentIntent(pendingIntent)
                 .setVibrate(new long[]{0, 500, 200, 500})
                 .setLights(0xFF2196F3, 1000, 1000)
-                .setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI)
+                .setSound(getCustomAlarmSound())
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .build();
         
@@ -174,7 +179,7 @@ public class FCMNotificationService extends FirebaseMessagingService {
                 .setContentIntent(pendingIntent)
                 .setVibrate(new long[]{0, 500, 200, 500})
                 .setLights(0xFF2196F3, 1000, 1000)
-                .setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI)
+                .setSound(getCustomAlarmSound())
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .build();
         
@@ -226,7 +231,7 @@ public class FCMNotificationService extends FirebaseMessagingService {
                 .setContentIntent(pendingIntent)
                 .setVibrate(new long[]{0, 1000, 500, 1000, 500, 1000})
                 .setLights(0xFFFF0000, 1000, 1000)
-                .setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI)
+                .setSound(getCustomAlarmSound())
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setOngoing(true)
                 .build();
@@ -300,6 +305,19 @@ public class FCMNotificationService extends FirebaseMessagingService {
             Log.d(TAG, "FCM token sent to server for user: " + userId + ", type: " + userType);
         } else {
             Log.w(TAG, "Cannot send FCM token - user not logged in or user info missing");
+        }
+    }
+    
+    private Uri getCustomAlarmSound() {
+        try {
+            // Try to use custom alarm sound
+            Uri customSound = Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.emergency_alarm);
+            Log.d(TAG, "Custom alarm sound URI: " + customSound.toString());
+            return customSound;
+        } catch (Exception e) {
+            // Fallback to system alarm sound if custom file doesn't exist
+            Log.w(TAG, "Custom alarm sound not found, using system alarm sound. Error: " + e.getMessage());
+            return RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
         }
     }
 }

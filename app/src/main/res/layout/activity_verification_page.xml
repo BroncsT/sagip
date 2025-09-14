@@ -61,7 +61,7 @@
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/frontIdPhotoCardView"
             android:layout_width="match_parent"
-            android:layout_height="250dp"
+            android:layout_height="80dp"
             app:cardCornerRadius="8dp"
             app:cardElevation="2dp"
             app:strokeColor="#DDDDDD"
@@ -71,13 +71,17 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
 
-            <ImageView
+            <TextView
                 android:id="@+id/frontIdPhotoImageView"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:scaleType="fitCenter"
                 android:background="#F5F5F5"
-                android:contentDescription="Front ID Photo" />
+                android:gravity="center"
+                android:padding="16dp"
+                android:textColor="#333333"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:contentDescription="Front ID Photo File Name" />
 
             <TextView
                 android:id="@+id/frontIdPlaceholderText"
@@ -106,7 +110,7 @@
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/backIdPhotoCardView"
             android:layout_width="match_parent"
-            android:layout_height="250dp"
+            android:layout_height="80dp"
             app:cardCornerRadius="8dp"
             app:cardElevation="2dp"
             app:strokeColor="#DDDDDD"
@@ -116,13 +120,17 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
 
-            <ImageView
+            <TextView
                 android:id="@+id/backIdPhotoImageView"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:scaleType="fitCenter"
                 android:background="#F5F5F5"
-                android:contentDescription="Back ID Photo" />
+                android:gravity="center"
+                android:padding="16dp"
+                android:textColor="#333333"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:contentDescription="Back ID Photo File Name" />
 
             <TextView
                 android:id="@+id/backIdPlaceholderText"

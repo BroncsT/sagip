@@ -69,8 +69,13 @@ dependencies {
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.storage)
     implementation(libs.firebase.messaging)
+    implementation("com.google.firebase:firebase-appcheck:17.1.2")
+    implementation("com.google.firebase:firebase-appcheck-playintegrity:17.1.2")
     implementation (libs.picasso)
     implementation(libs.material.v190)
+    
+    // Image cropping - using built-in Android functionality
+    // No external dependencies needed
     
     
     // WorkManager for reliable background tasks (FCM alternative)

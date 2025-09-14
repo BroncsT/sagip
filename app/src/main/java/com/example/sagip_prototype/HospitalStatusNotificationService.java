@@ -206,14 +206,14 @@ public class HospitalStatusNotificationService extends Service {
         Log.d(TAG, "Creating notification with data - Hospital: " + hospitalName + 
             ", Status: " + hospitalStatus + ", Beds: " + availableBeds + ", Doctors: " + availableDoctors);
         
-        Intent intent = new Intent(this, Rescuer_List.class);
+        Intent intent = new Intent(this, Rescuer_Dashboard.class);
         intent.putExtra("notification_type", "hospital_status_update");
         intent.putExtra("hospital_name", hospitalName);
         intent.putExtra("hospital_status", hospitalStatus);
         intent.putExtra("available_beds", availableBeds);
         intent.putExtra("available_doctors", availableDoctors);
         intent.putExtra("highlight_hospital", hospitalName); // To highlight the specific hospital
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         
         PendingIntent pendingIntent = PendingIntent.getActivity(
             this, 

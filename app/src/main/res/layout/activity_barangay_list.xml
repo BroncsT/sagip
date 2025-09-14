@@ -20,6 +20,7 @@
         app:layout_constraintBottom_toTopOf="@id/guidelineHorizontal2"/>
 
     <ImageView
+        android:id="@+id/backButton"
         android:layout_width="25dp"
         android:layout_height="25dp"
         android:contextClickable="true"
@@ -28,6 +29,7 @@
         app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
         app:layout_constraintBottom_toBottomOf="@id/guidelineHorizontal2"
         app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1"/>
+
 
     <ImageView
         android:id="@+id/notification"
@@ -39,70 +41,32 @@
         app:layout_constraintBottom_toBottomOf="@id/guidelineHorizontal2"
         app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1"/>
 
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/contactCard1"
+    <!-- RecyclerView for seniors list -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/seniorsRecyclerView"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        app:cardCornerRadius="8dp"
-        app:cardElevation="6dp"
+        android:layout_height="0dp"
+        android:padding="8dp"
+        android:clipToPadding="false"
         app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal3"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
-        app:layout_constraintEnd_toEndOf="@id/guidelineVertical5">
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical5"
+        app:layout_constraintBottom_toTopOf="@id/bottomNavBar2" />
 
-        <androidx.constraintlayout.widget.ConstraintLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:padding="16dp">
-
-            <ImageView
-                android:id="@+id/seniorImgView"
-                android:layout_width="50dp"
-                android:layout_height="50dp"
-                android:foregroundGravity="center"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent"
-                tools:srcCompat="@tools:sample/avatars"
-                tools:ignore="MissingConstraints" />
-
-            <TextView
-                android:id="@+id/seniorProfileName"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:hint="Senior Citizen Name"
-                android:layout_marginStart="10dp"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                app:layout_constraintStart_toEndOf="@id/seniorImgView"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintBottom_toTopOf="@id/seniorAge"/>
-
-            <TextView
-                android:id="@+id/seniorAge"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:hint="Age"
-                android:layout_marginStart="10dp"
-                android:textSize="16sp"
-                app:layout_constraintStart_toEndOf="@id/seniorImgView"
-                app:layout_constraintTop_toBottomOf="@id/seniorProfileName"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintBottom_toTopOf="@id/seniorAddress"/>
-
-            <TextView
-                android:id="@+id/seniorAddress"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:hint="Address"
-                android:layout_marginStart="10dp"
-                android:textSize="16sp"
-                app:layout_constraintStart_toEndOf="@id/seniorImgView"
-                app:layout_constraintTop_toBottomOf="@id/seniorAge"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent"/>
-
-        </androidx.constraintlayout.widget.ConstraintLayout>
-    </com.google.android.material.card.MaterialCardView>
+    <!-- No seniors message -->
+    <TextView
+        android:id="@+id/noSeniorsText"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="No seniors registered in this barangay"
+        android:textAlignment="center"
+        android:textSize="16sp"
+        android:textColor="#666666"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal3"
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical5"
+        app:layout_constraintBottom_toTopOf="@id/bottomNavBar2" />
 
     <!-- Bottom Navigation -->
     <com.google.android.material.bottomnavigation.BottomNavigationView

@@ -226,21 +226,7 @@ public class IdCameraCapture extends AppCompatActivity {
                 // Show captured image immediately for faster user experience
                 showCapturedImage();
                 
-                // Do basic validation in background (optional)
-                new Thread(() -> {
-                    try {
-                        // Quick blur check only
-                        double blurScore = calculateBlurScore(capturedBitmap);
-                        if (blurScore <= 50) { // Very blurry threshold
-                            runOnUiThread(() -> {
-                                // Show subtle warning but don't block user
-                                Log.d(TAG, "Image may be blurry - blur score: " + blurScore);
-                            });
-                        }
-                    } catch (Exception e) {
-                        Log.e(TAG, "Background validation error", e);
-                    }
-                }).start();
+                // Image captured successfully - no quality validation needed
                 
                 // Upload image
                 uploadImage();
@@ -634,25 +620,6 @@ public class IdCameraCapture extends AppCompatActivity {
         return averageBrightness > 50 && averageBrightness < 200;
     }
 
-    /**
-     * Shows validation error dialog
-     */
-    private void showValidationErrorDialog(String reason) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle(getString(R.string.image_quality_issue))
-                .setMessage(getString(R.string.image_quality_message, reason))
-                .setPositiveButton(getString(R.string.retake_photo), (dialog, which) -> {
-                    dialog.dismiss();
-                    retakePhoto();
-                })
-                .setNegativeButton(getString(R.string.use_anyway), (dialog, which) -> {
-                    dialog.dismiss();
-                    // Proceed with the image despite quality issues
-                    showCapturedImage();
-                })
-                .setCancelable(false)
-                .show();
-    }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {

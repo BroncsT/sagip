@@ -220,9 +220,23 @@ public class OTP_PAGE extends AppCompatActivity {
                                         return;
                                     }
                                 } else {
-                                    // For non-senior users, allow login regardless of status
-                                    Log.d(TAG, "Non-senior user found, proceeding to dashboard");
-                                    goToHomeScreen(currentType);
+                                    // For non-senior users, check status before proceeding
+                                    for (QueryDocumentSnapshot document : task.getResult()) {
+                                        String status = document.getString("status");
+                                        String documentId = document.getId();
+                                        Log.d(TAG, "Non-senior user found in OTP_PAGE. Document ID: " + documentId + ", Status: " + status);
+                                        
+                                        if ("new".equals(status)) {
+                                            // User needs to complete registration
+                                            Log.d(TAG, "User status is 'new', redirecting to registration");
+                                            goToRegistrationByType(currentType);
+                                        } else {
+                                            // User is registered, proceed to dashboard
+                                            Log.d(TAG, "User is registered, proceeding to dashboard");
+                                            goToHomeScreen(currentType);
+                                        }
+                                        return;
+                                    }
                                 }
                             } else {
                                 Log.d(TAG, "User not found in collection: " + currentType + " with format " + searchNumber + ", trying with full format");
@@ -257,9 +271,23 @@ public class OTP_PAGE extends AppCompatActivity {
                                                                     return;
                                                                 }
                                                             } else {
-                                                                // For non-senior users, allow login regardless of status
-                                                                Log.d(TAG, "Non-senior user found with full format, proceeding to dashboard");
-                                                                goToHomeScreen(currentType);
+                                                                // For non-senior users, check status before proceeding
+                                                                for (QueryDocumentSnapshot document : task2.getResult()) {
+                                                                    String status = document.getString("status");
+                                                                    String documentId = document.getId();
+                                                                    Log.d(TAG, "Non-senior user found in OTP_PAGE with full format. Document ID: " + documentId + ", Status: " + status);
+                                                                    
+                                                                    if ("new".equals(status)) {
+                                                                        // User needs to complete registration
+                                                                        Log.d(TAG, "User status is 'new', redirecting to registration");
+                                                                        goToRegistrationByType(currentType);
+                                                                    } else {
+                                                                        // User is registered, proceed to dashboard
+                                                                        Log.d(TAG, "User is registered, proceeding to dashboard");
+                                                                        goToHomeScreen(currentType);
+                                                                    }
+                                                                    return;
+                                                                }
                                                             }
                                                         } else {
                                                             Log.d(TAG, "User not found in collection: " + currentType + " with either format, checking next type");
@@ -315,6 +343,29 @@ public class OTP_PAGE extends AppCompatActivity {
 
     private void goToRegistration() {
         Intent intent = new Intent(OTP_PAGE.this, Senior_Registration.class);
+        intent.putExtra("MOBILE_NUMBER", mobileNumber);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
+    }
+
+    private void goToRegistrationByType(String userType) {
+        Intent intent;
+        switch (userType) {
+            case "rescuer":
+                intent = new Intent(OTP_PAGE.this, Rescuer_Registration.class);
+                break;
+            case "hospital":
+                intent = new Intent(OTP_PAGE.this, Hospital_Registration.class);
+                break;
+            case "barangay":
+                intent = new Intent(OTP_PAGE.this, Barangay_Registration.class);
+                break;
+            case "seniors":
+            default:
+                intent = new Intent(OTP_PAGE.this, Senior_Registration.class);
+                break;
+        }
         intent.putExtra("MOBILE_NUMBER", mobileNumber);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);

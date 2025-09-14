@@ -330,7 +330,35 @@
     
     <!-- Contact List -->
     <string name="contact_name">Pangalan ng Contact</string>
-    <string name="phone_number_label">Phone Number</string>
+    <string name="contact_name_label">Pangalan ng Contact</string>
+    <string name="phone_number_label">Numero ng Telepono</string>
+    <string name="address_label">Tirahan</string>
+    <string name="relationship">Relasyon</string>
+    <string name="relationship_label">Relasyon</string>
+    <string name="select_relationship">Pumili ng Relasyon</string>
+    <string name="relationship_son">Anak na Lalaki</string>
+    <string name="relationship_daughter">Anak na Babae</string>
+    <string name="relationship_spouse">Asawa</string>
+    <string name="relationship_sibling">Kapatid</string>
+    <string name="relationship_cousin">Pinsan</string>
+    <string name="relationship_nephew">Pamangkin na Lalaki</string>
+    <string name="relationship_niece">Pamangkin na Babae</string>
+    <string name="relationship_grandchild">Apo</string>
+    <string name="relationship_parent">Magulang</string>
+    <string name="relationship_grandparent">Lolo/Lola</string>
+    <string name="relationship_friend">Kaibigan</string>
+    <string name="relationship_neighbor">Kapitbahay</string>
+    <string name="relationship_caregiver">Tagapag-alaga</string>
+    <string name="relationship_other">Iba pa</string>
+    <string name="update_button">I-update</string>
+    <string name="delete_button">Tanggalin</string>
+    <string name="update_contact_title">I-update ang Kontakto</string>
+    <string name="update_dialog_button">I-update</string>
+    <string name="cancel_dialog_button">Kanselahin</string>
+    <string name="fill_all_fields_error">Punan ang lahat ng patlang</string>
+    <string name="contact_name_hint">Pangalan ng Kontakto</string>
+    <string name="phone_number_hint">Numero ng Telepono</string>
+    <string name="address_hint">Tirahan</string>
     <string name="delete">Tanggalin</string>
     
     <!-- Senior Dashboard -->
@@ -347,7 +375,6 @@
     <!-- Senior Update Profile -->
     <string name="update_account_information">I-update ang Impormasyon ng Account</string>
     <string name="mobile_number_label">Mobile Number</string>
-    <string name="address_label">Address</string>
     <string name="update_information">I-update ang Impormasyon</string>
     
     <!-- Senior Add Emergency Contact -->
@@ -632,6 +659,128 @@
     <string name="face_detection_timeout">Hindi nakita ang mukha. Paki-try ulit.</string>
     <string name="manual_capture_available">Manual capture available</string>
     
+    <!-- Barangay Emergency Notifications -->
+    <string name="barangay_emergency_alert_title">🚨 ALERT SA EMERGENCY</string>
+    <string name="barangay_emergency_alert_content">Kailangan ng senior citizen ng agarang tulong sa %1$s</string>
+    <string name="barangay_emergency_alert_location">📍 Lokasyon: %1$s</string>
+    <string name="barangay_emergency_alert_time">⏰ Oras: %1$s</string>
+    <string name="barangay_emergency_alert_priority">🔴 MATAAS NA PRIORIDAD</string>
+    <string name="barangay_emergency_alert_action">I-tap para makita ang detalye at tumugon</string>
+    <string name="barangay_emergency_channel_name">🚨 MGA ALERT SA EMERGENCY</string>
+    <string name="barangay_emergency_channel_description">Kritikal na mga notification sa emergency para sa mga barangay official - Maximum priority alerts</string>
+    <string name="barangay_emergency_heads_up_title">🚨 ALERT SA EMERGENCY - %1$s</string>
+    <string name="barangay_emergency_heads_up_content">Kailangan ng senior citizen ng agarang tulong</string>
+    <string name="barangay_emergency_heads_up_location">📍 %1$s</string>
+    <string name="barangay_emergency_heads_up_time">⏰ %1$s</string>
+    <string name="barangay_emergency_heads_up_priority">🔴 MATAAS NA PRIORIDAD - Kailangan ng agarang tugon</string>
+    <string name="barangay_emergency_heads_up_action">I-tap para makita ang detalye ng emergency at tumugon agad</string>
+    <string name="barangay_emergency_action_call">TAWAGAN ANG SENIOR</string>
+    <string name="barangay_emergency_action_view">TINGNAN ANG DETALYE</string>
+
+    <!-- Toast Messages -->
+    <string name="toast_fill_all_fields">Punan ang lahat ng patlang</string>
+    <string name="toast_user_not_authenticated">Hindi naka-authenticate ang user</string>
+    <string name="toast_phone_number_exists">Umiiral na ang numero ng telepono sa emergency contacts</string>
+    <string name="toast_failed_check_contacts">Nabigo ang pag-check ng existing contacts: %1$s</string>
+    <string name="toast_contact_added_success">Matagumpay na naidagdag ang emergency contact</string>
+    <string name="toast_contact_add_failed">Nabigo ang pagdagdag ng emergency contact</string>
+    <string name="toast_language_change_detected">Nakita ang pagbabago ng wika!</string>
+    <string name="toast_notifications_enabled_barangay">✅ Na-enable ang notifications! Makakatanggap ka na ng emergency alerts.</string>
+    <string name="toast_current_location_not_available">Hindi available ang kasalukuyang lokasyon</string>
+    <string name="toast_notifications_later">Maaari mong i-enable ang notifications mamaya sa Settings</string>
+    <string name="toast_enable_notifications_return">Mangyaring i-enable ang notifications at bumalik sa app</string>
+    <string name="toast_could_not_open_settings">Hindi mabuksan ang settings. Mangyaring i-enable ang notifications manually sa device settings.</string>
+    <string name="toast_error_opening_map">Error sa pagbukas ng mapa</string>
+    <string name="toast_help_request_cancelled">Na-cancel ang help request</string>
+    <string name="toast_failed_send_emergency">Nabigo ang pagpapadala ng emergency alert</string>
+    <string name="toast_location_permission_needed">Kailangan ang location permission para sa location services</string>
+    <string name="toast_rescuer_phone_not_available">Hindi available ang numero ng telepono ng rescuer</string>
+    <string name="toast_notifications_enabled_senior">✅ Na-enable ang notifications! Makakatanggap ka na ng updates tungkol sa iyong emergency requests.</string>
+    <string name="toast_opening_sos_navigation">🚨 Binubuksan ang SOS Navigation</string>
+    <string name="toast_getting_location">📍 Kinukuha ang iyong kasalukuyang lokasyon muna...</string>
+    <string name="toast_hospital_status_updated">Na-update ang hospital status: %1$s ay %2$s %3$s</string>
+    <string name="toast_assigned_to_emergency">✅ Naka-assign ka na sa emergency na ito. Na-notify na ang senior!</string>
+    <string name="toast_opening_navigation_to">🗺️ Binubuksan ang navigation papunta sa lokasyon ni %1$s</string>
+    <string name="toast_error_opening_navigation">Error sa pagbukas ng navigation: %1$s</string>
+    <string name="toast_opening_dedicated_navigation">🗺️ Binubuksan ang dedicated navigation papunta sa lokasyon ni %1$s</string>
+    <string name="toast_opening_google_maps_to">🗺️ Binubuksan ang Google Maps papunta sa lokasyon ni %1$s</string>
+    <string name="toast_destination_not_available">Hindi available ang destination location</string>
+    <string name="toast_current_location_wait">Hindi pa available ang iyong kasalukuyang lokasyon. Mangyaring maghintay ng location update.</string>
+    <string name="toast_could_not_get_location">❌ Hindi makuha ang kasalukuyang lokasyon. Mangyaring subukan muli.</string>
+
+    <!-- Dialog Titles -->
+    <string name="dialog_emergency_help_request">🚨 Emergency Help Request</string>
+    <string name="dialog_emergency_help_sent">🚨 Naipadala ang Emergency Help Request</string>
+    <string name="dialog_help_on_way">🚨 Papunta na ang tulong!</string>
+    <string name="dialog_enable_notifications">🔔 I-enable ang Notifications</string>
+    <string name="dialog_hospital_status_update">🏥 I-update ang Hospital Status</string>
+    <string name="dialog_fifo_emergency_queue">🔄 FIFO Emergency Queue</string>
+    <string name="dialog_emergency_summary">📋 Buod ng Emergency</string>
+    <string name="dialog_emergency_sos_alert">🚨 ALERT SA EMERGENCY SOS</string>
+    <string name="dialog_emergency_response_details">🚨 Detalye ng Emergency Response</string>
+    <string name="dialog_test_navigation">🧪 Test Navigation</string>
+
+    <!-- Dialog Messages -->
+    <string name="dialog_emergency_help_message">Sigurado ka bang gusto mo ng tulong?\n\n📋 Ang iyong Impormasyon:\n👤 Pangalan: %1$s\n📍 Lokasyon: %2$s\n📞 Telepono: %3$s\n\nIto ay magpapadala ng iyong impormasyon sa mga malapit na rescuer para sa agarang tulong.</string>
+    <string name="dialog_emergency_help_sent_message">Naidagdag na ang iyong emergency request sa queue.\n\nMabibigyan ng abiso ang mga rescuer sa inyong lugar at ang pinakamalapit na available na rescuer ay tutugon sa inyong emergency.\n\nMangyaring manatiling ligtas at maghintay ng tulong.</string>
+    <string name="dialog_help_on_way_message">%1$s\n\n👤 Rescuer: %2$s\n📞 Telepono: %3$s\n📍 Lokasyon: %4$s\n⏰ Response Time: %5$s\n\nPapunta na ang tulong! Manatiling ligtas at maghintay ng rescuer.</string>
+    <string name="dialog_enable_notifications_barangay">Para makatanggap ng emergency alerts mula sa mga senior sa inyong barangay, mangyaring i-enable ang notifications para sa app na ito.\n\nIto ay mahalaga para sa kaligtasan ng inyong mga community member.</string>
+    <string name="dialog_enable_notifications_senior">Para makatanggap ng updates tungkol sa inyong emergency requests at rescuer responses, mangyaring i-enable ang notifications para sa app na ito.\n\nIto ay tinitiyak na mananatili kayong informed tungkol sa inyong kaligtasan.</string>
+    <string name="dialog_test_navigation_message">Test navigation papunta sa Christ in You Heale Parish sa Magalang, Pampanga?</string>
+
+    <!-- Dialog Buttons -->
+    <string name="button_send_help">🚨 MAGPADALA NG TULONG</string>
+    <string name="button_cancel">Kanselahin</string>
+    <string name="button_enable_notifications">I-enable ang Notifications</string>
+    <string name="button_later">Mamaya</string>
+    <string name="button_respond_now">🚨 TUMUGON NGAYON</string>
+    <string name="button_google_nav">🗺️ GOOGLE NAV</string>
+    <string name="button_call_senior">📞 TAWAGAN ANG SENIOR</string>
+    <string name="button_dismiss">Tanggalin</string>
+    <string name="button_respond_now_old">🚑 TUMUGON NGAYON</string>
+    <string name="button_ok">OK</string>
+
+    <!-- Additional UI Text -->
+    <string name="text_not_available">Hindi available</string>
+    <string name="text_not_provided">Hindi provided</string>
+    <string name="text_location_permission_denied">Tinanggihan ang location permission</string>
+    <string name="text_fetching_location">Kinukuha ang kasalukuyang lokasyon...</string>
+    <string name="text_full_name_not_available">Hindi Available ang Buong Pangalan</string>
+    <string name="text_waiting_location_update">Naghihintay ng location update...</string>
+    <string name="text_user_data_not_found">Hindi nahanap ang user data.</string>
+    <string name="text_failed_load_data">Nabigo ang pag-load ng data.</string>
+    <string name="text_loading">Naglo-load...</string>
+    <string name="text_help_on_way">🚨 Papunta na ang tulong!</string>
+    <string name="text_rescuer_phone_not_available">Hindi available ang numero ng telepono ng rescuer</string>
+    <string name="text_hospital_status_updated">Na-update ang hospital status: %1$s ay %2$s %3$s</string>
+    <string name="text_fifo_emergency_queue">🔄 FIFO Emergency Queue</string>
+    <string name="text_emergency_summary">📋 Buod ng Emergency</string>
+    <string name="text_emergency_sos_title">🚨 EMERGENCY SOS - %1$s</string>
+    <string name="text_emergency_sos_content">Kailangan ng senior ng agarang tulong sa %1$s</string>
+    <string name="text_opening_dedicated_navigation">🗺️ Binubuksan ang dedicated navigation papunta sa lokasyon ni %1$s</string>
+    <string name="text_opening_google_maps_to">🗺️ Binubuksan ang Google Maps papunta sa lokasyon ni %1$s</string>
+    <string name="text_error_opening_navigation_long">Error sa pagbukas ng navigation: %1$s</string>
+    <string name="text_destination_not_available">Hindi available ang destination location</string>
+    <string name="text_current_location_wait_long">Hindi pa available ang iyong kasalukuyang lokasyon. Mangyaring maghintay ng location update.</string>
+    <string name="text_emergency_response_details">🚨 Detalye ng Emergency Response</string>
+    <string name="text_test_navigation">🧪 Test Navigation</string>
+    <string name="text_test_navigation_message">Test navigation papunta sa Christ in You Heale Parish sa Magalang, Pampanga?</string>
+    <string name="text_could_not_get_location">❌ Hindi makuha ang kasalukuyang lokasyon. Mangyaring subukan muli.</string>
+    <string name="text_error_getting_location">❌ Error sa pagkuha ng lokasyon: %1$s</string>
+    <string name="text_location_permission_required">❌ Kailangan ang location permission para sa navigation</string>
+    <string name="text_testing_navigation_to">🗺️ Testing Navigation papunta sa %1$s (Database Location)</string>
+    <string name="text_hospital_location_not_found">❌ Hindi nahanap ang hospital location sa database</string>
+    <string name="text_hospital_not_found">❌ Hindi nahanap ang Hospital \'%1$s\' sa database</string>
+    <string name="text_error_retrieving_hospital">❌ Error sa pagkuha ng hospital location: %1$s</string>
+    <string name="text_medical">medical</string>
+    <string name="text_sos">SOS</string>
+    <string name="text_high">MATAAS</string>
+    <string name="text_active">AKTIBO</string>
+    <string name="text_emergency_sos_alert">🚨 ALERT SA EMERGENCY SOS</string>
+    <string name="text_senior_needs_help">Kailangan ng senior na %1$s ng agarang tulong!</string>
+    <string name="text_emergency_sos_type">EMERGENCY_SOS</string>
+    <string name="text_high_priority">MATAAS</string>
+
     <!-- Hospital Status Update Requirements -->
     <string name="status_update_required_title">Kailangan i-update ang Status</string>
     <string name="status_update_required">Kailangan i-update ang status ng inyong hospital. Mangyaring i-update ang kasalukuyang availability ng beds at doctors.</string>

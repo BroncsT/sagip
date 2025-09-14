@@ -7,6 +7,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -74,9 +75,10 @@ public class EmergencyAdapter extends RecyclerView.Adapter<EmergencyAdapter.Emer
             timeText.setText("⏰ " + emergency.getTimeAgo());
             
             if (emergency.seniorPhone != null && !emergency.seniorPhone.isEmpty()) {
-                phoneText.setText("📞 " + emergency.seniorPhone);
+                String formattedPhone = PhoneNumberUtils.formatPhoneNumber(emergency.seniorPhone);
+                phoneText.setText("📞 " + formattedPhone);
                 phoneText.setVisibility(View.VISIBLE);
-                callButton.setVisibility(View.VISIBLE);
+                callButton.setVisibility(PhoneNumberUtils.isValidPhoneNumber(emergency.seniorPhone) ? View.VISIBLE : View.GONE);
             } else {
                 phoneText.setVisibility(View.GONE);
                 callButton.setVisibility(View.GONE);
@@ -97,9 +99,14 @@ public class EmergencyAdapter extends RecyclerView.Adapter<EmergencyAdapter.Emer
 
             callButton.setOnClickListener(v -> {
                 if (emergency.seniorPhone != null && !emergency.seniorPhone.isEmpty()) {
-                    Intent callIntent = new Intent(Intent.ACTION_CALL);
-                    callIntent.setData(Uri.parse("tel:" + emergency.seniorPhone));
-                    itemView.getContext().startActivity(callIntent);
+                    String callableNumber = PhoneNumberUtils.getCallablePhoneNumber(emergency.seniorPhone);
+                    if (callableNumber != null) {
+                        Intent callIntent = new Intent(Intent.ACTION_DIAL);
+                        callIntent.setData(Uri.parse("tel:" + callableNumber));
+                        itemView.getContext().startActivity(callIntent);
+                    } else {
+                        Toast.makeText(itemView.getContext(), "Invalid phone number format", Toast.LENGTH_SHORT).show();
+                    }
                 }
             });
         }
