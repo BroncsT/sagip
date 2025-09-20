@@ -827,11 +827,12 @@ public class MainActivity extends AppCompatActivity {
     private void checkUserTypeAndRedirect(String identifier, boolean isPhoneNumber) {
         if (isPhoneNumber) {
             // Check all possible user type collections for phone number
-            String[] userTypes = {"seniors", "rescuer", "barangay", "hospital"};
+            // Reorder to check non-senior users first to avoid senior approval popup conflicts
+            String[] userTypes = {"barangay", "rescuer", "hospital", "seniors"};
             checkAuthenticatedUserTypeByPhone(identifier, userTypes, 0);
         } else {
             // Check all possible user type collections for UID (email users)
-            String[] userTypes = {"rescuer", "hospital", "seniors", "barangay"};
+            String[] userTypes = {"barangay", "rescuer", "hospital", "seniors"};
             checkAuthenticatedUserTypeByUID(identifier, userTypes, 0);
         }
     }
@@ -850,6 +851,7 @@ public class MainActivity extends AppCompatActivity {
             searchNumber = phoneNumber.substring(3); // Remove +63 prefix
         }
         
+        Log.d(TAG, "🔍 Checking user type: " + userTypes[index] + " for phone: " + phoneNumber + " (searching with: " + searchNumber + ")");
         db.collection("Sagip")
                 .document("users")
                 .collection(userTypes[index])
@@ -860,6 +862,7 @@ public class MainActivity extends AppCompatActivity {
                     public void onComplete(@NonNull Task<QuerySnapshot> task) {
                         if (task.isSuccessful()) {
                             if (!task.getResult().isEmpty()) {
+                                Log.d(TAG, "✅ Found user in collection: " + userTypes[index] + " with status: " + (task.getResult().getDocuments().get(0).getString("status")));
                                 for (QueryDocumentSnapshot document : task.getResult()) {
                                     String status = document.getString("status");
                                     // Handle different user types
@@ -886,6 +889,7 @@ public class MainActivity extends AppCompatActivity {
                                         }
                                     } else {
                                         // For non-senior users (rescuer, barangay, hospital):
+                                        Log.d(TAG, "🎯 Redirecting non-senior user to dashboard: " + userTypes[index]);
                                         // If status is "new", route to the existing registration page first.
                                         if ("new".equals(status)) {
                                             Class<?> registrationClass;
@@ -918,6 +922,7 @@ public class MainActivity extends AppCompatActivity {
                                     return;
                                 }
                             } else {
+                                Log.d(TAG, "❌ No user found in collection: " + userTypes[index]);
                                 checkAuthenticatedUserTypeByPhone(phoneNumber, userTypes, index + 1);
                             }
                         } else {
@@ -1033,7 +1038,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void checkUserExistsByPhoneNumber(String formattedNumber) {
-        String[] userTypes = {"seniors", "rescuer", "barangay", "hospital"};
+        String[] userTypes = {"barangay", "rescuer", "hospital", "seniors"};
         checkPhoneNumberInCollections(formattedNumber, userTypes, 0);
     }
 
@@ -1366,7 +1371,7 @@ public class MainActivity extends AppCompatActivity {
             phoneNumber.startsWith("+63") ? "0" + phoneNumber.substring(3) : phoneNumber, // Add 0 prefix
         };
         
-        String[] userTypes = {"seniors", "rescuer", "barangay", "hospital"};
+        String[] userTypes = {"barangay", "rescuer", "hospital", "seniors"};
         
         for (String searchFormat : searchFormats) {
             for (String userType : userTypes) {
@@ -1419,7 +1424,7 @@ public class MainActivity extends AppCompatActivity {
     private void tryAlternativeUserSearchByUID(String uid) {
         Log.d(TAG, "Trying alternative UID search for: " + uid);
         
-        String[] userTypes = {"seniors", "rescuer", "barangay", "hospital"};
+        String[] userTypes = {"barangay", "rescuer", "hospital", "seniors"};
         
         for (String userType : userTypes) {
             Log.d(TAG, "Trying UID search in collection: " + userType);

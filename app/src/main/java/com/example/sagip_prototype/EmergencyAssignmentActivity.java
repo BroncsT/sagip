@@ -45,14 +45,14 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
     // FORCE REBUILD - Updated to use markDone instead of markArrived
     private static final String TAG = "EmergencyAssignmentActivity";
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1001;
-
+    
     // UI Components
     private TextView tvSeniorName, tvSeniorPhone, tvLocation, tvRescuerName, tvRescuerLocation;
     private TextView tvAssignmentTime, tvEstimatedArrival, tvDistance, tvStatus;
     private TextView tvHospitalName, tvHospitalAddress, tvHospitalDistance;
     private Button btnCallSenior, btnNavigate, btnUpdateLocation, btnMarkDone, btnNavigateHospital;
     private GoogleMap mMap;
-
+    
     // Data
     private String seniorName, seniorPhone, locationAddress, rescuerId;
     private double seniorLat, seniorLng, rescuerLat, rescuerLng;
@@ -60,44 +60,68 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
     private String hospitalName, hospitalAddress;
     private long assignmentTime;
     private String emergencyId;
-
+    
     // Firebase
     private FirebaseFirestore db;
     private FirebaseAuth mAuth;
     private FusedLocationProviderClient fusedLocationClient;
-
+    
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_emergency_assignment);
-
+        
         // Initialize Firebase
         db = FirebaseFirestore.getInstance();
         mAuth = FirebaseAuth.getInstance();
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
-
+        
         // Get data from intent
         getIntentData();
-
+        
         // Initialize UI
         initializeViews();
-
+        
         // Setup map
         setupMap();
-
+        
         // Load rescuer information
         loadRescuerInfo();
-
+        
         // Load nearest hospital information
         loadNearestHospital();
-
+        
+        // Add debug logging for hospital data
+        logHospitalDataStatus();
+        
+        // Test hospital loading after a delay
+        new android.os.Handler().postDelayed(() -> {
+            Log.d(TAG, "🔍 Testing hospital data after 5 seconds...");
+            logHospitalDataStatus();
+            if (hospitalLat == 0.0 && hospitalLng == 0.0) {
+                Log.w(TAG, "⚠️ Hospital coordinates still not loaded, trying to reload...");
+                loadNearestHospital();
+                
+                // If still no data after reload, set test data for debugging
+                new android.os.Handler().postDelayed(() -> {
+                    if (hospitalLat == 0.0 && hospitalLng == 0.0) {
+                        Log.w(TAG, "🔧 Setting test hospital data for debugging...");
+                        setTestHospitalData();
+                    }
+                }, 3000);
+            }
+        }, 5000);
+        
         // Get current location and calculate arrival time
         getCurrentLocationAndCalculateArrival();
-
+        
         // Update location every 30 seconds
         startLocationUpdates();
+        
+        // Check hospital data status periodically
+        startHospitalDataStatusUpdates();
     }
-
+    
     private void getIntentData() {
         Intent intent = getIntent();
         seniorName = intent.getStringExtra("senior_name");
@@ -112,12 +136,12 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
             Log.w(TAG, "request_id not found, using emergency_id: " + emergencyId);
         }
         rescuerId = mAuth.getCurrentUser().getUid();
-
+        
         Log.d(TAG, "Emergency assignment data: " + seniorName + " at " + locationAddress);
         Log.d(TAG, "Senior phone number: " + seniorPhone);
         Log.d(TAG, "Senior coordinates: " + seniorLat + ", " + seniorLng);
         Log.d(TAG, "Using emergencyId (request_id): " + emergencyId);
-
+        
         // Debug: Check all intent extras
         Bundle extras = intent.getExtras();
         if (extras != null) {
@@ -129,7 +153,7 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         } else {
             Log.w(TAG, "No intent extras found!");
         }
-
+        
         // Debug: Check specific keys
         String requestId = intent.getStringExtra("request_id");
         String emergencyId = intent.getStringExtra("emergency_id");
@@ -137,7 +161,7 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         Log.d(TAG, "🔍 emergency_id from intent: " + emergencyId);
         Log.d(TAG, "🔍 Final emergencyId being used: " + emergencyId);
     }
-
+    
     private void initializeViews() {
         tvSeniorName = findViewById(R.id.tv_senior_name);
         tvSeniorPhone = findViewById(R.id.tv_senior_phone);
@@ -148,53 +172,64 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         tvEstimatedArrival = findViewById(R.id.tv_estimated_arrival);
         tvDistance = findViewById(R.id.tv_distance);
         tvStatus = findViewById(R.id.tv_status);
-
+        
         // Hospital UI components
         tvHospitalName = findViewById(R.id.tv_hospital_name);
         tvHospitalAddress = findViewById(R.id.tv_hospital_address);
         tvHospitalDistance = findViewById(R.id.tv_hospital_distance);
-
+        
         // Debug: Check if TextView is found
         if (tvSeniorPhone == null) {
             Log.e(TAG, "❌ tvSeniorPhone TextView not found!");
         } else {
             Log.d(TAG, "✅ tvSeniorPhone TextView found successfully");
         }
-
+        
         btnCallSenior = findViewById(R.id.btn_call_senior);
         btnNavigate = findViewById(R.id.btn_navigate);
         btnUpdateLocation = findViewById(R.id.btn_update_location);
         btnMarkDone = findViewById(R.id.btn_mark_arrived);
         btnNavigateHospital = findViewById(R.id.btn_navigate_hospital);
-
+        
         // Set initial data
         tvSeniorName.setText(seniorName != null ? seniorName : "Unknown Senior");
-
+        
         // Format and display phone number
-        String phoneToDisplay = seniorPhone != null && !seniorPhone.isEmpty() ?
-                PhoneNumberUtils.formatPhoneNumber(seniorPhone) : "Phone not available";
+        String phoneToDisplay = seniorPhone != null && !seniorPhone.isEmpty() ? 
+            PhoneNumberUtils.formatPhoneNumber(seniorPhone) : "Phone not available";
         Log.d(TAG, "Setting phone display to: " + phoneToDisplay);
         tvSeniorPhone.setText(phoneToDisplay);
-
+        
         tvLocation.setText(locationAddress != null ? locationAddress : "Location not available");
-
+        
         String timeStr = new SimpleDateFormat("MMM dd, yyyy HH:mm:ss", Locale.getDefault())
                 .format(new Date(assignmentTime));
         tvAssignmentTime.setText(timeStr);
         tvStatus.setText("🚨 RESPONDING");
-
+        
         // Setup button listeners
         setupButtonListeners();
     }
-
+    
     private void setupButtonListeners() {
         btnCallSenior.setOnClickListener(v -> callSenior());
         btnNavigate.setOnClickListener(v -> openNavigation());
         btnUpdateLocation.setOnClickListener(v -> updateLocation());
         btnMarkDone.setOnClickListener(v -> markDone());
-        btnNavigateHospital.setOnClickListener(v -> navigateToHospital());
+        
+        // Add null check and debug logging for hospital navigation button
+        if (btnNavigateHospital != null) {
+            btnNavigateHospital.setOnClickListener(v -> {
+                Log.d(TAG, "🏥 Hospital navigation button clicked!");
+                Toast.makeText(this, "Hospital navigation button clicked!", Toast.LENGTH_SHORT).show();
+                navigateToHospital();
+            });
+            Log.d(TAG, "✅ Hospital navigation button listener set successfully");
+        } else {
+            Log.e(TAG, "❌ Hospital navigation button is null!");
+        }
     }
-
+    
     private void setupMap() {
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
@@ -202,11 +237,11 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
             mapFragment.getMapAsync(this);
         }
     }
-
+    
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
-
+        
         // Add senior location marker
         if (seniorLat != 0.0 && seniorLng != 0.0) {
             LatLng seniorLocation = new LatLng(seniorLat, seniorLng);
@@ -214,11 +249,11 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                     .position(seniorLocation)
                     .title("Senior: " + seniorName)
                     .snippet(locationAddress));
-
+            
             // Move camera to senior location
             mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(seniorLocation, 15f));
         }
-
+        
         // Add rescuer location marker when available
         if (rescuerLat != 0.0 && rescuerLng != 0.0) {
             LatLng rescuerLocation = new LatLng(rescuerLat, rescuerLng);
@@ -226,17 +261,17 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                     .position(rescuerLocation)
                     .title("Your Location")
                     .snippet("Rescuer Location"));
-
+            
             // Draw route between rescuer and senior
             drawRoute(rescuerLocation, new LatLng(seniorLat, seniorLng));
         }
-
+        
         // Add hospital marker if available
         if (hospitalLat != 0.0 && hospitalLng != 0.0) {
             addHospitalMarker();
         }
     }
-
+    
     private void drawRoute(LatLng start, LatLng end) {
         // Simple straight line route (in real app, you'd use Google Directions API)
         PolylineOptions polylineOptions = new PolylineOptions()
@@ -245,7 +280,7 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                 .color(0xFF0000FF);
         mMap.addPolyline(polylineOptions);
     }
-
+    
     private void loadRescuerInfo() {
         db.collection("Sagip/users/rescuer").document(rescuerId)
                 .get()
@@ -264,14 +299,16 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                     tvRescuerName.setText("Rescuer");
                 });
     }
-
+    
     private void loadNearestHospital() {
         Log.d(TAG, "🏥 Loading nearest hospital information...");
-
+        Log.d(TAG, "📍 Senior location for hospital search: " + seniorLat + ", " + seniorLng);
+        
         // Query hospitals from database
         db.collection("Sagip/users/hospital")
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
+                    Log.d(TAG, "📊 Hospital query result: " + querySnapshot.size() + " hospitals found");
                     if (!querySnapshot.isEmpty()) {
                         // Find the nearest hospital based on senior's location
                         findNearestHospital(querySnapshot);
@@ -282,25 +319,26 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "❌ Error loading hospitals: " + e.getMessage());
+                    Log.e(TAG, "❌ Error details: " + e.toString());
                     setDefaultHospitalInfo();
                 });
     }
-
+    
     private void findNearestHospital(com.google.firebase.firestore.QuerySnapshot querySnapshot) {
         Log.d(TAG, "🤖 Using AI to determine optimal hospital...");
         Log.d(TAG, "📊 Senior location: " + seniorLat + ", " + seniorLng);
         Log.d(TAG, "📊 Total hospitals in database: " + querySnapshot.size());
-
+        
         // Collect all valid hospitals with their data
         java.util.List<HospitalData> hospitals = new java.util.ArrayList<>();
         java.util.List<DocumentSnapshot> hospitalsToGeocode = new java.util.ArrayList<>();
-
+        
         // First pass: collect hospitals with coordinates and those that need geocoding
         for (DocumentSnapshot hospitalDoc : querySnapshot) {
             // Try to get coordinates from currentLocation GeoPoint first (primary method)
             Double lat = null;
             Double lng = null;
-
+            
             com.google.firebase.firestore.GeoPoint currentLocation = hospitalDoc.getGeoPoint("currentLocation");
             if (currentLocation != null) {
                 lat = currentLocation.getLatitude();
@@ -310,34 +348,34 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                 // Fallback to individual coordinate fields
                 lat = hospitalDoc.getDouble("latitude");
                 lng = hospitalDoc.getDouble("longitude");
-
+                
                 // If not found, try alternative field names
                 if (lat == null) lat = hospitalDoc.getDouble("lat");
                 if (lng == null) lng = hospitalDoc.getDouble("lng");
                 if (lat == null) lat = hospitalDoc.getDouble("currentLatitude");
                 if (lng == null) lng = hospitalDoc.getDouble("currentLongitude");
             }
-
+            
             String erStatus = hospitalDoc.getString("erStatus");
             String hospitalName = hospitalDoc.getString("hospitalName");
             String address = hospitalDoc.getString("hospitalAddress");
-
+            
             Log.d(TAG, "🔍 Checking hospital: " + hospitalName + " | Lat: " + lat + " | Lng: " + lng + " | ER: " + erStatus + " | Address: " + address);
-
+            
             // Debug: Show all available fields in the document
             Log.d(TAG, "📋 Hospital document fields: " + hospitalDoc.getData().keySet());
-
+            
             // Debug: Show currentLocation details
             if (currentLocation != null) {
                 Log.d(TAG, "📍 Using currentLocation GeoPoint: " + currentLocation.getLatitude() + ", " + currentLocation.getLongitude());
             } else {
                 Log.d(TAG, "📍 No currentLocation GeoPoint found, using fallback coordinates");
             }
-
+            
             if (lat != null && lng != null && seniorLat != 0.0 && seniorLng != 0.0) {
                 // Hospital has coordinates, use them
                 double distance = calculateDistance(seniorLat, seniorLng, lat, lng);
-
+                
                 HospitalData hospital = new HospitalData();
                 hospital.document = hospitalDoc;
                 hospital.name = hospitalName != null ? hospitalName : "Unknown Hospital";
@@ -346,7 +384,7 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                 hospital.longitude = lng;
                 hospital.distance = distance;
                 hospital.erStatus = erStatus != null ? erStatus : "unknown";
-
+                
                 hospitals.add(hospital);
                 Log.d(TAG, "✅ Added hospital: " + hospital.name + " | Distance: " + String.format("%.2f km", distance) + " | ER Status: " + hospital.erStatus);
             } else if (address != null && !address.trim().isEmpty()) {
@@ -357,7 +395,7 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                 Log.w(TAG, "❌ Skipped hospital: " + hospitalName + " | Reason: lat=" + lat + ", lng=" + lng + ", address=" + address + ", seniorLat=" + seniorLat + ", seniorLng=" + seniorLng);
             }
         }
-
+        
         // If we have hospitals with coordinates, use them immediately
         if (!hospitals.isEmpty()) {
             Log.d(TAG, "🏥 Processing " + hospitals.size() + " hospitals with coordinates");
@@ -371,24 +409,24 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
             setDefaultHospitalInfo();
         }
     }
-
+    
     private void geocodeHospitals(java.util.List<DocumentSnapshot> hospitalsToGeocode, java.util.List<HospitalData> hospitals) {
         Log.d(TAG, "🔍 Starting geocoding for " + hospitalsToGeocode.size() + " hospitals...");
-
+        
         int geocodedCount = 0;
         for (DocumentSnapshot hospitalDoc : hospitalsToGeocode) {
             String hospitalName = hospitalDoc.getString("hospitalName");
             String address = hospitalDoc.getString("hospitalAddress");
             String erStatus = hospitalDoc.getString("erStatus");
-
+            
             boolean geocoded = geocodeHospitalAddress(hospitalDoc, hospitalName, address, erStatus, hospitals);
             if (geocoded) {
                 geocodedCount++;
             }
         }
-
+        
         Log.d(TAG, "📍 Geocoding completed: " + geocodedCount + " out of " + hospitalsToGeocode.size() + " hospitals geocoded successfully");
-
+        
         // Process hospitals after geocoding
         if (!hospitals.isEmpty()) {
             processHospitals(hospitals);
@@ -397,38 +435,45 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
             setDefaultHospitalInfo();
         }
     }
-
+    
     private void processHospitals(java.util.List<HospitalData> hospitals) {
         if (hospitals.isEmpty()) {
             Log.w(TAG, "⚠️ No hospitals with valid coordinates found");
             setDefaultHospitalInfo();
             return;
         }
-
+        
         // Use AI to determine the best hospital
         HospitalData selectedHospital = selectOptimalHospital(hospitals);
-
+        
         if (selectedHospital != null) {
             displayHospitalInfo(selectedHospital.document, selectedHospital.distance);
             Log.d(TAG, "🤖 AI selected: " + selectedHospital.name + " (Distance: " + String.format("%.2f km", selectedHospital.distance) + ", ER Status: " + selectedHospital.erStatus + ")");
         } else {
             Log.w(TAG, "⚠️ AI could not select a hospital");
-            setDefaultHospitalInfo();
+            // Try to use the first available hospital as fallback
+            if (!hospitals.isEmpty()) {
+                HospitalData fallbackHospital = hospitals.get(0);
+                displayHospitalInfo(fallbackHospital.document, fallbackHospital.distance);
+                Log.d(TAG, "🔄 Using fallback hospital: " + fallbackHospital.name);
+            } else {
+                setDefaultHospitalInfo();
+            }
         }
     }
-
+    
     private boolean geocodeHospitalAddress(DocumentSnapshot hospitalDoc, String hospitalName, String address, String erStatus, java.util.List<HospitalData> hospitals) {
         if (address == null || address.isEmpty()) {
             Log.w(TAG, "❌ Cannot geocode: address is null or empty");
             return false;
         }
-
+        
         Geocoder geocoder = new Geocoder(this, Locale.getDefault());
         if (!Geocoder.isPresent()) {
             Log.e(TAG, "❌ Geocoder is not available on this device");
             return false;
         }
-
+        
         try {
             Log.d(TAG, "🔍 Attempting to geocode: " + address);
             List<Address> addresses = geocoder.getFromLocationName(address, 1);
@@ -436,12 +481,12 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                 Address location = addresses.get(0);
                 double lat = location.getLatitude();
                 double lng = location.getLongitude();
-
+                
                 Log.d(TAG, "📍 Geocoded coordinates: " + lat + ", " + lng);
-
+                
                 if (seniorLat != 0.0 && seniorLng != 0.0) {
                     double distance = calculateDistance(seniorLat, seniorLng, lat, lng);
-
+                    
                     HospitalData hospital = new HospitalData();
                     hospital.document = hospitalDoc;
                     hospital.name = hospitalName != null ? hospitalName : "Unknown Hospital";
@@ -450,7 +495,7 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                     hospital.longitude = lng;
                     hospital.distance = distance;
                     hospital.erStatus = erStatus != null ? erStatus : "unknown";
-
+                    
                     hospitals.add(hospital);
                     Log.d(TAG, "✅ Geocoded hospital: " + hospital.name + " | Distance: " + String.format("%.2f km", distance) + " | ER Status: " + hospital.erStatus);
                     return true;
@@ -470,46 +515,46 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
             return false;
         }
     }
-
+    
     private HospitalData selectOptimalHospital(java.util.List<HospitalData> hospitals) {
         Log.d(TAG, "🤖 AI Decision Making Process:");
-
+        
         // AI Decision Matrix
         HospitalData bestHospital = null;
         double bestScore = Double.MIN_VALUE;
-
+        
         for (HospitalData hospital : hospitals) {
             double score = calculateHospitalScore(hospital);
             Log.d(TAG, "🏥 " + hospital.name + " | Score: " + String.format("%.2f", score) + " | ER: " + hospital.erStatus + " | Distance: " + String.format("%.2f km", hospital.distance));
-
+            
             if (score > bestScore) {
                 bestScore = score;
                 bestHospital = hospital;
             }
         }
-
+        
         return bestHospital;
     }
-
+    
     private double calculateHospitalScore(HospitalData hospital) {
         double score = 0.0;
-
+        
         // Distance factor (closer is better) - 40% weight
         double distanceScore = Math.max(0, 100 - (hospital.distance * 10)); // 100 points max, -10 points per km
         score += distanceScore * 0.4;
-
+        
         // ER Status factor - 60% weight
         double erScore = getERStatusScore(hospital.erStatus);
         score += erScore * 0.6;
-
+        
         Log.d(TAG, "📊 " + hospital.name + " | Distance Score: " + String.format("%.1f", distanceScore) + " | ER Score: " + String.format("%.1f", erScore) + " | Total: " + String.format("%.1f", score));
-
+        
         return score;
     }
-
+    
     private double getERStatusScore(String erStatus) {
         if (erStatus == null) return 50.0; // Neutral score for unknown status
-
+        
         switch (erStatus.toLowerCase()) {
             case "available":
                 return 100.0; // Maximum score for available ER
@@ -522,7 +567,7 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                 return 50.0; // Neutral score for unknown status
         }
     }
-
+    
     // Helper class for hospital data
     private static class HospitalData {
         DocumentSnapshot document;
@@ -533,11 +578,11 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         double distance;
         String erStatus;
     }
-
+    
     private void displayHospitalInfo(DocumentSnapshot hospitalDoc, double distance) {
         hospitalName = hospitalDoc.getString("hospitalName");
         hospitalAddress = hospitalDoc.getString("hospitalAddress");
-
+        
         // Get coordinates from currentLocation GeoPoint first (same logic as in findNearestHospital)
         com.google.firebase.firestore.GeoPoint currentLocation = hospitalDoc.getGeoPoint("currentLocation");
         if (currentLocation != null) {
@@ -548,7 +593,7 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
             // Fallback to individual coordinate fields
             Double lat = hospitalDoc.getDouble("latitude");
             Double lng = hospitalDoc.getDouble("longitude");
-
+            
             if (lat != null && lng != null) {
                 hospitalLat = lat;
                 hospitalLng = lng;
@@ -566,43 +611,52 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                 }
             }
         }
-
+        
         String erStatus = hospitalDoc.getString("erStatus");
-
+        
         if (hospitalName != null) {
             tvHospitalName.setText(hospitalName);
         } else {
             tvHospitalName.setText("Hospital");
         }
-
+        
         if (hospitalAddress != null) {
             tvHospitalAddress.setText(hospitalAddress);
         } else {
             tvHospitalAddress.setText("Address not available");
         }
-
+        
         // Display distance and ER status
-        String statusText = String.format(Locale.getDefault(),
+        String statusText = String.format(Locale.getDefault(), 
                 "Distance: %.2f km", distance);
-
+        
         if (erStatus != null && !erStatus.isEmpty()) {
             String erStatusDisplay = getERStatusDisplay(erStatus);
             statusText += " | ER: " + erStatusDisplay;
         }
-
+        
         tvHospitalDistance.setText(statusText);
-
+        
         Log.d(TAG, "🏥 AI Selected hospital: " + hospitalName + " (" + distance + " km, ER: " + erStatus + ")");
-
+        
+        // Enable navigation button if hospital coordinates are available
+        if (hospitalLat != 0.0 && hospitalLng != 0.0) {
+            btnNavigateHospital.setEnabled(true);
+            Log.d(TAG, "✅ Navigation button enabled for hospital: " + hospitalName);
+        } else {
+            btnNavigateHospital.setEnabled(false);
+            Log.w(TAG, "⚠️ Navigation button disabled - no coordinates for hospital: " + hospitalName);
+        }
+        
         // Add hospital marker to map if available
         if (mMap != null && hospitalLat != 0.0 && hospitalLng != 0.0) {
             addHospitalMarker();
         }
     }
-
+    
     private String getERStatusDisplay(String erStatus) {
         if (erStatus == null) return "Unknown";
-
+        
         switch (erStatus.toLowerCase()) {
             case "available":
                 return "✅ Available";
@@ -615,18 +669,47 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                 return "❓ " + erStatus;
         }
     }
-
+    
     private void setDefaultHospitalInfo() {
         tvHospitalName.setText("Hospital Information Not Available");
         tvHospitalAddress.setText("Please contact emergency services");
         tvHospitalDistance.setText("Distance: Unknown");
         btnNavigateHospital.setEnabled(false);
+        Log.w(TAG, "⚠️ Using default hospital info - navigation disabled");
     }
-
+    
+    private void logHospitalDataStatus() {
+        Log.d(TAG, "🔍 Hospital Data Status Check:");
+        Log.d(TAG, "  - Hospital Name: " + (hospitalName != null ? hospitalName : "null"));
+        Log.d(TAG, "  - Hospital Address: " + (hospitalAddress != null ? hospitalAddress : "null"));
+        Log.d(TAG, "  - Hospital Coordinates: " + hospitalLat + ", " + hospitalLng);
+        Log.d(TAG, "  - Navigation Button Enabled: " + btnNavigateHospital.isEnabled());
+        Log.d(TAG, "  - Senior Location: " + seniorLat + ", " + seniorLng);
+    }
+    
+    private void setTestHospitalData() {
+        Log.d(TAG, "🔧 Setting test hospital data for debugging...");
+        hospitalName = "Test Hospital";
+        hospitalAddress = "123 Test Street, Test City";
+        hospitalLat = 14.5995; // Manila coordinates as example
+        hospitalLng = 120.9842;
+        
+        // Update UI
+        tvHospitalName.setText(hospitalName);
+        tvHospitalAddress.setText(hospitalAddress);
+        tvHospitalDistance.setText("Distance: Test Mode");
+        
+        // Enable button
+        btnNavigateHospital.setEnabled(true);
+        
+        Log.d(TAG, "✅ Test hospital data set: " + hospitalName + " at " + hospitalLat + ", " + hospitalLng);
+        Toast.makeText(this, "Test hospital data loaded for debugging", Toast.LENGTH_SHORT).show();
+    }
+    
     private void addHospitalMarker() {
         if (hospitalLat != 0.0 && hospitalLng != 0.0) {
             LatLng hospitalLocation = new LatLng(hospitalLat, hospitalLng);
-
+            
             // Get ER status for marker snippet
             String erStatus = "Unknown";
             if (hospitalName != null) {
@@ -634,54 +717,114 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                 // This would need to be passed from the displayHospitalInfo method
                 erStatus = "AI Selected";
             }
-
+            
             mMap.addMarker(new MarkerOptions()
                     .position(hospitalLocation)
                     .title("🏥 " + hospitalName)
                     .snippet("AI Selected | " + hospitalAddress));
         }
     }
-
+    
     private void navigateToHospital() {
+        Log.d(TAG, "🏥 Navigate to hospital clicked");
+        Log.d(TAG, "📍 Hospital coordinates: " + hospitalLat + ", " + hospitalLng);
+        Log.d(TAG, "📍 Hospital address: " + hospitalAddress);
+        Log.d(TAG, "📍 Hospital name: " + hospitalName);
+        Log.d(TAG, "📍 Button enabled: " + btnNavigateHospital.isEnabled());
+        
         if (hospitalLat != 0.0 && hospitalLng != 0.0) {
-            String uri = String.format(Locale.getDefault(),
-                    "google.navigation:q=%.6f,%.6f", hospitalLat, hospitalLng);
-            Intent navIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(uri));
-            navIntent.setPackage("com.google.android.apps.maps");
-            startActivity(navIntent);
+            try {
+                String uri = String.format(Locale.getDefault(), 
+                        "google.navigation:q=%.6f,%.6f", hospitalLat, hospitalLng);
+                Intent navIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(uri));
+                navIntent.setPackage("com.google.android.apps.maps");
+                
+                // Check if Google Maps is available
+                if (navIntent.resolveActivity(getPackageManager()) != null) {
+                    startActivity(navIntent);
+                    Log.d(TAG, "✅ Opened Google Maps navigation to hospital");
+                    Toast.makeText(this, "Opening navigation to " + hospitalName, Toast.LENGTH_SHORT).show();
+                } else {
+                    // Fallback to web navigation
+                    openWebNavigation();
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "❌ Error opening Google Maps navigation: " + e.getMessage());
+                openWebNavigation();
+            }
         } else if (hospitalAddress != null && !hospitalAddress.isEmpty()) {
             // Fallback to web navigation using address
-            String url = "https://www.google.com/maps/dir/?api=1&destination=" +
-                    Uri.encode(hospitalAddress) + "&travelmode=driving";
-            Intent webNavIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-            startActivity(webNavIntent);
+            openWebNavigation();
         } else {
-            Toast.makeText(this, "Hospital location not available", Toast.LENGTH_SHORT).show();
+            Log.w(TAG, "❌ No hospital location data available for navigation");
+            Toast.makeText(this, "Hospital location not available. Please contact emergency services.", Toast.LENGTH_LONG).show();
+            
+            // For debugging: try to open a test location
+            Log.d(TAG, "🔧 Opening test location for debugging...");
+            try {
+                String testUri = "google.navigation:q=14.5995,120.9842";
+                Intent testNavIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(testUri));
+                testNavIntent.setPackage("com.google.android.apps.maps");
+                if (testNavIntent.resolveActivity(getPackageManager()) != null) {
+                    startActivity(testNavIntent);
+                    Toast.makeText(this, "Opening test location for debugging", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(this, "Google Maps not available", Toast.LENGTH_SHORT).show();
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "❌ Error opening test location: " + e.getMessage());
+            }
         }
     }
-
+    
+    private void openWebNavigation() {
+        try {
+            String url;
+            if (hospitalLat != 0.0 && hospitalLng != 0.0) {
+                // Use coordinates for web navigation
+                url = "https://www.google.com/maps/dir/?api=1&destination=" + 
+                        hospitalLat + "," + hospitalLng + "&travelmode=driving";
+            } else if (hospitalAddress != null && !hospitalAddress.isEmpty()) {
+                // Use address for web navigation
+                url = "https://www.google.com/maps/dir/?api=1&destination=" + 
+                        Uri.encode(hospitalAddress) + "&travelmode=driving";
+            } else {
+                Toast.makeText(this, "No hospital location data available", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            
+            Intent webNavIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            startActivity(webNavIntent);
+            Log.d(TAG, "✅ Opened web navigation to hospital");
+            Toast.makeText(this, "Opening web navigation to " + hospitalName, Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error opening web navigation: " + e.getMessage());
+            Toast.makeText(this, "Unable to open navigation. Please contact emergency services.", Toast.LENGTH_LONG).show();
+        }
+    }
+    
     private void getCurrentLocationAndCalculateArrival() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) 
                 != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+            ActivityCompat.requestPermissions(this, 
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 
                     LOCATION_PERMISSION_REQUEST_CODE);
             return;
         }
-
+        
         fusedLocationClient.getLastLocation()
                 .addOnSuccessListener(this, location -> {
                     if (location != null) {
                         rescuerLat = location.getLatitude();
                         rescuerLng = location.getLongitude();
-
+                        
                         // Update UI with rescuer location
-                        tvRescuerLocation.setText(String.format(Locale.getDefault(),
+                        tvRescuerLocation.setText(String.format(Locale.getDefault(), 
                                 "%.6f, %.6f", rescuerLat, rescuerLng));
-
+                        
                         // Calculate distance and arrival time
                         calculateDistanceAndArrival();
-
+                        
                         // Update map if ready
                         if (mMap != null) {
                             onMapReady(mMap);
@@ -689,28 +832,28 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                     }
                 });
     }
-
+    
     private void calculateDistanceAndArrival() {
         if (seniorLat == 0.0 || seniorLng == 0.0 || rescuerLat == 0.0 || rescuerLng == 0.0) {
             tvDistance.setText("Distance: Calculating...");
             tvEstimatedArrival.setText("ETA: Calculating...");
             return;
         }
-
+        
         // Calculate distance using Haversine formula
         double distance = calculateDistance(rescuerLat, rescuerLng, seniorLat, seniorLng);
         tvDistance.setText(String.format(Locale.getDefault(), "Distance: %.2f km", distance));
-
+        
         // Estimate arrival time (assuming average speed of 30 km/h in city)
         double estimatedTimeMinutes = (distance / 30.0) * 60; // Convert to minutes
         long estimatedArrivalTime = System.currentTimeMillis() + (long)(estimatedTimeMinutes * 60 * 1000);
-
+        
         String arrivalTimeStr = new SimpleDateFormat("HH:mm", Locale.getDefault())
                 .format(new Date(estimatedArrivalTime));
-        tvEstimatedArrival.setText("ETA: " + arrivalTimeStr + " (" +
+        tvEstimatedArrival.setText("ETA: " + arrivalTimeStr + " (" + 
                 String.format(Locale.getDefault(), "%.0f min", estimatedTimeMinutes) + ")");
     }
-
+    
     private double calculateDistance(double lat1, double lng1, double lat2, double lng2) {
         final int R = 6371; // Radius of the earth in km
         double latDistance = Math.toRadians(lat2 - lat1);
@@ -721,7 +864,7 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
     }
-
+    
     private void startLocationUpdates() {
         // Update location every 30 seconds
         new android.os.Handler().postDelayed(() -> {
@@ -729,7 +872,34 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
             startLocationUpdates(); // Recursive call for continuous updates
         }, 30000);
     }
-
+    
+    private void startHospitalDataStatusUpdates() {
+        // Check hospital data status every 10 seconds
+        new android.os.Handler().postDelayed(() -> {
+            updateHospitalButtonState();
+            startHospitalDataStatusUpdates(); // Recursive call for continuous updates
+        }, 10000);
+    }
+    
+    private void updateHospitalButtonState() {
+        if (hospitalLat != 0.0 && hospitalLng != 0.0) {
+            if (!btnNavigateHospital.isEnabled()) {
+                btnNavigateHospital.setEnabled(true);
+                Log.d(TAG, "✅ Hospital navigation button enabled - coordinates available");
+            }
+        } else if (hospitalAddress != null && !hospitalAddress.isEmpty()) {
+            if (!btnNavigateHospital.isEnabled()) {
+                btnNavigateHospital.setEnabled(true);
+                Log.d(TAG, "✅ Hospital navigation button enabled - address available");
+            }
+        } else {
+            if (btnNavigateHospital.isEnabled()) {
+                btnNavigateHospital.setEnabled(false);
+                Log.w(TAG, "⚠️ Hospital navigation button disabled - no location data");
+            }
+        }
+    }
+    
     private void callSenior() {
         if (seniorPhone != null && !seniorPhone.isEmpty()) {
             Intent callIntent = new Intent(Intent.ACTION_DIAL);
@@ -739,46 +909,46 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
             Toast.makeText(this, "Senior phone number not available", Toast.LENGTH_SHORT).show();
         }
     }
-
+    
     private void openNavigation() {
         if (seniorLat != 0.0 && seniorLng != 0.0) {
-            String uri = String.format(Locale.getDefault(),
+            String uri = String.format(Locale.getDefault(), 
                     "google.navigation:q=%.6f,%.6f", seniorLat, seniorLng);
             Intent navIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(uri));
             navIntent.setPackage("com.google.android.apps.maps");
             startActivity(navIntent);
         } else {
             // Fallback to web navigation
-            String url = "https://www.google.com/maps/dir/?api=1&destination=" +
+            String url = "https://www.google.com/maps/dir/?api=1&destination=" + 
                     Uri.encode(locationAddress) + "&travelmode=driving";
             Intent webNavIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
             startActivity(webNavIntent);
         }
     }
-
+    
     private void updateLocation() {
         getCurrentLocationAndCalculateArrival();
         Toast.makeText(this, "Location updated", Toast.LENGTH_SHORT).show();
     }
-
+    
     private void markDone() {
         Log.d(TAG, "🔍 markDone() called - UPDATED VERSION");
         Log.d(TAG, "🔍 emergencyId in markDone: " + emergencyId);
-
+        
         // Update status to done
         tvStatus.setText("✅ DONE");
         btnMarkDone.setEnabled(false);
         btnMarkDone.setText("DONE");
-
+        
         // Update database
         updateEmergencyStatus("done");
-
+        
         // Save SOS details to completedRescue collection
         saveRescueCompletedDetails();
-
+        
         Toast.makeText(this, "Status updated: Emergency response completed", Toast.LENGTH_LONG).show();
     }
-
+    
     private void updateEmergencyStatus(String status) {
         // Update the emergency status in database
         if (emergencyId != null) {
@@ -798,21 +968,21 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                     });
         }
     }
-
+    
     private void saveRescueCompletedDetails() {
         if (emergencyId == null) {
             Log.w(TAG, "Emergency ID is null, cannot save rescue completed details");
             return;
         }
-
+        
         Log.d(TAG, "Starting to save rescue completed details for emergencyId: " + emergencyId);
         Log.d(TAG, "Senior name: " + seniorName + ", Phone: " + seniorPhone + ", Address: " + locationAddress);
-
+        
         // Get current rescuer information
         String rescuerName = getCurrentRescuerName();
         String rescuerTeam = getCurrentRescuerTeam();
         long completionTime = System.currentTimeMillis();
-
+        
         // Create rescue completed document
         Map<String, Object> rescueCompletedData = new HashMap<>();
         rescueCompletedData.put("emergencyId", emergencyId);
@@ -829,7 +999,7 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         rescueCompletedData.put("responseDuration", completionTime - assignmentTime);
         rescueCompletedData.put("status", "RescueCompleted");
         rescueCompletedData.put("timestamp", completionTime);
-
+        
         // Add hospital information if available
         if (hospitalName != null && !hospitalName.isEmpty()) {
             rescueCompletedData.put("hospitalName", hospitalName);
@@ -837,9 +1007,9 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
             rescueCompletedData.put("hospitalLat", hospitalLat);
             rescueCompletedData.put("hospitalLng", hospitalLng);
         }
-
+        
         Log.d(TAG, "Saving rescue completed data: " + rescueCompletedData.toString());
-
+        
         // Save to completedRescue collection
         db.collection("Sagip")
                 .document("completedRescue")
@@ -854,22 +1024,22 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                     Toast.makeText(this, "Error saving rescue details", Toast.LENGTH_SHORT).show();
                 });
     }
-
+    
     private String getCurrentRescuerName() {
         // Get rescuer name from Firebase Auth or database
         if (mAuth.getCurrentUser() != null) {
-            return mAuth.getCurrentUser().getDisplayName() != null ?
-                    mAuth.getCurrentUser().getDisplayName() : "Rescuer " + rescuerId.substring(0, Math.min(8, rescuerId.length()));
+            return mAuth.getCurrentUser().getDisplayName() != null ? 
+                   mAuth.getCurrentUser().getDisplayName() : "Rescuer " + rescuerId.substring(0, Math.min(8, rescuerId.length()));
         }
         return "Unknown Rescuer";
     }
-
+    
     private String getCurrentRescuerTeam() {
         // This would typically be fetched from the rescuer's profile in the database
         // For now, return a default value
         return "Emergency Response Team";
     }
-
+    
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -881,7 +1051,7 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
             }
         }
     }
-
+    
     @Override
     protected void onDestroy() {
         super.onDestroy();
