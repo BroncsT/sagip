@@ -5,14 +5,14 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/black">
+    android:background="@android:color/white">
 
     <!-- Blue Header -->
     <View
         android:id="@+id/headerView"
         android:layout_width="match_parent"
         android:layout_height="60dp"
-        android:background="#2196F3"
+        android:background="@color/emergency_red"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
@@ -47,7 +47,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:src="@drawable/id_frame_overlay_new"
-        android:scaleType="fitXY"
+        android:scaleType="centerInside"
         app:layout_constraintTop_toBottomOf="@id/headerView"
         app:layout_constraintBottom_toTopOf="@id/instructionsContainer"
         app:layout_constraintStart_toStartOf="parent"
@@ -59,12 +59,11 @@
     <ImageView
         android:id="@+id/capturedImageView"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:scaleType="fitCenter"
+        android:layout_height="wrap_content"
+        android:scaleType="center"
         android:background="@android:color/black"
         android:visibility="gone"
         app:layout_constraintTop_toBottomOf="@id/headerView"
-        app:layout_constraintBottom_toTopOf="@id/instructionsContainer"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
@@ -87,7 +86,7 @@
             android:layout_height="wrap_content"
             android:text="@string/id_capture_instructions"
             android:textColor="@android:color/black"
-            android:textSize="16sp"
+            android:textSize="18sp"
             android:gravity="center"
             android:layout_marginBottom="8dp" />
 
@@ -109,27 +108,30 @@
         android:id="@+id/captureButton"
         android:layout_width="80dp"
         android:layout_height="80dp"
-        android:background="@drawable/circular_capture_button"
-        android:insetLeft="0dp"
+        android:backgroundTint="@color/emergency_red"
         android:insetTop="0dp"
-        android:insetRight="0dp"
         android:insetBottom="0dp"
-        app:icon="@drawable/ic_camera_white"
+        android:insetRight="0dp"
+        android:insetLeft="0dp"
+        android:layout_marginBottom="30dp"
+        android:visibility="invisible"
+        app:icon="@drawable/baseline_photo_camera_24"
         app:iconSize="32dp"
         app:iconPadding="0dp"
-        android:layout_marginBottom="30dp"
+        app:iconGravity="textStart"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent"
+        app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.App.CornerSize50Percent"/>
 
     <!-- Action Buttons (Retake/Confirm) -->
     <LinearLayout
         android:id="@+id/actionButtonsLayout"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginBottom="80dp"
         android:orientation="horizontal"
-        android:visibility="gone"
-        android:layout_marginBottom="30dp"
+        android:visibility="visible"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -137,25 +139,32 @@
         <!-- Retake Button -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/retakeButton"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="5dp"
             android:text="@string/retake"
             android:textSize="16sp"
+            android:textColor="@color/white"
+            android:backgroundTint="@color/emergency_red"
             android:paddingHorizontal="24dp"
-            android:paddingVertical="12dp"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_marginEnd="16dp" />
+            android:paddingVertical="12dp"/>
 
         <!-- Confirm Button -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/confirmButton"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="20dp"
+            android:layout_marginStart="5dp"
             android:text="@string/confirm"
             android:textSize="16sp"
+            android:textColor="@color/white"
+            android:backgroundTint="@color/blue"
             android:paddingHorizontal="24dp"
             android:paddingVertical="12dp" />
 
     </LinearLayout>
-
 </androidx.constraintlayout.widget.ConstraintLayout>

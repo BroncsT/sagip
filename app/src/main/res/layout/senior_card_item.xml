@@ -7,29 +7,27 @@
     android:layout_marginBottom="8dp"
     android:clickable="true"
     android:focusable="true"
-    android:foreground="?android:attr/selectableItemBackground"
-    app:cardCornerRadius="8dp"
-    app:cardElevation="4dp">
+    android:background="@color/offwhite"
+    app:cardElevation="3dp">
 
-        <androidx.constraintlayout.widget.ConstraintLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="16dp"
-        android:background="?android:attr/selectableItemBackground"
-        android:gravity="center_vertical">
+        android:gravity="center_vertical"
+        android:padding="15dp">
 
         <ImageView
             android:id="@+id/seniorImgView"
             android:layout_width="60dp"
             android:layout_height="60dp"
-            android:scaleType="centerCrop"
-            android:background="@drawable/circle_background"
-            android:padding="2dp"
             android:adjustViewBounds="true"
+            android:background="@drawable/circle_background"
             android:cropToPadding="true"
-            app:layout_constraintTop_toTopOf="parent"
+            android:padding="2dp"
+            android:scaleType="centerCrop"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
             tools:srcCompat="@tools:sample/avatars" />
 
         <LinearLayout
@@ -37,50 +35,66 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
-            android:orientation="vertical"
             android:gravity="center_vertical"
-            app:layout_constraintStart_toEndOf="@id/seniorImgView"
-            app:layout_constraintTop_toTopOf="@id/seniorImgView"
+            android:orientation="vertical"
             app:layout_constraintBottom_toBottomOf="@id/seniorImgView"
-            app:layout_constraintEnd_toEndOf="parent">
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@id/seniorImgView"
+            app:layout_constraintTop_toTopOf="@id/seniorImgView">
 
             <TextView
                 android:id="@+id/seniorProfileName"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="#333333"
-                android:maxLines="2"
                 android:ellipsize="end"
-                android:gravity="start"
-                tools:text="Juan Dela Cruz" />
+                android:maxLines="1"
+                android:textColor="@color/black"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                tools:hint="Juan Dela Cruz" />
 
             <TextView
                 android:id="@+id/seniorAge"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:textSize="14sp"
-                android:textColor="#666666"
                 android:gravity="start"
-                tools:text="Age: 65" />
+                android:textColor="@color/black"
+                android:textSize="16sp"
+                tools:hint="Age: 65" />
 
-            <TextView
-                android:id="@+id/seniorAddress"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:textSize="14sp"
-                android:textColor="#666666"
-                android:maxLines="1"
-                android:ellipsize="end"
-                android:gravity="start"
-                tools:text="Barangay: Balibago" />
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/seniorAddress"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:maxLines="1"
+                    android:textColor="@color/black"
+                    android:textSize="16sp"
+                    tools:hint="Phone: +63 961 011 3560" />
+
+                <TextView
+                    android:id="@+id/viewSeniorProfile"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="end"
+                    android:maxLines="1"
+                    android:clickable="true"
+                    android:contextClickable="true"
+                    android:focusable="true"
+                    android:layout_marginEnd="5dp"
+                    android:text="View Profile"
+                    android:textColor="@color/backgroundRed"
+                    android:textStyle="bold"
+                    android:textSize="16sp" />
+            </LinearLayout>
 
         </LinearLayout>
-
-
     </androidx.constraintlayout.widget.ConstraintLayout>
 
 </com.google.android.material.card.MaterialCardView>

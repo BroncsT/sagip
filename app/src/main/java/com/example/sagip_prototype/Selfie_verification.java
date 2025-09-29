@@ -186,7 +186,7 @@ public class Selfie_verification extends AppCompatActivity {
     
     private void setupInitialUI() {
         // Set initial instructions
-        instructionsTextView.setText(getString(R.string.automatic_selfie_verification_title) + "\n\n" +
+        instructionsTextView.setText(getString(R.string.selfie_step_indicator) + "\n\n" +
                 getString(R.string.position_face_circle) + "\n" +
                 getString(R.string.look_directly_camera) + "\n" +
                 getString(R.string.ensure_good_lighting) + "\n" +

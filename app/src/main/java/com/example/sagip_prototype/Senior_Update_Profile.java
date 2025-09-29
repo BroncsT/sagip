@@ -33,7 +33,6 @@ public class Senior_Update_Profile extends AppCompatActivity {
     
     // List of all barangays in Angeles City
     private final String[] barangays = {
-        "BARANGAY",
         "Agapito del Rosario",
         "Amsic",
         "Anunas",

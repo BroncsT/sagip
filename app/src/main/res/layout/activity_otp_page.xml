@@ -5,19 +5,16 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F8F9FA"
+    android:background="@color/light_gray"
     tools:context=".OTP_PAGE">
 
-    <!-- Header Section -->
+    <!-- Stepper Section -->
     <androidx.cardview.widget.CardView
-        android:id="@+id/headerCard"
+        android:id="@+id/stepView"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="24dp"
-        android:layout_marginEnd="24dp"
-        android:layout_marginTop="48dp"
-        app:cardCornerRadius="12dp"
-        app:cardElevation="2dp"
+        android:background="@color/white"
+        app:cardElevation="3dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -26,23 +23,77 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="24dp"
+            android:padding="5dp"
             android:gravity="center_horizontal">
 
             <TextView
-                android:id="@+id/group_name"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="sans-serif-medium"
+                android:text="Step 1 of 4"
+                android:textColor="@color/black"
+                android:textStyle="bold"
+                android:textSize="18sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:layout_marginTop="5dp"
+                android:text="Verify your number"
+                android:textColor="@color/backgroundRed"
+                android:textStyle="bold"
+                android:textSize="18sp" />
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Header Section -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/headerCard"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        app:cardCornerRadius="6dp"
+        app:cardElevation="3dp"
+        app:layout_constraintTop_toBottomOf="@id/stepView"
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical1v2"
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical2v2">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:gravity="center_horizontal">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <ImageView
+                android:id="@+id/minus_button"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/app_logo"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:textStyle="bold"
                 android:text="@string/app_name"
                 android:textColor="#212529"
-                android:textSize="26sp" />
+                android:textSize="20sp" />
+
+        </LinearLayout>
 
             <TextView
                 android:id="@+id/instructionText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="10dp"
                 android:fontFamily="sans-serif"
                 android:text="@string/instruction_text_otp"
                 android:textAlignment="center"
@@ -56,30 +107,41 @@
                 android:layout_marginTop="8dp"
                 android:fontFamily="sans-serif-medium"
                 android:text="@string/mobile_number"
-                android:textColor="#0D6EFD"
-                android:textSize="16sp" />
+                android:textColor="@color/blue"
+                android:textSize="22sp" />
         </LinearLayout>
     </androidx.cardview.widget.CardView>
+
+    <TextView
+        android:id="@+id/textCode"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Enter the verification code"
+        android:textColor="@color/black"
+        android:textSize="16sp"
+        android:layout_marginBottom="12dp"
+        android:layout_marginTop="15dp"
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical1v2"
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical2v2"
+        app:layout_constraintTop_toBottomOf="@id/headerCard"/>
 
     <!-- OTP Input Section -->
     <androidx.cardview.widget.CardView
         android:id="@+id/otpCard"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="24dp"
-        android:layout_marginEnd="24dp"
-        android:layout_marginTop="24dp"
-        app:cardCornerRadius="12dp"
-        app:cardElevation="2dp"
-        app:layout_constraintTop_toBottomOf="@id/headerCard"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        android:layout_marginTop="10dp"
+        app:cardCornerRadius="6dp"
+        app:cardElevation="3dp"
+        app:layout_constraintTop_toBottomOf="@id/textCode"
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical1v2"
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical2v2">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="24dp">
+            android:padding="16dp">
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/otpInputLayout"
@@ -87,10 +149,11 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:hint="@string/otp_hint"
-                app:boxCornerRadiusBottomEnd="8dp"
-                app:boxCornerRadiusBottomStart="8dp"
+                app:cursorColor="@color/secondaryRed"
+                app:boxCornerRadiusTopStart="8dp"
                 app:boxCornerRadiusTopEnd="8dp"
-                app:boxCornerRadiusTopStart="8dp">
+                app:boxCornerRadiusBottomStart="8dp"
+                app:boxCornerRadiusBottomEnd="8dp">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/otpInput"
@@ -105,19 +168,30 @@
             </com.google.android.material.textfield.TextInputLayout>
 
             <!-- OTP Timer and Resend -->
+            <TextView
+                android:id="@+id/timerTextView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:gravity="center"
+                android:textAlignment="center"
+                android:text="Resend OTP in 01:00"
+                android:textColor="@color/secondaryRed"
+                android:textSize="14sp" />
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="15dp"
                 android:gravity="center_vertical">
 
                 <TextView
-                    android:id="@+id/timerTextView"
+                    android:id="@+id/textNotReceive"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Resend OTP in 01:00"
+                    android:text="Didn't receive the code?"
                     android:textColor="#555555"
                     android:textSize="14sp" />
 
@@ -127,8 +201,8 @@
                     android:layout_height="wrap_content"
                     android:padding="8dp"
                     android:text="Resend OTP"
-                    android:textColor="#3E69E0"
-                    android:textSize="16sp"
+                    android:textColor="@color/blue"
+                    android:textSize="14sp"
                     android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>
@@ -140,37 +214,104 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="24dp"
-        android:layout_marginStart="24dp"
-        android:layout_marginEnd="24dp"
         android:paddingVertical="16dp"
         android:text="@string/verify_button"
         android:textAllCaps="false"
         android:textSize="16sp"
-        android:textColor="@android:color/white"
+        android:textColor="@color/white"
         android:fontFamily="sans-serif-medium"
         app:cornerRadius="8dp"
         app:backgroundTint="#3E69E0"
         app:layout_constraintTop_toBottomOf="@id/otpCard"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical1v2"
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical2v2" />
 
     <!-- Security Note -->
     <TextView
         android:id="@+id/securityNote"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:layout_marginStart="24dp"
-        android:layout_marginEnd="24dp"
-        android:drawableStart="@drawable/ic_security"
+        android:layout_marginTop="20dp"
         android:drawablePadding="8dp"
         android:fontFamily="sans-serif"
         android:gravity="center_vertical"
         android:text="@string/security_note"
         android:textColor="#6C757D"
         android:textSize="12sp"
+        app:drawableStartCompat="@drawable/ic_security"
         app:layout_constraintTop_toBottomOf="@id/verifyButton"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical1v2"
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical2v2" />
+
+    <!--GRID GUIDELINE-->
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guidelineVertical1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_percent="0.10" />
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guidelineVertical1v2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_percent="0.05" />
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guidelineVertical2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_percent="0.90" />
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guidelineVertical2v2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_percent="0.95" />
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guidelineVertical3"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_percent="0.25" />
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guidelineVertical3.5"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_percent="0.50" />
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guidelineVertical4"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_percent="0.75" />
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guidelineHorizontal1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_begin="22dp" />
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guidelineHorizontal1v2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_begin="44dp" />
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guidelineHorizontal2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_percent="0.11" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

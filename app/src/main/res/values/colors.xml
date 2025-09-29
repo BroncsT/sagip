@@ -2,29 +2,37 @@
 <resources>
 
     // Primary Color
-    <color name="primaryRed">#FF0000</color>
+    <color name="primaryRed">#FF0000</color> <!-- Emergency SOS button,  -->
     <color name="secondaryRed">#E83d31</color>
-    <color name="lightRed">#F06767</color>
+    <color name="lightRed">#F06767</color> <!-- Profile Table,  -->
     <color name="backgroundRed">#C62828</color>
-
-
-    // Secondary Color
+    <color name="emergency_red">#DC2626</color>
 
     // Other Color
+    <color name="transparent">#00000000</color>
     <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
+    <color name="gray">#6B7280</color>
+    <color name="border_gray">#E5E7EB</color>
+    <color name="light_gray">#F8F9FA</color>
+
+    <color name="white">#FFFFFF</color>
+    <color name="offwhite">#FFFFFFFF</color> <!-- Card view  -->
+
     <color name="dark_blue">#1A365D</color>
     <color name="primary_blue">#3182CE</color>
-    <color name="light_blue">#E6F3FF</color>
-    <color name="gray">#6B7280</color>
-    <color name="light_gray">#F8F9FA</color>
-    <color name="border_gray">#E5E7EB</color>
-    <color name="emergency_red">#DC2626</color>
-    <color name="hospital_green">#16A34A</color>
+    <color name="secondary_blue">#3E69E0</color>
+    <color name="blue">#0D6EFD</color>
+    <color name="tertiary_blue">#2B6CB0</color>
     <color name="info_blue">#3B82F6</color>
+    <color name="backgroundBlue">#2838C6</color>
+    <color name="light_blue">#EDEFF3</color>
+<!--    <color name="light_blue">#E6F3FF</color>-->
+
+    <color name="hospital_green">#16A34A</color>
+
     <color name="bottom_nav_color">#374151</color>
-    <color name="secondary_blue">#2B6CB0</color>
     <color name="success_green">#16A34A</color>
     <color name="background_light">#F8F9FA</color>
     <color name="text_secondary">#6B7280</color>
+
 </resources>

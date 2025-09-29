@@ -56,10 +56,11 @@
     <!-- ID Photo Upload -->
     <string name="front_side_id">Front Side of ID</string>
     <string name="back_side_id">Back Side of ID</string>
+    <string name="valid_id_instruction">Ensure all sides of your ID are clearly visible to the camera.</string>
     <string name="upload_from_gallery">Upload from Gallery</string>
     <string name="capture_with_camera">Capture with Camera</string>
-    <string name="tap_to_upload_front">Tap to upload front side</string>
-    <string name="tap_to_upload_back">Tap to upload back side</string>
+    <string name="tap_to_upload_front">Tap to open camera</string>
+    <string name="tap_to_upload_back">Tap to open camera</string>
     <string name="next">Next</string>
     <string name="please_select_id_type">Please select an ID type</string>
     <string name="please_upload_front">Please upload the front side of your ID</string>
@@ -87,11 +88,11 @@
     <string name="automatic_selfie_verification">Automatic Selfie Verification</string>
     <string name="step_2_of_3">Step 2 of 3: Automatic Selfie Verification</string>
     <string name="step_2_complete">Step 2 of 3: Selfie Verification ✓</string>
-    <string name="position_face_circle">⭕ Position your face in the circle</string>
-    <string name="look_directly_camera">😊 Look directly at the camera</string>
-    <string name="ensure_good_lighting">💡 Ensure good lighting</string>
-    <string name="keep_face_centered">👤 Keep your face centered</string>
-    <string name="photo_taken_automatically">⏱️ Photo will be taken automatically</string>
+    <string name="position_face_circle">Position your face in the frame</string>
+    <string name="look_directly_camera">Look directly at the camera</string>
+    <string name="ensure_good_lighting">Ensure good lighting</string>
+    <string name="keep_face_centered">Keep your face centered</string>
+    <string name="photo_taken_automatically">Photo will be taken automatically</string>
     <string name="tap_start_capture">Tap \'Start Automatic Capture\' to begin</string>
     <string name="detecting_face">🔍 Detecting face...</string>
     <string name="face_detected">🔍 Face detected!</string>
@@ -159,7 +160,7 @@
 
     <!-- Profile Settings -->
     <string name="account_settings">Account Settings</string>
-    <string name="change_Info">Change Information</string>
+    <string name="change_Info">Edit Information</string>
     <string name="notification_settings">Notification Settings</string>
     <string name="more_options">More Options</string>
     <string name="help_support">Help &amp; Support</string>
@@ -168,12 +169,17 @@
     <!-- Registration -->
     <string name="back_arrow">Back</string>
     <string name="checkmark">✓</string>
-    <string name="account_information">Account Information</string>
-    <string name="mobile_info">Mobile Information</string>
-    <string name="instruction_text">Please fill in the information below</string>
+    <string name="account_information">Senior Account Information</string>
+    <string name="mobile_info">Your mobile information</string>
+    <string name="instruction_text">Please fill in the information below to get started.</string>
+    <string name="verify_instruction">Verify your identity by completing ID and Selfie Verification.</string>
+    <string name="ID_verify_instruction">Select the government-issued valid ID you will be using for this verification.</string>
+    <string name="selfie_verify_instruction">Position your face in the frame.</string>
+    <string name="location_text">Location Details</string>
     <string name="barangay_name">Barangay Name</string>
     <string name="email_hint">Enter your email address</string>
-    <string name="terms_conditions">I agree to the Terms and Conditions</string>
+<!--    <string name="terms_conditions">I agree to the Terms and Conditions</string>-->
+    <string name="terms_conditions">By signing in, creating an account you are agreeing to our" "<font color="#3B82F6">Terms and Conditions</font>" "and" "<font color="#3B82F6">Privacy Policy.</font></string>
     <string name="privacy_policy">I agree to the Privacy Policy</string>
     <string name="submit_button_text">Submit</string>
 
@@ -204,7 +210,7 @@
     <string name="welcome_to">Welcome to</string>
     <string name="enter_number_prompt">Enter your mobile number to continue</string>
     <string name="country_code">+63</string>
-    <string name="mobile_hint">Enter mobicle number</string>
+    <string name="mobile_hint">Enter mobile number</string>
     <string name="invalid_mobile_error">Please enter a valid mobile number</string>
     <string name="continue_btn">Continue</string>
     <string name="hospital_title">Hospital</string>
@@ -223,11 +229,11 @@
     <string name="call_closest_rescuer">Call Closest Rescuer</string>
 
     <!-- OTP Page -->
-    <string name="instruction_text_otp">Please enter the verification code sent to your mobile number</string>
+    <string name="instruction_text_otp">Please enter the 6-digit verification code sent to your mobile number</string>
     <string name="mobile_number">Mobile Number</string>
-    <string name="otp_hint">Enter OTP code</string>
+    <string name="otp_hint">6-digit OTP code</string>
     <string name="verify_button">Verify</string>
-    <string name="security_note">For security purposes, please enter the verification code sent to your mobile number</string>
+    <string name="security_note">For security purposes, please enter the verification code sent to your mobile number.</string>
 
     <!-- Rescuer Registration -->
     <string name="content_description_status">Status indicator</string>
@@ -245,7 +251,7 @@
 
     <!-- Selfie Verification Layout -->
     <string name="title_selfie_verification">Selfie Verification</string>
-    <string name="selfie_step_indicator">Step 2 of 3: Selfie Verification</string>
+    <string name="selfie_step_indicator">Scan you face to verify your identity.</string>
     <string name="selfie_instructions">Please take a clear selfie photo</string>
     <string name="selfie_photo_label">Selfie Verification Photo</string>
     <string name="content_description_face_outline">Face outline for positioning</string>
@@ -291,32 +297,38 @@
     <string name="delete_contact_message">Sigurado ka bang gusto mong tanggalin si %s?</string>
     <string name="contact_name_label">Contact Name</string>
     <string name="relationship_label">Relationship</string>
-    <string name="emergencynote">Emergency Note</string>
-    <string name="emergencyguide">Emergency Guide</string>
-    <string name="emegencysignalcode">Emergency Signal Code</string>
+    <string name="emergencynote">Tap the button to alert</string>
+    <string name="emergencyguide">Your emergency contact and nearby app users will see your request help</string>
+    <string name="emegencysignalcode">SOS</string>
     <string name="emergencyContact_section">Emergency Contact Section</string>
     <string name="senior_name">Senior Name</string>
     <string name="senior_number">Senior Number</string>
     <string name="first_name_hint">Enter first name</string>
+    <string name="first_name_label">First Name" "<font color="#FF0000">*</font></string>
     <string name="middle_name_hint">Enter middle name</string>
+    <string name="middle_name_label">Middle Name</string>
     <string name="last_name_hint">Enter last name</string>
-    <string name="birthday_hint">Enter birthday</string>
+    <string name="last_name_label">Last Name" "<font color="#FF0000">*</font></string>
+    <string name="birthday_hint">DD-MM-YY</string>
+    <string name="birthday_label">Date of Birth" "<font color="#FF0000">*</font></string>
     <string name="emergency_contact_number_hint">Enter emergency contact number</string>
-    <string name="barangay_hint">Select your barangay</string>
+    <string name="barangay_hint">--Select your barangay--</string>
+    <string name="barangay_label">Barangay" "<font color="#FF0000">*</font></string>
     <string name="email_address_optional">Email address (optional)</string>
+    <string name="email_address_optional_label">Email Address" "<font color="#6B7280">(Optional)</font></string>
 
     <!-- Menu Items -->
-    <string name="hospital_list">Hospital List</string>
-    <string name="hospital_dashboard">Hospital Dashboard</string>
-    <string name="hospital_profile">Hospital Profile</string>
-    <string name="senior_location">Senior Location</string>
-    <string name="senior_home">Senior Home</string>
-    <string name="senior_profile">Senior Profile</string>
+    <string name="hospital_list">Arriving Patients</string>
+    <string name="hospital_dashboard">Dashboard</string>
+    <string name="hospital_profile">Profile</string>
+    <string name="senior_location">Emergency Contacts</string>
+    <string name="senior_home">Home</string>
+    <string name="senior_profile">Profile</string>
 
-    <!-- Rescuer Menu Items -->
-    <string name="rescuer_hospital">Rescuer Hospital</string>
-    <string name="rescuer_dashboard">Rescuer Dashboard</string>
-    <string name="rescuer_profile">Rescuer Profile</string>
+    <!-- Rescuer Navigation Menu Items -->
+    <string name="rescuer_hospital">Hospital List</string>
+    <string name="rescuer_dashboard">Location</string>
+    <string name="rescuer_profile">Profile</string>
 
     <!-- Map and Emergency -->
     <string name="senior_needs_help">%1$s needs help</string>
@@ -324,7 +336,7 @@
     <!-- Rescuer Dashboard -->
     <string name="welcome_back">Welcome Back!</string>
     <string name="rescuer_name">Rescuer Name</string>
-    <string name="current_location">📍 Current Location</string>
+    <string name="current_location">Current Location</string>
     <string name="location_map">🗺️ Location Map</string>
     <string name="show_map">Show Map</string>
     <string name="emergency_status">🚨 Emergency Status</string>
@@ -358,13 +370,13 @@
     <string name="error_starting_location_updates">Error starting location updates</string>
 
     <!-- Hospital Dashboard -->
-    <string name="hello">Hello, </string>
+    <string name="hello">Hello," "</string>
     <string name="hospital_address">Hospital Address</string>
-    <string name="available_status">🟢 AVAILABLE</string>
+    <string name="available_status">AVAILABLE</string>
     <string name="beds_info">Beds: %1$d/%2$d</string>
     <string name="doctors_info">Doctors: %1$d</string>
-    <string name="location_format">Location: %1$s</string>
-    <string name="status_not_available_er">⚪ Status not available</string>
+    <string name="location_format">" " %1$s</string>
+    <string name="status_not_available_er">Status not available</string>
 
     <!-- Contact List -->
     <string name="contact_name">Contact Name</string>
@@ -395,7 +407,7 @@
     <string name="start_automatic_capture">Start Automatic Capture</string>
     <string name="manual_capture">Manual Capture</string>
     <string name="automatic_selfie_verification_title">Automatic Selfie Verification</string>
-    <string name="step_2_automatic_verification">Step 2 of 3: Automatic Selfie Verification</string>
+    <string name="step_2_automatic_verification">Automatic Selfie Verification</string>
     <string name="tap_start_capture_begin">Tap \'Start Automatic Capture\' to begin</string>
     <string name="detecting_face_instructions">🔍 Detecting face...\n\n⭕ Position your face in the circle\n😊 Look directly at the camera\n💡 Ensure good lighting\n⏱️ Photo will be taken automatically when ready</string>
     <string name="face_detected_instruction">🔍 Face detected!\n\n</string>
@@ -406,7 +418,7 @@
     <string name="perfect_taking_photo_instruction">✅ Perfect! Taking photo in %1$d seconds...</string>
     <string name="capturing_photo_now_instruction">📸 Capturing photo now...</string>
     <string name="perfect_selfie_captured_instructions">✅ Perfect! Your selfie has been captured automatically.\n\nPlease review the guidelines below and tap \'Verify Selfie\' to continue.</string>
-    <string name="step_2_verification_complete">Step 2 of 3: Selfie Verification ✓</string>
+    <string name="step_2_verification_complete">Selfie Verification Complete ✔️</string>
     <string name="retake_selfie_button">📷 Retake Selfie Verification</string>
     <string name="camera_permission_denied_instructions">❌ Camera permission denied.\n\nThis permission is required for automatic selfie.\nPlease grant permission in Settings or try again.</string>
     <string name="submitting_verification_instructions">📤 Submitting verification...\nPlease wait while we process your information.</string>
@@ -430,15 +442,17 @@
     <string name="bed_information">Bed Information</string>
     <string name="automatic_status_calculation">Automatic Status Calculation</string>
     <string name="status_auto_calculated">Status is automatically calculated based on bed availability and doctor count.</string>
-    <string name="current_status">Current Status:</string>
+    <string name="current_status">Current Status</string>
     <string name="enter_bed_doctor_info">⚪ Enter bed and doctor information</string>
-    <string name="status_legend">🟢 Available: Good capacity and staff ratio\n🟡 Busy: High capacity or limited staff\n🔴 Crowded: At or near capacity</string>
+    <string name="status_legend">Available: Optimal capacity and staffing\nBusy: High occupancy or limited staff\nCrowded: Near or at full capacity</string>
     <string name="save_status">Save Status</string>
     <string name="invalid_data_check_inputs">⚪ Invalid data - check your inputs</string>
     <string name="enter_valid_numbers">⚪ Enter valid numbers</string>
 
     <!-- Barangay Dashboard -->
     <string name="rescue_group_not_available">Rescue Group Not Available</string>
+<!--    <string name="senior_citizen_full_profile">Senior Citizen Profile</string>-->
+
 
     <!-- Map Activities -->
     <string name="stop_navigation">📍 Stop Navigation</string>
@@ -534,7 +548,7 @@
     <string name="selfie_captured_uploaded_success">✅ Face verification captured and uploaded successfully!</string>
 
     <!-- Feedback and Reporting Module -->
-    <string name="feedback_support">Feedback &amp; Support</string>
+    <string name="feedback_support">Feedback</string>
     <string name="report_issue">Report Issue</string>
     <string name="send_feedback">Send Feedback</string>
     <string name="feedback_title">Feedback &amp; Report</string>
@@ -548,7 +562,7 @@
     <string name="feedback_subject">Subject</string>
     <string name="feedback_subject_hint">Enter the subject of your feedback</string>
     <string name="feedback_message">Message</string>
-    <string name="feedback_message_hint">Enter the details of your feedback or report</string>
+    <string name="feedback_message_hint">Provide details about your feedback or report</string>
     <string name="feedback_priority">Priority</string>
     <string name="feedback_priority_low">Low</string>
     <string name="feedback_priority_medium">Medium</string>
@@ -613,18 +627,18 @@
     <string name="google_maps_api_key">AIzaSyBkf_blEJ4wc5Q_CNxABKK6-LFxDF-gWv0</string>
     <!-- Hospital Dashboard Additional Strings -->
     <string name="debug_status">Debug Status</string>
-    <string name="status_calculation_description">Status is calculated based on total registered beds/doctors vs. your current availability</string>
-    <string name="e_room_capacity">E-Room Capacity</string>
+    <string name="status_calculation_description">System status is computed from the ratio of registered ER beds and doctors to current availability.</string>
+    <string name="e_room_capacity">Registered ER Capacity</string>
     <string name="refresh">Refresh</string>
-    <string name="total_beds_in_er">Total Beds in ER:</string>
-    <string name="doctors_stationed_in_er">Doctors Stationed in the ER:</string>
-    <string name="current_er_status">Current ER Status</string>
+    <string name="total_beds_in_er">ED Beds</string>
+    <string name="doctors_stationed_in_er">ED Physicians</string>
+    <string name="current_er_status">Current Capacity Status</string>
     <string name="available_er_beds_hint">Available ER Beds</string>
     <string name="er_medical_staff_on_duty_hint">ER Medical Staff On-Duty</string>
 
     <!-- ID Camera Capture Strings -->
-    <string name="front_of_id">Front of ID</string>
-    <string name="back_of_id">Back of ID</string>
+    <string name="front_of_id">Capture Front of ID</string>
+    <string name="back_of_id">Capture Back of ID</string>
     <string name="id_capture_instructions">Position your ID inside the frame</string>
     <string name="id_capture_additional_instructions">Make sure all text is clearly visible</string>
     <string name="review_instructions">Tap Confirm if the image looks good, or Retake to capture again</string>
@@ -669,10 +683,11 @@
     <string name="update_now">Update Now</string>
     <string name="remind_later">Remind Later</string>
     <string name="status_update_reminder_scheduled">Reminder scheduled. Please update your status soon.</string>
-    <string name="status_update_frequency">Status must be updated every 10 minutes</string>
+    <string name="status_update_frequency">Status update required every 10 minutes</string>
     <string name="last_updated">Last Updated: %1$s</string>
     <string name="next_update_due">Next Update Due: %1$s</string>
-    <string name="next_update_in">Next update in: %1$s</string>
+    <string name="next_update_in">%1$s</string>
+    <string name="next_update">Next Update In</string>
     <string name="countdown_format">%1$02d:%2$02d:%3$02d</string>
     <string name="update_required_now">Update Required Now!</string>
     <string name="status_update_timer">Status Update Timer</string>

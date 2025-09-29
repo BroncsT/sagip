@@ -6,31 +6,21 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F5F5F5"
+    android:background="@color/white"
     tools:context=".Senior_Profile">
 
     <!-- Senior Profile Section -->
     <TextView
         android:id="@+id/labelProfile"
-        android:layout_width="0dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textAlignment="center"
-        android:textSize="24sp"
+        android:text="@string/senior_profile"
+        android:textColor="@color/black"
+        android:textSize="28sp"
         android:textStyle="bold"
-        app:layout_constraintStart_toStartOf="@id/guidelineVertical3"
-        app:layout_constraintEnd_toEndOf="@id/guidelineVertical4"
-        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1"
-        app:layout_constraintBottom_toTopOf="@id/guidelineHorizontal2"/>
-
-    <ImageView
-        android:layout_width="30dp"
-        android:layout_height="30dp"
-        android:contextClickable="true"
-        app:srcCompat="@drawable/baseline_arrow_back_24"
-        app:layout_constraintEnd_toEndOf="@id/guidelineVertical3"
-        app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
-        app:layout_constraintBottom_toBottomOf="@id/guidelineHorizontal2"
-        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1"/>
+        app:layout_constraintBottom_toTopOf="@id/guidelineHorizontal2"
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical1v2"
+        app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1" />
 
     <!-- Senior ViewCard -->
     <androidx.cardview.widget.CardView
@@ -39,8 +29,8 @@
         android:layout_height="wrap_content"
         app:cardCornerRadius="8dp"
         app:cardElevation="4dp"
-        app:layout_constraintStart_toStartOf="@id/guidelineVertical5"
-        app:layout_constraintEnd_toEndOf="@id/guidelineVertical6"
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical1v2"
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical2v2"
         app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal2">
 
         <LinearLayout
@@ -56,6 +46,7 @@
                 android:gravity="center"
                 android:hint="@string/senior_name"
                 android:textSize="26sp"
+                android:textColor="@color/black"
                 android:textStyle="bold" />
 
             <TextView
@@ -77,8 +68,8 @@
         android:layout_marginTop="20dp"
         app:cardCornerRadius="8dp"
         app:cardElevation="4dp"
-        app:layout_constraintStart_toStartOf="@id/guidelineVertical5"
-        app:layout_constraintEnd_toEndOf="@id/guidelineVertical6"
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical1v2"
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical2v2"
         app:layout_constraintTop_toBottomOf="@id/profileHeader">
 
         <LinearLayout
@@ -90,11 +81,11 @@
                 android:id="@+id/accountSettingsTitle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@color/lightRed"
+                android:background="@color/secondaryRed"
                 android:padding="10dp"
                 android:text="@string/account_settings"
-                android:textSize="16sp"
                 android:textColor="@color/white"
+                android:textSize="16sp"
                 android:textStyle="bold" />
 
             <LinearLayout
@@ -102,12 +93,15 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:padding="16dp">
+                android:padding="16dp"
+                android:focusable="true"
+                android:clickable="true"
+                android:background="?android:attr/selectableItemBackground">
 
                 <ImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
-                    android:src="@drawable/ic_number" />
+                    android:src="@drawable/outline_article_person_24" />
 
                 <TextView
                     android:id="@+id/changeInfoText"
@@ -115,13 +109,9 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="16dp"
                     android:text="@string/change_Info"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:textColor="@color/black"/>
             </LinearLayout>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="#E0E0E0" />
 
             <View
                 android:layout_width="match_parent"
@@ -147,7 +137,8 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="16dp"
                     android:text="@string/notification_settings"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:textColor="@color/black"/>
             </LinearLayout>
 
             <View
@@ -160,7 +151,10 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:padding="16dp">
+                android:padding="16dp"
+                android:focusable="true"
+                android:clickable="true"
+                android:background="?android:attr/selectableItemBackground">
 
                 <ImageView
                     android:layout_width="24dp"
@@ -174,9 +168,7 @@
                     android:layout_marginStart="16dp"
                     android:text="@string/select_language"
                     android:textSize="16sp"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:background="?android:attr/selectableItemBackground" />
+                    android:textColor="@color/black" />
             </LinearLayout>
 
             <View
@@ -197,7 +189,7 @@
                 <ImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
-                    android:src="@drawable/ic_feedback" />
+                    android:src="@drawable/rounded_feedback_24" />
 
                 <TextView
                     android:id="@+id/feedbackSupportText"
@@ -205,7 +197,8 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="16dp"
                     android:text="@string/feedback_support"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:textColor="@color/black"/>
             </LinearLayout>
         </LinearLayout>
 
@@ -219,8 +212,8 @@
         android:layout_marginTop="20dp"
         app:cardCornerRadius="8dp"
         app:cardElevation="4dp"
-        app:layout_constraintStart_toStartOf="@id/guidelineVertical5"
-        app:layout_constraintEnd_toEndOf="@id/guidelineVertical6"
+        app:layout_constraintStart_toStartOf="@id/guidelineVertical1v2"
+        app:layout_constraintEnd_toEndOf="@id/guidelineVertical2v2"
         app:layout_constraintTop_toBottomOf="@id/settingsCard">
 
         <LinearLayout
@@ -232,7 +225,7 @@
                 android:id="@+id/moreOptionsTitle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@color/lightRed"
+                android:background="@color/secondaryRed"
                 android:padding="10dp"
                 android:text="@string/more_options"
                 android:textSize="16sp"
@@ -249,7 +242,7 @@
                 <ImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
-                    android:src="@drawable/ic_help" />
+                    android:src="@drawable/outline_help_outline_24" />
 
                 <TextView
                     android:id="@+id/helpSupportText"
@@ -257,7 +250,8 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="16dp"
                     android:text="@string/help_support"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:textColor="@color/black"/>
             </LinearLayout>
 
             <View
@@ -287,7 +281,8 @@
                     android:layout_marginStart="16dp"
                     android:text="@string/delete_account"
                     android:textSize="16sp"
-                    android:textColor="#D32F2F" />
+                    android:textColor="#D32F2F"
+                    />
             </LinearLayout>
 
             <View
@@ -313,22 +308,29 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="16dp"
                     android:text="@string/logout"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    android:textColor="@color/black"/>
             </LinearLayout>
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
-    <!-- Bottom Navigation -->
+    <!-- Bottom Navigation Bar -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNavBar2"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:background="@color/white"
+        android:padding="0dp"
+        android:layout_marginBottom="0dp"
+        app:itemIconTint="@color/bottom_nav_icon_selector"
+        app:itemTextColor="@color/bottom_nav_icon_selector"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
+        app:labelVisibilityMode="labeled"
         app:menu="@menu/menu" />
 
-    <!--GRID GUIDELINE-->
+    <!-- Guidelines -->
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guidelineVertical1"
         android:layout_width="wrap_content"
@@ -337,11 +339,25 @@
         app:layout_constraintGuide_percent="0.10" />
 
     <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guidelineVertical1v2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_percent="0.05" />
+
+    <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guidelineVertical2"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         app:layout_constraintGuide_percent="0.90" />
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guidelineVertical2v2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_percent="0.95" />
 
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guidelineVertical3"
@@ -358,25 +374,11 @@
         app:layout_constraintGuide_percent="0.75" />
 
     <androidx.constraintlayout.widget.Guideline
-        android:id="@+id/guidelineVertical5"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        app:layout_constraintGuide_percent="0.05" />
-
-    <androidx.constraintlayout.widget.Guideline
-        android:id="@+id/guidelineVertical6"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        app:layout_constraintGuide_percent="0.95" />
-
-    <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guidelineHorizontal1"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        app:layout_constraintGuide_percent="0.03" />
+        app:layout_constraintGuide_begin="22dp" />
 
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guidelineHorizontal2"

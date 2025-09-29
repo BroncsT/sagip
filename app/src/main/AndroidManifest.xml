@@ -61,6 +61,7 @@
         tools:targetApi="31">
         <activity
             android:name=".Barangay_List"
+            android:windowSoftInputMode="adjustPan"
             android:exported="false" />
         <activity
             android:name=".Senior_Details_Activity"
@@ -100,6 +101,7 @@
         <activity
             android:name=".Barangay_Registration"
             android:configChanges="locale|orientation|screenSize|keyboardHidden"
+            android:windowSoftInputMode="adjustResize"
             android:exported="false" />
         <activity
             android:name=".Hospital_List"
@@ -301,7 +303,7 @@
 
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true">`
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

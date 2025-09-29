@@ -126,10 +126,7 @@ public class Senior_Dashboard extends AppCompatActivity {
     private void initializeViews() {
         tvFullName = findViewById(R.id.seniorName);
         tvCurrentLocation = findViewById(R.id.tvCurrentLocation);
-        btnFindHospital = findViewById(R.id.findhospital);
         btnSOS = findViewById(R.id.sosButton);
-
-        btnFindHospital.setOnClickListener(v -> navigateToNearestHospital());
         btnSOS.setOnClickListener(v -> showSOSConfirmationDialog());
     }
 
@@ -377,27 +374,6 @@ public class Senior_Dashboard extends AppCompatActivity {
           });
     }
 
-    private void navigateToNearestHospital() {
-        if (currentLat == 0.0 && currentLong == 0.0) {
-            Toast.makeText(this, getString(R.string.current_location_not_available_permissions), Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        String source = currentLat + "," + currentLong;
-        String destination = "hospital";
-
-        Uri uri = Uri.parse("https://www.google.com/maps/dir/" + source + "/" + destination);
-        Intent intent = new Intent(Intent.ACTION_VIEW, uri);
-        intent.setPackage("com.google.android.apps.maps");
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-
-        if (intent.resolveActivity(getPackageManager()) != null) {
-            startActivity(intent);
-        } else {
-            intent = new Intent(Intent.ACTION_VIEW, uri);
-            startActivity(intent);
-        }
-    }
 
     private void registerLocationPermissionLauncher() {
         locationPermissionRequest = registerForActivityResult(

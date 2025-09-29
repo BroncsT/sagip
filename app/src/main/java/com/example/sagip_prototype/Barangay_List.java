@@ -80,11 +80,11 @@ public class Barangay_List extends AppCompatActivity implements SeniorAdapter.On
         notificationButton = findViewById(R.id.notification);
         
         // Set click listeners
-        backButton.setOnClickListener(v -> onBackPressed());
-        notificationButton.setOnClickListener(v -> {
-            // Navigate to notifications or show notification dialog
-            Toast.makeText(this, "Notifications feature coming soon", Toast.LENGTH_SHORT).show();
-        });
+//        backButton.setOnClickListener(v -> onBackPressed());
+//        notificationButton.setOnClickListener(v -> {
+//            // Navigate to notifications or show notification dialog
+//            Toast.makeText(this, "Notifications feature coming soon", Toast.LENGTH_SHORT).show();
+//        });
     }
 
     private void setupRecyclerView() {
@@ -134,7 +134,7 @@ public class Barangay_List extends AppCompatActivity implements SeniorAdapter.On
         if (cachedBarangay != null && !cachedBarangay.isEmpty()) {
             Log.d(TAG, "Using cached barangay: " + cachedBarangay);
             currentBarangay = cachedBarangay;
-            labelProfile.setText("Senior Citizens in " + currentBarangay);
+            labelProfile.setText("Senior List in " + currentBarangay);
             
             // Load cached seniors if available
             loadCachedSeniors();
@@ -172,7 +172,7 @@ public class Barangay_List extends AppCompatActivity implements SeniorAdapter.On
                         
                         if (barangayName != null && !barangayName.isEmpty()) {
                             currentBarangay = barangayName;
-                            labelProfile.setText("Senior Citizens in " + currentBarangay);
+                            labelProfile.setText("Senior List in " + currentBarangay);
                             
                             // Cache the barangay name for future instant loading
                             cacheBarangayName(barangayName);

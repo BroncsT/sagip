@@ -18,6 +18,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
+import com.google.android.material.checkbox.MaterialCheckBox;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -36,7 +37,7 @@ public class Senior_Registration extends AppCompatActivity {
     
     // List of all barangays in Angeles City
     private final String[] barangays = {
-        "BARANGAY",
+        "-- Select your Barangay --",
         "Agapito del Rosario",
         "Amsic",
         "Anunas",
@@ -102,7 +103,6 @@ public class Senior_Registration extends AppCompatActivity {
         
         // Setup barangay spinner
         setupBarangaySpinner();
-
         // Save data on button click
         continueButton.setOnClickListener(new View.OnClickListener() {
             @Override

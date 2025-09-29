@@ -86,13 +86,13 @@ public class Senior_Details_Activity extends AppCompatActivity {
             }
             
             if (seniorAge > 0) {
-                ageText.setText("Age: " + seniorAge);
+                ageText.setText(seniorAge + " years old");
             } else {
                 ageText.setText("Age: N/A");
             }
             
             if (seniorBarangay != null) {
-                barangayText.setText("Barangay: " + seniorBarangay);
+                barangayText.setText(seniorBarangay);
             } else {
                 barangayText.setText("Barangay: N/A");
             }
@@ -100,7 +100,7 @@ public class Senior_Details_Activity extends AppCompatActivity {
             // Format and display phone number
             if (seniorPhone != null && !seniorPhone.isEmpty()) {
                 String formattedPhone = PhoneNumberUtils.formatPhoneNumber(seniorPhone);
-                phoneText.setText("Phone: " + formattedPhone);
+                phoneText.setText(formattedPhone);
                 callButton.setVisibility(PhoneNumberUtils.isValidPhoneNumber(seniorPhone) ? View.VISIBLE : View.GONE);
             } else {
                 phoneText.setText("Phone: N/A");
@@ -108,7 +108,7 @@ public class Senior_Details_Activity extends AppCompatActivity {
             }
             
             if (seniorAddress != null && !seniorAddress.isEmpty()) {
-                addressText.setText("Address: " + seniorAddress);
+                addressText.setText(seniorAddress);
             } else {
                 addressText.setText("Address: N/A");
             }

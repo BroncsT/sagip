@@ -302,7 +302,7 @@
                                 <PersistentState>
                                   <option name="values">
                                     <map>
-                                      <entry key="url" value="file:/$USER_HOME$/AppData/Local/Android/Sdk/icons/material/materialicons/disabled_visible/baseline_disabled_visible_24.xml" />
+                                      <entry key="url" value="file:/$USER_HOME$/AppData/Local/Android/Sdk/icons/material/materialsymbolsrounded/frame_person/rounded_frame_person_24.xml" />
                                     </map>
                                   </option>
                                 </PersistentState>
@@ -312,7 +312,7 @@
                         </option>
                         <option name="values">
                           <map>
-                            <entry key="outputName" value="ic_visibility_off" />
+                            <entry key="outputName" value="rounded_frame_person_24" />
                             <entry key="sourceFile" value="C:\Users\antdi\AndroidStudioProjects\SAGIPP" />
                           </map>
                         </option>

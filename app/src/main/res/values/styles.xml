@@ -51,4 +51,22 @@
         <item name="android:layout_marginTop">4dp</item>\
     </style>
 
+    <!-- Selected item text style in BottomNavigationView -->
+    <style name="BottomTextActive" parent="TextAppearance.AppCompat.Caption">
+        <item name="android:textColor">@color/primaryRed</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <!-- Unselected item text style in BottomNavigationView -->
+    <style name="BottomTextInactive" parent="TextAppearance.AppCompat.Caption">
+        <item name="android:textColor">@color/gray</item>
+        <item name="android:textSize">10sp</item>
+        <item name="android:textStyle">normal</item>
+    </style>
+
+    <style name="ShapeAppearanceOverlay.App.CornerSize50Percent" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
+    </style>
 </resources>

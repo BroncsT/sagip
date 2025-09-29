@@ -14,6 +14,6 @@
     <item
         android:id="@+id/rescuer_profile"
         android:title="@string/rescuer_profile"
-        android:icon="@drawable/senior_profile"
+        android:icon="@drawable/baseline_account_circle_24"
         />
 </menu>

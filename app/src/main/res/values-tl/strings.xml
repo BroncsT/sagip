@@ -258,7 +258,7 @@
     <string name="emergency_address">Emergency Address</string>
     <string name="emergencynote">Emergency Note</string>
     <string name="emergencyguide">Emergency Guide</string>
-    <string name="emegencysignalcode">Emergency Signal Code</string>
+    <string name="emegencysignalcode">SOS</string>
     <string name="emergencyContact_section">Emergency Contact Section</string>
     <string name="senior_name">Pangalan ng Senior</string>
     <string name="senior_number">Number ng Senior</string>
@@ -528,7 +528,7 @@
     <string name="feedback_subject">Subject</string>
     <string name="feedback_subject_hint">Ilagay ang subject ng iyong feedback</string>
     <string name="feedback_message">Mensahe</string>
-    <string name="feedback_message_hint">Ilagay ang detalye ng iyong feedback o report</string>
+    <string name="feedback_message_hint">Magbigay ng mga detalye sa iyong feedback o report</string>
     <string name="feedback_priority">Priority</string>
     <string name="feedback_priority_low">Mababa</string>
     <string name="feedback_priority_medium">Katamtaman</string>

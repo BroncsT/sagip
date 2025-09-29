@@ -3,12 +3,12 @@
 
     <item
         android:id="@+id/barangay_seniorList"
-        android:title="List"
-        android:icon="@drawable/baseline_view_list_24"/>
+        android:title="Senior List"
+        android:icon="@drawable/outline_groups_24"/>
 
     <item
         android:id="@+id/barangay_dashboard"
-        android:title="Geolocation"
+        android:title="Location"
         android:icon="@drawable/baseline_location_pin_24"/>
 
     <item
