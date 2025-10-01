@@ -36,7 +36,6 @@ import org.json.JSONObject;
 public class Senior_Emergency_Contact extends AppCompatActivity implements EmergencyContactAdapter.OnContactActionListener {
 
     private static final String PREF_NAME = "SagipAppPrefs";
-    private static final String KEY_CACHED_FULL_NAME = "cachedFullName";
     private static final String KEY_CACHED_EMERGENCY_CONTACTS = "cachedEmergencyContacts";
     
     // Store reference to active dialogs for language refresh
@@ -57,7 +56,6 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
     RecyclerView recyclerView;
     EmergencyContactAdapter adapter;
     List<Emergency_Contacts> emergencyContacts;
-    TextView labelProfile;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -92,7 +90,7 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
         sharedPreferences.edit().putString("last_language", newLanguage).apply();
         currentLanguage = newLanguage;
 
-        labelProfile = findViewById(R.id.labelProfile);
+        // No longer need to find labelProfile since we removed the user name display
         BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavBar2);
         FloatingActionButton addEmergencyContact = findViewById(R.id.senior_add_btn);
 
@@ -121,8 +119,7 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
             return false;
         });
 
-        // Load user profile and initial contacts
-        loadUserProfile();
+        // Load initial contacts
         fetchEmergencyContacts();
     }
 
@@ -131,19 +128,15 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
         super.onNewIntent(intent);
         setIntent(intent);
         
-        // Load cached profile name immediately when returning to page via new intent
-        loadCachedProfileName();
-        
-        Log.d("Senior_Emergency_Contact", "onNewIntent called - reloading cached profile name");
+        Log.d("Senior_Emergency_Contact", "onNewIntent called");
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         
-        // Load cached profile name immediately when returning to page
-        loadCachedProfileName();
-        
+        // Load cached contacts immediately for instant display, then fetch latest from Firestore
+        loadCachedEmergencyContacts();
         fetchEmergencyContacts();
         
         // Check for language change as backup method
@@ -168,9 +161,6 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
         
         // Show a toast to confirm the method is being called
         Toast.makeText(this, "Language change detected!", Toast.LENGTH_SHORT).show();
-        
-        // Reload cached profile name to ensure it's still displayed
-        loadCachedProfileName();
         
         // Refresh active update dialog if it exists
         if (activeUpdateDialog != null && activeUpdateDialog.isShowing()) {
@@ -212,74 +202,9 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
         refreshAllUIElements();
     }
 
-    private void loadUserProfile() {
-        // Load cached name immediately for instant display
-        loadCachedProfileName();
-
-        String uid = mAuth.getCurrentUser().getUid();
-        String userType = "seniors";
-
-        db.collection("Sagip")
-                .document("users")
-                .collection(userType)
-                .document(uid)
-                .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    if (documentSnapshot.exists()) {
-                        String firstName = documentSnapshot.getString("firstName");
-                        String middleName = documentSnapshot.getString("middleName");
-                        String lastName = documentSnapshot.getString("lastName");
-
-                        String fullName = firstName + " " + middleName + " " + lastName + "\n\nEmergency contact list";
-                        labelProfile.setText(fullName);
-                        
-                        // Cache the name for future instant loading
-                        cacheProfileName(fullName);
-                    }
-                });
-    }
-
-    private void loadCachedProfileName() {
-        // Ensure SharedPreferences is initialized
-        if (sharedPreferences == null) {
-            sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
-        }
-        
-        String cachedName = sharedPreferences.getString(KEY_CACHED_FULL_NAME, null);
-        if (cachedName != null && !cachedName.isEmpty()) {
-            labelProfile.setText(cachedName + "\n\nEmergency contact list");
-            Log.d("Senior_Emergency_Contact", "Loaded cached profile name: " + cachedName);
-        } else {
-            // Try to load from alternative cache
-            String alternativeCache = getAlternativeCachedName();
-            if (alternativeCache != null && !alternativeCache.isEmpty()) {
-                labelProfile.setText(alternativeCache + "\n\nEmergency contact list");
-                // Restore to main cache
-                cacheProfileName(alternativeCache);
-                Log.d("Senior_Emergency_Contact", "Loaded from alternative cache: " + alternativeCache);
-            } else {
-                labelProfile.setText("Loading...\n\nEmergency contact list");
-                Log.d("Senior_Emergency_Contact", "No cached profile name found, showing loading...");
-            }
-        }
-    }
-
-    private String getAlternativeCachedName() {
-        // Try to get from a more persistent storage
-        SharedPreferences altPrefs = getSharedPreferences("SagipAppPrefs", MODE_PRIVATE);
-        return altPrefs.getString(KEY_CACHED_FULL_NAME, null);
-    }
-
-    private void cacheProfileName(String fullName) {
-        sharedPreferences.edit()
-                .putString(KEY_CACHED_FULL_NAME, fullName)
-                .apply();
-    }
+    // User profile loading methods removed since we no longer display user name
 
     private void fetchEmergencyContacts() {
-        // Load cached contacts immediately for instant display
-        loadCachedEmergencyContacts();
-
         String uid = mAuth.getCurrentUser().getUid();
         String userType = "seniors";
 
@@ -290,6 +215,7 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists()) {
+                        // Clear the list before adding new contacts to prevent duplication
                         emergencyContacts.clear();
 
                         List<Map<String, Object>> contactList = (List<Map<String, Object>>) documentSnapshot.get("emergencyContacts");
@@ -612,17 +538,12 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
     private void refreshAllUIElements() {
         Log.d("Senior_Emergency_Contact", "Refreshing all UI elements for language change");
         
-        // Force recreate the RecyclerView adapter to pick up new string resources
+        // Refresh the RecyclerView to pick up new string resources without breaking data reference
         if (adapter != null && recyclerView != null) {
-            // Store current data
-            List<Emergency_Contacts> currentContacts = new ArrayList<>(emergencyContacts);
-            
-            // Create new adapter with current data
-            adapter = new EmergencyContactAdapter(currentContacts, this);
             adapter.setOnContactActionListener(this);
+            adapter.notifyDataSetChanged();
             recyclerView.setAdapter(adapter);
-            
-            Log.d("Senior_Emergency_Contact", "Adapter recreated with new language");
+            Log.d("Senior_Emergency_Contact", "Adapter refreshed with new language");
         }
         
         // Clear dialog references to prevent stale dialogs

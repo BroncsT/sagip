@@ -1,6 +1,7 @@
 package com.example.sagip_prototype;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -22,9 +23,13 @@ import com.google.firebase.storage.StorageReference;
 public class Rescuer_Profile extends BaseRescuerActivity {
 
     private static final String TAG = "Rescuer_Profile";
+    private static final String PREF_NAME = "SagipAppPrefs";
+    private static final String KEY_CACHED_RESCUER_NAME = "cachedRescuerName";
+    private static final String KEY_CACHED_RESCUER_EMAIL = "cachedRescuerEmail";
     
     FirebaseFirestore db;
     FirebaseStorage storage;
+    private SharedPreferences sharedPreferences;
     
     // Emergency notification system variables
     private ListenerRegistration emergencyListener;
@@ -39,6 +44,7 @@ public class Rescuer_Profile extends BaseRescuerActivity {
 
         db = FirebaseFirestore.getInstance();
         storage = FirebaseStorage.getInstance();
+        sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
 
         // Add language selection functionality
         addLanguageSelectionToLayout();
@@ -84,6 +90,9 @@ public class Rescuer_Profile extends BaseRescuerActivity {
             }
         });
 
+        // Show cached values immediately for instant UI
+        loadCachedRescuerProfile(rescueProfile, rescueEmail);
+
         String uid = mAuth.getCurrentUser().getUid();
         String userType = "rescuer";
 
@@ -100,8 +109,35 @@ public class Rescuer_Profile extends BaseRescuerActivity {
 
                         rescueProfile.setText(firstName);
                         rescueEmail.setText(middleName);
+
+                        // Cache fetched values for future instant loading
+                        cacheRescuerProfile(firstName, middleName);
                     }
                 });
+    }
+
+    private void loadCachedRescuerProfile(TextView rescueProfile, TextView rescueEmail) {
+        String cachedName = sharedPreferences.getString(KEY_CACHED_RESCUER_NAME, null);
+        String cachedEmail = sharedPreferences.getString(KEY_CACHED_RESCUER_EMAIL, null);
+
+        if (cachedName != null && !cachedName.isEmpty()) {
+            rescueProfile.setText(cachedName);
+        } else {
+            rescueProfile.setText(getString(R.string.loading));
+        }
+
+        if (cachedEmail != null && !cachedEmail.isEmpty()) {
+            rescueEmail.setText(cachedEmail);
+        } else {
+            rescueEmail.setText("");
+        }
+    }
+
+    private void cacheRescuerProfile(String name, String email) {
+        sharedPreferences.edit()
+                .putString(KEY_CACHED_RESCUER_NAME, name != null ? name : "")
+                .putString(KEY_CACHED_RESCUER_EMAIL, email != null ? email : "")
+                .apply();
     }
 
     private void showLogoutConfirmationDialog() {
@@ -127,11 +163,12 @@ public class Rescuer_Profile extends BaseRescuerActivity {
         // Sign out from Firebase
         mAuth.signOut();
         
-        // Navigate to login screen
+        // Navigate to login screen with a cleared back stack
         Intent intent = new Intent(Rescuer_Profile.this, MainActivity.class);
         intent.putExtra("LOGOUT_ACTION", true); // Signal that this is a logout action
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
-        finish();
+        finishAffinity();
     }
     
     // Helper method to clear stored credentials
@@ -172,6 +209,10 @@ public class Rescuer_Profile extends BaseRescuerActivity {
     @Override
     protected void updateSpecificProfileElements() {
         // Update profile-specific UI elements
+        TextView labelProfile = findViewById(R.id.labelProfile);
+        if (labelProfile != null) {
+            labelProfile.setText(getString(R.string.rescuer_profile));
+        }
         TextView accountSettingsTitle = findViewById(R.id.accountSettingsTitle);
         if (accountSettingsTitle != null) {
             accountSettingsTitle.setText(getString(R.string.account_settings));

@@ -1,0 +1,730 @@
+package com.example.sagip_prototype;
+
+import android.Manifest;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
+import android.widget.Button;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.GeoPoint;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+public class RescuerDetailsActivity extends AppCompatActivity {
+
+    private static final String TAG = "RescuerDetailsActivity";
+    private static final String GOOGLE_MAPS_API_KEY = "AIzaSyBvOkBwv9wT3Q6Q6Q6Q6Q6Q6Q6Q6Q6Q6Q6Q"; // Replace with your actual API key
+    private static final String DIRECTIONS_API_URL = "https://maps.googleapis.com/maps/api/directions/json";
+
+    // UI Elements
+    private TextView tvRescuerName, tvRescuerTeam, tvRescuerPhone;
+    private TextView tvETA, tvDistance, tvLastUpdate, tvStatus, tvETAStatus;
+    private Button btnCallRescuer, btnBack;
+    private Button btnTestETA, btnCheckDatabase, btnForceETA;
+    private ProgressBar loadingIndicator;
+
+    // Data
+    private String emergencyId;
+    private String rescuerId;
+    private String rescuerPhone;
+    private double seniorLat, seniorLong;
+    private double rescuerLat, rescuerLong;
+
+    // Services
+    private FirebaseFirestore db;
+    private FirebaseAuth mAuth;
+    private FusedLocationProviderClient fusedLocationClient;
+    private ExecutorService executorService;
+
+    // Update handler
+    private Handler updateHandler;
+    private Runnable updateRunnable;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_rescuer_details);
+
+        // Initialize services
+        db = FirebaseFirestore.getInstance();
+        mAuth = FirebaseAuth.getInstance();
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+        executorService = Executors.newSingleThreadExecutor();
+        updateHandler = new Handler(Looper.getMainLooper());
+
+        // Get emergency ID from intent
+        emergencyId = getIntent().getStringExtra("emergencyId");
+        if (emergencyId == null) {
+            Log.e(TAG, "No emergency ID provided");
+            Toast.makeText(this, "Error: No emergency ID provided", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
+        
+        // Get additional data from notification (if available)
+        String rescuerName = getIntent().getStringExtra("rescuerName");
+        String rescuerPhone = getIntent().getStringExtra("rescuerPhone");
+        String rescuerTeam = getIntent().getStringExtra("rescuerTeam");
+        String assignedRescuerId = getIntent().getStringExtra("assignedRescuerId");
+        String emergencyStatus = getIntent().getStringExtra("emergencyStatus");
+        
+        // Get senior location from intent
+        double intentSeniorLat = getIntent().getDoubleExtra("seniorLat", 0.0);
+        double intentSeniorLong = getIntent().getDoubleExtra("seniorLong", 0.0);
+        
+        Log.d(TAG, "📱 Received data from notification:");
+        Log.d(TAG, "   Rescuer Name: " + rescuerName);
+        Log.d(TAG, "   Rescuer Phone: " + rescuerPhone);
+        Log.d(TAG, "   Rescuer Team: " + rescuerTeam);
+        Log.d(TAG, "   Assigned Rescuer ID: " + assignedRescuerId);
+        Log.d(TAG, "   Emergency Status: " + emergencyStatus);
+        Log.d(TAG, "   Senior Location from Intent: " + intentSeniorLat + ", " + intentSeniorLong);
+        
+        // If we have rescuer data from notification, use it directly
+        if (rescuerName != null && rescuerPhone != null) {
+            updateRescuerInfoFromNotification(rescuerName, rescuerPhone, rescuerTeam, assignedRescuerId, emergencyStatus);
+        }
+
+        initializeViews();
+        
+        // Test UI update immediately
+        testUIUpdate();
+        
+        loadEmergencyDetails();
+        setupUpdateRunnable();
+    }
+    
+    private void updateRescuerInfoFromNotification(String rescuerName, String rescuerPhone, 
+                                                 String rescuerTeam, String assignedRescuerId, 
+                                                 String emergencyStatus) {
+        Log.d(TAG, "📱 Updating rescuer info from notification data");
+        
+        // Update UI with notification data
+        runOnUiThread(() -> {
+            if (tvRescuerName != null) {
+                tvRescuerName.setText("Name: " + rescuerName);
+            }
+            if (tvRescuerPhone != null) {
+                tvRescuerPhone.setText("Phone: " + rescuerPhone);
+            }
+            if (tvRescuerTeam != null) {
+                tvRescuerTeam.setText("Team: " + (rescuerTeam != null ? rescuerTeam : "Emergency Response Team"));
+            }
+            if (tvStatus != null) {
+                tvStatus.setText(emergencyStatus != null ? emergencyStatus : "Assigned");
+            }
+            
+            // Update last updated time
+            if (tvLastUpdate != null) {
+                SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss", Locale.getDefault());
+                tvLastUpdate.setText("Last updated: " + sdf.format(new Date()));
+            }
+        });
+        
+        // Store the rescuer ID for future use
+        if (assignedRescuerId != null && !assignedRescuerId.isEmpty()) {
+            rescuerId = assignedRescuerId;
+        }
+        
+        // Store phone number
+        this.rescuerPhone = rescuerPhone;
+        
+        Log.d(TAG, "✅ Rescuer info updated from notification");
+    }
+
+    private void initializeViews() {
+        tvRescuerName = findViewById(R.id.tvRescuerName);
+        tvRescuerTeam = findViewById(R.id.tvRescuerTeam);
+        tvRescuerPhone = findViewById(R.id.tvRescuerPhone);
+        tvETA = findViewById(R.id.tvETA);
+        tvDistance = findViewById(R.id.tvDistance);
+        tvLastUpdate = findViewById(R.id.tvLastUpdate);
+        tvStatus = findViewById(R.id.tvStatus);
+        tvETAStatus = findViewById(R.id.tvETAStatus);
+        btnCallRescuer = findViewById(R.id.btnCallRescuer);
+        btnBack = findViewById(R.id.btnBack);
+        btnTestETA = findViewById(R.id.btnTestETA);
+        btnCheckDatabase = findViewById(R.id.btnCheckDatabase);
+        btnForceETA = findViewById(R.id.btnForceETA);
+        loadingIndicator = findViewById(R.id.loadingIndicator);
+        
+        // Debug UI element initialization
+        Log.d(TAG, "🔍 UI Elements initialized:");
+        Log.d(TAG, "   tvETA: " + (tvETA != null ? "✅ Found" : "❌ NULL"));
+        Log.d(TAG, "   tvDistance: " + (tvDistance != null ? "✅ Found" : "❌ NULL"));
+        Log.d(TAG, "   tvLastUpdate: " + (tvLastUpdate != null ? "✅ Found" : "❌ NULL"));
+        Log.d(TAG, "   tvETAStatus: " + (tvETAStatus != null ? "✅ Found" : "❌ NULL"));
+
+        // Set up click listeners
+        btnBack.setOnClickListener(v -> finish());
+        btnCallRescuer.setOnClickListener(v -> callRescuer());
+        
+        // Test buttons
+        btnTestETA.setOnClickListener(v -> {
+            Log.d(TAG, "🧪 Testing ETA calculation with sample data");
+            testETACalculation();
+        });
+        
+        btnCheckDatabase.setOnClickListener(v -> {
+            Log.d(TAG, "🔍 Checking database for rescuer location");
+            checkRescuerLocationInDatabase();
+        });
+        
+        btnForceETA.setOnClickListener(v -> {
+            Log.d(TAG, "🔄 Force ETA calculation with current data");
+            Log.d(TAG, "Current rescuer location: " + rescuerLat + ", " + rescuerLong);
+            Log.d(TAG, "Current senior location: " + seniorLat + ", " + seniorLong);
+            calculateETAFromDatabase();
+        });
+    }
+
+    private void loadEmergencyDetails() {
+        showLoading(true);
+        
+        // Load emergency details to get rescuer ID
+        db.collection("Sagip")
+                .document("emergencyRequests")
+                .collection("activeRequests")
+                .document(emergencyId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        // Use correct field name for rescuer ID
+                        rescuerId = documentSnapshot.getString("assignedRescuerId");
+                        
+                        // Check if we already have rescuer info from notification
+                        if (rescuerId == null || rescuerId.isEmpty()) {
+                            Log.d(TAG, "⚠️ No assigned rescuer ID found in emergency document");
+                        } else {
+                            Log.d(TAG, "✅ Found assigned rescuer ID: " + rescuerId);
+                        }
+                        
+                        // Get senior location from intent first, then fallback to emergency document
+                        double intentSeniorLat = getIntent().getDoubleExtra("seniorLat", 0.0);
+                        double intentSeniorLong = getIntent().getDoubleExtra("seniorLong", 0.0);
+                        
+                        if (intentSeniorLat != 0.0 && intentSeniorLong != 0.0) {
+                            seniorLat = intentSeniorLat;
+                            seniorLong = intentSeniorLong;
+                            Log.d(TAG, "📍 Using senior location from intent: " + seniorLat + ", " + seniorLong);
+                        } else {
+                            // Fallback to emergency document
+                            GeoPoint seniorLocation = documentSnapshot.getGeoPoint("location");
+                            Log.d(TAG, "🔍 Emergency document data: " + documentSnapshot.getData().toString());
+                            Log.d(TAG, "🔍 Looking for 'location' field in emergency document");
+                            
+                            if (seniorLocation != null) {
+                                seniorLat = seniorLocation.getLatitude();
+                                seniorLong = seniorLocation.getLongitude();
+                                Log.d(TAG, "📍 Senior location found in emergency document: " + seniorLat + ", " + seniorLong);
+                            } else {
+                                Log.w(TAG, "⚠️ No senior location found in emergency document");
+                                Log.w(TAG, "⚠️ Available fields in emergency document: " + documentSnapshot.getData().keySet().toString());
+                            }
+                        }
+                        
+                        if (rescuerId != null) {
+                            loadRescuerDetails();
+                        } else {
+                            showError("No rescuer assigned to this emergency");
+                        }
+                    } else {
+                        showError("Emergency not found");
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error loading emergency details", e);
+                    showError("Failed to load emergency details");
+                });
+    }
+
+    private void loadRescuerDetails() {
+        if (rescuerId == null) {
+            Log.w(TAG, "⚠️ No rescuer ID available for loading details");
+            return;
+        }
+
+        Log.d(TAG, "🔍 Loading rescuer details for ID: " + rescuerId);
+        db.collection("Sagip")
+                .document("users")
+                .collection("rescuer")
+                .document(rescuerId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String name = documentSnapshot.getString("rescuegroup");
+                        String team = documentSnapshot.getString("rescuegroup");
+                        String phone = documentSnapshot.getString("mobileNumber");
+                        
+                        Log.d(TAG, "📋 Rescuer data from database:");
+                        Log.d(TAG, "   Name: " + name);
+                        Log.d(TAG, "   Team: " + team);
+                        Log.d(TAG, "   Phone: " + phone);
+                        
+                        if (name == null || name.isEmpty()) {
+                            name = "Rescuer " + rescuerId.substring(0, Math.min(8, rescuerId.length()));
+                        }
+                        if (team == null || team.isEmpty()) {
+                            team = "Emergency Response Team";
+                        }
+                        if (phone == null || phone.isEmpty()) {
+                            phone = "Not available";
+                        }
+                        
+                        rescuerPhone = phone;
+                        
+                        // Update UI
+                        tvRescuerName.setText(name);
+                        tvRescuerTeam.setText(team);
+                        tvRescuerPhone.setText(phone);
+                        
+                        // Get rescuer location from database
+                        GeoPoint rescuerLocation = documentSnapshot.getGeoPoint("currentLocation");
+                        if (rescuerLocation != null) {
+                            rescuerLat = rescuerLocation.getLatitude();
+                            rescuerLong = rescuerLocation.getLongitude();
+                            Log.d(TAG, "📍 Rescuer location found: " + rescuerLat + ", " + rescuerLong);
+                        } else {
+                            Log.w(TAG, "⚠️ No rescuer location found in database");
+                            // Try alternative field names
+                            rescuerLocation = documentSnapshot.getGeoPoint("location");
+                            if (rescuerLocation != null) {
+                                rescuerLat = rescuerLocation.getLatitude();
+                                rescuerLong = rescuerLocation.getLongitude();
+                                Log.d(TAG, "📍 Rescuer location found in 'location' field: " + rescuerLat + ", " + rescuerLong);
+                            } else {
+                                Log.w(TAG, "⚠️ No rescuer location found in any field");
+                            }
+                        }
+                        
+                        // Calculate ETA using database locations
+                        Log.d(TAG, "🔄 Calculating ETA from database locations - Rescuer: " + rescuerLat + ", " + rescuerLong + " Senior: " + seniorLat + ", " + seniorLong);
+                        calculateETAFromDatabase();
+                    } else {
+                        showError("Rescuer details not found");
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error loading rescuer details", e);
+                    showError("Failed to load rescuer details");
+                });
+    }
+
+
+
+    private void calculateETAFromDatabase() {
+        Log.d(TAG, "🔄 calculateETAFromDatabase() called with rescuer: " + rescuerLat + ", " + rescuerLong + " and senior: " + seniorLat + ", " + seniorLong);
+        
+        if (rescuerLat == 0 || rescuerLong == 0 || seniorLat == 0 || seniorLong == 0) {
+            Log.w(TAG, "❌ Missing location data for ETA calculation - Rescuer: " + rescuerLat + ", " + rescuerLong + " Senior: " + seniorLat + ", " + seniorLong);
+            runOnUiThread(() -> {
+                tvETA.setText("-- min");
+                tvDistance.setText("-- km");
+                tvLastUpdate.setText("Last updated: " + getCurrentTime() + " (No location data)");
+                if (tvETAStatus != null) {
+                    tvETAStatus.setText("No location data available");
+                }
+            });
+            return;
+        }
+
+        // Calculate straight-line distance
+        double distance = calculateDistance(rescuerLat, rescuerLong, seniorLat, seniorLong);
+        
+        // Estimate travel time based on distance
+        // Assuming average speed of 30 km/h in urban areas
+        double estimatedTimeMinutes = (distance / 30.0) * 60;
+        
+        Log.d(TAG, "📍 Database ETA calculation - Distance: " + String.format("%.1f km", distance) + 
+              ", Estimated time: " + String.format("%.0f min", estimatedTimeMinutes));
+        
+        runOnUiThread(() -> {
+            Log.d(TAG, "🔄 Updating UI with ETA: " + String.format("%.0f min", estimatedTimeMinutes) + ", Distance: " + String.format("%.1f km", distance));
+            
+            if (tvETA != null) {
+                tvETA.setText(String.format("%.0f min", estimatedTimeMinutes));
+                Log.d(TAG, "✅ tvETA updated");
+            } else {
+                Log.e(TAG, "❌ tvETA is null!");
+            }
+            
+            if (tvDistance != null) {
+                tvDistance.setText(String.format("%.1f km", distance));
+                Log.d(TAG, "✅ tvDistance updated");
+            } else {
+                Log.e(TAG, "❌ tvDistance is null!");
+            }
+            
+            if (tvLastUpdate != null) {
+                tvLastUpdate.setText("Last updated: " + getCurrentTime());
+                Log.d(TAG, "✅ tvLastUpdate updated");
+            } else {
+                Log.e(TAG, "❌ tvLastUpdate is null!");
+            }
+            
+            if (tvETAStatus != null) {
+                tvETAStatus.setText("Based on database locations");
+                Log.d(TAG, "✅ tvETAStatus updated");
+            } else {
+                Log.e(TAG, "❌ tvETAStatus is null!");
+            }
+        });
+    }
+
+    private void calculateETA() {
+        Log.d(TAG, "🔄 calculateETA() called with rescuer: " + rescuerLat + ", " + rescuerLong + " and senior: " + seniorLat + ", " + seniorLong);
+        
+        if (rescuerLat == 0 || rescuerLong == 0 || seniorLat == 0 || seniorLong == 0) {
+            Log.w(TAG, "❌ Missing location data for ETA calculation - Rescuer: " + rescuerLat + ", " + rescuerLong + " Senior: " + seniorLat + ", " + seniorLong);
+            runOnUiThread(() -> {
+                tvETA.setText("-- min");
+                tvDistance.setText("-- km");
+                tvLastUpdate.setText("Last updated: " + getCurrentTime() + " (No location data)");
+                if (tvETAStatus != null) {
+                    tvETAStatus.setText("No location data available");
+                }
+            });
+            return;
+        }
+
+        // Show loading state
+        runOnUiThread(() -> {
+            tvETA.setText("Calculating...");
+            tvDistance.setText("Calculating...");
+            if (tvETAStatus != null) {
+                tvETAStatus.setText("Getting real-time traffic data...");
+            }
+        });
+
+        executorService.execute(() -> {
+            try {
+                String url = buildDirectionsUrl(rescuerLat, rescuerLong, seniorLat, seniorLong);
+                String response = makeDirectionsRequest(url);
+                parseDirectionsResponse(response);
+            } catch (Exception e) {
+                Log.e(TAG, "Error calculating ETA with Google Directions API, using fallback calculation", e);
+                // Fallback to straight-line distance calculation
+                calculateFallbackETA();
+            }
+        });
+    }
+
+    private String buildDirectionsUrl(double originLat, double originLng, double destLat, double destLng) {
+        return DIRECTIONS_API_URL + "?" +
+                "origin=" + originLat + "," + originLng +
+                "&destination=" + destLat + "," + destLng +
+                "&key=" + GOOGLE_MAPS_API_KEY +
+                "&mode=driving" +
+                "&traffic_model=best_guess" +
+                "&departure_time=now";
+    }
+
+    private String makeDirectionsRequest(String urlString) throws IOException {
+        URL url = new URL(urlString);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("GET");
+        connection.setConnectTimeout(10000);
+        connection.setReadTimeout(10000);
+
+        BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+        StringBuilder response = new StringBuilder();
+        String line;
+
+        while ((line = reader.readLine()) != null) {
+            response.append(line);
+        }
+
+        reader.close();
+        connection.disconnect();
+        return response.toString();
+    }
+
+    private void parseDirectionsResponse(String response) {
+        try {
+            JSONObject jsonResponse = new JSONObject(response);
+            JSONArray routes = jsonResponse.getJSONArray("routes");
+
+            if (routes.length() > 0) {
+                JSONObject route = routes.getJSONObject(0);
+                JSONArray legs = route.getJSONArray("legs");
+                
+                if (legs.length() > 0) {
+                    JSONObject leg = legs.getJSONObject(0);
+                    JSONObject duration = leg.getJSONObject("duration");
+                    JSONObject distance = leg.getJSONObject("distance");
+                    
+                    int durationValue = duration.getInt("value");
+                    int distanceValue = distance.getInt("value");
+                    
+                    // Convert to minutes and kilometers
+                    int etaMinutes = durationValue / 60;
+                    double distanceKm = distanceValue / 1000.0;
+                    
+                    runOnUiThread(() -> {
+                        tvETA.setText(etaMinutes + " min");
+                        tvDistance.setText(String.format("%.1f km", distanceKm));
+                        tvLastUpdate.setText("Last updated: " + getCurrentTime());
+                        if (tvETAStatus != null) {
+                            tvETAStatus.setText("Real-time traffic data");
+                        }
+                    });
+                }
+            }
+        } catch (JSONException e) {
+            Log.e(TAG, "Error parsing directions response", e);
+            runOnUiThread(() -> {
+                tvETA.setText("-- min");
+                tvDistance.setText("-- km");
+            });
+        }
+    }
+
+    private double calculateDistance(double lat1, double lng1, double lat2, double lng2) {
+        final int R = 6371; // Radius of the earth in km
+        double latDistance = Math.toRadians(lat2 - lat1);
+        double lngDistance = Math.toRadians(lng2 - lng1);
+        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lngDistance / 2) * Math.sin(lngDistance / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    }
+
+    private void calculateFallbackETA() {
+        Log.d(TAG, "🔄 Using fallback ETA calculation (straight-line distance)");
+        
+        // Calculate straight-line distance
+        double distance = calculateDistance(rescuerLat, rescuerLong, seniorLat, seniorLong);
+        
+        // Estimate travel time based on distance
+        // Assuming average speed of 30 km/h in urban areas
+        double estimatedTimeMinutes = (distance / 30.0) * 60;
+        
+        runOnUiThread(() -> {
+            tvETA.setText(String.format("%.0f min", estimatedTimeMinutes) + " (est.)");
+            tvDistance.setText(String.format("%.1f km", distance));
+            tvLastUpdate.setText("Last updated: " + getCurrentTime() + " (Estimated)");
+            if (tvETAStatus != null) {
+                tvETAStatus.setText("Estimated based on distance");
+            }
+        });
+        
+        Log.d(TAG, "📍 Fallback ETA: " + String.format("%.0f min", estimatedTimeMinutes) + 
+              " for " + String.format("%.1f km", distance) + " distance");
+    }
+    
+    private void testETACalculation() {
+        Log.d(TAG, "🧪 Testing ETA calculation with sample data");
+        
+        // Use sample coordinates (Manila area)
+        double testRescuerLat = 14.5995; // Manila
+        double testRescuerLong = 120.9842;
+        double testSeniorLat = 14.6042; // Nearby location
+        double testSeniorLong = 120.9822;
+        
+        // Temporarily store original values
+        double originalRescuerLat = rescuerLat;
+        double originalRescuerLong = rescuerLong;
+        double originalSeniorLat = seniorLat;
+        double originalSeniorLong = seniorLong;
+        
+        // Set test values
+        rescuerLat = testRescuerLat;
+        rescuerLong = testRescuerLong;
+        seniorLat = testSeniorLat;
+        seniorLong = testSeniorLong;
+        
+        Log.d(TAG, "🧪 Test coordinates - Rescuer: " + rescuerLat + ", " + rescuerLong + " Senior: " + seniorLat + ", " + seniorLong);
+        
+        // Calculate ETA with test data using database method
+        calculateETAFromDatabase();
+        
+        // Restore original values after a delay
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            rescuerLat = originalRescuerLat;
+            rescuerLong = originalRescuerLong;
+            seniorLat = originalSeniorLat;
+            seniorLong = originalSeniorLong;
+            Log.d(TAG, "🧪 Restored original coordinates");
+        }, 5000);
+    }
+    
+    
+    private void testUIUpdate() {
+        Log.d(TAG, "🧪 Testing UI update with sample data");
+        
+        runOnUiThread(() -> {
+            if (tvETA != null) {
+                tvETA.setText("TEST ETA");
+                Log.d(TAG, "✅ Test ETA text set");
+            } else {
+                Log.e(TAG, "❌ tvETA is null in test!");
+            }
+            
+            if (tvDistance != null) {
+                tvDistance.setText("TEST DIST");
+                Log.d(TAG, "✅ Test distance text set");
+            } else {
+                Log.e(TAG, "❌ tvDistance is null in test!");
+            }
+            
+            if (tvETAStatus != null) {
+                tvETAStatus.setText("Testing UI");
+                Log.d(TAG, "✅ Test status text set");
+            } else {
+                Log.e(TAG, "❌ tvETAStatus is null in test!");
+            }
+        });
+    }
+    
+    private void checkRescuerLocationInDatabase() {
+        if (rescuerId == null) {
+            Log.w(TAG, "❌ No rescuer ID available for database check");
+            return;
+        }
+        
+        Log.d(TAG, "🔍 Checking rescuer location in database for ID: " + rescuerId);
+        
+        db.collection("Sagip")
+                .document("users")
+                .collection("rescuer")
+                .document(rescuerId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        Log.d(TAG, "✅ Rescuer document exists in database");
+                        
+                        // Check currentLocation field
+                        com.google.firebase.firestore.GeoPoint currentLocation = documentSnapshot.getGeoPoint("currentLocation");
+                        if (currentLocation != null) {
+                            Log.d(TAG, "✅ currentLocation found: " + currentLocation.getLatitude() + ", " + currentLocation.getLongitude());
+                        } else {
+                            Log.w(TAG, "❌ currentLocation field not found");
+                        }
+                        
+                        // Check location field
+                        com.google.firebase.firestore.GeoPoint location = documentSnapshot.getGeoPoint("location");
+                        if (location != null) {
+                            Log.d(TAG, "✅ location field found: " + location.getLatitude() + ", " + location.getLongitude());
+                        } else {
+                            Log.w(TAG, "❌ location field not found");
+                        }
+                        
+                        // Check lastLocationUpdate
+                        Long lastUpdate = documentSnapshot.getLong("lastLocationUpdate");
+                        if (lastUpdate != null) {
+                            Log.d(TAG, "✅ lastLocationUpdate: " + new java.util.Date(lastUpdate));
+                        } else {
+                            Log.w(TAG, "❌ lastLocationUpdate not found");
+                        }
+                        
+                        // Show all fields for debugging
+                        Log.d(TAG, "📋 All document fields: " + documentSnapshot.getData());
+                        
+                    } else {
+                        Log.w(TAG, "❌ Rescuer document not found in database");
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Error checking rescuer location in database: " + e.getMessage());
+                });
+    }
+
+    private void setupUpdateRunnable() {
+        updateRunnable = new Runnable() {
+            @Override
+            public void run() {
+                // Update ETA every 30 seconds using database calculation
+                calculateETAFromDatabase();
+                updateHandler.postDelayed(this, 30000);
+            }
+        };
+        updateHandler.postDelayed(updateRunnable, 30000);
+    }
+
+    private void callRescuer() {
+        if (rescuerPhone != null && !rescuerPhone.equals("Not available")) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED) {
+                Intent callIntent = new Intent(Intent.ACTION_CALL);
+                callIntent.setData(Uri.parse("tel:" + rescuerPhone));
+                startActivity(callIntent);
+            } else {
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CALL_PHONE}, 1);
+            }
+        } else {
+            Toast.makeText(this, "Rescuer phone number not available", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+
+    private void showLoading(boolean show) {
+        loadingIndicator.setVisibility(show ? ProgressBar.VISIBLE : ProgressBar.GONE);
+    }
+
+    private void showError(String message) {
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+        Log.e(TAG, message);
+    }
+
+    private String getCurrentTime() {
+        return new java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+                .format(new java.util.Date());
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (updateHandler != null && updateRunnable != null) {
+            updateHandler.removeCallbacks(updateRunnable);
+        }
+        if (executorService != null) {
+            executorService.shutdown();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            if (requestCode == 1) {
+                callRescuer();
+            }
+        } else {
+            Toast.makeText(this, "Call permission denied", Toast.LENGTH_SHORT).show();
+        }
+    }
+    
+}

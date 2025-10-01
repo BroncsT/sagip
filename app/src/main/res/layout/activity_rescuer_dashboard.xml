@@ -151,20 +151,48 @@
 <!--            </LinearLayout>-->
 
 <!--             Google Maps Fragment -->
-            <androidx.cardview.widget.CardView
+
+            <!-- Route Control Panel -->
+            <LinearLayout
+                android:id="@+id/routeControlPanel"
                 android:layout_width="match_parent"
-                android:layout_height="300dp"
-                android:layout_marginBottom="20dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp">
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:background="@drawable/rounded_background"
+                android:padding="12dp"
+                android:layout_marginBottom="10dp"
+                android:visibility="gone">
 
-                <fragment
-                    android:id="@+id/mapFragment"
-                    android:name="com.google.android.gms.maps.SupportMapFragment"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent" />
+                <TextView
+                    android:id="@+id/routeInfoText"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="No active route"
+                    android:textColor="@color/dark_blue"
+                    android:textSize="14sp"
+                    android:gravity="center_vertical" />
 
-            </androidx.cardview.widget.CardView>
+                <Button
+                    android:id="@+id/btnClearRoute"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:text="Clear Route"
+                    android:textSize="12sp"
+                    android:textColor="@color/white"
+                    android:background="@drawable/button_background"
+                    android:paddingHorizontal="12dp"
+                    android:layout_marginStart="8dp" />
+
+            </LinearLayout>
+
+            <!-- Map Section -->
+            <fragment
+                android:id="@+id/rescuerMapContainer"
+                android:name="com.google.android.gms.maps.SupportMapFragment"
+                android:layout_width="match_parent"
+                android:layout_height="500dp"
+                android:layout_marginBottom="20dp" />
 
             <!-- Emergency Status Section -->
             <LinearLayout
@@ -204,47 +232,6 @@
             </LinearLayout>
 
             <!-- Quick Actions Section -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:background="@drawable/rounded_background"
-                android:padding="16dp"
-                android:layout_marginBottom="20dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/quick_actions"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/dark_blue"
-                    android:layout_marginBottom="16dp"/>
-
-                <Button
-                    android:id="@+id/navigateToHospitalButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="50dp"
-                    android:text="@string/navigate_to_nearest_hospital"
-                    android:textSize="16sp"
-                    android:textColor="@color/white"
-                    android:background="@drawable/hospital_button_background"
-                    android:layout_marginBottom="12dp"/>
-
-                <!-- Test Navigation Button -->
-                <Button
-                    android:id="@+id/testNavigationButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="50dp"
-                    android:text="🧪 Test Navigation to Christ in You Heale Parish"
-                    android:textSize="14sp"
-                    android:textColor="@color/white"
-                    android:background="@drawable/button_background"
-                    android:layout_marginBottom="12dp"/>
-
-                <!-- Additional quick action buttons can be added here -->
-
-            </LinearLayout>
 
             <!-- Instructions Section -->
             <LinearLayout

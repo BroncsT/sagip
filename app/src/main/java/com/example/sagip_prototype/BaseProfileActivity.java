@@ -1,6 +1,7 @@
 package com.example.sagip_prototype;
 
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.Menu;
@@ -10,14 +11,31 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 public abstract class BaseProfileActivity extends AppCompatActivity {
+    protected com.google.firebase.auth.FirebaseAuth mAuth;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        mAuth = com.google.firebase.auth.FirebaseAuth.getInstance();
         
         // Apply saved language preference
         String savedLanguage = LanguageSelectionActivity.getSavedLanguage(this);
         LanguageSelectionActivity.setAppLanguage(this, savedLanguage);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Auth guard: if logged out, redirect to login and clear back stack
+        if (mAuth != null && mAuth.getCurrentUser() == null) {
+            Intent intent = new Intent(this, MainActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+            finishAffinity();
+            return;
+        }
+        // Update UI language when returning
+        updateUILanguage();
     }
 
     @Override

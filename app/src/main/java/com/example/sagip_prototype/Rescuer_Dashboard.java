@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
@@ -22,6 +23,7 @@ import android.os.Looper;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -35,12 +37,25 @@ import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 
 import com.example.sagip_prototype.models.Hospital;
+import com.google.android.gms.maps.CameraUpdateFactory;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.Marker;
+import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
+import com.google.firebase.firestore.GeoPoint;
+import com.google.firebase.firestore.SetOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -55,7 +70,11 @@ import com.google.firebase.firestore.GeoPoint;
 import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -63,8 +82,14 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Queue;
 import java.util.LinkedList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-public class Rescuer_Dashboard extends AppCompatActivity {
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCallback {
 
     private static final String TAG = "RescuerDashboard";
     
@@ -123,6 +148,470 @@ public class Rescuer_Dashboard extends AppCompatActivity {
             }
         }
     }
+
+    @Override
+    public void onMapReady(@NonNull GoogleMap googleMap) {
+        rescuerMap = googleMap;
+        rescuerMap.getUiSettings().setZoomControlsEnabled(true);
+        rescuerMap.getUiSettings().setCompassEnabled(true);
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
+            try {
+                rescuerMap.setMyLocationEnabled(true);
+            } catch (SecurityException ignored) {}
+        }
+
+        // Center if we already have location
+        if (currentLat != 0.0 && currentLong != 0.0) {
+            LatLng here = new LatLng(currentLat, currentLong);
+            rescuerMap.moveCamera(CameraUpdateFactory.newLatLngZoom(here, 14f));
+        }
+
+        // Add marker click listener for route functionality
+        rescuerMap.setOnMarkerClickListener(marker -> {
+            // Check if it's a hospital marker (not current location)
+            if (!marker.getTitle().equals("You are here")) {
+                showRouteToHospital(marker);
+                return true; // Consume the event
+            }
+            return false; // Let default behavior handle other markers
+        });
+
+        // Load hospitals
+        loadAndRenderNearbyHospitals();
+    }
+
+    private void loadAndRenderNearbyHospitals() {
+        if (db == null || rescuerMap == null) return;
+
+        // Store current route points before clearing
+        List<LatLng> savedRoutePoints = currentRoutePoints;
+        
+        // Clear existing markers
+        rescuerMap.clear();
+        
+        // Redraw the route if it existed
+        if (savedRoutePoints != null && !savedRoutePoints.isEmpty()) {
+            redrawRoute(savedRoutePoints);
+        }
+
+        // Add current location marker
+        LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
+        final boolean[] hasAnyPoint = new boolean[]{false};
+        if (!(currentLat == 0.0 && currentLong == 0.0)) {
+            LatLng here = new LatLng(currentLat, currentLong);
+            rescuerMap.addMarker(new MarkerOptions()
+                    .position(here)
+                    .title("You are here")
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)));
+            boundsBuilder.include(here);
+            hasAnyPoint[0] = true;
+        }
+
+        // Query Firestore hospitals (all)
+        db.collection("Sagip")
+                .document("users")
+                .collection("hospital")
+                .get()
+                .addOnSuccessListener(query -> {
+                    boolean hasHospitals = false;
+                    int totalDocs = query.size();
+                    Log.d(TAG, "Hospitals query returned: " + totalDocs + " documents");
+                    final boolean[] infoWindowShown = new boolean[]{false};
+                    for (QueryDocumentSnapshot doc : query) {
+                        // Prefer explicit fields to avoid model mismatch
+                        com.google.firebase.firestore.GeoPoint geo = doc.getGeoPoint("currentLocation");
+                        if (geo == null) geo = doc.getGeoPoint("location");
+                        if (geo == null) geo = doc.getGeoPoint("hospitalLocation");
+                        String name = doc.getString("name");
+                        if (name == null) name = doc.getString("hospitalName");
+                        String address = doc.getString("address");
+
+                        if (geo != null) {
+                            LatLng pos = new LatLng(geo.getLatitude(), geo.getLongitude());
+                            com.google.android.gms.maps.model.Marker marker = rescuerMap.addMarker(new MarkerOptions()
+                                    .position(pos)
+                                    .title(name != null ? name : "Hospital")
+                                    .snippet(address != null ? address : "")
+                                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
+                            );
+                            if (!infoWindowShown[0] && marker != null) {
+                                marker.showInfoWindow();
+                                infoWindowShown[0] = true;
+                            }
+                            boundsBuilder.include(pos);
+                            hasHospitals = true;
+                            hasAnyPoint[0] = true;
+                        } else {
+                            Log.w(TAG, "Hospital doc missing location: " + doc.getId());
+                        }
+                    }
+                    if (hasAnyPoint[0]) {
+                        try {
+                            LatLngBounds bounds = boundsBuilder.build();
+                            rescuerMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 80));
+                        } catch (IllegalStateException ignored) {}
+                    }
+                    if (!hasHospitals) {
+                        Log.w(TAG, "No hospitals found to display on map");
+                        android.widget.Toast.makeText(this, "No hospitals found or missing locations", android.widget.Toast.LENGTH_LONG).show();
+                    }
+                })
+                .addOnFailureListener(e -> Log.e(TAG, "Failed to load hospitals", e));
+    }
+
+    private void showRouteToHospital(Marker hospitalMarker) {
+        if (currentLat == 0.0 || currentLong == 0.0) {
+            Toast.makeText(this, "Current location not available. Please wait for location update.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        LatLng hospitalLocation = hospitalMarker.getPosition();
+        LatLng currentLocation = new LatLng(currentLat, currentLong);
+        
+        // Clear existing route
+        if (currentRoute != null) {
+            currentRoute.remove();
+            currentRoute = null;
+        }
+
+        // Show route options dialog
+        showRouteOptionsDialog(hospitalMarker, hospitalLocation, currentLocation);
+    }
+
+    private void showRouteOptionsDialog(Marker hospitalMarker, LatLng hospitalLocation, LatLng currentLocation) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("🗺️ Route to " + hospitalMarker.getTitle());
+        builder.setMessage("Choose how you want to navigate to this hospital:");
+        
+        builder.setPositiveButton("🗺️ Show Route on Map", (dialog, which) -> {
+            // Get directions using Google Directions API
+            String directionsUrl = buildDirectionsUrl(currentLocation, hospitalLocation);
+            executeDirectionsRequest(directionsUrl);
+            Toast.makeText(this, "🗺️ Getting route to " + hospitalMarker.getTitle(), Toast.LENGTH_SHORT).show();
+        });
+        
+        builder.setNeutralButton("🚗 Open Google Maps", (dialog, which) -> {
+            openGoogleMapsNavigation(hospitalLocation, hospitalMarker.getTitle());
+        });
+        
+        builder.setNegativeButton("📍 Center on Hospital", (dialog, which) -> {
+            rescuerMap.animateCamera(CameraUpdateFactory.newLatLngZoom(hospitalLocation, 16f));
+            Toast.makeText(this, "📍 Centered on " + hospitalMarker.getTitle(), Toast.LENGTH_SHORT).show();
+        });
+        
+        // Add a fourth option for route info only
+        builder.setNeutralButton("ℹ️ Route Info Only", (dialog, which) -> {
+            getRouteInfoOnly(currentLocation, hospitalLocation, hospitalMarker.getTitle());
+        });
+        
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+
+    private void openGoogleMapsNavigation(LatLng destination, String hospitalName) {
+        try {
+            // Create Google Maps navigation intent
+            String navigationUri = String.format(Locale.getDefault(), "google.navigation:q=%f,%f&mode=d", 
+                destination.latitude, destination.longitude);
+            Intent navigationIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(navigationUri));
+            navigationIntent.setPackage("com.google.android.apps.maps");
+            
+            if (navigationIntent.resolveActivity(getPackageManager()) != null) {
+                startActivity(navigationIntent);
+                Toast.makeText(this, "🚗 Opening Google Maps navigation to " + hospitalName, Toast.LENGTH_LONG).show();
+            } else {
+                // Fallback to web-based Google Maps
+                String webMapsUri = String.format(Locale.getDefault(), "https://www.google.com/maps/dir/?api=1&destination=%f,%f&travelmode=driving", 
+                    destination.latitude, destination.longitude);
+                Intent webIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(webMapsUri));
+                startActivity(webIntent);
+                Toast.makeText(this, "🌐 Opening web-based navigation to " + hospitalName, Toast.LENGTH_LONG).show();
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error opening Google Maps navigation", e);
+            Toast.makeText(this, "Error opening navigation", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void getRouteInfoOnly(LatLng origin, LatLng destination, String hospitalName) {
+        String directionsUrl = buildDirectionsUrl(origin, destination);
+        executorService.execute(() -> {
+            try {
+                String jsonResponse = makeDirectionsRequest(directionsUrl);
+                if (jsonResponse != null) {
+                    runOnUiThread(() -> parseRouteInfoOnly(jsonResponse, hospitalName));
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error getting route info", e);
+                runOnUiThread(() -> Toast.makeText(this, "Error getting route information", Toast.LENGTH_SHORT).show());
+            }
+        });
+    }
+
+    private void parseRouteInfoOnly(String jsonResponse, String hospitalName) {
+        try {
+            JSONObject jsonObject = new JSONObject(jsonResponse);
+            JSONArray routes = jsonObject.getJSONArray("routes");
+            
+            if (routes.length() > 0) {
+                JSONObject route = routes.getJSONObject(0);
+                JSONArray legs = route.getJSONArray("legs");
+                if (legs.length() > 0) {
+                    JSONObject leg = legs.getJSONObject(0);
+                    JSONObject distance = leg.getJSONObject("distance");
+                    JSONObject duration = leg.getJSONObject("duration");
+                    
+                    String distanceText = distance.getString("text");
+                    String durationText = duration.getString("text");
+                    
+                    // Show detailed route information dialog
+                    showRouteInfoDialog(hospitalName, distanceText, durationText);
+                }
+            }
+            
+        } catch (JSONException e) {
+            Log.e(TAG, "Error parsing route info", e);
+            Toast.makeText(this, "Error parsing route information", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void showRouteInfoDialog(String hospitalName, String distance, String duration) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("📍 Route Information");
+        builder.setMessage("🏥 Hospital: " + hospitalName + "\n\n" +
+                          "📏 Distance: " + distance + "\n" +
+                          "⏱️ Estimated Time: " + duration + "\n\n" +
+                          "Would you like to show the route on the map?");
+        
+        builder.setPositiveButton("🗺️ Show Route", (dialog, which) -> {
+            // This will trigger the route display
+            // We need to store the hospital location for this
+            Toast.makeText(this, "🗺️ Route will be displayed on map", Toast.LENGTH_SHORT).show();
+        });
+        
+        builder.setNegativeButton("Close", (dialog, which) -> dialog.dismiss());
+        
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+
+    private String buildDirectionsUrl(LatLng origin, LatLng destination) {
+        String str_origin = "origin=" + origin.latitude + "," + origin.longitude;
+        String str_dest = "destination=" + destination.latitude + "," + destination.longitude;
+        String parameters = str_origin + "&" + str_dest + "&key=" + getString(R.string.google_maps_key);
+        String output = "json";
+        return "https://maps.googleapis.com/maps/api/directions/" + output + "?" + parameters;
+    }
+
+    private void executeDirectionsRequest(String directionsUrl) {
+        executorService.execute(() -> {
+            try {
+                String jsonResponse = makeDirectionsRequest(directionsUrl);
+                if (jsonResponse != null) {
+                    runOnUiThread(() -> parseDirectionsResponse(jsonResponse));
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error in executeDirectionsRequest", e);
+                runOnUiThread(() -> Toast.makeText(this, "Error getting route", Toast.LENGTH_SHORT).show());
+            }
+        });
+    }
+
+    private String makeDirectionsRequest(String directionsUrl) {
+        HttpURLConnection connection = null;
+        BufferedReader reader = null;
+        
+        try {
+            URL url = new URL(directionsUrl);
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(10000);
+            connection.setReadTimeout(10000);
+            
+            int responseCode = connection.getResponseCode();
+            
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+                
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
+                }
+                
+                return response.toString();
+            }
+            
+        } catch (IOException e) {
+            Log.e(TAG, "Error making directions request", e);
+        } finally {
+            if (reader != null) {
+                try {
+                    reader.close();
+                } catch (IOException e) {
+                    Log.e(TAG, "Error closing reader", e);
+                }
+            }
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+        return null;
+    }
+
+    private void parseDirectionsResponse(String jsonResponse) {
+        try {
+            JSONObject jsonObject = new JSONObject(jsonResponse);
+            JSONArray routes = jsonObject.getJSONArray("routes");
+            
+            if (routes.length() > 0) {
+                JSONObject route = routes.getJSONObject(0);
+                
+                // Get polyline points
+                JSONObject overviewPolyline = route.getJSONObject("overview_polyline");
+                String encodedPolyline = overviewPolyline.getString("points");
+                
+                // Decode and display the route
+                List<LatLng> routePoints = decodePolyline(encodedPolyline);
+                displayRoute(routePoints);
+                
+                // Get distance and duration for display
+                JSONArray legs = route.getJSONArray("legs");
+                if (legs.length() > 0) {
+                    JSONObject leg = legs.getJSONObject(0);
+                    JSONObject distance = leg.getJSONObject("distance");
+                    JSONObject duration = leg.getJSONObject("duration");
+                    
+                    String distanceText = distance.getString("text");
+                    String durationText = duration.getString("text");
+                    
+                    // Update route info text
+                    if (routeInfoText != null) {
+                        routeInfoText.setText("📍 " + distanceText + " • ⏱️ " + durationText);
+                    }
+                    
+                    Toast.makeText(this, "📍 Route: " + distanceText + " • ⏱️ " + durationText, Toast.LENGTH_LONG).show();
+                }
+            }
+            
+        } catch (JSONException e) {
+            Log.e(TAG, "Error parsing directions response", e);
+            Toast.makeText(this, "Error parsing route data", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private List<LatLng> decodePolyline(String encoded) {
+        List<LatLng> polyline = new ArrayList<>();
+        int index = 0, len = encoded.length();
+        int lat = 0, lng = 0;
+
+        while (index < len) {
+            int b, shift = 0, result = 0;
+            do {
+                b = encoded.charAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+            lat += dlat;
+
+            shift = 0;
+            result = 0;
+            do {
+                b = encoded.charAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+            lng += dlng;
+
+            LatLng position = new LatLng((lat / 1E5), (lng / 1E5));
+            polyline.add(position);
+        }
+
+        return polyline;
+    }
+
+    private void displayRoute(List<LatLng> routePoints) {
+        if (rescuerMap == null || routePoints == null || routePoints.isEmpty()) {
+            return;
+        }
+
+        // Store route points for persistence
+        currentRoutePoints = new ArrayList<>(routePoints);
+
+        // Clear existing route
+        if (currentRoute != null) {
+            currentRoute.remove();
+        }
+
+        // Add new route polyline
+        PolylineOptions polylineOptions = new PolylineOptions()
+                .addAll(routePoints)
+                .width(8)
+                .color(0xFF1976D2) // Blue color
+                .geodesic(true);
+
+        currentRoute = rescuerMap.addPolyline(polylineOptions);
+
+        // Show route control panel
+        if (routeControlPanel != null) {
+            routeControlPanel.setVisibility(View.VISIBLE);
+        }
+        if (routeInfoText != null) {
+            routeInfoText.setText("🗺️ Route active - " + routePoints.size() + " waypoints");
+        }
+
+        Log.d(TAG, "Route displayed with " + routePoints.size() + " points");
+    }
+
+    private void redrawRoute(List<LatLng> routePoints) {
+        if (rescuerMap == null || routePoints == null || routePoints.isEmpty()) {
+            return;
+        }
+
+        // Add route polyline
+        PolylineOptions polylineOptions = new PolylineOptions()
+                .addAll(routePoints)
+                .width(8)
+                .color(0xFF1976D2) // Blue color
+                .geodesic(true);
+
+        currentRoute = rescuerMap.addPolyline(polylineOptions);
+
+        // Show route control panel
+        if (routeControlPanel != null) {
+            routeControlPanel.setVisibility(View.VISIBLE);
+        }
+        if (routeInfoText != null) {
+            routeInfoText.setText("🗺️ Route active - " + routePoints.size() + " waypoints");
+        }
+
+        Log.d(TAG, "Route redrawn with " + routePoints.size() + " points");
+    }
+
+    private void clearRoute() {
+        if (currentRoute != null) {
+            currentRoute.remove();
+            currentRoute = null;
+        }
+
+        // Clear stored route points
+        currentRoutePoints = null;
+        
+        // Hide route control panel
+        if (routeControlPanel != null) {
+            routeControlPanel.setVisibility(View.GONE);
+        }
+        if (routeInfoText != null) {
+            routeInfoText.setText("No active route");
+        }
+        
+        Toast.makeText(this, "🗺️ Route cleared", Toast.LENGTH_SHORT).show();
+    }
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1001;
     private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 1002;
     private static final String PREF_NAME = "SagipAppPrefs";
@@ -136,8 +625,10 @@ public class Rescuer_Dashboard extends AppCompatActivity {
     private FirebaseFirestore db;
     private TextView brgyName;
     private TextView currentLocationText;
-    private Button navigateToHospitalButton;
-    private Button testNavigationButton;
+    private LinearLayout routeControlPanel;
+    private TextView routeInfoText;
+    private Button btnClearRoute;
+
     private long lastTapTime = 0;
     private String userType = "rescuer";
     private String userId;
@@ -148,6 +639,16 @@ public class Rescuer_Dashboard extends AppCompatActivity {
     private LocationRequest locationRequest;
     private double currentLat = 0.0;
     private double currentLong = 0.0;
+
+	// Map
+	private GoogleMap rescuerMap;
+	
+	// Route functionality
+	private Polyline currentRoute = null;
+	private List<LatLng> currentRoutePoints = null;
+	private ExecutorService executorService;
+	private static final String DIRECTIONS_API_URL = "https://maps.googleapis.com/maps/api/directions/json";
+
 
     // Emergency notification system variables
     private ListenerRegistration emergencyListener;
@@ -171,6 +672,38 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         
         setContentView(R.layout.activity_rescuer_dashboard);
 
+		// Initialize Google Map fragment inside the container
+		SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.rescuerMapContainer);
+		if (mapFragment == null) {
+			mapFragment = SupportMapFragment.newInstance();
+			getSupportFragmentManager()
+				.beginTransaction()
+				.replace(R.id.rescuerMapContainer, mapFragment)
+				.commit();
+		}
+		mapFragment.getMapAsync(this);
+
+		// Initialize location services
+
+		// Optionally preload last known location to center map faster
+		if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+				== PackageManager.PERMISSION_GRANTED) {
+			// Ensure fusedLocationClient is initialized before use
+			if (fusedLocationClient == null) {
+				fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+			}
+			fusedLocationClient.getLastLocation().addOnSuccessListener(location -> {
+				if (location != null) {
+					currentLat = location.getLatitude();
+					currentLong = location.getLongitude();
+					if (rescuerMap != null) {
+						rescuerMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(currentLat, currentLong), 14f));
+					}
+					// Save initial location to Firestore
+				}
+			});
+		}
+
         // Initialize SharedPreferences
         sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
 
@@ -182,6 +715,17 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         brgyName = findViewById(R.id.barangayStaffName);
         currentLocationText = findViewById(R.id.currentLocationValue);
         
+        // Initialize route control panel
+        routeControlPanel = findViewById(R.id.routeControlPanel);
+        routeInfoText = findViewById(R.id.routeInfoText);
+        btnClearRoute = findViewById(R.id.btnClearRoute);
+        
+        // Set up clear route button
+        btnClearRoute.setOnClickListener(v -> clearRoute());
+        
+        // Initialize executor service for route requests
+        executorService = Executors.newSingleThreadExecutor();
+        
         // Initialize emergency queue manager
         EmergencyQueueManager.getInstance(this).loadActiveEmergenciesFromDatabase();
         
@@ -191,42 +735,8 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         // Test custom alarm sound removed as requested
 
         // Initialize navigate to hospital button
-        navigateToHospitalButton = findViewById(R.id.navigateToHospitalButton);
-        navigateToHospitalButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                navigateToNearestHospital();
-            }
-        });
 
         // Initialize test navigation button
-        testNavigationButton = findViewById(R.id.testNavigationButton);
-        testNavigationButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                testNavigationToChristInYouHealeParish();
-            }
-        });
-        
-        // Test Navigation to Christ in You Heale Parish (long press on hospital button)
-        navigateToHospitalButton.setOnLongClickListener(new View.OnLongClickListener() {
-            @Override
-            public boolean onLongClick(View v) {
-                // Test SOS Navigation
-                Log.d("Rescuer_Dashboard", "Testing SOS Navigation");
-                
-                if (currentLat != 0.0 && currentLong != 0.0) {
-                    // Use RescuerNavigationActivity to navigate to SOS location
-                    openSOSNavigation();
-                    Toast.makeText(Rescuer_Dashboard.this, getString(R.string.toast_opening_sos_navigation), Toast.LENGTH_LONG).show();
-                } else {
-                    Toast.makeText(Rescuer_Dashboard.this, getString(R.string.toast_getting_location), Toast.LENGTH_SHORT).show();
-                    // Request location update and then start navigation
-                    requestLocationAndStartSOSNavigation();
-                }
-                return true;
-            }
-        });
 
         // Initialize location services
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
@@ -291,6 +801,11 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
             startLocationUpdates();
+            
+            // Save initial location if available
+            if (currentLat != 0 && currentLong != 0) {
+                saveLocationToFirestore(currentLat, currentLong);
+            }
         }
 
         // Start emergency listener when activity resumes (only if not already started)
@@ -391,11 +906,17 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         
         // Clear tracking status when app is paused (optional - you might want to keep tracking active)
         // clearTrackingStatus();
+        
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
+
+        // Shutdown executor service
+        if (executorService != null) {
+            executorService.shutdown();
+        }
 
         // Remove emergency listener
         if (emergencyListener != null) {
@@ -411,7 +932,6 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         // started in MainActivity will continue running to handle notifications when app is closed
         
         // Clear tracking status when app is destroyed
-        clearTrackingStatus();
     }
 
     private void clearPendingEmergencyAlerts() {
@@ -1310,7 +1830,6 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                     showAssignmentPopupForOldSystem(helpRequestId);
 
                     // Also update the rescuer's own document with current location for tracking
-                    updateRescuerLocationForTracking();
 
                     // Send notification to senior about rescuer response
                     sendRescuerResponseNotificationToSenior(helpRequestId);
@@ -1960,26 +2479,6 @@ public class Rescuer_Dashboard extends AppCompatActivity {
 
     // =============== HOSPITAL NAVIGATION ===============
 
-    private void testNavigationToChristInYouHealeParish() {
-        Log.d("Rescuer_Dashboard", "Testing Navigation to Christ in You Heale Parish");
-        
-        // Show confirmation dialog
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle(getString(R.string.text_test_navigation));
-        builder.setMessage(getString(R.string.text_test_navigation_message));
-        builder.setIcon(android.R.drawable.ic_dialog_map);
-        
-        builder.setPositiveButton("🗺️ Start Test", (dialog, which) -> {
-            // Get current location and start navigation
-            requestLocationAndStartTestNavigation();
-            dialog.dismiss();
-        });
-        
-        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
-        
-        AlertDialog dialog = builder.create();
-        dialog.show();
-    }
 
     private void requestLocationAndStartTestNavigation() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
@@ -2403,9 +2902,7 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         }
         
         // Add a test button to manually check notifications (for debugging)
-        addTestNotificationButton();
     }
-
     /**
      * Starts the background notification service for rescuers
      */
@@ -2562,38 +3059,6 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                 });
     }
 
-    /**
-     * Adds a test button to manually check for notifications (for debugging)
-     */
-    private void addTestNotificationButton() {
-        // Find the test navigation button and add a long press listener for notification testing
-        if (testNavigationButton != null) {
-            testNavigationButton.setOnLongClickListener(v -> {
-                Log.d(TAG, "=== MANUAL NOTIFICATION CHECK TRIGGERED ===");
-                if (userType != null && userType.equals("rescuer") && userId != null) {
-                    Log.d(TAG, "Manually checking notifications for rescuer: " + userId);
-                    
-                    // Check notifications locally
-                    HospitalStatusUpdateNotificationService.checkAndDisplayNotificationsForRescuer(this, userId);
-                    Toast.makeText(this, "🔔 Checking for notifications...", Toast.LENGTH_SHORT).show();
-                } else {
-                    Log.d(TAG, "Cannot check notifications - User Type: " + userType + ", User ID: " + userId);
-                    Toast.makeText(this, "❌ Cannot check notifications - not a rescuer user", Toast.LENGTH_SHORT).show();
-                }
-                return true;
-            });
-            
-            // Add single-click test functionality
-            testNavigationButton.setOnClickListener(v -> {
-                long currentTime = System.currentTimeMillis();
-                if (lastTapTime != 0 && (currentTime - lastTapTime) < 500) {
-                    // Double tap - create test notification
-                    createTestHospitalStatusNotification();
-                }
-                lastTapTime = currentTime;
-            });
-        }
-    }
 
     /**
      * Creates a test hospital status notification in Firestore
@@ -2689,6 +3154,12 @@ public class Rescuer_Dashboard extends AppCompatActivity {
             
             // Also check notification permissions since location is already granted
             checkNotificationPermissions();
+
+            if (rescuerMap != null) {
+                try {
+                    rescuerMap.setMyLocationEnabled(true);
+                } catch (SecurityException ignored) {}
+            }
         }
     }
 
@@ -2740,6 +3211,9 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                     // Update UI and save to Firebase
                     updateLocationDisplay(currentLat, currentLong);
                     saveLocationToFirestore(currentLat, currentLong);
+
+                    // Refresh hospitals on map when location updates
+                    loadAndRenderNearbyHospitals();
                 }
             }
         };
@@ -2832,104 +3306,7 @@ public class Rescuer_Dashboard extends AppCompatActivity {
         return null;
     }
 
-    private void saveLocationToFirestore(double latitude, double longitude) {
-        // Make sure we have a valid user ID
-        if (userId == null || userId.isEmpty()) {
-            FirebaseUser currentUser = mAuth.getCurrentUser();
-            if (currentUser != null) {
-                userId = currentUser.getUid();
-            } else {
-                // No user is signed in, can't save data
-                return;
-            }
-        }
 
-        // Create data object with location - use both formats for compatibility
-        Map<String, Object> locationData = new HashMap<>();
-        locationData.put("currentLocation", new GeoPoint(latitude, longitude));
-        locationData.put("latitude", latitude);
-        locationData.put("longitude", longitude);
-        locationData.put("lastUpdated", com.google.firebase.Timestamp.now());
-
-        // Save to Firestore
-        db.collection("Sagip")
-                .document("users")
-                .collection(userType)
-                .document(userId)
-                .update(locationData)
-                .addOnSuccessListener(aVoid -> {
-                    // Location saved successfully
-                    Log.d(TAG, "Location updated successfully - lat: " + latitude + ", lng: " + longitude);
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Failed to update location: " + e.getMessage());
-                });
-    }
-
-    // Method to update rescuer location specifically for tracking purposes
-    private void updateRescuerLocationForTracking() {
-        if (userId == null || userId.isEmpty()) {
-            FirebaseUser currentUser = mAuth.getCurrentUser();
-            if (currentUser != null) {
-                userId = currentUser.getUid();
-            } else {
-                Log.e(TAG, "No user ID available for location tracking update");
-                return;
-            }
-        }
-
-        // Create tracking-specific location data
-        Map<String, Object> trackingData = new HashMap<>();
-        trackingData.put("latitude", currentLat);
-        trackingData.put("longitude", currentLong);
-        trackingData.put("currentLocation", new GeoPoint(currentLat, currentLong));
-        trackingData.put("isResponding", true);
-        trackingData.put("lastLocationUpdate", com.google.firebase.Timestamp.now());
-
-        // Update the rescuer's document for tracking
-        db.collection("Sagip")
-                .document("users")
-                .collection(userType)
-                .document(userId)
-                .update(trackingData)
-                .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "Rescuer location updated for tracking - lat: " + currentLat + ", lng: " + currentLong);
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Failed to update rescuer location for tracking: " + e.getMessage());
-                });
-    }
-
-    // Method to clear tracking status when rescuer finishes responding
-    private void clearTrackingStatus() {
-        if (userId == null || userId.isEmpty()) {
-            FirebaseUser currentUser = mAuth.getCurrentUser();
-            if (currentUser != null) {
-                userId = currentUser.getUid();
-            } else {
-                Log.e(TAG, "No user ID available for clearing tracking status");
-                return;
-            }
-        }
-
-        // Clear tracking-specific data
-        Map<String, Object> trackingData = new HashMap<>();
-        trackingData.put("isResponding", false);
-        trackingData.put("lastLocationUpdate", com.google.firebase.Timestamp.now());
-
-        // Update the rescuer's document
-        db.collection("Sagip")
-                .document("users")
-                .collection(userType)
-                .document(userId)
-                .update(trackingData)
-                .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "Rescuer tracking status cleared");
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Failed to clear tracking status: " + e.getMessage());
-                });
-    }
 
     // =============== NAVIGATION SETUP ===============
 
@@ -3425,6 +3802,32 @@ public class Rescuer_Dashboard extends AppCompatActivity {
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "❌ Error getting help request details: " + e.getMessage());
                 });
+    }
+
+    private void saveLocationToFirestore(double latitude, double longitude) {
+        if (mAuth.getCurrentUser() != null) {
+            String userId = mAuth.getCurrentUser().getUid();
+            
+            // Create GeoPoint for Firestore
+            com.google.firebase.firestore.GeoPoint geoPoint = new com.google.firebase.firestore.GeoPoint(latitude, longitude);
+            
+            // Save to rescuer's document
+            Map<String, Object> locationData = new HashMap<>();
+            locationData.put("currentLocation", geoPoint);
+            locationData.put("lastLocationUpdate", System.currentTimeMillis());
+            
+            db.collection("Sagip")
+                    .document("users")
+                    .collection("rescuer")
+                    .document(userId)
+                    .update(locationData)
+                    .addOnSuccessListener(aVoid -> {
+                        Log.d(TAG, "✅ Rescuer location saved to Firestore: " + latitude + ", " + longitude);
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "❌ Error saving rescuer location to Firestore: " + e.getMessage());
+                    });
+        }
     }
     
 }

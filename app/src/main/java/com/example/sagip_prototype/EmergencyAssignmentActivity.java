@@ -32,6 +32,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.GeoPoint;
 
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -652,6 +653,9 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         if (mMap != null && hospitalLat != 0.0 && hospitalLng != 0.0) {
             addHospitalMarker();
         }
+        
+        // Send hospital details notification to senior
+        sendHospitalDetailsNotificationToSenior(hospitalDoc, distance);
     }
     
     private String getERStatusDisplay(String erStatus) {
@@ -1057,5 +1061,124 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         super.onDestroy();
         // Update status to in-progress when leaving
         updateEmergencyStatus("in_progress");
+    }
+    
+    private void sendHospitalDetailsNotificationToSenior(DocumentSnapshot hospitalDoc, double distance) {
+        if (emergencyId == null || emergencyId.isEmpty()) {
+            Log.w(TAG, "⚠️ Cannot send hospital notification - no emergency ID");
+            return;
+        }
+        
+        Log.d(TAG, "📤 Sending hospital details notification to senior for emergency: " + emergencyId);
+        
+        // Get hospital details from the document
+        String hospitalId = hospitalDoc.getId();
+        String hospitalName = hospitalDoc.getString("hospitalName");
+        String hospitalAddress = hospitalDoc.getString("hospitalAddress");
+        String hospitalPhone = hospitalDoc.getString("hospitalPhone");
+        String erStatus = hospitalDoc.getString("erStatus");
+        
+        // Get rescuer details
+        final String[] rescuerName = {"Rescuer"}; // Default fallback
+        final String[] rescuerPhone = {"Not available"};
+        final String[] rescuerTeam = {"Emergency Response Team"};
+        
+        // Try to get rescuer details from database
+        if (rescuerId != null) {
+            db.collection("Sagip")
+                    .document("users")
+                    .collection("rescuer")
+                    .document(rescuerId)
+                    .get()
+                    .addOnSuccessListener(rescuerDoc -> {
+                        if (rescuerDoc.exists()) {
+                            rescuerName[0] = rescuerDoc.getString("rescuegroup");
+                            rescuerPhone[0] = rescuerDoc.getString("mobileNumber");
+                            rescuerTeam[0] = rescuerDoc.getString("rescuegroup");
+                            
+                            if (rescuerName[0] == null || rescuerName[0].isEmpty()) {
+                                rescuerName[0] = "Rescuer " + rescuerId.substring(0, Math.min(8, rescuerId.length()));
+                            }
+                            if (rescuerPhone[0] == null || rescuerPhone[0].isEmpty()) {
+                                rescuerPhone[0] = "Not available";
+                            }
+                            if (rescuerTeam[0] == null || rescuerTeam[0].isEmpty()) {
+                                rescuerTeam[0] = "Emergency Response Team";
+                            }
+                        }
+                        
+                        // Create notification with complete details
+                        createHospitalDetailsNotification(hospitalId, hospitalName, hospitalAddress, hospitalPhone, erStatus, distance, rescuerName[0], rescuerPhone[0], rescuerTeam[0]);
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "❌ Error loading rescuer details for notification: " + e.getMessage());
+                        // Create notification with default rescuer details
+                        createHospitalDetailsNotification(hospitalId, hospitalName, hospitalAddress, hospitalPhone, erStatus, distance, rescuerName[0], rescuerPhone[0], rescuerTeam[0]);
+                    });
+        } else {
+            // Create notification with default rescuer details
+            createHospitalDetailsNotification(hospitalId, hospitalName, hospitalAddress, hospitalPhone, erStatus, distance, rescuerName[0], rescuerPhone[0], rescuerTeam[0]);
+        }
+    }
+    
+    private void createHospitalDetailsNotification(String hospitalId, String hospitalName, String hospitalAddress, 
+                                                 String hospitalPhone, String erStatus, double distance,
+                                                 String rescuerName, String rescuerPhone, String rescuerTeam) {
+        
+        // Get senior UID from emergency document
+        db.collection("Sagip")
+                .document("emergencyRequests")
+                .collection("activeRequests")
+                .document(emergencyId)
+                .get()
+                .addOnSuccessListener(emergencyDoc -> {
+                    if (!emergencyDoc.exists()) {
+                        Log.w(TAG, "⚠️ Emergency document not found for notification: " + emergencyId);
+                        return;
+                    }
+                    
+                    String seniorUid = emergencyDoc.getString("seniorUid");
+                    if (seniorUid == null || seniorUid.isEmpty()) {
+                        Log.w(TAG, "⚠️ Senior UID not found in emergency document");
+                        return;
+                    }
+                    
+                    // Create notification data
+                    Map<String, Object> notification = new HashMap<>();
+                    notification.put("type", "HOSPITAL_DETAILS_UPDATE");
+                    notification.put("title", "🏥 Hospital Details Confirmed");
+                    notification.put("message", "Hospital " + hospitalName + " has been selected for your emergency. Distance: " + String.format("%.2f km", distance));
+                    notification.put("emergencyId", emergencyId);
+                    notification.put("hospitalId", hospitalId);
+                    notification.put("hospitalName", hospitalName != null ? hospitalName : "Hospital");
+                    notification.put("hospitalAddress", hospitalAddress != null ? hospitalAddress : "Address not available");
+                    notification.put("hospitalPhone", hospitalPhone != null ? hospitalPhone : "Contact hospital directly");
+                    notification.put("erStatus", erStatus != null ? erStatus : "Unknown");
+                    notification.put("distance", distance);
+                    notification.put("rescuerName", rescuerName);
+                    notification.put("rescuerPhone", rescuerPhone);
+                    notification.put("rescuerTeam", rescuerTeam);
+                    notification.put("timestamp", System.currentTimeMillis());
+                    notification.put("isRead", false);
+                    notification.put("isActive", true);
+                    
+                    // Send notification to senior
+                    String notificationPath = "Sagip/users/seniors/" + seniorUid + "/notifications";
+                    Log.d(TAG, "📤 Sending hospital details notification to: " + notificationPath);
+                    
+                    db.collection(notificationPath)
+                            .add(notification)
+                            .addOnSuccessListener(documentReference -> {
+                                Log.d(TAG, "✅ Hospital details notification sent to senior: " + seniorUid);
+                                Log.d(TAG, "🏥 Hospital: " + hospitalName + " at " + hospitalAddress);
+                                Log.d(TAG, "📱 Notification ID: " + documentReference.getId());
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "❌ Failed to send hospital details notification: " + e.getMessage());
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Error loading emergency for notification: " + e.getMessage());
+                });
     }
 }

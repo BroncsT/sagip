@@ -109,7 +109,7 @@ public class SeniorNotificationService {
                 
                 if ("RESCUER_RESPONSE".equals(type)) {
                     Log.d(TAG, "📱 Showing rescuer response notification for: " + rescuerName);
-                    showRescuerResponseNotification(title, message, rescuerName, rescuerPhone, requestId, timestamp);
+                    showRescuerResponseNotificationWithDocument(title, message, rescuerName, rescuerPhone, requestId, document);
                 } else {
                     Log.d(TAG, "📱 Unknown notification type: " + type);
                 }
@@ -136,12 +136,97 @@ public class SeniorNotificationService {
         
         if (emergency != null) {
             // Emergency found in local queue, show notification with full data
-            showRescuerResponseNotificationWithData(title, message, rescuerName, rescuerPhone, requestId, emergency);
+            // Note: We need the document for hospital info, but we don't have it here
+            // For now, we'll use the basic notification without hospital info
+            showBasicRescuerResponseNotification(title, message, rescuerName, rescuerPhone, requestId);
         } else {
             // Emergency not found in local queue, load from database
             Log.d(TAG, "⚠️ Emergency not found in local queue, loading from database...");
             loadEmergencyAndShowNotification(title, message, rescuerName, rescuerPhone, requestId);
         }
+    }
+    
+    private void showRescuerResponseNotificationWithDocument(String title, String message, String rescuerName, 
+                                                           String rescuerPhone, String requestId, 
+                                                           QueryDocumentSnapshot document) {
+        Log.d(TAG, "📱 Showing rescuer response notification with document data");
+        Log.d(TAG, "📱 Rescuer: " + rescuerName + ", Phone: " + rescuerPhone + ", Request ID: " + requestId);
+        
+        NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        
+        // Create intent to open senior dashboard
+        Intent intent = new Intent(context, Senior_Dashboard.class);
+        intent.putExtra("notification_type", "rescuer_response");
+        intent.putExtra("rescuer_name", rescuerName);
+        intent.putExtra("rescuer_phone", rescuerPhone);
+        intent.putExtra("request_id", requestId);
+        
+        // Get emergency status and assigned rescuer ID from document
+        String emergencyStatus = document.getString("emergency_status");
+        String assignedRescuerId = document.getString("assigned_rescuer_id");
+        intent.putExtra("emergency_status", emergencyStatus);
+        intent.putExtra("assigned_rescuer_id", assignedRescuerId);
+        
+        // Extract rescue group from message
+        String rescueGroup = extractRescueGroupFromMessage(message, rescuerName);
+        intent.putExtra("rescuer_team", rescueGroup);
+        
+        // Add hospital information from notification document
+        String hospitalId = document.getString("hospitalId");
+        String hospitalName = document.getString("hospitalName");
+        String hospitalAddress = document.getString("hospitalAddress");
+        String hospitalPhone = document.getString("hospitalPhone");
+        
+        if (hospitalId != null) {
+            intent.putExtra("hospital_id", hospitalId);
+        }
+        if (hospitalName != null) {
+            intent.putExtra("hospital_name", hospitalName);
+        }
+        if (hospitalAddress != null) {
+            intent.putExtra("hospital_address", hospitalAddress);
+        }
+        if (hospitalPhone != null) {
+            intent.putExtra("hospital_phone", hospitalPhone);
+        }
+        
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                context, 
+                (requestId != null) ? requestId.hashCode() : (int) System.currentTimeMillis(), 
+                intent, 
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        
+        // Create call intent
+        Intent callIntent = new Intent(Intent.ACTION_DIAL);
+        callIntent.setData(android.net.Uri.parse("tel:" + rescuerPhone));
+        PendingIntent callPendingIntent = PendingIntent.getActivity(
+                context,
+                (requestId != null) ? (requestId + "_call").hashCode() : (int) (System.currentTimeMillis() + 1),
+                callIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        
+        // Create notification
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, "emergency_channel")
+                .setSmallIcon(R.drawable.ic_emergency)
+                .setContentTitle(title)
+                .setContentText(message)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+                .setSound(getCustomAlarmSound())
+                .setVibrate(new long[]{0, 1000, 500, 1000})
+                .setLights(0xFF00FF00, 1000, 1000) // Green light
+                .addAction(android.R.drawable.ic_menu_call, "📞 CALL RESCUER", callPendingIntent)
+                .setOngoing(false);
+        
+        notificationManager.notify((requestId != null) ? requestId.hashCode() : (int) System.currentTimeMillis(), builder.build());
+        Log.d(TAG, "📤 Rescuer response notification with hospital info sent to senior");
     }
     
     private void loadEmergencyAndShowNotification(String title, String message, String rescuerName, 
@@ -151,8 +236,9 @@ public class SeniorNotificationService {
                 @Override
                 public void onEmergencyLoaded(EmergencyQueueManager.EmergencyRequest emergency) {
                     if (emergency != null) {
-                        // Emergency loaded from database, show notification with full data
-                        showRescuerResponseNotificationWithData(title, message, rescuerName, rescuerPhone, requestId, emergency);
+                        // Emergency loaded from database, show basic notification (no hospital info available)
+                        Log.d(TAG, "📱 Emergency loaded from database, showing basic notification");
+                        showBasicRescuerResponseNotification(title, message, rescuerName, rescuerPhone, requestId);
                     } else {
                         // Emergency not found in database, show basic notification
                         Log.w(TAG, "⚠️ Emergency not found in database, showing basic notification");
@@ -164,7 +250,8 @@ public class SeniorNotificationService {
     
     private void showRescuerResponseNotificationWithData(String title, String message, String rescuerName, 
                                                        String rescuerPhone, String requestId, 
-                                                       EmergencyQueueManager.EmergencyRequest emergency) {
+                                                       EmergencyQueueManager.EmergencyRequest emergency, 
+                                                       QueryDocumentSnapshot document) {
         Log.d(TAG, "📱 Showing rescuer response notification with emergency data");
         Log.d(TAG, "📱 Rescuer: " + rescuerName + ", Phone: " + rescuerPhone + ", Request ID: " + requestId);
         
@@ -178,11 +265,34 @@ public class SeniorNotificationService {
         intent.putExtra("request_id", requestId);
         intent.putExtra("emergency_status", emergency.status);
         intent.putExtra("assigned_rescuer_id", emergency.assignedRescuerId);
+        
+        // Extract rescue group from message
+        String rescueGroup = extractRescueGroupFromMessage(message, rescuerName);
+        intent.putExtra("rescuer_team", rescueGroup);
+        
+        // Add hospital information from notification document
+        String hospitalId = document.getString("hospitalId");
+        String hospitalName = document.getString("hospitalName");
+        String hospitalAddress = document.getString("hospitalAddress");
+        String hospitalPhone = document.getString("hospitalPhone");
+        
+        if (hospitalId != null) {
+            intent.putExtra("hospital_id", hospitalId);
+        }
+        if (hospitalName != null) {
+            intent.putExtra("hospital_name", hospitalName);
+        }
+        if (hospitalAddress != null) {
+            intent.putExtra("hospital_address", hospitalAddress);
+        }
+        if (hospitalPhone != null) {
+            intent.putExtra("hospital_phone", hospitalPhone);
+        }
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 context, 
-                requestId.hashCode(), 
+                (requestId != null) ? requestId.hashCode() : (int) System.currentTimeMillis(), 
                 intent, 
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
@@ -192,7 +302,7 @@ public class SeniorNotificationService {
         callIntent.setData(android.net.Uri.parse("tel:" + rescuerPhone));
         PendingIntent callPendingIntent = PendingIntent.getActivity(
                 context,
-                (requestId + "_call").hashCode(),
+                (requestId != null) ? (requestId + "_call").hashCode() : (int) (System.currentTimeMillis() + 1),
                 callIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
@@ -225,7 +335,7 @@ public class SeniorNotificationService {
                 .addAction(android.R.drawable.ic_menu_call, "📞 CALL RESCUER", callPendingIntent)
                 .setOngoing(false);
         
-        notificationManager.notify(requestId.hashCode(), builder.build());
+        notificationManager.notify((requestId != null) ? requestId.hashCode() : (int) System.currentTimeMillis(), builder.build());
         Log.d(TAG, "📤 Enhanced rescuer response notification sent to senior");
     }
     
@@ -245,7 +355,7 @@ public class SeniorNotificationService {
         
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 context, 
-                requestId.hashCode(), 
+                (requestId != null) ? requestId.hashCode() : (int) System.currentTimeMillis(), 
                 intent, 
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
@@ -255,7 +365,7 @@ public class SeniorNotificationService {
         callIntent.setData(android.net.Uri.parse("tel:" + rescuerPhone));
         PendingIntent callPendingIntent = PendingIntent.getActivity(
                 context,
-                (requestId + "_call").hashCode(),
+                (requestId != null) ? (requestId + "_call").hashCode() : (int) (System.currentTimeMillis() + 1),
                 callIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
@@ -282,7 +392,7 @@ public class SeniorNotificationService {
                 .addAction(android.R.drawable.ic_menu_call, "📞 CALL RESCUER", callPendingIntent)
                 .setOngoing(false);
         
-        notificationManager.notify(requestId.hashCode(), builder.build());
+        notificationManager.notify((requestId != null) ? requestId.hashCode() : (int) System.currentTimeMillis(), builder.build());
         Log.d(TAG, "📤 Basic rescuer response notification sent to senior");
     }
     
@@ -337,5 +447,30 @@ public class SeniorNotificationService {
             Log.w(TAG, "Custom alarm sound not found, using system sound. Error: " + e.getMessage());
             return RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
         }
+    }
+    
+    private String extractRescueGroupFromMessage(String message, String rescuerName) {
+        if (message == null || rescuerName == null) {
+            return "Emergency Response Team";
+        }
+        
+        // Message format: "rescuerName from rescueGroup is responding to your emergency"
+        // Look for pattern: "rescuerName from " followed by text until " is responding"
+        String pattern = rescuerName + " from ";
+        int startIndex = message.indexOf(pattern);
+        
+        if (startIndex != -1) {
+            startIndex += pattern.length();
+            int endIndex = message.indexOf(" is responding", startIndex);
+            
+            if (endIndex != -1) {
+                String rescueGroup = message.substring(startIndex, endIndex).trim();
+                Log.d(TAG, "🏢 Extracted rescue group from message: " + rescueGroup);
+                return rescueGroup;
+            }
+        }
+        
+        Log.d(TAG, "🏢 Could not extract rescue group from message: " + message);
+        return "Emergency Response Team";
     }
 }

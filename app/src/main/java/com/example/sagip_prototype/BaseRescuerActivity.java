@@ -4,6 +4,7 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.content.res.Configuration;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -34,6 +35,16 @@ public abstract class BaseRescuerActivity extends AppCompatActivity {
         super.onResume();
         // Handle notifications when activity resumes
         handleNotificationClick();
+        // Ensure UI strings reflect current language when returning to screen
+        updateUILanguage();
+        // Auth guard: if logged out, redirect to login and clear back stack
+        if (mAuth != null && mAuth.getCurrentUser() == null) {
+            Intent intent = new Intent(this, MainActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+            finishAffinity();
+            return;
+        }
     }
     
     @Override
@@ -42,6 +53,13 @@ public abstract class BaseRescuerActivity extends AppCompatActivity {
         setIntent(intent);
         // Handle notifications when activity receives new intent
         handleNotificationClick();
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        // Re-apply strings when language changes without recreating activity
+        updateUILanguage();
     }
     
     /**

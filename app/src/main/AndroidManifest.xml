@@ -173,6 +173,12 @@
             android:configChanges="locale|orientation|screenSize|keyboardHidden"
             android:exported="false" />
         <activity
+            android:name=".RescuerDetailsActivity"
+            android:configChanges="locale|orientation|screenSize|keyboardHidden"
+            android:exported="false"
+            android:label="Rescuer Details"
+            android:screenOrientation="portrait" />
+        <activity
             android:name=".Selfie_verification"
             android:exported="false" />
         <activity

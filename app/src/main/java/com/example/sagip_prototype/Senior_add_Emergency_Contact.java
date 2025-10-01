@@ -10,6 +10,7 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.Spinner;
 import android.widget.Toast;
 
@@ -42,9 +43,13 @@ public class Senior_add_Emergency_Contact extends AppCompatActivity {
         EditText emerAddress = findViewById(R.id.emerContact_add);
         relationshipSpinner = findViewById(R.id.emerContact_relationship);
         Button addEmergencyContact = findViewById(R.id.addEmerContact);
+        ImageView backArrow = findViewById(R.id.backArrow);
 
         // Setup relationship spinner
         setupRelationshipSpinner();
+
+        // Setup back arrow click listener
+        backArrow.setOnClickListener(v -> finish());
 
         // Add input filter to restrict phone number input to digits only
         emerNumber.setFilters(new InputFilter[]{new InputFilter() {

@@ -44,6 +44,7 @@ import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.messaging.FirebaseMessaging;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -74,6 +75,7 @@ public class Senior_Dashboard extends AppCompatActivity {
     private double currentLong = 0.0;
     private String currentLocationAddress = "";
     private String currentBarangay = "";
+
 
     private ActivityResultLauncher<String[]> locationPermissionRequest;
 
@@ -106,6 +108,9 @@ public class Senior_Dashboard extends AppCompatActivity {
         setupBottomNavigation();
         requestLocationPermissions();
         
+        // Test location immediately
+        testCurrentLocation();
+        
         // Start listening for rescuer response notifications immediately
         SeniorNotificationService.getInstance(this).startListening();
         
@@ -114,6 +119,7 @@ public class Senior_Dashboard extends AppCompatActivity {
         
         // Register for FCM notifications
         registerForFCMNotifications();
+        
         
         
         // Handle rescuer response notification if app was opened from notification
@@ -127,6 +133,7 @@ public class Senior_Dashboard extends AppCompatActivity {
         tvFullName = findViewById(R.id.seniorName);
         tvCurrentLocation = findViewById(R.id.tvCurrentLocation);
         btnSOS = findViewById(R.id.sosButton);
+        
         btnSOS.setOnClickListener(v -> showSOSConfirmationDialog());
     }
 
@@ -245,24 +252,141 @@ public class Senior_Dashboard extends AppCompatActivity {
     private void sendSOSRequest(String seniorName, String phoneNumber) {
         Log.d(TAG, "SOS request sent for: " + seniorName);
         
+        // Get current location before creating emergency
+        getCurrentLocationAndSendSOS(seniorName, phoneNumber);
+    }
+    
+    private void getCurrentLocationAndSendSOS(String seniorName, String phoneNumber) {
+        Log.d(TAG, "🔍 Getting current location for SOS - current values: " + currentLat + ", " + currentLong);
+        
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "⚠️ No location permission, using last known location");
+            createEmergencyWithLocation(seniorName, phoneNumber, currentLat, currentLong);
+            return;
+        }
+        
+        // If we already have a valid location, use it
+        if (currentLat != 0.0 && currentLong != 0.0) {
+            Log.d(TAG, "📍 Using current location values: " + currentLat + ", " + currentLong);
+            createEmergencyWithLocation(seniorName, phoneNumber, currentLat, currentLong);
+            return;
+        }
+        
+        // Try to get last known location first
+        Log.d(TAG, "📍 Requesting last known location...");
+        fusedLocationClient.getLastLocation()
+                .addOnSuccessListener(location -> {
+                    if (location != null) {
+                        Log.d(TAG, "📍 Got last known location: " + location.getLatitude() + ", " + location.getLongitude());
+                        // Update current location values
+                        currentLat = location.getLatitude();
+                        currentLong = location.getLongitude();
+                        createEmergencyWithLocation(seniorName, phoneNumber, location.getLatitude(), location.getLongitude());
+                    } else {
+                        Log.w(TAG, "⚠️ No last known location, requesting fresh location update...");
+                        requestFreshLocationAndSendSOS(seniorName, phoneNumber);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Error getting last known location: " + e.getMessage());
+                    Log.w(TAG, "⚠️ Requesting fresh location update...");
+                    requestFreshLocationAndSendSOS(seniorName, phoneNumber);
+                });
+    }
+    
+    private void requestFreshLocationAndSendSOS(String seniorName, String phoneNumber) {
+        Log.d(TAG, "📍 Requesting fresh location update for SOS...");
+        
+        LocationRequest locationRequest = LocationRequest.create()
+                .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
+                .setNumUpdates(1)
+                .setMaxWaitTime(5000); // Wait max 5 seconds
+        
+        LocationCallback tempCallback = new LocationCallback() {
+            @Override
+            public void onLocationResult(@NonNull LocationResult locationResult) {
+                for (Location location : locationResult.getLocations()) {
+                    Log.d(TAG, "📍 Got fresh location: " + location.getLatitude() + ", " + location.getLongitude());
+                    currentLat = location.getLatitude();
+                    currentLong = location.getLongitude();
+                    createEmergencyWithLocation(seniorName, phoneNumber, location.getLatitude(), location.getLongitude());
+                    
+                    // Remove this temporary callback
+                    fusedLocationClient.removeLocationUpdates(this);
+                    return;
+                }
+            }
+        };
+        
+        fusedLocationClient.requestLocationUpdates(locationRequest, tempCallback, null);
+        
+        // Fallback timeout - if no location received in 5 seconds, use current values
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            Log.w(TAG, "⚠️ Location request timeout, using current values: " + currentLat + ", " + currentLong);
+            fusedLocationClient.removeLocationUpdates(tempCallback);
+            createEmergencyWithLocation(seniorName, phoneNumber, currentLat, currentLong);
+        }, 5000);
+    }
+    
+    private void createEmergencyWithLocation(String seniorName, String phoneNumber, double latitude, double longitude) {
         // Create emergency request with unique ID
         String requestId = "SOS_" + System.currentTimeMillis() + "_" + mAuth.getCurrentUser().getUid();
+        String seniorId = mAuth.getCurrentUser().getUid();
+        
+        // Create GeoPoint for location coordinates
+        com.google.firebase.firestore.GeoPoint location = null;
+        if (latitude != 0.0 && longitude != 0.0) {
+            location = new com.google.firebase.firestore.GeoPoint(latitude, longitude);
+            Log.d(TAG, "📍 Creating emergency with location: " + latitude + ", " + longitude);
+        } else {
+            Log.w(TAG, "⚠️ No valid location coordinates available for emergency");
+        }
+        
+        // Add to emergency queue
         EmergencyQueueManager.EmergencyRequest emergencyRequest = new EmergencyQueueManager.EmergencyRequest(
                 requestId,
-                mAuth.getCurrentUser().getUid(), // Add senior UID
+                seniorId,
                 seniorName,
                 phoneNumber,
                 currentLocationAddress,
-                currentBarangay, // Add barangay information
+                currentBarangay,
                 System.currentTimeMillis(),
-                getString(R.string.text_medical) // Default to medical emergency, can be enhanced later
+                getString(R.string.text_medical),
+                location
         );
-        
-        // Add to emergency queue
         EmergencyQueueManager.getInstance(this).addEmergencyRequest(emergencyRequest);
         
-        // Show confirmation with queue information
+        // Show confirmation
         showSOSConfirmationDialog(seniorName, phoneNumber, requestId);
+    }
+    
+    private void testCurrentLocation() {
+        Log.d(TAG, "🧪 Testing current location status...");
+        Log.d(TAG, "🧪 Current location values: " + currentLat + ", " + currentLong);
+        Log.d(TAG, "🧪 Location updates active: " + locationUpdatesActive);
+        
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            
+            Log.d(TAG, "🧪 Location permission granted, requesting last known location...");
+            fusedLocationClient.getLastLocation()
+                    .addOnSuccessListener(location -> {
+                        if (location != null) {
+                            Log.d(TAG, "🧪 Last known location: " + location.getLatitude() + ", " + location.getLongitude());
+                            currentLat = location.getLatitude();
+                            currentLong = location.getLongitude();
+                            Log.d(TAG, "🧪 Updated current location: " + currentLat + ", " + currentLong);
+                        } else {
+                            Log.w(TAG, "🧪 No last known location available");
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "🧪 Error getting last known location: " + e.getMessage());
+                    });
+        } else {
+            Log.w(TAG, "🧪 No location permission granted");
+        }
     }
     
     private void showSOSConfirmationDialog(String seniorName, String phoneNumber, String requestId) {
@@ -400,8 +524,10 @@ public class Senior_Dashboard extends AppCompatActivity {
             @Override
             public void onLocationResult(@NonNull LocationResult locationResult) {
                 for (Location location : locationResult.getLocations()) {
+                    Log.d(TAG, "📍 Location callback received: " + location.getLatitude() + ", " + location.getLongitude());
                     currentLat = location.getLatitude();
                     currentLong = location.getLongitude();
+                    Log.d(TAG, "📍 Updated currentLat: " + currentLat + ", currentLong: " + currentLong);
                     updateLocationUI(location);
                     saveLocationToDatabase(location);
                 }
@@ -417,8 +543,11 @@ public class Senior_Dashboard extends AppCompatActivity {
     }
 
     private void startLocationUpdates() {
+        Log.d(TAG, "🔄 Starting location updates...");
+        
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
                 ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "⚠️ No location permission for starting location updates");
             return;
         }
 
@@ -427,9 +556,11 @@ public class Senior_Dashboard extends AppCompatActivity {
                 .setMinUpdateIntervalMillis(5000)
                 .build();
 
+        Log.d(TAG, "📍 Requesting location updates with high accuracy");
         fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
         locationUpdatesActive = true;
         tvCurrentLocation.setText(getString(R.string.text_fetching_location));
+        Log.d(TAG, "✅ Location updates started successfully");
     }
 
     private void stopLocationUpdates() {
@@ -795,12 +926,35 @@ public class Senior_Dashboard extends AppCompatActivity {
                 String requestId = intent.getStringExtra("request_id");
                 String emergencyStatus = intent.getStringExtra("emergency_status");
                 String assignedRescuerId = intent.getStringExtra("assigned_rescuer_id");
+                String rescuerTeam = intent.getStringExtra("rescuer_team");
+                String hospitalId = intent.getStringExtra("hospital_id");
+                String hospitalName = intent.getStringExtra("hospital_name");
+                String hospitalAddress = intent.getStringExtra("hospital_address");
+                String hospitalPhone = intent.getStringExtra("hospital_phone");
                 
                 Log.d(TAG, "🚨 Received rescuer response notification - Rescuer: " + rescuerName + " (Request ID: " + requestId + ")");
                 Log.d(TAG, "📱 Emergency Status: " + emergencyStatus + ", Assigned Rescuer ID: " + assignedRescuerId);
+                Log.d(TAG, "🏢 Rescue Team: " + rescuerTeam);
+                Log.d(TAG, "🏥 Hospital: " + hospitalName + " at " + hospitalAddress);
                 
-                // Show rescuer response dialog
-                showRescuerResponseDialog(rescuerName, rescuerPhone, requestId, emergencyStatus, assignedRescuerId);
+                // Automatically navigate to rescuer details page
+                Log.d(TAG, "🚑 Auto-navigating to rescuer details page");
+                Log.d(TAG, "📍 Passing senior location: " + currentLat + ", " + currentLong);
+                Intent rescuerDetailsIntent = new Intent(this, RescuerDetailsActivity.class);
+                rescuerDetailsIntent.putExtra("emergencyId", requestId);
+                rescuerDetailsIntent.putExtra("rescuerName", rescuerName);
+                rescuerDetailsIntent.putExtra("rescuerPhone", rescuerPhone);
+                rescuerDetailsIntent.putExtra("rescuerTeam", rescuerTeam);
+                rescuerDetailsIntent.putExtra("assignedRescuerId", assignedRescuerId);
+                rescuerDetailsIntent.putExtra("emergencyStatus", emergencyStatus);
+                rescuerDetailsIntent.putExtra("hospitalId", hospitalId);
+                rescuerDetailsIntent.putExtra("hospitalName", hospitalName);
+                rescuerDetailsIntent.putExtra("hospitalAddress", hospitalAddress);
+                rescuerDetailsIntent.putExtra("hospitalPhone", hospitalPhone);
+                // Add senior location to intent
+                rescuerDetailsIntent.putExtra("seniorLat", currentLat);
+                rescuerDetailsIntent.putExtra("seniorLong", currentLong);
+                startActivity(rescuerDetailsIntent);
                 
                 // Clear the intent extras to prevent repeated handling
                 intent.removeExtra("notification_type");
@@ -809,6 +963,11 @@ public class Senior_Dashboard extends AppCompatActivity {
                 intent.removeExtra("request_id");
                 intent.removeExtra("emergency_status");
                 intent.removeExtra("assigned_rescuer_id");
+                intent.removeExtra("rescuer_team");
+                intent.removeExtra("hospital_id");
+                intent.removeExtra("hospital_name");
+                intent.removeExtra("hospital_address");
+                intent.removeExtra("hospital_phone");
             } else {
                 Log.d(TAG, "🔍 No rescuer response notification found, notification type: " + notificationType);
             }
@@ -825,14 +984,89 @@ public class Senior_Dashboard extends AppCompatActivity {
             return;
         }
         
+        // Try to extract rescue group from notification message
+        String rescueGroup = extractRescueGroupFromNotification();
+        
+        if (rescueGroup != null && !rescueGroup.isEmpty()) {
+            // Use rescue group from notification
+            showRescuerDialogWithDetails(rescuerName, rescuerPhone, requestId, emergencyStatus, rescueGroup);
+        } else if (assignedRescuerId != null && !assignedRescuerId.isEmpty()) {
+            // Fallback to database lookup
+            fetchRescuerDetailsAndShowDialog(rescuerName, rescuerPhone, requestId, emergencyStatus, assignedRescuerId);
+        } else {
+            // Final fallback
+            showRescuerDialogWithDetails(rescuerName, rescuerPhone, requestId, emergencyStatus, "Emergency Response Team");
+        }
+    }
+    
+    private String extractRescueGroupFromNotification() {
+        // This method would need access to the notification message
+        // For now, we'll return null and rely on database lookup
+        return null;
+    }
+    
+    private void fetchRescuerDetailsAndShowDialog(String rescuerName, String rescuerPhone, String requestId, 
+                                                String emergencyStatus, String assignedRescuerId) {
+        Log.d(TAG, "🔍 Fetching rescuer details for ID: " + assignedRescuerId);
+        
+        db.collection("Sagip")
+                .document("users")
+                .collection("rescuer")
+                .document(assignedRescuerId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    Log.d(TAG, "🔍 Document exists: " + documentSnapshot.exists());
+                    
+                    if (documentSnapshot.exists()) {
+                        // Log all available fields for debugging
+                        Log.d(TAG, "🔍 Available fields: " + documentSnapshot.getData().keySet());
+                        
+                        String rescueGroup = documentSnapshot.getString("rescuegroup");
+                        Log.d(TAG, "🔍 Rescue group from 'rescuegroup' field: " + rescueGroup);
+                        
+                        // Try alternative field names
+                        if (rescueGroup == null || rescueGroup.isEmpty()) {
+                            rescueGroup = documentSnapshot.getString("rescueGroup");
+                            Log.d(TAG, "🔍 Rescue group from 'rescueGroup' field: " + rescueGroup);
+                        }
+                        
+                        if (rescueGroup == null || rescueGroup.isEmpty()) {
+                            rescueGroup = documentSnapshot.getString("group");
+                            Log.d(TAG, "🔍 Rescue group from 'group' field: " + rescueGroup);
+                        }
+                        
+                        if (rescueGroup == null || rescueGroup.isEmpty()) {
+                            rescueGroup = documentSnapshot.getString("team");
+                            Log.d(TAG, "🔍 Rescue group from 'team' field: " + rescueGroup);
+                        }
+                        
+                        if (rescueGroup == null || rescueGroup.isEmpty()) {
+                            rescueGroup = "Emergency Response Team";
+                            Log.d(TAG, "🔍 Using fallback rescue group name");
+                        }
+                        
+                        Log.d(TAG, "🔍 Final rescue group: " + rescueGroup);
+                        showRescuerDialogWithDetails(rescuerName, rescuerPhone, requestId, emergencyStatus, rescueGroup);
+                    } else {
+                        Log.w(TAG, "🔍 Rescuer document not found for ID: " + assignedRescuerId);
+                        showRescuerDialogWithDetails(rescuerName, rescuerPhone, requestId, emergencyStatus, "Emergency Response Team");
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Error fetching rescuer details for ID: " + assignedRescuerId, e);
+                    showRescuerDialogWithDetails(rescuerName, rescuerPhone, requestId, emergencyStatus, "Emergency Response Team");
+                });
+    }
+    
+    private void showRescuerDialogWithDetails(String rescuerName, String rescuerPhone, String requestId, 
+                                            String emergencyStatus, String rescueGroup) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle(getString(R.string.text_help_on_way));
+        builder.setTitle("🚑 Help is on the way!");
         
         String statusText = "assigned".equals(emergencyStatus) ? "✅ Assigned" : "⏳ Pending";
-        String message = "A rescuer is responding to your emergency request!\n\n" +
-                        "👤 Rescuer: " + rescuerName + "\n" +
+        String message = "A rescuer has been assigned to your emergency!\n\n" +
+                        "🏢 Rescue Group: " + rescueGroup + "\n" +
                         "📞 Phone: " + rescuerPhone + "\n" +
-                        "🆔 Request ID: " + requestId + "\n" +
                         "📊 Status: " + statusText + "\n\n" +
                         "Your rescuer is on the way to help you!";
         
@@ -840,8 +1074,17 @@ public class Senior_Dashboard extends AppCompatActivity {
         builder.setIcon(android.R.drawable.ic_dialog_alert);
         builder.setCancelable(false);
         
+        // View Details button
+        builder.setPositiveButton("📋 VIEW DETAILS", (dialog, which) -> {
+            Log.d(TAG, "User clicked View Details for request: " + requestId);
+            // Navigate to rescuer details page
+            Intent intent = new Intent(this, RescuerDetailsActivity.class);
+            intent.putExtra("emergencyId", requestId);
+            startActivity(intent);
+        });
+        
         // Call rescuer button
-        builder.setPositiveButton("📞 CALL RESCUER", (dialog, which) -> {
+        builder.setNeutralButton("📞 CALL RESCUER", (dialog, which) -> {
             if (rescuerPhone != null && !rescuerPhone.isEmpty()) {
                 Intent callIntent = new Intent(Intent.ACTION_DIAL);
                 callIntent.setData(android.net.Uri.parse("tel:" + rescuerPhone));
@@ -849,7 +1092,6 @@ public class Senior_Dashboard extends AppCompatActivity {
             } else {
                 Toast.makeText(this, getString(R.string.text_rescuer_phone_not_available), Toast.LENGTH_SHORT).show();
             }
-            dialog.dismiss();
         });
         
         // OK button
@@ -946,6 +1188,8 @@ public class Senior_Dashboard extends AppCompatActivity {
         
         // Stop listening for rescuer response notifications when activity is destroyed
         SeniorNotificationService.getInstance(this).stopListening();
+        
+        // Remove emergency status listener
     }
     
     
