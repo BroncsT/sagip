@@ -86,7 +86,9 @@ public class Senior_Dashboard extends AppCompatActivity {
         
         // Apply saved language preference
         String savedLanguage = LanguageSelectionActivity.getSavedLanguage(this);
+        Log.d(TAG, "🌐 Saved language preference: " + savedLanguage);
         LanguageSelectionActivity.setAppLanguage(this, savedLanguage);
+        Log.d(TAG, "🌐 Language set to: " + savedLanguage);
         
         setContentView(R.layout.activity_senior_dashboard);
 
@@ -102,6 +104,7 @@ public class Senior_Dashboard extends AppCompatActivity {
         // Load cached name immediately after views are initialized
         loadCachedName();
         
+        // Initialize location services and data loading
         initializeLocationServices();
         registerLocationPermissionLauncher();
         loadUserData();
@@ -665,7 +668,7 @@ public class Senior_Dashboard extends AppCompatActivity {
                             mAuth.signOut();
                             clearStoredCredentials();
                             Toast.makeText(Senior_Dashboard.this, 
-                                "Your account is not yet approved. Please wait for administrator approval.", 
+                                getString(R.string.account_not_approved_message), 
                                 Toast.LENGTH_LONG).show();
                             navigateToLogin();
                             return;
@@ -774,7 +777,7 @@ public class Senior_Dashboard extends AppCompatActivity {
                             mAuth.signOut();
                             clearStoredCredentials();
                             Toast.makeText(Senior_Dashboard.this, 
-                                "User profile not found. Please login again.", 
+                                getString(R.string.user_profile_not_found_login_again), 
                                 Toast.LENGTH_LONG).show();
                             navigateToLogin();
                         }
@@ -783,9 +786,9 @@ public class Senior_Dashboard extends AppCompatActivity {
                         Log.e(TAG, "Alternative search failed", e);
                         mAuth.signOut();
                         clearStoredCredentials();
-                        Toast.makeText(Senior_Dashboard.this, 
-                            "Error finding user profile. Please login again.", 
-                            Toast.LENGTH_LONG).show();
+                            Toast.makeText(Senior_Dashboard.this, 
+                                getString(R.string.error_finding_user_profile), 
+                                Toast.LENGTH_LONG).show();
                         navigateToLogin();
                     });
         } else {
@@ -1061,21 +1064,21 @@ public class Senior_Dashboard extends AppCompatActivity {
     private void showRescuerDialogWithDetails(String rescuerName, String rescuerPhone, String requestId, 
                                             String emergencyStatus, String rescueGroup) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("🚑 Help is on the way!");
+        builder.setTitle(getString(R.string.help_on_way_title));
         
-        String statusText = "assigned".equals(emergencyStatus) ? "✅ Assigned" : "⏳ Pending";
-        String message = "A rescuer has been assigned to your emergency!\n\n" +
-                        "🏢 Rescue Group: " + rescueGroup + "\n" +
-                        "📞 Phone: " + rescuerPhone + "\n" +
-                        "📊 Status: " + statusText + "\n\n" +
-                        "Your rescuer is on the way to help you!";
+        String statusText = "assigned".equals(emergencyStatus) ? getString(R.string.assigned_status) : getString(R.string.pending_status);
+        String message = getString(R.string.rescuer_assigned_message) + "\n\n" +
+                        getString(R.string.rescue_group_label) + " " + rescueGroup + "\n" +
+                        getString(R.string.phone_label) + " " + rescuerPhone + "\n" +
+                        getString(R.string.status_label_dialog) + " " + statusText + "\n\n" +
+                        getString(R.string.rescuer_coming_message);
         
         builder.setMessage(message);
         builder.setIcon(android.R.drawable.ic_dialog_alert);
         builder.setCancelable(false);
         
         // View Details button
-        builder.setPositiveButton("📋 VIEW DETAILS", (dialog, which) -> {
+        builder.setPositiveButton(getString(R.string.view_details_button), (dialog, which) -> {
             Log.d(TAG, "User clicked View Details for request: " + requestId);
             // Navigate to rescuer details page
             Intent intent = new Intent(this, RescuerDetailsActivity.class);
@@ -1084,7 +1087,7 @@ public class Senior_Dashboard extends AppCompatActivity {
         });
         
         // Call rescuer button
-        builder.setNeutralButton("📞 CALL RESCUER", (dialog, which) -> {
+        builder.setNeutralButton(getString(R.string.call_rescuer_button), (dialog, which) -> {
             if (rescuerPhone != null && !rescuerPhone.isEmpty()) {
                 Intent callIntent = new Intent(Intent.ACTION_DIAL);
                 callIntent.setData(android.net.Uri.parse("tel:" + rescuerPhone));

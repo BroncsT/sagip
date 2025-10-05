@@ -130,7 +130,7 @@ public class BarangayFCMService extends FirebaseMessagingService {
                 .setTimeoutAfter(300000); // Auto-dismiss after 5 minutes if not handled
 
         // Add action buttons
-        Intent callIntent = new Intent(Intent.ACTION_CALL);
+        Intent callIntent = new Intent(Intent.ACTION_DIAL);
         callIntent.setData(Uri.parse("tel:" + seniorPhone));
         PendingIntent callPendingIntent = PendingIntent.getActivity(
                 this, 

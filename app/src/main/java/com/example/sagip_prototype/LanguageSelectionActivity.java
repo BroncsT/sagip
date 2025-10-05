@@ -5,6 +5,7 @@ import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -98,6 +99,7 @@ public class LanguageSelectionActivity extends AppCompatActivity {
         SharedPreferences.Editor editor = prefs.edit();
         editor.putString("language", languageCode);
         editor.apply();
+        Log.d("LanguageSelection", "🌐 Language preference saved: " + languageCode);
     }
 
     private void setAppLanguage(String languageCode) {
@@ -120,11 +122,14 @@ public class LanguageSelectionActivity extends AppCompatActivity {
         config.setLocale(locale);
         
         resources.updateConfiguration(config, resources.getDisplayMetrics());
+        Log.d("LanguageSelection", "🌐 Language set to: " + languageCode + " (Locale: " + locale + ")");
     }
 
     public static String getSavedLanguage(android.content.Context context) {
         SharedPreferences prefs = context.getSharedPreferences("AppSettings", android.content.Context.MODE_PRIVATE);
-        return prefs.getString("language", "en"); // Default to English
+        String language = prefs.getString("language", "en"); // Default to English
+        Log.d("LanguageSelection", "🌐 Retrieved saved language: " + language);
+        return language;
     }
 
     public static void saveLanguagePreference(android.content.Context context, String languageCode) {

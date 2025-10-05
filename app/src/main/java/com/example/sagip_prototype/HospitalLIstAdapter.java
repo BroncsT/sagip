@@ -33,12 +33,14 @@ public class HospitalLIstAdapter extends RecyclerView.Adapter<HospitalLIstAdapte
 
     @Override
     public void onBindViewHolder(@NonNull HospitalLIstViewHolder holder, int position) {
+        android.util.Log.d("HospitalLIstAdapter", "onBindViewHolder called for position: " + position);
         HospitalLIst hospital = hospitals.get(position);
         holder.bind(hospital, listener);
     }
 
     @Override
     public int getItemCount() {
+        android.util.Log.d("HospitalLIstAdapter", "getItemCount called, returning: " + hospitals.size());
         return hospitals.size();
     }
 
@@ -66,6 +68,8 @@ public class HospitalLIstAdapter extends RecyclerView.Adapter<HospitalLIstAdapte
         }
 
         public void bind(HospitalLIst hospital, OnHospitalLIstClickListener listener) {
+            android.util.Log.d("HospitalLIstAdapter", "Binding hospital: " + hospital.getHospitalName());
+            
             // Set hospital name
             hospitalNameText.setText(hospital.getHospitalName() != null ? hospital.getHospitalName() : "Unknown Hospital");
 
@@ -87,10 +91,19 @@ public class HospitalLIstAdapter extends RecyclerView.Adapter<HospitalLIstAdapte
             // Set specialization (not available in HospitalLIst, so hide it)
             hospitalSpecializationText.setVisibility(View.GONE);
 
-            // Set click listener
-            itemView.setOnClickListener(v -> {
+            // Set click listener on the LinearLayout (which has clickable="true")
+            View clickableView = itemView.findViewById(R.id.hospitalCardContent);
+            if (clickableView == null) {
+                // Fallback to itemView if LinearLayout not found
+                clickableView = itemView;
+            }
+            
+            clickableView.setOnClickListener(v -> {
+                android.util.Log.d("HospitalLIstAdapter", "Item clicked for hospital: " + hospital.getHospitalName());
                 if (listener != null) {
                     listener.onHospitalClick(hospital);
+                } else {
+                    android.util.Log.d("HospitalLIstAdapter", "Listener is null!");
                 }
             });
         }

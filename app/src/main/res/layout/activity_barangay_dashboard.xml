@@ -43,7 +43,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Welcome back,"
+                android:text="@string/welcome_back_barangay"
                 android:textColor="@color/gray"
                 android:textSize="16sp"/>
 
@@ -51,7 +51,7 @@
                 android:id="@+id/barangayStaffName"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:hint="Barangay"
+                android:hint="@string/barangay_hint"
                 android:textColor="@color/black"
                 android:textSize="24sp"
                 android:textStyle="bold" />
@@ -94,7 +94,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Current Location"
+                    android:text="@string/current_location_label"
                     android:textColor="@color/black"
                     android:textSize="16sp" />
 
@@ -102,7 +102,7 @@
                     android:id="@+id/currentLocationValue"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Getting location..."
+                    android:text="@string/getting_location_text"
                     android:textColor="@color/info_blue"
                     android:textSize="20sp"
                     android:textStyle="bold"
@@ -149,7 +149,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Total Registered Seniors"
+                    android:text="@string/total_registered_seniors"
                     android:textColor="@color/black"
                     android:textSize="13sp" />
 
@@ -204,7 +204,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Nearby Hospitals Facilities"
+                    android:text="@string/nearby_hospitals_facilities"
                     android:textColor="@color/black"
                     android:textSize="13sp" />
 
@@ -212,7 +212,7 @@
                     android:id="@+id/hospitalsCount"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:hint="0 Found"
+                    android:hint="@string/hospitals_found_hint"
                     android:textColor="@color/primary_blue"
                     android:textSize="24sp"
                     android:textStyle="bold"
@@ -228,7 +228,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="25dp"
-        android:text="Nearby Hospitals"
+        android:text="@string/nearby_hospitals_title"
         android:textColor="@color/black"
         android:textSize="20sp"
         android:textStyle="bold"
@@ -243,7 +243,7 @@
         android:layout_marginTop="5dp"
         android:layout_marginBottom="20dp"
         app:cardElevation="0dp"
-        app:layout_constraintBottom_toTopOf="@id/navigateToHospitalButton"
+        app:layout_constraintBottom_toTopOf="@id/bottomNavBar2"
         app:layout_constraintTop_toBottomOf="@id/titleNearbyHospitals"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical1v2"
         app:layout_constraintEnd_toEndOf="@id/guidelineVertical2v2">
@@ -253,42 +253,17 @@
             android:layout_height="match_parent"
             android:orientation="vertical">
 
-            <ScrollView
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/hospitalRecyclerView"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
-                android:scrollbars="vertical">
-
-                <LinearLayout
-                    android:id="@+id/hospitalListContainer"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical" />
-
-            </ScrollView>
+                android:scrollbars="vertical" />
 
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
     <!-- Navigation Button -->
-    <Button
-        android:id="@+id/navigateToHospitalButton"
-        android:layout_width="0dp"
-        android:layout_height="56dp"
-        android:layout_marginBottom="16dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        android:background="@drawable/button_primary_background"
-        android:text="Navigate to Nearest Hospital"
-        android:textAllCaps="false"
-        android:textColor="@color/white"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:elevation="4dp"
-        app:layout_constraintBottom_toTopOf="@id/bottomNavBar2"
-        app:layout_constraintEnd_toEndOf="@id/guidelineVertical2"
-        app:layout_constraintStart_toStartOf="@id/guidelineVertical1" />
-
 
     <!-- Bottom Navigation -->
     <com.google.android.material.bottomnavigation.BottomNavigationView

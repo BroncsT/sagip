@@ -256,8 +256,8 @@
     <string name="emergency_contact_name">Pangalan ng Emergency Contact</string>
     <string name="phone_number">Phone Number</string>
     <string name="emergency_address">Emergency Address</string>
-    <string name="emergencynote">Emergency Note</string>
-    <string name="emergencyguide">Emergency Guide</string>
+    <string name="emergencynote">I-tap ang button para mag-alert</string>
+    <string name="emergencyguide">Ang inyong emergency contact at mga malapit na app users ay makakakita ng inyong request help</string>
     <string name="emegencysignalcode">SOS</string>
     <string name="emergencyContact_section">Emergency Contact Section</string>
     <string name="senior_name">Pangalan ng Senior</string>
@@ -286,7 +286,6 @@
     <!-- Rescuer Dashboard -->
     <string name="welcome_back">Maligayang pagbabalik!</string>
     <string name="rescuer_name">Pangalan ng Rescuer</string>
-    <string name="current_location">📍 Kasalukuyang Lokasyon</string>
     <string name="location_map">🗺️ Mapa ng Lokasyon</string>
     <string name="show_map">Ipakita ang Mapa</string>
     <string name="emergency_status">🚨 Status ng Emergency</string>
@@ -315,7 +314,7 @@
     <string name="opening_web_navigation_to_senior">🌐 Binubuksan ang web-based navigation papunta kay %1$s</string>
     <string name="phone_number_not_available">Hindi available ang phone number</string>
     <string name="current_location_not_available_permissions">Hindi available ang current location. Mangyaring maghintay o tingnan ang permissions.</string>
-    <string name="user_profile_not_found">Hindi nahanap ang user profile. Mangyaring mag-login muli.</string>
+    <string name="user_profile_not_found_senior">Hindi nahanap ang user profile. Mangyaring mag-login muli.</string>
     <string name="location_permission_denied">Tinanggihan ang location permission. Hindi ma-update ang location.</string>
     <string name="error_starting_location_updates">Error sa pagsimula ng location updates</string>
     
@@ -362,7 +361,7 @@
     <string name="delete">Tanggalin</string>
     
     <!-- Senior Dashboard -->
-    <string name="current_location_label">Kasalukuyang Lokasyon: </string>
+    <string name="current_location_label_senior">Kasalukuyang Lokasyon: </string>
     <string name="locate_nearest_hospital">hanapin ang pinakamalapit na Hospital</string>
     <string name="location_permission_denied_senior">Tinanggihan ang location permission</string>
     <string name="fetching_location">Kinukuha ang kasalukuyang lokasyon...</string>
@@ -676,6 +675,7 @@
     <string name="barangay_emergency_heads_up_action">I-tap para makita ang detalye ng emergency at tumugon agad</string>
     <string name="barangay_emergency_action_call">TAWAGAN ANG SENIOR</string>
     <string name="barangay_emergency_action_view">TINGNAN ANG DETALYE</string>
+    <string name="barangay_emergency_action_navigate">🗺️ MAG-NAVIGATE</string>
 
     <!-- Toast Messages -->
     <string name="toast_fill_all_fields">Punan ang lahat ng patlang</string>
@@ -792,6 +792,90 @@
     <string name="status_update_frequency">Ang status ay dapat i-update bawat oras</string>
     <string name="last_updated">Huling Na-update: %1$s</string>
     <string name="next_update_due">Susunod na Update: %1$s</string>
+    <string name="next_update_in">%1$s</string>
+    <string name="next_update">Susunod na Update Sa</string>
+    <string name="countdown_format">%1$02d:%2$02d:%3$02d</string>
+    <string name="update_required_now">Kailangan i-update Ngayon!</string>
+    <string name="status_update_timer">Status Update Timer</string>
+
+    <!-- Notification Service Strings -->
+    <string name="notification_sagip_notifications">Mga Notification ng SAGIP</string>
+    <string name="notification_monitoring_new">Nakikita ang mga bagong notification...</string>
+    <string name="notification_hospital_status_updated">🏥 Na-update ang Hospital Status</string>
+    <string name="notification_hospital_status_text">Ang %1$s ay %2$s %3$s na ngayon</string>
+    <string name="notification_emergency_help_request">🚨 EMERGENCY HELP REQUEST</string>
+    <string name="notification_emergency_help_text">Kailangan ni %1$s ng %2$s %3$s</string>
+    <string name="notification_sagip_rescuer">SAGIP Rescuer</string>
+    <string name="notification_monitoring_hospital">Nakikita ang mga hospital status updates</string>
+    <string name="notification_sagip_service">🚨 SAGIP Service</string>
+    <string name="notification_monitoring_emergency">Nakikita ang mga emergency notifications...</string>
+    <string name="notification_status_update_required">🏥 Kailangan i-update ang Status</string>
+    <string name="notification_status_update_text">%1$s - Mangyaring i-update ang inyong hospital status</string>
+    <string name="notification_hospital_monitoring">Hospital Status Monitoring</string>
+    <string name="notification_monitoring_reminders">Nakikita ang mga status update reminders...</string>
+    <string name="notification_timer_running">Patuloy na tumatakbo ang timer</string>
+    <string name="notification_next_update">Susunod na update sa: %1$s</string>
+    <string name="notification_emergency_sos_service">Emergency SOS Service</string>
+    <string name="notification_ready_alerts">Handa nang tumanggap ng emergency alerts</string>
+    <string name="notification_emergency_sos_title">🚨 EMERGENCY SOS - %1$s</string>
+    <string name="notification_emergency_sos_text">I-tap para buksan ang app - Kailangan ng senior ng agarang tulong!</string>
+    <string name="notification_emergency_monitor">🚨 SAGIP Emergency Monitor</string>
+    <string name="notification_listening_alerts">Nakikita ang mga emergency alerts mula sa mga senior...</string>
+    <string name="notification_emergency_help_default">Kailangan ni %1$s ng tulong!</string>
+    <string name="notification_background_service">SAGIP Background Service</string>
+    <string name="notification_listening_notifications">Nakikita ang mga emergency notifications...</string>
+    <string name="notification_background_monitoring">Nakikita ang mga emergency notifications...</string>
+
+    <!-- Barangay Emergency Queue Manager Strings -->
+    <string name="barangay_emergency_alert_in">🚨 Alert sa Emergency sa %1$s</string>
+    <string name="barangay_emergency_assistance_message">Kailangan ni Senior %1$s ng emergency assistance sa inyong barangay</string>
+    
+    <!-- Barangay Form Validation Strings -->
+    <string name="error_fill_all_fields_select_barangay">Mangyaring punuin ang lahat ng required fields at pumili ng barangay</string>
+    <string name="error_fill_all_fields_barangay">Mangyaring punuin ang lahat ng fields at pumili ng barangay</string>
+    <string name="barangay_label">Barangay: %1$s</string>
+    <string name="barangay_not_available">Barangay: N/A</string>
+
+    <!-- Barangay Dashboard UI Strings -->
+    <string name="welcome_back_barangay">Maligayang pagbabalik,</string>
+    <string name="barangay_hint">Barangay</string>
+    <string name="current_location_label">Kasalukuyang Lokasyon</string>
+    <string name="current_location">Kasalukuyang Lokasyon</string>
+    <string name="getting_location_text">Kumukuha ng lokasyon...</string>
+    <string name="total_registered_seniors">Kabuuang Nakarehistrong Senior</string>
+    <string name="nearby_hospitals_facilities">Mga Malapit na Pasilidad ng Hospital</string>
+    <string name="hospitals_found_hint">0 Nahanap</string>
+    <string name="nearby_hospitals_title">Mga Malapit na Hospital</string>
+    <string name="senior_list_hint">Lista ng Senior</string>
+    <string name="senior_list_in_barangay">Lista ng Senior sa %1$s</string>
+    <string name="loading_seniors_text">Naglo-load ng mga senior...</string>
+    <string name="barangay_information_not_found">Hindi nahanap ang impormasyon ng barangay</string>
+    <string name="user_profile_not_found">Hindi nahanap ang profile ng user</string>
+    <string name="error_loading_barangay_info">Error sa pag-load ng impormasyon ng barangay: %1$s</string>
+    <string name="loading_text">Naglo-load...</string>
+    <string name="no_seniors_found">Walang nahanap na senior sa barangay na ito</string>
+    <string name="error_loading_seniors">Error sa pag-load ng mga senior: %1$s</string>
+    
+    <!-- Hospital Information Dialog -->
+    <string name="hospital_info_available_beds">Mga Available na Kama: %1$d</string>
+    <string name="hospital_info_doctors_available">Mga Available na Doktor: %1$d</string>
+    <string name="hospital_info_emergency_status">Emergency Status: %1$s</string>
+    <string name="hospital_info_close">Isara</string>
+    
+    <!-- Additional missing strings for Senior Dashboard -->
+    <string name="account_not_approved_message">Ang inyong account ay hindi pa na-approve. Mangyaring maghintay ng administrator approval.</string>
+    <string name="user_profile_not_found_login_again">Hindi nahanap ang user profile. Mangyaring mag-login muli.</string>
+    <string name="error_finding_user_profile">Error sa paghahanap ng user profile. Mangyaring mag-login muli.</string>
+    <string name="help_on_way_title">🚑 Papunta na ang tulong!</string>
+    <string name="rescuer_assigned_message">Naka-assign na ang isang rescuer sa inyong emergency!</string>
+    <string name="rescue_group_label">🏢 Rescue Group:</string>
+    <string name="phone_label">📞 Telepono:</string>
+    <string name="status_label_dialog">📊 Status:</string>
+    <string name="assigned_status">✅ Naka-assign</string>
+    <string name="pending_status">⏳ Pending</string>
+    <string name="rescuer_coming_message">Papunta na ang inyong rescuer para tumulong!</string>
+    <string name="view_details_button">📋 TINGNAN ANG DETALYE</string>
+    <string name="call_rescuer_button">📞 TAWAGAN ANG RESCUER</string>
 
 </resources>
 

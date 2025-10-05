@@ -10,7 +10,7 @@
         android:id="@+id/labelProfile"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:hint="Senior List"
+        android:hint="@string/senior_list_hint"
         android:textSize="28sp"
         android:textStyle="bold"
         android:textColor="@color/black"

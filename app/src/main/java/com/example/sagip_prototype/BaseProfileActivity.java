@@ -70,6 +70,9 @@ public abstract class BaseProfileActivity extends AppCompatActivity {
             // Update UI elements without recreating the activity
             updateUILanguage();
             
+            // Broadcast language change to notify other activities
+            broadcastLanguageChange(selectedLanguage);
+            
             dialog.dismiss();
         });
         
@@ -106,5 +109,12 @@ public abstract class BaseProfileActivity extends AppCompatActivity {
         if (languageSelectionText != null) {
             languageSelectionText.setOnClickListener(v -> showLanguageSelectionDialog());
         }
+    }
+    
+    private void broadcastLanguageChange(String languageCode) {
+        // Send a broadcast to notify other activities about language change
+        android.content.Intent intent = new android.content.Intent("com.example.sagip_prototype.LANGUAGE_CHANGED");
+        intent.putExtra("language", languageCode);
+        sendBroadcast(intent);
     }
 }

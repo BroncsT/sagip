@@ -205,8 +205,8 @@ public class RescuerNotificationManager {
         String statusEmoji = getStatusEmoji(hospitalStatus);
         
         Notification notification = new NotificationCompat.Builder(context, CHANNEL_ID)
-                .setContentTitle("🏥 Hospital Status Updated")
-                .setContentText(hospitalName + " is now " + statusEmoji + " " + hospitalStatus.toUpperCase())
+                .setContentTitle(context.getString(R.string.notification_hospital_status_updated))
+                .setContentText(String.format(context.getString(R.string.notification_hospital_status_text), hospitalName, statusEmoji, hospitalStatus.toUpperCase()))
                 .setStyle(new NotificationCompat.BigTextStyle()
                         .bigText(hospitalName + " has updated their status to " + statusEmoji + " " + hospitalStatus.toUpperCase() + 
                                 "\n\n📊 Available Beds: " + availableBeds + 
@@ -254,8 +254,8 @@ public class RescuerNotificationManager {
         String emergencyEmoji = getEmergencyEmoji(emergencyType);
         
         Notification notification = new NotificationCompat.Builder(context, CHANNEL_ID)
-                .setContentTitle("🚨 EMERGENCY HELP REQUEST")
-                .setContentText(seniorName + " needs " + emergencyEmoji + " " + emergencyType)
+                .setContentTitle(context.getString(R.string.notification_emergency_help_request))
+                .setContentText(String.format(context.getString(R.string.notification_emergency_help_text), seniorName, emergencyEmoji, emergencyType))
                 .setStyle(new NotificationCompat.BigTextStyle()
                         .bigText("🚨 EMERGENCY ALERT 🚨\n\n" +
                                 "👤 Senior: " + seniorName + "\n" +

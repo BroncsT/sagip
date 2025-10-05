@@ -378,8 +378,8 @@ public class EmergencyQueueManager {
                         // Create notification for barangay user
                         Map<String, Object> barangayNotification = new java.util.HashMap<>();
                         barangayNotification.put("type", "EMERGENCY_ALERT");
-                        barangayNotification.put("title", "🚨 Emergency Alert in " + request.barangay);
-                        barangayNotification.put("message", "Senior " + request.seniorName + " needs emergency assistance in your barangay");
+                        barangayNotification.put("title", context.getString(R.string.barangay_emergency_alert_in, request.barangay));
+                        barangayNotification.put("message", context.getString(R.string.barangay_emergency_assistance_message, request.seniorName));
                         barangayNotification.put("seniorName", request.seniorName);
                         barangayNotification.put("seniorPhone", request.seniorPhone);
                         barangayNotification.put("locationAddress", request.locationAddress);

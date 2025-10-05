@@ -103,8 +103,8 @@ public class EmergencyNotificationService extends Service {
         );
         
         return new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("🚨 SAGIPP Emergency Monitor")
-                .setContentText("Listening for emergency alerts from seniors...")
+                .setContentTitle(getString(R.string.notification_emergency_monitor))
+                .setContentText(getString(R.string.notification_listening_alerts))
                 .setSmallIcon(R.drawable.baseline_notifications_active_24)
                 .setContentIntent(pendingIntent)
                 .setOngoing(true)
@@ -254,8 +254,8 @@ public class EmergencyNotificationService extends Service {
         );
         
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle(title != null ? title : "🚨 EMERGENCY HELP REQUEST")
-                .setContentText(message != null ? message : seniorName + " needs help!")
+                .setContentTitle(title != null ? title : getString(R.string.notification_emergency_help_request))
+                .setContentText(message != null ? message : String.format(getString(R.string.notification_emergency_help_default), seniorName))
                 .setStyle(new NotificationCompat.BigTextStyle()
                         .bigText("🚨 EMERGENCY ALERT 🚨\n\n" +
                                 "👤 Senior: " + seniorName + "\n" +

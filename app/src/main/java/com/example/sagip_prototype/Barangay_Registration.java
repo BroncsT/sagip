@@ -28,12 +28,40 @@ public class Barangay_Registration extends AppCompatActivity {
     FirebaseFirestore db;
 
     String userType = "barangay";
+    
+    // Broadcast receiver for language changes
+    private android.content.BroadcastReceiver languageChangeReceiver = new android.content.BroadcastReceiver() {
+        @Override
+        public void onReceive(android.content.Context context, android.content.Intent intent) {
+            if ("com.example.sagip_prototype.LANGUAGE_CHANGED".equals(intent.getAction())) {
+                String languageCode = intent.getStringExtra("language");
+                Log.d("Barangay_Registration", "Received language change broadcast: " + languageCode);
+                
+                // Apply the new language
+                LanguageSelectionActivity.setAppLanguage(Barangay_Registration.this, languageCode);
+                
+                // Update UI elements
+                updateUILanguage();
+                
+                // Show confirmation toast
+                Toast.makeText(Barangay_Registration.this, getString(R.string.toast_language_change_detected), Toast.LENGTH_SHORT).show();
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
+        
+        // Apply saved language preference
+        String savedLanguage = LanguageSelectionActivity.getSavedLanguage(this);
+        LanguageSelectionActivity.setAppLanguage(this, savedLanguage);
+        
         setContentView(R.layout.activity_barangay_registration);
+        
+        // Register language change receiver
+        registerLanguageChangeReceiver();
         
         // Enable smooth scrolling
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
@@ -253,6 +281,58 @@ public class Barangay_Registration extends AppCompatActivity {
         }
 
         return null; // Password is valid
+    }
+    
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        
+        // Handle language change without recreating activity
+        Log.d("Barangay_Registration", "Configuration changed - language change detected");
+        
+        // Apply saved language preference
+        String savedLanguage = LanguageSelectionActivity.getSavedLanguage(this);
+        LanguageSelectionActivity.setAppLanguage(this, savedLanguage);
+        
+        // Update UI elements with new language
+        updateUILanguage();
+        
+        // Show toast to confirm language change
+        Toast.makeText(this, getString(R.string.toast_language_change_detected), Toast.LENGTH_SHORT).show();
+    }
+    
+    private void updateUILanguage() {
+        // Update UI elements with new language
+        // The form fields will be updated automatically when the activity recreates
+        // or when the user navigates back to this activity
+    }
+    
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Update UI language when returning
+        updateUILanguage();
+    }
+    
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // Unregister language change receiver
+        unregisterLanguageChangeReceiver();
+    }
+    
+    private void registerLanguageChangeReceiver() {
+        android.content.IntentFilter filter = new android.content.IntentFilter("com.example.sagip_prototype.LANGUAGE_CHANGED");
+        registerReceiver(languageChangeReceiver, filter);
+    }
+    
+    private void unregisterLanguageChangeReceiver() {
+        try {
+            unregisterReceiver(languageChangeReceiver);
+        } catch (IllegalArgumentException e) {
+            // Receiver was not registered
+            Log.d("Barangay_Registration", "Language change receiver was not registered");
+        }
     }
 
 }

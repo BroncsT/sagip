@@ -161,8 +161,8 @@ public class HospitalStatusReminderService extends Service {
         String hospitalDisplayName = hospitalName != null ? hospitalName : "Hospital";
         
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("🏥 Status Update Required")
-            .setContentText(hospitalDisplayName + " - Please update your hospital status")
+            .setContentTitle(getString(R.string.notification_status_update_required))
+            .setContentText(String.format(getString(R.string.notification_status_update_text), hospitalDisplayName))
             .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
@@ -179,8 +179,8 @@ public class HospitalStatusReminderService extends Service {
     
     private Notification createServiceNotification() {
         return new NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Hospital Status Monitoring")
-            .setContentText("Monitoring status update reminders...")
+            .setContentTitle(getString(R.string.notification_hospital_monitoring))
+            .setContentText(getString(R.string.notification_monitoring_reminders))
             .setSmallIcon(R.drawable.ic_notification)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)

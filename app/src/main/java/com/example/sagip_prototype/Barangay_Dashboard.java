@@ -21,8 +21,12 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -68,19 +72,46 @@ public class Barangay_Dashboard extends AppCompatActivity {
     private FirebaseFirestore db;
     private TextView brgyName;
     private TextView currentLocationText;
-    private Button navigateToHospitalButton;
     private TextView totalSeniorsCount;
     private TextView hospitalsCount;
-    private LinearLayout hospitalListContainer;
+    private RecyclerView hospitalRecyclerView;
+    private HospitalLIstAdapter hospitalAdapter;
+    private List<HospitalLIst> hospitalList;
     private String userType = "barangay";
     private String userId;
     private SharedPreferences sharedPreferences;
+    private AlertDialog currentEmergencyDialog;
+    private boolean hospitalsLoaded = false;
+    private boolean dataLoadingInProgress = false;
 
     private FusedLocationProviderClient fusedLocationClient;
     private LocationCallback locationCallback;
     private LocationRequest locationRequest;
     private double currentLat = 0.0;
     private double currentLong = 0.0;
+    
+    // Broadcast receiver for language changes
+    private android.content.BroadcastReceiver languageChangeReceiver = new android.content.BroadcastReceiver() {
+        @Override
+        public void onReceive(android.content.Context context, android.content.Intent intent) {
+            if ("com.example.sagip_prototype.LANGUAGE_CHANGED".equals(intent.getAction())) {
+                String languageCode = intent.getStringExtra("language");
+                Log.d("Barangay_Dashboard", "Received language change broadcast: " + languageCode);
+                
+                // Apply the new language
+                LanguageSelectionActivity.setAppLanguage(Barangay_Dashboard.this, languageCode);
+                
+                // Update UI elements
+                updateUILanguage();
+                
+                // Reload cached data
+                loadCachedBarangayName();
+                
+                // Show confirmation toast
+                Toast.makeText(Barangay_Dashboard.this, getString(R.string.toast_language_change_detected), Toast.LENGTH_SHORT).show();
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -101,16 +132,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
         currentLocationText = findViewById(R.id.currentLocationValue);
         totalSeniorsCount = findViewById(R.id.totalSeniorsCount);
         hospitalsCount = findViewById(R.id.hospitalsCount);
-        hospitalListContainer = findViewById(R.id.hospitalListContainer);
-
-        // Initialize navigate to hospital button
-        navigateToHospitalButton = findViewById(R.id.navigateToHospitalButton);
-        navigateToHospitalButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                navigateToNearestHospital();
-            }
-        });
+        hospitalRecyclerView = findViewById(R.id.   hospitalRecyclerView);
 
         // Initialize location services
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
@@ -123,8 +145,17 @@ public class Barangay_Dashboard extends AppCompatActivity {
         // Check for location permissions
         checkLocationPermission();
 
+        // Setup RecyclerView for hospitals
+        setupHospitalRecyclerView();
+
+        // Load data immediately for instant display
+        loadDataImmediately();
+
         // Check authentication state with improved persistence
         checkAuthStateWithPersistence();
+        
+        // Handle emergency notification intents
+        handleEmergencyNotificationIntent();
     }
 
     @Override
@@ -133,6 +164,16 @@ public class Barangay_Dashboard extends AppCompatActivity {
         
         // Load cached barangay name immediately when returning to dashboard
         loadCachedBarangayName();
+        
+        // Load data immediately for instant display (only if not already loaded)
+        if (!hospitalsLoaded && !dataLoadingInProgress) {
+            loadDataImmediately();
+        } else {
+            Log.d("Barangay_Dashboard", "Data already loaded or loading in progress, skipping onResume data loading");
+        }
+        
+        // Update UI language when returning
+        updateUILanguage();
         
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
@@ -161,8 +202,18 @@ public class Barangay_Dashboard extends AppCompatActivity {
         // Handle language change without recreating activity
         Log.d("Barangay_Dashboard", "Configuration changed - language change detected");
         
+        // Apply saved language preference
+        String savedLanguage = LanguageSelectionActivity.getSavedLanguage(this);
+        LanguageSelectionActivity.setAppLanguage(this, savedLanguage);
+        
+        // Update UI elements with new language
+        updateUILanguage();
+        
         // Reload cached barangay name to ensure it's still displayed
         loadCachedBarangayName();
+        
+        // Show toast to confirm language change
+        Toast.makeText(this, getString(R.string.toast_language_change_detected), Toast.LENGTH_SHORT).show();
     }
 
     @Override
@@ -264,7 +315,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
                         } else {
                             Log.d("Barangay_Dashboard", "User status is not 'new', proceeding to dashboard");
                             // User is registered, proceed with dashboard initialization
-                            loadUserData(userId);
+                            // Data loading is handled by loadDataImmediately() in onCreate()
                             
         // Clear old notifications first to prevent showing old alerts
         BarangayNotificationService.getInstance(Barangay_Dashboard.this).clearOldNotifications();
@@ -272,11 +323,17 @@ public class Barangay_Dashboard extends AppCompatActivity {
         // Start listening for emergency notifications
         BarangayNotificationService.getInstance(Barangay_Dashboard.this).startListening();
         
+        // Start real-time popup listener for emergency notifications
+        startEmergencyPopupListener();
+        
         // Check and request notification permission
         checkAndRequestNotificationPermission();
         
         // Register for FCM notifications
         registerForFCMNotifications();
+        
+        // Register language change receiver
+        registerLanguageChangeReceiver();
                         }
                     } else {
                         Log.w("Barangay_Dashboard", "User document does not exist, redirecting to registration");
@@ -305,6 +362,16 @@ public class Barangay_Dashboard extends AppCompatActivity {
     }
 
     private void loadUserData(String uid) {
+        // Prevent duplicate loading if data is already loaded or loading in progress
+        if (hospitalsLoaded || dataLoadingInProgress) {
+            Log.d("Barangay_Dashboard", "Data already loaded or loading in progress, skipping loadUserData");
+            return;
+        }
+
+        // Set loading flag
+        dataLoadingInProgress = true;
+        Log.d("Barangay_Dashboard", "Starting data loading for user: " + uid);
+
         // Load cached name immediately for instant display
         loadCachedBarangayName();
 
@@ -526,33 +593,6 @@ public class Barangay_Dashboard extends AppCompatActivity {
                 });
     }
 
-    private void navigateToNearestHospital() {
-        if (currentLat == 0.0 && currentLong == 0.0) {
-            Toast.makeText(this, getString(R.string.current_location_not_available),
-                    Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        // Format coordinates for Google Maps
-        String source = currentLat + "," + currentLong;
-        // Use "hospital" as destination to find nearest hospitals
-        String destination = "hospital";
-
-        // Create Google Maps intent
-        Uri uri = Uri.parse("https://www.google.com/maps/dir/" + source + "/" + destination);
-        Intent intent = new Intent(Intent.ACTION_VIEW, uri);
-        intent.setPackage("com.google.android.apps.maps");
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-
-        // Check if Google Maps is installed
-        if (intent.resolveActivity(getPackageManager()) != null) {
-            startActivity(intent);
-        } else {
-            // Google Maps app is not installed, open in browser instead
-            intent = new Intent(Intent.ACTION_VIEW, uri);
-            startActivity(intent);
-        }
-    }
 
     private void setupBottomNavigation() {
         BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavBar2);
@@ -574,6 +614,20 @@ public class Barangay_Dashboard extends AppCompatActivity {
             }
             return false;
         });
+    }
+
+    private void setupHospitalRecyclerView() {
+        hospitalList = new ArrayList<>();
+        hospitalAdapter = new HospitalLIstAdapter(hospitalList, new HospitalLIstAdapter.OnHospitalLIstClickListener() {
+            @Override
+            public void onHospitalClick(HospitalLIst hospital) {
+                Log.d("Barangay_Dashboard", "Hospital card clicked: " + hospital.getHospitalName());
+                showHospitalInformation(hospital);
+            }
+        });
+        
+        hospitalRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+        hospitalRecyclerView.setAdapter(hospitalAdapter);
     }
 
     // Method to handle logout - clears stored credentials and signs out from Firebase
@@ -617,6 +671,32 @@ public class Barangay_Dashboard extends AppCompatActivity {
         }
     }
 
+    private void loadDataImmediately() {
+        // Get user ID from SharedPreferences or Firebase Auth
+        String currentUserId = userId;
+        if (currentUserId == null) {
+            FirebaseUser currentUser = mAuth.getCurrentUser();
+            if (currentUser != null) {
+                currentUserId = currentUser.getUid();
+            }
+        }
+        
+        if (currentUserId != null) {
+            Log.d("Barangay_Dashboard", "Loading data immediately for user: " + currentUserId);
+            
+            // Only load if data hasn't been loaded and no loading is in progress
+            if (!hospitalsLoaded && !dataLoadingInProgress) {
+                Log.d("Barangay_Dashboard", "Data not loaded yet, loading fresh data");
+                // Load user data immediately (this will also load senior count and hospitals)
+                loadUserData(currentUserId);
+            } else {
+                Log.d("Barangay_Dashboard", "Data already loaded or loading in progress, skipping data loading");
+            }
+        } else {
+            Log.w("Barangay_Dashboard", "No user ID available for immediate data loading");
+        }
+    }
+
     private void cacheBarangayName(String barangayName) {
         sharedPreferences.edit()
                 .putString(KEY_CACHED_BARANGAY_NAME, barangayName)
@@ -624,24 +704,46 @@ public class Barangay_Dashboard extends AppCompatActivity {
         Log.d("Barangay_Dashboard", "Cached barangay name: " + barangayName);
     }
 
+    private void resetDataLoadingFlags() {
+        hospitalsLoaded = false;
+        dataLoadingInProgress = false;
+        Log.d("Barangay_Dashboard", "Reset data loading flags for fresh data load");
+    }
+
+    public void refreshData() {
+        Log.d("Barangay_Dashboard", "Manual data refresh requested");
+        resetDataLoadingFlags();
+        loadDataImmediately();
+    }
+
     private void loadSeniorCount() {
-        // Get the current barangay name
+        // Get the current barangay name from cache or text
         String currentBarangay = brgyName.getText().toString();
+        
+        // If text shows "Loading..." or is empty, try to get from cache
         if (currentBarangay == null || currentBarangay.isEmpty() || "Loading...".equals(currentBarangay)) {
+            currentBarangay = sharedPreferences.getString(KEY_CACHED_BARANGAY_NAME, null);
+        }
+
+        if (currentBarangay == null || currentBarangay.isEmpty()) {
             totalSeniorsCount.setText("0");
+            Log.d("Barangay_Dashboard", "No barangay name available for senior count");
             return;
         }
+
+        // Make the variable final for lambda usage
+        final String finalBarangayName = currentBarangay;
 
         // Query seniors from the current barangay
         db.collection("Sagip")
                 .document("users")
                 .collection("seniors")
-                .whereEqualTo("barangay", currentBarangay)
+                .whereEqualTo("barangay", finalBarangayName)
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     int count = queryDocumentSnapshots.size();
                     totalSeniorsCount.setText(String.valueOf(count));
-                    Log.d("Barangay_Dashboard", "Found " + count + " seniors in " + currentBarangay);
+                    Log.d("Barangay_Dashboard", "Found " + count + " seniors in " + finalBarangayName);
                 })
                 .addOnFailureListener(e -> {
                     totalSeniorsCount.setText("0");
@@ -650,13 +752,11 @@ public class Barangay_Dashboard extends AppCompatActivity {
     }
 
     private void loadNearbyHospitals() {
-        if (currentLat == 0.0 && currentLong == 0.0) {
-            hospitalsCount.setText("Location needed");
+        // Prevent duplicate loading
+        if (hospitalsLoaded) {
+            Log.d("Barangay_Dashboard", "Hospitals already loaded, skipping duplicate load");
             return;
         }
-
-        // Clear previous hospital list
-        hospitalListContainer.removeAllViews();
 
         Log.d("Barangay_Dashboard", "Loading hospitals from Firestore");
 
@@ -668,32 +768,45 @@ public class Barangay_Dashboard extends AppCompatActivity {
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     Log.d("Barangay_Dashboard", "Successfully loaded hospitals from Sagip/users/hospital, count: " + queryDocumentSnapshots.size());
                     
-                    List<Hospital> hospitals = new ArrayList<>();
+                    hospitalList.clear();
                     
                     for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
                         Log.d("Barangay_Dashboard", "Processing hospital document: " + document.getId());
-                        Hospital hospital = createHospitalFromDocument(document);
-                        hospitals.add(hospital);
-                    }
-                    
-                    if (hospitals.isEmpty()) {
-                        Log.d("Barangay_Dashboard", "No hospitals found in Sagip/users/hospital collection");
-                        hospitalsCount.setText("No hospitals found");
-                        addNoHospitalsMessage();
-                    } else {
-                        Log.d("Barangay_Dashboard", "Found " + hospitals.size() + " hospitals in the app");
-                        hospitalsCount.setText(hospitals.size() + " found");
                         
-                        // Add each hospital to the list
-                        for (Hospital hospital : hospitals) {
-                            addHospitalToList(hospital);
+                        // Debug: Log all fields in the document
+                        Log.d("Barangay_Dashboard", "Document fields: " + document.getData().keySet());
+                        Log.d("Barangay_Dashboard", "Document data: " + document.getData());
+                        
+                        HospitalLIst hospital = createHospitalLIstFromDocument(document);
+                        if (hospital.getHospitalName() != null && !hospital.getHospitalName().isEmpty()) {
+                            hospitalList.add(hospital);
+                        } else {
+                            Log.d("Barangay_Dashboard", "Skipping hospital with null/empty name");
                         }
                     }
+                    
+                    if (hospitalList.isEmpty()) {
+                        Log.d("Barangay_Dashboard", "No hospitals found in Sagip/users/hospital collection");
+                        hospitalsCount.setText("No hospitals found");
+                    } else {
+                        Log.d("Barangay_Dashboard", "Found " + hospitalList.size() + " hospitals in the app");
+                        hospitalsCount.setText(hospitalList.size() + " found");
+                    }
+                    
+                    // Update RecyclerView
+                    Log.d("Barangay_Dashboard", "Notifying adapter of data change. Hospital list size: " + hospitalList.size());
+                    hospitalAdapter.notifyDataSetChanged();
+                    
+                    // Mark hospitals as loaded to prevent duplicate loading
+                    hospitalsLoaded = true;
+                    dataLoadingInProgress = false;
+                    Log.d("Barangay_Dashboard", "Data loading completed successfully");
                 })
                 .addOnFailureListener(e -> {
                     Log.e("Barangay_Dashboard", "Error loading hospitals from Sagip/users/hospital: " + e.getMessage(), e);
                     hospitalsCount.setText("Error loading");
-                    addNoHospitalsMessage();
+                    dataLoadingInProgress = false;
+                    Log.d("Barangay_Dashboard", "Data loading failed, resetting flags");
                 });
     }
 
@@ -730,131 +843,88 @@ public class Barangay_Dashboard extends AppCompatActivity {
         return hospital;
     }
 
-    private void addNoHospitalsMessage() {
-        // Create a no hospitals message
-        LinearLayout noHospitalsItem = new LinearLayout(this);
-        noHospitalsItem.setOrientation(LinearLayout.VERTICAL);
-        noHospitalsItem.setPadding(16, 24, 16, 24);
-        noHospitalsItem.setGravity(android.view.Gravity.CENTER);
-
-        TextView noHospitalsText = new TextView(this);
-        noHospitalsText.setText("No hospitals available");
-        noHospitalsText.setTextSize(16);
-        noHospitalsText.setTextColor(getResources().getColor(R.color.gray));
-        noHospitalsText.setGravity(android.view.Gravity.CENTER);
-
-        noHospitalsItem.addView(noHospitalsText);
-        hospitalListContainer.addView(noHospitalsItem);
+    private HospitalLIst createHospitalLIstFromDocument(QueryDocumentSnapshot document) {
+        HospitalLIst hospital = new HospitalLIst();
+        
+        // Set basic info
+        hospital.setHospitalName(document.getString("hospitalName"));
+        hospital.setHospitalAddress(document.getString("hospitalAddress"));
+        
+        // Set numeric fields
+        if (document.getLong("totalBeds") != null) {
+            hospital.setTotalBeds(document.getLong("totalBeds").intValue());
+        }
+        if (document.getLong("availableBeds") != null) {
+            hospital.setAvailableBeds(document.getLong("availableBeds").intValue());
+        }
+        if (document.getLong("doctorsAvailable") != null) {
+            hospital.setDoctorsAvailable(document.getLong("doctorsAvailable").intValue());
+        }
+        
+        // Set status fields
+        hospital.setErStatus(document.getString("erStatus"));
+        if (document.getDouble("capacityPercentage") != null) {
+            hospital.setCapacityPercentage(document.getDouble("capacityPercentage"));
+        }
+        
+        // Set timestamp
+        if (document.getTimestamp("lastUpdated") != null) {
+            hospital.setLastUpdated(document.getTimestamp("lastUpdated").toString());
+        }
+        
+        
+        // Debug logging
+        Log.d("Barangay_Dashboard", "Created HospitalLIst: " + hospital.getHospitalName() + 
+            ", Address: " + hospital.getHospitalAddress() + 
+            ", Beds: " + hospital.getAvailableBeds() + "/" + hospital.getTotalBeds() + 
+            ", Doctors: " + hospital.getDoctorsAvailable() + 
+            ", Status: " + hospital.getErStatus());
+        
+        return hospital;
     }
 
-    private void addHospitalToList(Hospital hospital) {
-        // Create a hospital item card
-        androidx.cardview.widget.CardView hospitalCard = new androidx.cardview.widget.CardView(this);
-        hospitalCard.setCardElevation(4);
-        hospitalCard.setRadius(12);
-        hospitalCard.setCardBackgroundColor(getResources().getColor(R.color.white));
+
+
+
+
+    private void showHospitalInformation(HospitalLIst hospital) {
+        Log.d("Barangay_Dashboard", "Showing hospital information for: " + hospital.getHospitalName());
         
-        LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        cardParams.setMargins(0, 0, 0, 12);
-        hospitalCard.setLayoutParams(cardParams);
-
-        // Create a hospital item view
-        LinearLayout hospitalItem = new LinearLayout(this);
-        hospitalItem.setOrientation(LinearLayout.HORIZONTAL);
-        hospitalItem.setPadding(16, 16, 16, 16);
-        hospitalItem.setGravity(android.view.Gravity.CENTER_VERTICAL);
-
-        // Hospital icon
-        ImageView hospitalIcon = new ImageView(this);
-        hospitalIcon.setImageResource(R.drawable.ic_hospital);
-        hospitalIcon.setLayoutParams(new LinearLayout.LayoutParams(40, 40));
-        hospitalIcon.setPadding(8, 8, 8, 8);
-        hospitalIcon.setBackgroundResource(R.drawable.circle_background);
-        hospitalIcon.setColorFilter(getResources().getColor(R.color.primaryRed));
-
-        // Hospital name and details
-        LinearLayout textContainer = new LinearLayout(this);
-        textContainer.setOrientation(LinearLayout.VERTICAL);
-        textContainer.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT));
-        textContainer.setPadding(16, 0, 0, 0);
-
-        TextView hospitalText = new TextView(this);
-        hospitalText.setText(hospital.getHospitalName() != null ? hospital.getHospitalName() : "Unknown Hospital");
-        hospitalText.setTextSize(16);
-        hospitalText.setTextColor(getResources().getColor(R.color.black));
-        hospitalText.setTypeface(null, android.graphics.Typeface.BOLD);
-
-        TextView hospitalSubtext = new TextView(this);
-        String status = hospital.getStatusDisplay();
-        String bedInfo = hospital.getBedStatus();
-        hospitalSubtext.setText(status + " • " + bedInfo);
-        hospitalSubtext.setTextSize(12);
+        // Create a dialog to show hospital information
+        androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(this);
+        builder.setTitle(hospital.getHospitalName());
         
-        // Color code the status
-        if (status.equals("Open")) {
-            hospitalSubtext.setTextColor(getResources().getColor(R.color.success_green));
-        } else if (status.equals("Busy")) {
-            hospitalSubtext.setTextColor(getResources().getColor(R.color.emergency_red));
-        } else {
-            hospitalSubtext.setTextColor(getResources().getColor(R.color.gray));
+        // Build hospital information message
+        StringBuilder hospitalInfo = new StringBuilder();
+        hospitalInfo.append("🏥 ").append(hospital.getHospitalName()).append("\n\n");
+        
+        // Add available beds
+        hospitalInfo.append("🛏️ ").append(getString(R.string.hospital_info_available_beds, hospital.getAvailableBeds())).append("\n\n");
+        
+        // Add doctors available
+        if (hospital.getDoctorsAvailable() != null) {
+            hospitalInfo.append("⚕️ ").append(getString(R.string.hospital_info_doctors_available, hospital.getDoctorsAvailable())).append("\n\n");
         }
-        hospitalSubtext.setPadding(0, 4, 0, 0);
-
-        textContainer.addView(hospitalText);
-        textContainer.addView(hospitalSubtext);
-
-        // Navigation arrow
-        ImageView arrowIcon = new ImageView(this);
-        arrowIcon.setImageResource(R.drawable.ic_arrow_forward);
-        arrowIcon.setLayoutParams(new LinearLayout.LayoutParams(24, 24));
-        arrowIcon.setColorFilter(getResources().getColor(R.color.gray));
-
-        // Add views to hospital item
-        hospitalItem.addView(hospitalIcon);
-        hospitalItem.addView(textContainer);
-        hospitalItem.addView(arrowIcon);
-
-        // Add click listener to navigate to hospital
-        hospitalItem.setOnClickListener(v -> {
-            navigateToSpecificHospital(hospital.getHospitalName());
+        
+        // Add emergency status
+        String erStatus = hospital.getErStatus();
+        if (erStatus != null && !erStatus.isEmpty()) {
+            hospitalInfo.append("🚨 ").append(getString(R.string.hospital_info_emergency_status, erStatus));
+        } else {
+            hospitalInfo.append("🚨 ").append(getString(R.string.hospital_info_emergency_status, hospital.getCalculatedStatus()));
+        }
+        
+        builder.setMessage(hospitalInfo.toString());
+        
+        // Add buttons
+        builder.setPositiveButton(getString(R.string.hospital_info_close), (dialog, which) -> {
+            dialog.dismiss();
         });
-
-        // Add hospital item to card
-        hospitalCard.addView(hospitalItem);
-
-        // Add hospital card to container
-        hospitalListContainer.addView(hospitalCard);
+        
+        // Show the dialog
+        builder.create().show();
     }
 
-    private void navigateToSpecificHospital(String hospitalName) {
-        if (currentLat == 0.0 && currentLong == 0.0) {
-            Toast.makeText(this, getString(R.string.toast_current_location_not_available), Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        // Format coordinates for Google Maps
-        String source = currentLat + "," + currentLong;
-        String destination = hospitalName + ", Angeles City, Philippines";
-
-        // Create Google Maps intent
-        Uri uri = Uri.parse("https://www.google.com/maps/dir/" + source + "/" + destination);
-        Intent intent = new Intent(Intent.ACTION_VIEW, uri);
-        intent.setPackage("com.google.android.apps.maps");
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-
-        // Check if Google Maps is installed
-        if (intent.resolveActivity(getPackageManager()) != null) {
-            startActivity(intent);
-        } else {
-            // Google Maps app is not installed, open in browser instead
-            intent = new Intent(Intent.ACTION_VIEW, uri);
-            startActivity(intent);
-        }
-    }
     
     
     // Notification permission request methods
@@ -973,7 +1043,388 @@ public class Barangay_Dashboard extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        
+        // Dismiss any active emergency dialog
+        if (currentEmergencyDialog != null && currentEmergencyDialog.isShowing()) {
+            currentEmergencyDialog.dismiss();
+            currentEmergencyDialog = null;
+            Log.d("Barangay_Dashboard", "Dismissed emergency dialog on destroy");
+        }
+        
         // Stop listening for emergency notifications when activity is destroyed
         BarangayNotificationService.getInstance(this).stopListening();
+        
+        // Unregister language change receiver
+        unregisterLanguageChangeReceiver();
     }
+    
+    private void updateUILanguage() {
+        // Update UI elements with new language
+        // The cached barangay name will be reloaded by loadCachedBarangayName()
+    }
+    
+    private void registerLanguageChangeReceiver() {
+        android.content.IntentFilter filter = new android.content.IntentFilter("com.example.sagip_prototype.LANGUAGE_CHANGED");
+        registerReceiver(languageChangeReceiver, filter);
+    }
+    
+    private void unregisterLanguageChangeReceiver() {
+        try {
+            unregisterReceiver(languageChangeReceiver);
+        } catch (IllegalArgumentException e) {
+            // Receiver was not registered
+            Log.d("Barangay_Dashboard", "Language change receiver was not registered");
+        }
+    }
+    
+    /**
+     * Handle emergency notification intents from notifications
+     */
+    private void handleEmergencyNotificationIntent() {
+        Intent intent = getIntent();
+        if (intent != null) {
+            String notificationId = intent.getStringExtra("notification_id");
+            String seniorName = intent.getStringExtra("senior_name");
+            String seniorPhone = intent.getStringExtra("senior_phone");
+            String locationAddress = intent.getStringExtra("location_address");
+            String barangay = intent.getStringExtra("barangay");
+            String requestId = intent.getStringExtra("request_id");
+            String emergencyType = intent.getStringExtra("emergency_type");
+            
+            if (notificationId != null && seniorName != null) {
+                Log.d("Barangay_Dashboard", "🚨 Received emergency notification - Senior: " + seniorName);
+                
+                // Show emergency alert dialog
+                showEmergencyAlert(seniorName, seniorPhone, locationAddress, barangay, requestId, emergencyType);
+                
+                // Mark notification as read to prevent repeated showing
+                markNotificationAsRead(notificationId);
+                
+                // Clear the intent extras to prevent repeated handling
+                intent.removeExtra("notification_id");
+                intent.removeExtra("senior_name");
+                intent.removeExtra("senior_phone");
+                intent.removeExtra("location_address");
+                intent.removeExtra("barangay");
+                intent.removeExtra("request_id");
+                intent.removeExtra("emergency_type");
+            }
+        }
+    }
+    
+    /**
+     * Show emergency alert dialog similar to rescuer dashboard
+     */
+    private void showEmergencyAlert(String seniorName, String seniorPhone, String locationAddress, 
+                                  String barangay, String requestId, String emergencyType) {
+        // Check if activity is still valid before showing dialog
+        if (isFinishing() || isDestroyed()) {
+            Log.w("Barangay_Dashboard", "Cannot show emergency alert dialog - activity is not in valid state");
+            return;
+        }
+        
+        // Dismiss any existing emergency dialog
+        if (currentEmergencyDialog != null && currentEmergencyDialog.isShowing()) {
+            currentEmergencyDialog.dismiss();
+            currentEmergencyDialog = null;
+        }
+        
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("🚨 EMERGENCY ALERT - " + barangay);
+        
+        String message = "🚨 URGENT: Senior needs immediate assistance!\n\n" +
+                        "👤 Senior: " + seniorName + "\n" +
+                        "📞 Phone: " + (seniorPhone != null ? seniorPhone : "Not provided") + "\n" +
+                        "📍 Location: " + (locationAddress != null ? locationAddress : "Not provided") + "\n" +
+                        "🏘️ Barangay: " + barangay + "\n" +
+                        "🚨 Type: " + (emergencyType != null ? emergencyType : "Emergency") + "\n\n" +
+                        "⚠️ Please respond immediately!";
+        
+        builder.setMessage(message);
+        builder.setIcon(android.R.drawable.ic_dialog_alert);
+        builder.setCancelable(false);
+        
+        // Call Senior button
+        builder.setPositiveButton("📞 CALL SENIOR", (dialog, which) -> {
+            if (seniorPhone != null && !seniorPhone.isEmpty()) {
+                try {
+                    Intent callIntent = new Intent(Intent.ACTION_DIAL);
+                    callIntent.setData(Uri.parse("tel:" + seniorPhone));
+                    startActivity(callIntent);
+                    Log.d("Barangay_Dashboard", "📞 Opening dialer for: " + seniorPhone);
+                } catch (Exception e) {
+                    Log.e("Barangay_Dashboard", "❌ Error opening dialer: " + e.getMessage());
+                    Toast.makeText(this, "Unable to open dialer. Please call manually: " + seniorPhone, Toast.LENGTH_LONG).show();
+                }
+            } else {
+                Toast.makeText(this, "Senior phone number not available", Toast.LENGTH_SHORT).show();
+            }
+        });
+        
+        // Navigate button
+        builder.setNeutralButton("🗺️ NAVIGATE", (dialog, which) -> {
+            if (locationAddress != null && !locationAddress.isEmpty()) {
+                openGoogleMapsNavigation(locationAddress);
+            } else {
+                Toast.makeText(this, "Location address not available", Toast.LENGTH_SHORT).show();
+            }
+        });
+        
+        // View Details button
+        builder.setNegativeButton("👁️ VIEW DETAILS", (dialog, which) -> {
+            // Navigate to senior list or emergency details
+            Intent detailsIntent = new Intent(this, Barangay_List.class);
+            startActivity(detailsIntent);
+        });
+        
+        AlertDialog dialog = builder.create();
+        
+        // Style the buttons
+        dialog.setOnShowListener(dialogInterface -> {
+            try {
+                // Make the positive button red to indicate emergency
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark, null));
+                    dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setTextColor(getResources().getColor(android.R.color.holo_blue_dark, null));
+                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.darker_gray, null));
+                } else {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+                    dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setTextColor(getResources().getColor(android.R.color.holo_blue_dark));
+                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.darker_gray));
+                }
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextSize(16);
+            } catch (Exception e) {
+                Log.e("Barangay_Dashboard", "Error styling dialog buttons", e);
+            }
+        });
+        
+        dialog.show();
+        
+        // Store reference to current emergency dialog
+        currentEmergencyDialog = dialog;
+        
+        Log.d("Barangay_Dashboard", "🚨 Emergency alert dialog shown for: " + seniorName);
+    }
+    
+    /**
+     * Open Google Maps navigation to emergency location
+     */
+    private void openGoogleMapsNavigation(String locationAddress) {
+        try {
+            // First try to open Google Maps app with navigation
+            String navigationUri = "google.navigation:q=" + Uri.encode(locationAddress) + "&mode=d";
+            Intent navIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(navigationUri));
+            navIntent.setPackage("com.google.android.apps.maps");
+            
+            // Check if Google Maps app is available
+            if (navIntent.resolveActivity(getPackageManager()) != null) {
+                startActivity(navIntent);
+                Toast.makeText(this, "🗺️ Opening Google Maps navigation", Toast.LENGTH_SHORT).show();
+            } else {
+                // Fallback to web-based Google Maps navigation
+                String webUrl = "https://www.google.com/maps/dir/?api=1&destination=" + Uri.encode(locationAddress) + "&travelmode=driving";
+                Intent webIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(webUrl));
+                startActivity(webIntent);
+                Toast.makeText(this, "🗺️ Opening web navigation", Toast.LENGTH_SHORT).show();
+            }
+        } catch (Exception e) {
+            Log.e("Barangay_Dashboard", "Error opening navigation: " + e.getMessage());
+            Toast.makeText(this, "Unable to open navigation. Please contact emergency services.", Toast.LENGTH_LONG).show();
+        }
+    }
+    
+    /**
+     * Mark notification as read in the database
+     */
+    private void markNotificationAsRead(String notificationId) {
+        if (mAuth.getCurrentUser() == null) {
+            Log.w("Barangay_Dashboard", "No authenticated user, cannot mark notification as read");
+            return;
+        }
+        
+        String userId = mAuth.getCurrentUser().getUid();
+        String notificationPath = "Sagip/users/barangay/" + userId + "/notifications/" + notificationId;
+        
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("isRead", true);
+        updates.put("readTimestamp", System.currentTimeMillis());
+        
+        db.document(notificationPath)
+                .update(updates)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d("Barangay_Dashboard", "✅ Notification marked as read: " + notificationId);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("Barangay_Dashboard", "❌ Failed to mark notification as read: " + notificationId, e);
+                });
+    }
+    
+    /**
+     * Start real-time popup listener for emergency notifications
+     */
+    private void startEmergencyPopupListener() {
+        if (userId == null) {
+            Log.w("Barangay_Dashboard", "Cannot start emergency popup listener - userId is null");
+            return;
+        }
+        
+        Log.d("Barangay_Dashboard", "🚨 Starting emergency popup listener for barangay: " + userId);
+        
+        // Listen for emergency notifications in real-time
+        db.collection("Sagip")
+          .document("users")
+          .collection("barangay")
+          .document(userId)
+          .collection("notifications")
+          .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+          .limit(1)
+          .addSnapshotListener((querySnapshot, error) -> {
+              if (error != null) {
+                  Log.e("Barangay_Dashboard", "Error listening to emergency notifications: " + error.getMessage(), error);
+                  return;
+              }
+              
+              if (querySnapshot != null && !querySnapshot.isEmpty()) {
+                  for (QueryDocumentSnapshot document : querySnapshot) {
+                      handleEmergencyPopupNotification(document);
+                  }
+              }
+          });
+    }
+    
+    /**
+     * Handle emergency popup notification
+     */
+    private void handleEmergencyPopupNotification(QueryDocumentSnapshot document) {
+        try {
+            String type = document.getString("type");
+            String title = document.getString("title");
+            String message = document.getString("message");
+            String seniorName = document.getString("seniorName");
+            String seniorPhone = document.getString("seniorPhone");
+            String locationAddress = document.getString("locationAddress");
+            String barangay = document.getString("barangay");
+            String requestId = document.getString("requestId");
+            String emergencyType = document.getString("emergencyType");
+            Long timestamp = document.getLong("timestamp");
+            Boolean isRead = document.getBoolean("isRead");
+            
+            // Only process unread emergency notifications
+            if ("EMERGENCY_ALERT".equals(type) && (isRead == null || !isRead)) {
+                Log.d("Barangay_Dashboard", "🚨 Received emergency popup notification: " + seniorName + " (Request ID: " + requestId + ")");
+                
+                // Show emergency alert dialog
+                showEmergencyPopupAlert(seniorName, seniorPhone, locationAddress, barangay, requestId, emergencyType, timestamp);
+                
+                // Mark notification as read
+                document.getReference().update("isRead", true);
+            }
+            
+        } catch (Exception e) {
+            Log.e("Barangay_Dashboard", "Error handling emergency popup notification: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Show emergency popup alert dialog
+     */
+    private void showEmergencyPopupAlert(String seniorName, String seniorPhone, String locationAddress,
+                                       String barangay, String requestId, String emergencyType, Long timestamp) {
+        // Check if activity is still valid before showing dialog
+        if (isFinishing() || isDestroyed()) {
+            Log.w("Barangay_Dashboard", "Cannot show emergency popup dialog - activity is not in valid state");
+            return;
+        }
+        
+        // Dismiss any existing emergency dialog
+        if (currentEmergencyDialog != null && currentEmergencyDialog.isShowing()) {
+            currentEmergencyDialog.dismiss();
+            currentEmergencyDialog = null;
+        }
+        
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("🚨 EMERGENCY ALERT - " + barangay);
+        
+        String timeStr = "Unknown time";
+        if (timestamp != null) {
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("MMM dd, yyyy HH:mm:ss", Locale.getDefault());
+            timeStr = sdf.format(new java.util.Date(timestamp));
+        }
+        
+        String message = "🚨 URGENT: Senior needs immediate assistance!\n\n" +
+                        "👤 Senior: " + seniorName + "\n" +
+                        "📞 Phone: " + (seniorPhone != null ? seniorPhone : "Not provided") + "\n" +
+                        "📍 Location: " + (locationAddress != null ? locationAddress : "Not provided") + "\n" +
+                        "🏘️ Barangay: " + barangay + "\n" +
+                        "🚨 Type: " + (emergencyType != null ? emergencyType : "Emergency") + "\n" +
+                        "⏰ Time: " + timeStr + "\n\n" +
+                        "⚠️ Please respond immediately!";
+        
+        builder.setMessage(message);
+        builder.setIcon(android.R.drawable.ic_dialog_alert);
+        builder.setCancelable(false);
+        
+        // Call Senior button
+        builder.setPositiveButton("📞 CALL SENIOR", (dialog, which) -> {
+            if (seniorPhone != null && !seniorPhone.isEmpty()) {
+                try {
+                    Intent callIntent = new Intent(Intent.ACTION_DIAL);
+                    callIntent.setData(Uri.parse("tel:" + seniorPhone));
+                    startActivity(callIntent);
+                    Log.d("Barangay_Dashboard", "📞 Opening dialer for: " + seniorPhone);
+                } catch (Exception e) {
+                    Log.e("Barangay_Dashboard", "❌ Error opening dialer: " + e.getMessage());
+                    Toast.makeText(this, "Unable to open dialer. Please call manually: " + seniorPhone, Toast.LENGTH_LONG).show();
+                }
+            } else {
+                Toast.makeText(this, "Senior phone number not available", Toast.LENGTH_SHORT).show();
+            }
+        });
+        
+        // Navigate button
+        builder.setNeutralButton("🗺️ NAVIGATE", (dialog, which) -> {
+            if (locationAddress != null && !locationAddress.isEmpty()) {
+                openGoogleMapsNavigation(locationAddress);
+            } else {
+                Toast.makeText(this, "Location address not available", Toast.LENGTH_SHORT).show();
+            }
+        });
+        
+        // View Details button
+        builder.setNegativeButton("👁️ VIEW DETAILS", (dialog, which) -> {
+            // Navigate to senior list or emergency details
+            Intent detailsIntent = new Intent(this, Barangay_List.class);
+            startActivity(detailsIntent);
+        });
+        
+        AlertDialog dialog = builder.create();
+        
+        // Style the buttons
+        dialog.setOnShowListener(dialogInterface -> {
+            try {
+                // Make the positive button red to indicate emergency
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark, null));
+                    dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setTextColor(getResources().getColor(android.R.color.holo_blue_dark, null));
+                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.darker_gray, null));
+                } else {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+                    dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setTextColor(getResources().getColor(android.R.color.holo_blue_dark));
+                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.darker_gray));
+                }
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextSize(16);
+            } catch (Exception e) {
+                Log.e("Barangay_Dashboard", "Error styling dialog buttons", e);
+            }
+        });
+        
+        dialog.show();
+        
+        // Store reference to current emergency dialog
+        currentEmergencyDialog = dialog;
+        
+        Log.d("Barangay_Dashboard", "🚨 Emergency popup dialog shown for: " + seniorName);
+    }
+    
+    // End of Barangay_Dashboard class - Fixed duplicate onDestroy issue
 }

@@ -85,7 +85,7 @@ public class SeniorAdapter extends RecyclerView.Adapter<SeniorAdapter.SeniorView
 
             // Set address (barangay)
             String barangay = senior.getBarangay();
-            addressText.setText("Barangay: " + (barangay != null ? barangay : "N/A"));
+            addressText.setText(String.format(itemView.getContext().getString(R.string.barangay_label), barangay != null ? barangay : "N/A"));
 
             // Set profile image - prioritize selfie verification image
             String imageUrl = senior.getSelfieVerificationUrl();

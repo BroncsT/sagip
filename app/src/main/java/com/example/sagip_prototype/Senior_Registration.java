@@ -115,7 +115,7 @@ public class Senior_Registration extends AppCompatActivity {
                 String mobileNumber = getMobileNumber.getText().toString().trim();
 
                 if (firstName.isEmpty() || lastName.isEmpty() || birthday.isEmpty() || selectedBarangay.isEmpty() || selectedBarangay.equals("BARANGAY")) {
-                    Toast.makeText(Senior_Registration.this, "Please fill in all fields and select a barangay", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(Senior_Registration.this, getString(R.string.error_fill_all_fields_barangay), Toast.LENGTH_SHORT).show();
                     return;
                 }
 

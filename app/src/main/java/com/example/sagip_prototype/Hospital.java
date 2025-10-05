@@ -14,6 +14,8 @@ public class Hospital {
     private int bedCapacity;
     private int availableBeds;
     private boolean isEmergencyReady;
+    private double latitude;
+    private double longitude;
 
     // Constructors
     public Hospital() {}
@@ -64,6 +66,12 @@ public class Hospital {
 
     public boolean isEmergencyReady() { return isEmergencyReady; }
     public void setEmergencyReady(boolean emergencyReady) { isEmergencyReady = emergencyReady; }
+
+    public double getLatitude() { return latitude; }
+    public void setLatitude(double latitude) { this.latitude = latitude; }
+
+    public double getLongitude() { return longitude; }
+    public void setLongitude(double longitude) { this.longitude = longitude; }
 
     // Helper methods
     public String getBedStatus() {

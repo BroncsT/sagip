@@ -40,6 +40,31 @@ public class Barangay_List extends AppCompatActivity implements SeniorAdapter.On
     private String currentBarangay;
     private String userId;
     private String userType = "barangay";
+    
+    // Broadcast receiver for language changes
+    private android.content.BroadcastReceiver languageChangeReceiver = new android.content.BroadcastReceiver() {
+        @Override
+        public void onReceive(android.content.Context context, android.content.Intent intent) {
+            if ("com.example.sagip_prototype.LANGUAGE_CHANGED".equals(intent.getAction())) {
+                String languageCode = intent.getStringExtra("language");
+                Log.d(TAG, "Received language change broadcast: " + languageCode);
+                
+                // Apply the new language
+                LanguageSelectionActivity.setAppLanguage(Barangay_List.this, languageCode);
+                
+                // Update UI elements
+                updateUILanguage();
+                
+                // Reload cached data
+                if (currentBarangay != null && !currentBarangay.isEmpty()) {
+                    loadCachedBarangayAndSeniors();
+                }
+                
+                // Show confirmation toast
+                Toast.makeText(Barangay_List.this, getString(R.string.toast_language_change_detected), Toast.LENGTH_SHORT).show();
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -70,6 +95,9 @@ public class Barangay_List extends AppCompatActivity implements SeniorAdapter.On
         
         // Setup bottom navigation
         setupBottomNavigation();
+        
+        // Register language change receiver
+        registerLanguageChangeReceiver();
     }
 
     private void initializeViews() {
@@ -103,8 +131,8 @@ public class Barangay_List extends AppCompatActivity implements SeniorAdapter.On
     
     private void showImmediateLoadingState() {
         // Show immediate loading state for instant feedback
-        labelProfile.setText("Loading...");
-        showNoSeniorsMessage("Loading senior citizens...");
+        labelProfile.setText(getString(R.string.loading_text));
+        showNoSeniorsMessage(getString(R.string.loading_seniors_text));
     }
 
     private void loadCurrentBarangayAndSeniors() {
@@ -172,7 +200,7 @@ public class Barangay_List extends AppCompatActivity implements SeniorAdapter.On
                         
                         if (barangayName != null && !barangayName.isEmpty()) {
                             currentBarangay = barangayName;
-                            labelProfile.setText("Senior List in " + currentBarangay);
+                            labelProfile.setText(getString(R.string.senior_list_in_barangay, currentBarangay));
                             
                             // Cache the barangay name for future instant loading
                             cacheBarangayName(barangayName);
@@ -181,16 +209,16 @@ public class Barangay_List extends AppCompatActivity implements SeniorAdapter.On
                             loadSeniorsForBarangay(currentBarangay);
                         } else {
                             Log.e(TAG, "Barangay not found for user. Available fields: " + documentSnapshot.getData().keySet());
-                            showNoSeniorsMessage("Barangay information not found");
+                            showNoSeniorsMessage(getString(R.string.barangay_information_not_found));
                         }
                     } else {
                         Log.e(TAG, "User document not found");
-                        showNoSeniorsMessage("User profile not found");
+                        showNoSeniorsMessage(getString(R.string.user_profile_not_found));
                     }
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error loading barangay information: " + e.getMessage());
-                    showNoSeniorsMessage("Error loading barangay information: " + e.getMessage());
+                    showNoSeniorsMessage(getString(R.string.error_loading_barangay_info, e.getMessage()));
                 });
     }
     
@@ -204,7 +232,7 @@ public class Barangay_List extends AppCompatActivity implements SeniorAdapter.On
         Log.d(TAG, "Loading seniors for barangay: " + barangay);
         
         // Show loading state immediately
-        showNoSeniorsMessage("Loading seniors...");
+        showNoSeniorsMessage(getString(R.string.loading_seniors_text));
         
         // Query seniors from the specified barangay (without status filter initially)
         db.collection("Sagip")
@@ -279,7 +307,7 @@ public class Barangay_List extends AppCompatActivity implements SeniorAdapter.On
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error loading seniors: " + e.getMessage());
-                    showNoSeniorsMessage("Error loading seniors: " + e.getMessage());
+                    showNoSeniorsMessage(getString(R.string.error_loading_seniors, e.getMessage()));
                 });
     }
     
@@ -325,7 +353,7 @@ public class Barangay_List extends AppCompatActivity implements SeniorAdapter.On
         
         // Show/hide appropriate views
         if (seniors.isEmpty()) {
-            showNoSeniorsMessage("No senior citizens registered in " + currentBarangay);
+            showNoSeniorsMessage(getString(R.string.no_seniors_found));
         } else {
             hideNoSeniorsMessage();
         }
@@ -442,6 +470,13 @@ public class Barangay_List extends AppCompatActivity implements SeniorAdapter.On
         super.onResume();
         Log.d(TAG, "Activity resumed, refreshing data");
         
+        // Apply saved language preference
+        String savedLanguage = LanguageSelectionActivity.getSavedLanguage(this);
+        LanguageSelectionActivity.setAppLanguage(this, savedLanguage);
+        
+        // Update UI elements with new language
+        updateUILanguage();
+        
         // Show cached data immediately for instant display
         if (currentBarangay != null && !currentBarangay.isEmpty()) {
             loadCachedSeniorsCount(currentBarangay);
@@ -452,6 +487,29 @@ public class Barangay_List extends AppCompatActivity implements SeniorAdapter.On
             loadCachedBarangayAndSeniors();
         }
     }
+    
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        
+        // Handle language change without recreating activity
+        Log.d(TAG, "Configuration changed - language change detected");
+        
+        // Apply saved language preference
+        String savedLanguage = LanguageSelectionActivity.getSavedLanguage(this);
+        LanguageSelectionActivity.setAppLanguage(this, savedLanguage);
+        
+        // Update UI elements with new language
+        updateUILanguage();
+        
+        // Reload cached data to ensure it's still displayed
+        if (currentBarangay != null && !currentBarangay.isEmpty()) {
+            loadCachedBarangayAndSeniors();
+        }
+        
+        // Show toast to confirm language change
+        Toast.makeText(this, getString(R.string.toast_language_change_detected), Toast.LENGTH_SHORT).show();
+    }
 
     @Override
     public void onBackPressed() {
@@ -459,5 +517,36 @@ public class Barangay_List extends AppCompatActivity implements SeniorAdapter.On
         // Navigate back to Barangay Dashboard
         startActivity(new Intent(this, Barangay_Dashboard.class));
         finish();
+    }
+    
+    private void updateUILanguage() {
+        // Update UI elements with new language
+        if (labelProfile != null && currentBarangay != null && !currentBarangay.isEmpty()) {
+            labelProfile.setText(getString(R.string.senior_list_in_barangay, currentBarangay));
+        }
+        
+        // Update any other text elements that need language updates
+        // The cached data will be reloaded by the calling methods
+    }
+    
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // Unregister language change receiver
+        unregisterLanguageChangeReceiver();
+    }
+    
+    private void registerLanguageChangeReceiver() {
+        android.content.IntentFilter filter = new android.content.IntentFilter("com.example.sagip_prototype.LANGUAGE_CHANGED");
+        registerReceiver(languageChangeReceiver, filter);
+    }
+    
+    private void unregisterLanguageChangeReceiver() {
+        try {
+            unregisterReceiver(languageChangeReceiver);
+        } catch (IllegalArgumentException e) {
+            // Receiver was not registered
+            Log.d(TAG, "Language change receiver was not registered");
+        }
     }
 }

@@ -133,10 +133,10 @@ public class FCMNotificationService extends FirebaseMessagingService {
         String statusEmoji = getStatusEmoji(hospitalStatus);
         
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("🏥 Hospital Status Updated")
-                .setContentText(hospitalName + " is now " + statusEmoji + " " + hospitalStatus.toUpperCase())
+                .setContentTitle(getString(R.string.notification_hospital_status_updated))
+                .setContentText(String.format(getString(R.string.notification_hospital_status_text), hospitalName, statusEmoji, hospitalStatus.toUpperCase()))
                 .setStyle(new NotificationCompat.BigTextStyle()
-                        .bigText(hospitalName + " has updated their status to " + statusEmoji + " " + hospitalStatus.toUpperCase() + 
+                        .bigText(String.format(getString(R.string.notification_hospital_status_text), hospitalName, statusEmoji, hospitalStatus.toUpperCase()) + 
                                 "\n\n📊 Available Beds: " + availableBeds + 
                                 "\n👨‍⚕️ Available Doctors: " + availableDoctors +
                                 "\n\nThis information will help with emergency response planning."))
@@ -215,8 +215,8 @@ public class FCMNotificationService extends FirebaseMessagingService {
         String emergencyEmoji = getEmergencyEmoji(emergencyType);
         
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("🚨 EMERGENCY HELP REQUEST")
-                .setContentText(seniorName + " needs " + emergencyEmoji + " " + emergencyType)
+                .setContentTitle(getString(R.string.notification_emergency_help_request))
+                .setContentText(String.format(getString(R.string.notification_emergency_help_text), seniorName, emergencyEmoji, emergencyType))
                 .setStyle(new NotificationCompat.BigTextStyle()
                         .bigText("🚨 EMERGENCY ALERT 🚨\n\n" +
                                 "👤 Senior: " + seniorName + "\n" +

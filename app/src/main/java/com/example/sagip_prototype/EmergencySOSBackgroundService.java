@@ -124,8 +124,8 @@ public class EmergencySOSBackgroundService extends Service {
         );
         
         return new NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Emergency SOS Service")
-            .setContentText("Ready to receive emergency alerts")
+            .setContentTitle(getString(R.string.notification_emergency_sos_service))
+            .setContentText(getString(R.string.notification_ready_alerts))
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
@@ -257,8 +257,8 @@ public class EmergencySOSBackgroundService extends Service {
         
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_dialog_alert)
-                .setContentTitle("🚨 EMERGENCY SOS - " + seniorName)
-                .setContentText("Tap to open app - Senior needs immediate help!")
+                .setContentTitle(String.format(getString(R.string.notification_emergency_sos_title), seniorName))
+                .setContentText(getString(R.string.notification_emergency_sos_text))
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(bigText))
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_ALARM)

@@ -187,6 +187,7 @@ public class Rescuer_List extends BaseRescuerActivity implements HospitalLIstAda
                                     hospital.setLastUpdated(document.getTimestamp("lastUpdated").toString());
                                 }
                                 
+                                
                                 // Debug logging for status calculation
                                 String calculatedStatus = hospital.getCalculatedStatus();
                                 android.util.Log.d("Rescuer_List", "Hospital: " + hospital.getHospitalName() + 

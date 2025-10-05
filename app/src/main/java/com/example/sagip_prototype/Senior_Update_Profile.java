@@ -137,7 +137,7 @@ public class Senior_Update_Profile extends AppCompatActivity {
         String email = emailInput.getText().toString().trim();
 
         if (mobileNum.isEmpty() || selectedBarangay.isEmpty() || selectedBarangay.equals("BARANGAY")) {
-            Toast.makeText(this, "Please fill in all required fields and select a barangay", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.error_fill_all_fields_select_barangay), Toast.LENGTH_SHORT).show();
             return;
         }
 

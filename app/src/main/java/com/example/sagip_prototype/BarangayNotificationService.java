@@ -210,6 +210,8 @@ public class BarangayNotificationService {
                     
                     if ("EMERGENCY_ALERT".equals(type)) {
                         handleEmergencyAlert(document.getId(), data);
+                        // Mark notification as read after processing
+                        markNotificationAsRead(document.getId());
                     }
                 }
             } catch (Exception e) {
@@ -231,6 +233,12 @@ public class BarangayNotificationService {
         Log.d(TAG, "🚨 Handling emergency alert for senior: " + seniorName);
         Log.d(TAG, "📱 Emergency details - Senior: " + seniorName + ", Phone: " + seniorPhone + ", Location: " + locationAddress);
         Log.d(TAG, "📱 Emergency details - Barangay: " + barangay + ", Type: " + emergencyType + ", Request ID: " + requestId);
+        
+        // Check if this notification has already been processed recently
+        if (hasNotificationBeenProcessedRecently(notificationId)) {
+            Log.d(TAG, "⚠️ Notification already processed recently, skipping: " + notificationId);
+            return;
+        }
         
         // Show notification
         showEmergencyAlertNotification(notificationId, seniorName, seniorPhone, locationAddress, barangay, requestId, emergencyType);
@@ -286,7 +294,7 @@ public class BarangayNotificationService {
                 .setTimeoutAfter(300000); // Auto-dismiss after 5 minutes if not handled
         
         // Add action buttons
-        Intent callIntent = new Intent(Intent.ACTION_CALL);
+        Intent callIntent = new Intent(Intent.ACTION_DIAL);
         callIntent.setData(Uri.parse("tel:" + seniorPhone));
         PendingIntent callPendingIntent = PendingIntent.getActivity(
                 context, 
@@ -295,8 +303,18 @@ public class BarangayNotificationService {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
         
+        // Create navigation intent for Google Maps
+        Intent navIntent = createNavigationIntent(locationAddress);
+        PendingIntent navPendingIntent = PendingIntent.getActivity(
+                context, 
+                NOTIFICATION_ID + 2, 
+                navIntent, 
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        
         builder.addAction(R.drawable.ic_emergency, context.getString(R.string.barangay_emergency_action_call), callPendingIntent);
         builder.addAction(R.drawable.ic_emergency, context.getString(R.string.barangay_emergency_action_view), pendingIntent);
+        builder.addAction(android.R.drawable.ic_menu_directions, context.getString(R.string.barangay_emergency_action_navigate), navPendingIntent);
         
         // Show notification
         NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
@@ -310,20 +328,33 @@ public class BarangayNotificationService {
     }
     
     private void markNotificationAsRead(String notificationId) {
-        if (currentUserId == null) return;
+        if (currentUserId == null) {
+            Log.w(TAG, "No current user ID, cannot mark notification as read");
+            return;
+        }
         
         String notificationPath = "Sagip/users/barangay/" + currentUserId + "/notifications/" + notificationId;
         Map<String, Object> updates = new HashMap<>();
         updates.put("isRead", true);
+        updates.put("readTimestamp", System.currentTimeMillis());
         
         db.document(notificationPath)
                 .update(updates)
                 .addOnSuccessListener(aVoid -> {
-                    Log.d(TAG, "📱 Notification marked as read");
+                    Log.d(TAG, "✅ Notification marked as read: " + notificationId);
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error marking notification as read", e);
+                    Log.e(TAG, "❌ Error marking notification as read: " + notificationId, e);
                 });
+    }
+    
+    /**
+     * Check if a notification has been processed recently (within last 5 minutes)
+     */
+    private boolean hasNotificationBeenProcessedRecently(String notificationId) {
+        // For now, we'll rely on the database isRead flag
+        // In the future, we could implement a local cache of recently processed notifications
+        return false; // Let the database isRead flag handle this
     }
     
     private Uri getNotificationSound() {
@@ -365,6 +396,15 @@ public class BarangayNotificationService {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
         
+        // Create navigation intent for heads-up notification
+        Intent navIntent = createNavigationIntent("Emergency Location - " + barangay);
+        PendingIntent navPendingIntent = PendingIntent.getActivity(
+                context, 
+                NOTIFICATION_ID + 3, 
+                navIntent, 
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        
         NotificationCompat.Builder headsUpBuilder = new NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_emergency)
                 .setContentTitle(context.getString(R.string.barangay_emergency_heads_up_title, barangay))
@@ -379,15 +419,43 @@ public class BarangayNotificationService {
                 .setColor(0xFF0000)
                 .setDefaults(NotificationCompat.DEFAULT_ALL)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                .setFullScreenIntent(pendingIntent, true);
+                .setFullScreenIntent(pendingIntent, true)
+                .addAction(android.R.drawable.ic_menu_directions, context.getString(R.string.barangay_emergency_action_navigate), navPendingIntent);
         
         NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (notificationManager != null) {
             notificationManager.notify(NOTIFICATION_ID + 2, headsUpBuilder.build());
-            Log.d(TAG, "🚨 Heads-up emergency alert sent");
+            Log.d(TAG, "🚨 Heads-up emergency alert sent with navigation button");
         }
     }
     
+    
+    private Intent createNavigationIntent(String locationAddress) {
+        Log.d(TAG, "🗺️ Creating navigation intent for location: " + locationAddress);
+        
+        try {
+            // First try to open Google Maps app with navigation
+            String navigationUri = "google.navigation:q=" + Uri.encode(locationAddress) + "&mode=d";
+            Intent navIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(navigationUri));
+            navIntent.setPackage("com.google.android.apps.maps");
+            
+            // Check if Google Maps app is available
+            if (navIntent.resolveActivity(context.getPackageManager()) != null) {
+                Log.d(TAG, "🗺️ Google Maps app available, using app navigation");
+                return navIntent;
+            } else {
+                // Fallback to web-based Google Maps navigation
+                Log.d(TAG, "🗺️ Google Maps app not available, using web navigation");
+                String webUrl = "https://www.google.com/maps/dir/?api=1&destination=" + Uri.encode(locationAddress) + "&travelmode=driving";
+                return new Intent(Intent.ACTION_VIEW, Uri.parse(webUrl));
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error creating navigation intent: " + e.getMessage());
+            // Final fallback to web navigation
+            String webUrl = "https://www.google.com/maps/dir/?api=1&destination=" + Uri.encode(locationAddress) + "&travelmode=driving";
+            return new Intent(Intent.ACTION_VIEW, Uri.parse(webUrl));
+        }
+    }
     
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

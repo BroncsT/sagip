@@ -94,7 +94,7 @@ public class Senior_Details_Activity extends AppCompatActivity {
             if (seniorBarangay != null) {
                 barangayText.setText(seniorBarangay);
             } else {
-                barangayText.setText("Barangay: N/A");
+                barangayText.setText(getString(R.string.barangay_not_available));
             }
             
             // Format and display phone number
