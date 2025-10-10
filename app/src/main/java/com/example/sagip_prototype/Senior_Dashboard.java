@@ -1,6 +1,7 @@
 package com.example.sagip_prototype;
 
 import android.Manifest;
+import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -119,6 +120,13 @@ public class Senior_Dashboard extends AppCompatActivity {
         
         // Check and request notification permission
         checkAndRequestNotificationPermission();
+        
+        // Send test notification to verify notification system is working
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            Log.d(TAG, "🧪 Sending test notification after 3 second delay");
+            checkNotificationSystemStatus();
+            SeniorNotificationService.getInstance(this).sendTestNotification();
+        }, 3000); // Send test notification after 3 seconds
         
         // Register for FCM notifications
         registerForFCMNotifications();
@@ -1217,6 +1225,15 @@ public class Senior_Dashboard extends AppCompatActivity {
     private void checkAndRequestNotificationPermission() {
         Log.d(TAG, "🔔 Checking notification permissions");
         
+        // For Android 13+ (API 33+), request POST_NOTIFICATIONS permission
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                Log.d(TAG, "🔔 POST_NOTIFICATIONS permission not granted, requesting...");
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1001);
+                return;
+            }
+        }
+        
         // Check if notifications are enabled
         if (!areNotificationsEnabled()) {
             Log.d(TAG, "🔔 Notifications are disabled, requesting permission");
@@ -1324,6 +1341,64 @@ public class Senior_Dashboard extends AppCompatActivity {
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "❌ Failed to save FCM token", e);
                 });
+    }
+    
+    private void checkNotificationSystemStatus() {
+        Log.d(TAG, "🔍 Checking notification system status...");
+        
+        NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (notificationManager == null) {
+            Log.e(TAG, "❌ NotificationManager is null");
+            return;
+        }
+        
+        // Check if notifications are enabled
+        boolean notificationsEnabled = true;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            notificationsEnabled = notificationManager.areNotificationsEnabled();
+            Log.d(TAG, "🔍 Notifications enabled: " + notificationsEnabled);
+        }
+        
+        // Check notification channels
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            String channelId = "senior_notifications";
+            NotificationChannel channel = notificationManager.getNotificationChannel(channelId);
+            if (channel != null) {
+                Log.d(TAG, "🔍 Notification channel exists: " + channelId);
+                Log.d(TAG, "🔍 Channel importance: " + channel.getImportance());
+                Log.d(TAG, "🔍 Channel can show badge: " + channel.canShowBadge());
+                Log.d(TAG, "🔍 Channel can vibrate: " + channel.shouldVibrate());
+                Log.d(TAG, "🔍 Channel can show lights: " + channel.shouldShowLights());
+            } else {
+                Log.e(TAG, "❌ Notification channel does not exist: " + channelId);
+            }
+        }
+        
+        // Check if app has notification permission
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                Log.w(TAG, "⚠️ POST_NOTIFICATIONS permission not granted");
+            } else {
+                Log.d(TAG, "✅ POST_NOTIFICATIONS permission granted");
+            }
+        }
+        
+        Log.d(TAG, "🔍 Notification system status check complete");
+    }
+    
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        
+        if (requestCode == 1001) { // POST_NOTIFICATIONS permission
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Log.d(TAG, "✅ POST_NOTIFICATIONS permission granted");
+                Toast.makeText(this, "Notification permission granted!", Toast.LENGTH_SHORT).show();
+            } else {
+                Log.w(TAG, "❌ POST_NOTIFICATIONS permission denied");
+                Toast.makeText(this, "Notification permission denied. You may not receive emergency notifications.", Toast.LENGTH_LONG).show();
+            }
+        }
     }
     
 }

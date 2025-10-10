@@ -47,6 +47,13 @@ public class SeniorNotificationService {
             return;
         }
         
+        // Stop existing listener if any
+        if (notificationListener != null) {
+            Log.d(TAG, "🛑 Stopping existing notification listener before starting new one");
+            notificationListener.remove();
+            notificationListener = null;
+        }
+        
         String userId = currentUser.getUid();
         Log.d(TAG, "🔔 Starting senior notification listener for user: " + userId);
         
@@ -54,7 +61,11 @@ public class SeniorNotificationService {
         String notificationPath = "Sagip/users/seniors/" + userId + "/notifications";
         Log.d(TAG, "🔔 Listening to notification path: " + notificationPath);
         
-        notificationListener = db.collection(notificationPath)
+        notificationListener = db.collection("Sagip")
+                .document("users")
+                .collection("seniors")
+                .document(userId)
+                .collection("notifications")
                 .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
                 .addSnapshotListener((querySnapshot, error) -> {
                     if (error != null) {
@@ -102,6 +113,8 @@ public class SeniorNotificationService {
             Boolean isRead = document.getBoolean("isRead");
             
             Log.d(TAG, "📱 Handling notification - Type: " + type + ", Title: " + title + ", isRead: " + isRead);
+            Log.d(TAG, "📱 Notification data - Rescuer: " + rescuerName + ", Phone: " + rescuerPhone + ", RequestId: " + requestId);
+            Log.d(TAG, "📱 Full document data: " + document.getData().toString());
             
             // Only process unread notifications
             if (isRead == null || !isRead) {
@@ -153,6 +166,16 @@ public class SeniorNotificationService {
         Log.d(TAG, "📱 Rescuer: " + rescuerName + ", Phone: " + rescuerPhone + ", Request ID: " + requestId);
         
         NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        
+        // Check if notifications are enabled
+        if (notificationManager != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            boolean notificationsEnabled = notificationManager.areNotificationsEnabled();
+            Log.d(TAG, "📱 Notifications enabled: " + notificationsEnabled);
+            if (!notificationsEnabled) {
+                Log.w(TAG, "⚠️ Notifications are disabled, cannot show notification");
+                return;
+            }
+        }
         
         // Create intent to open senior dashboard
         Intent intent = new Intent(context, Senior_Dashboard.class);
@@ -210,8 +233,8 @@ public class SeniorNotificationService {
         );
         
         // Create notification
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, "emergency_channel")
-                .setSmallIcon(R.drawable.ic_emergency)
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_dialog_alert)
                 .setContentTitle(title)
                 .setContentText(message)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -223,10 +246,22 @@ public class SeniorNotificationService {
                 .setVibrate(new long[]{0, 1000, 500, 1000})
                 .setLights(0xFF00FF00, 1000, 1000) // Green light
                 .addAction(android.R.drawable.ic_menu_call, "📞 CALL RESCUER", callPendingIntent)
-                .setOngoing(false);
+                .setOngoing(false)
+                .setDefaults(NotificationCompat.DEFAULT_ALL)
+                .setWhen(System.currentTimeMillis());
         
-        notificationManager.notify((requestId != null) ? requestId.hashCode() : (int) System.currentTimeMillis(), builder.build());
-        Log.d(TAG, "📤 Rescuer response notification with hospital info sent to senior");
+        int notificationId = (requestId != null) ? requestId.hashCode() : (int) System.currentTimeMillis();
+        
+        try {
+            notificationManager.notify(notificationId, builder.build());
+            Log.d(TAG, "📤 Rescuer response notification with hospital info sent to senior - ID: " + notificationId);
+            Log.d(TAG, "📤 Notification title: " + title + ", message: " + message);
+            Log.d(TAG, "📤 NotificationManager is null: " + (notificationManager == null));
+            Log.d(TAG, "📤 Notification channel ID: " + CHANNEL_ID);
+            Log.d(TAG, "📤 Notification sent successfully!");
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error sending rescuer response notification: " + e.getMessage(), e);
+        }
     }
     
     private void loadEmergencyAndShowNotification(String title, String message, String rescuerName, 
@@ -345,6 +380,16 @@ public class SeniorNotificationService {
         
         NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         
+        // Check if notifications are enabled
+        if (notificationManager != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            boolean notificationsEnabled = notificationManager.areNotificationsEnabled();
+            Log.d(TAG, "📱 Notifications enabled: " + notificationsEnabled);
+            if (!notificationsEnabled) {
+                Log.w(TAG, "⚠️ Notifications are disabled, cannot show notification");
+                return;
+            }
+        }
+        
         // Create intent to open senior dashboard
         Intent intent = new Intent(context, Senior_Dashboard.class);
         intent.putExtra("notification_type", "rescuer_response");
@@ -390,10 +435,22 @@ public class SeniorNotificationService {
                 .setVibrate(new long[]{0, 1000, 500, 1000})
                 .setLights(0xFF00FF00, 1000, 1000) // Green light
                 .addAction(android.R.drawable.ic_menu_call, "📞 CALL RESCUER", callPendingIntent)
-                .setOngoing(false);
+                .setOngoing(false)
+                .setDefaults(NotificationCompat.DEFAULT_ALL)
+                .setWhen(System.currentTimeMillis());
         
-        notificationManager.notify((requestId != null) ? requestId.hashCode() : (int) System.currentTimeMillis(), builder.build());
-        Log.d(TAG, "📤 Basic rescuer response notification sent to senior");
+        int notificationId = (requestId != null) ? requestId.hashCode() : (int) System.currentTimeMillis();
+        
+        try {
+            notificationManager.notify(notificationId, builder.build());
+            Log.d(TAG, "📤 Basic rescuer response notification sent to senior - ID: " + notificationId);
+            Log.d(TAG, "📤 Notification title: " + title + ", message: " + message);
+            Log.d(TAG, "📤 NotificationManager is null: " + (notificationManager == null));
+            Log.d(TAG, "📤 Notification channel ID: " + CHANNEL_ID);
+            Log.d(TAG, "📤 Basic notification sent successfully!");
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error sending basic rescuer response notification: " + e.getMessage(), e);
+        }
     }
     
     private String getPriorityText(int priority) {
@@ -408,6 +465,19 @@ public class SeniorNotificationService {
     
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (notificationManager == null) {
+                Log.e(TAG, "❌ NotificationManager is null, cannot create channel");
+                return;
+            }
+            
+            // Check if channel already exists
+            NotificationChannel existingChannel = notificationManager.getNotificationChannel(CHANNEL_ID);
+            if (existingChannel != null) {
+                Log.d(TAG, "📱 Notification channel already exists: " + CHANNEL_ID);
+                return;
+            }
+            
             NotificationChannel channel = new NotificationChannel(
                     CHANNEL_ID,
                     "Senior Notifications",
@@ -430,11 +500,18 @@ public class SeniorNotificationService {
             channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
             channel.setShowBadge(true);
             
-            NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-            if (notificationManager != null) {
-                notificationManager.createNotificationChannel(channel);
-                Log.d(TAG, "📱 Senior notification channel created");
+            notificationManager.createNotificationChannel(channel);
+            Log.d(TAG, "📱 Senior notification channel created successfully: " + CHANNEL_ID);
+            
+            // Verify channel was created
+            NotificationChannel createdChannel = notificationManager.getNotificationChannel(CHANNEL_ID);
+            if (createdChannel != null) {
+                Log.d(TAG, "✅ Channel verification successful - ID: " + createdChannel.getId() + ", Importance: " + createdChannel.getImportance());
+            } else {
+                Log.e(TAG, "❌ Channel verification failed - channel not found after creation");
             }
+        } else {
+            Log.d(TAG, "📱 Android version < O, no channel creation needed");
         }
     }
     
@@ -472,5 +549,70 @@ public class SeniorNotificationService {
         
         Log.d(TAG, "🏢 Could not extract rescue group from message: " + message);
         return "Emergency Response Team";
+    }
+    
+    // Test method to verify notification system is working
+    public void sendTestNotification() {
+        Log.d(TAG, "🧪 Sending test notification to verify notification system");
+        
+        NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (notificationManager == null) {
+            Log.e(TAG, "❌ NotificationManager is null");
+            return;
+        }
+        
+        // Check if notifications are enabled
+        boolean notificationsEnabled = true;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            notificationsEnabled = notificationManager.areNotificationsEnabled();
+            Log.d(TAG, "🧪 Notifications enabled: " + notificationsEnabled);
+            if (!notificationsEnabled) {
+                Log.w(TAG, "⚠️ Notifications are disabled, cannot send test notification");
+                return;
+            }
+        }
+        
+        // Check if notification channel exists
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = notificationManager.getNotificationChannel(CHANNEL_ID);
+            if (channel == null) {
+                Log.e(TAG, "❌ Notification channel does not exist: " + CHANNEL_ID);
+                Log.d(TAG, "🧪 Creating notification channel...");
+                createNotificationChannel();
+                
+                // Check again after creation
+                channel = notificationManager.getNotificationChannel(CHANNEL_ID);
+                if (channel == null) {
+                    Log.e(TAG, "❌ Failed to create notification channel");
+                    return;
+                }
+            } else {
+                Log.d(TAG, "✅ Notification channel exists: " + CHANNEL_ID + ", Importance: " + channel.getImportance());
+            }
+        }
+        
+        // Create test notification
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                .setContentTitle("🧪 Test Notification")
+                .setContentText("This is a test notification to verify the notification system is working")
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setAutoCancel(true)
+                .setDefaults(NotificationCompat.DEFAULT_ALL)
+                .setWhen(System.currentTimeMillis());
+        
+        int testNotificationId = (int) System.currentTimeMillis();
+        
+        try {
+            notificationManager.notify(testNotificationId, builder.build());
+            Log.d(TAG, "🧪 Test notification sent successfully with ID: " + testNotificationId);
+            Log.d(TAG, "🧪 NotificationManager is null: " + (notificationManager == null));
+            Log.d(TAG, "🧪 Notification channel ID: " + CHANNEL_ID);
+            Log.d(TAG, "🧪 Notifications enabled: " + notificationsEnabled);
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error sending test notification: " + e.getMessage(), e);
+        }
     }
 }

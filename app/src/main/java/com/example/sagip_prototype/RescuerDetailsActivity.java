@@ -46,13 +46,13 @@ import org.json.JSONObject;
 public class RescuerDetailsActivity extends AppCompatActivity {
 
     private static final String TAG = "RescuerDetailsActivity";
-    private static final String GOOGLE_MAPS_API_KEY = "AIzaSyBvOkBwv9wT3Q6Q6Q6Q6Q6Q6Q6Q6Q6Q6Q6Q"; // Replace with your actual API key
+    private static final String GOOGLE_MAPS_API_KEY = "AIzaSyBkf_blEJ4wc5Q_CNxABKK6-LFxDF-gWv0"; // Use the actual API key from strings.xml
     private static final String DIRECTIONS_API_URL = "https://maps.googleapis.com/maps/api/directions/json";
 
     // UI Elements
     private TextView tvRescuerName, tvRescuerTeam, tvRescuerPhone;
     private TextView tvETA, tvDistance, tvLastUpdate, tvStatus, tvETAStatus;
-    private Button btnCallRescuer, btnBack;
+    private Button btnCallRescuer, btnBack, btnRefreshETA;
     private Button btnTestETA, btnCheckDatabase, btnForceETA;
     private ProgressBar loadingIndicator;
 
@@ -125,6 +125,21 @@ public class RescuerDetailsActivity extends AppCompatActivity {
         
         loadEmergencyDetails();
         setupUpdateRunnable();
+        
+        // Try to get current location for more accurate ETA
+        getCurrentLocationForETA();
+        
+        // Force initial ETA calculation after a short delay
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            Log.d(TAG, "🔄 Force initial ETA calculation after delay");
+            if (rescuerLat != 0 && rescuerLong != 0 && seniorLat != 0 && seniorLong != 0) {
+                calculateETA();
+            } else {
+                Log.w(TAG, "⚠️ Missing location data - Rescuer: " + rescuerLat + ", " + rescuerLong + " Senior: " + seniorLat + ", " + seniorLong);
+                // Try to calculate with whatever data we have
+                calculateETAFromDatabase();
+            }
+        }, 2000); // 2 second delay
     }
     
     private void updateRescuerInfoFromNotification(String rescuerName, String rescuerPhone, 
@@ -176,6 +191,7 @@ public class RescuerDetailsActivity extends AppCompatActivity {
         tvETAStatus = findViewById(R.id.tvETAStatus);
         btnCallRescuer = findViewById(R.id.btnCallRescuer);
         btnBack = findViewById(R.id.btnBack);
+        btnRefreshETA = findViewById(R.id.btnRefreshETA);
         btnTestETA = findViewById(R.id.btnTestETA);
         btnCheckDatabase = findViewById(R.id.btnCheckDatabase);
         btnForceETA = findViewById(R.id.btnForceETA);
@@ -191,6 +207,10 @@ public class RescuerDetailsActivity extends AppCompatActivity {
         // Set up click listeners
         btnBack.setOnClickListener(v -> finish());
         btnCallRescuer.setOnClickListener(v -> callRescuer());
+        btnRefreshETA.setOnClickListener(v -> {
+            Log.d(TAG, "🔄 Refresh ETA button clicked");
+            getCurrentLocationForETA();
+        });
         
         // Test buttons
         btnTestETA.setOnClickListener(v -> {
@@ -207,7 +227,21 @@ public class RescuerDetailsActivity extends AppCompatActivity {
             Log.d(TAG, "🔄 Force ETA calculation with current data");
             Log.d(TAG, "Current rescuer location: " + rescuerLat + ", " + rescuerLong);
             Log.d(TAG, "Current senior location: " + seniorLat + ", " + seniorLong);
-            calculateETAFromDatabase();
+            
+            // Force show some test data first
+            runOnUiThread(() -> {
+                tvETA.setText("15 min");
+                tvDistance.setText("2.5 km");
+                tvETAStatus.setText("Test data");
+                tvLastUpdate.setText("Last updated: " + getCurrentTime() + " (Test)");
+            });
+            
+            // Then try real calculation
+            if (rescuerLat != 0 && rescuerLong != 0 && seniorLat != 0 && seniorLong != 0) {
+                calculateETA();
+            } else {
+                calculateETAFromDatabase();
+            }
         });
     }
 
@@ -330,9 +364,9 @@ public class RescuerDetailsActivity extends AppCompatActivity {
                             }
                         }
                         
-                        // Calculate ETA using database locations
-                        Log.d(TAG, "🔄 Calculating ETA from database locations - Rescuer: " + rescuerLat + ", " + rescuerLong + " Senior: " + seniorLat + ", " + seniorLong);
-                        calculateETAFromDatabase();
+                        // Try Google Maps API first, then fallback to database calculation
+                        Log.d(TAG, "🔄 Calculating ETA - Rescuer: " + rescuerLat + ", " + rescuerLong + " Senior: " + seniorLat + ", " + seniorLong);
+                        calculateETA();
                     } else {
                         showError("Rescuer details not found");
                     }
@@ -351,11 +385,29 @@ public class RescuerDetailsActivity extends AppCompatActivity {
         if (rescuerLat == 0 || rescuerLong == 0 || seniorLat == 0 || seniorLong == 0) {
             Log.w(TAG, "❌ Missing location data for ETA calculation - Rescuer: " + rescuerLat + ", " + rescuerLong + " Senior: " + seniorLat + ", " + seniorLong);
             runOnUiThread(() -> {
-                tvETA.setText("-- min");
-                tvDistance.setText("-- km");
-                tvLastUpdate.setText("Last updated: " + getCurrentTime() + " (No location data)");
+                if (tvETA != null) {
+                    tvETA.setText("-- min");
+                    Log.d(TAG, "✅ Set ETA to -- min");
+                } else {
+                    Log.e(TAG, "❌ tvETA is null in calculateETAFromDatabase!");
+                }
+                if (tvDistance != null) {
+                    tvDistance.setText("-- km");
+                    Log.d(TAG, "✅ Set distance to -- km");
+                } else {
+                    Log.e(TAG, "❌ tvDistance is null in calculateETAFromDatabase!");
+                }
+                if (tvLastUpdate != null) {
+                    tvLastUpdate.setText("Last updated: " + getCurrentTime() + " (No location data)");
+                    Log.d(TAG, "✅ Set last update text");
+                } else {
+                    Log.e(TAG, "❌ tvLastUpdate is null in calculateETAFromDatabase!");
+                }
                 if (tvETAStatus != null) {
                     tvETAStatus.setText("No location data available");
+                    Log.d(TAG, "✅ Set ETA status text");
+                } else {
+                    Log.e(TAG, "❌ tvETAStatus is null in calculateETAFromDatabase!");
                 }
             });
             return;
@@ -376,14 +428,14 @@ public class RescuerDetailsActivity extends AppCompatActivity {
             
             if (tvETA != null) {
                 tvETA.setText(String.format("%.0f min", estimatedTimeMinutes));
-                Log.d(TAG, "✅ tvETA updated");
+                Log.d(TAG, "✅ tvETA updated to: " + String.format("%.0f min", estimatedTimeMinutes));
             } else {
                 Log.e(TAG, "❌ tvETA is null!");
             }
             
             if (tvDistance != null) {
                 tvDistance.setText(String.format("%.1f km", distance));
-                Log.d(TAG, "✅ tvDistance updated");
+                Log.d(TAG, "✅ tvDistance updated to: " + String.format("%.1f km", distance));
             } else {
                 Log.e(TAG, "❌ tvDistance is null!");
             }
@@ -432,7 +484,9 @@ public class RescuerDetailsActivity extends AppCompatActivity {
         executorService.execute(() -> {
             try {
                 String url = buildDirectionsUrl(rescuerLat, rescuerLong, seniorLat, seniorLong);
+                Log.d(TAG, "🌐 Making Google Directions API request: " + url);
                 String response = makeDirectionsRequest(url);
+                Log.d(TAG, "🌐 Received response length: " + response.length());
                 parseDirectionsResponse(response);
             } catch (Exception e) {
                 Log.e(TAG, "Error calculating ETA with Google Directions API, using fallback calculation", e);
@@ -449,7 +503,9 @@ public class RescuerDetailsActivity extends AppCompatActivity {
                 "&key=" + GOOGLE_MAPS_API_KEY +
                 "&mode=driving" +
                 "&traffic_model=best_guess" +
-                "&departure_time=now";
+                "&departure_time=now" +
+                "&units=metric" +
+                "&avoid=tolls";
     }
 
     private String makeDirectionsRequest(String urlString) throws IOException {
@@ -475,6 +531,25 @@ public class RescuerDetailsActivity extends AppCompatActivity {
     private void parseDirectionsResponse(String response) {
         try {
             JSONObject jsonResponse = new JSONObject(response);
+            
+            // Check for API errors
+            String status = jsonResponse.getString("status");
+            Log.d(TAG, "🌐 Google Directions API status: " + status);
+            
+            if (!"OK".equals(status)) {
+                String errorMessage = jsonResponse.optString("error_message", "Unknown error");
+                Log.e(TAG, "❌ Google Directions API error: " + status + " - " + errorMessage);
+                runOnUiThread(() -> {
+                    tvETA.setText("Error");
+                    tvDistance.setText("Error");
+                    tvLastUpdate.setText("Last updated: " + getCurrentTime() + " (API Error)");
+                    if (tvETAStatus != null) {
+                        tvETAStatus.setText("API Error: " + status);
+                    }
+                });
+                return;
+            }
+            
             JSONArray routes = jsonResponse.getJSONArray("routes");
 
             if (routes.length() > 0) {
@@ -489,25 +564,52 @@ public class RescuerDetailsActivity extends AppCompatActivity {
                     int durationValue = duration.getInt("value");
                     int distanceValue = distance.getInt("value");
                     
-                    // Convert to minutes and kilometers
-                    int etaMinutes = durationValue / 60;
-                    double distanceKm = distanceValue / 1000.0;
-                    
-                    runOnUiThread(() -> {
-                        tvETA.setText(etaMinutes + " min");
-                        tvDistance.setText(String.format("%.1f km", distanceKm));
-                        tvLastUpdate.setText("Last updated: " + getCurrentTime());
-                        if (tvETAStatus != null) {
-                            tvETAStatus.setText("Real-time traffic data");
-                        }
-                    });
+                       // Convert to minutes and kilometers
+                       int etaMinutes = durationValue / 60;
+                       double distanceKm = distanceValue / 1000.0;
+
+                       // Handle very close distances (less than 10 meters)
+                       if (distanceKm < 0.01) {
+                           etaMinutes = 1; // Minimum 1 minute
+                           distanceKm = 0.01; // Show as 0.01 km (10 meters)
+                           Log.d(TAG, "📍 Very close distance detected, adjusting to minimum values");
+                       }
+
+                       // Make variables final for lambda
+                       final int finalEtaMinutes = etaMinutes;
+                       final double finalDistanceKm = distanceKm;
+
+                       Log.d(TAG, "✅ Google Directions API - ETA: " + finalEtaMinutes + " min, Distance: " + String.format("%.2f km", finalDistanceKm));
+
+                       runOnUiThread(() -> {
+                           tvETA.setText(finalEtaMinutes + " min");
+                           tvDistance.setText(String.format("%.2f km", finalDistanceKm));
+                           tvLastUpdate.setText("Last updated: " + getCurrentTime());
+                           if (tvETAStatus != null) {
+                               if (finalDistanceKm < 0.01) {
+                                   tvETAStatus.setText("Very close - real-time data");
+                               } else {
+                                   tvETAStatus.setText("Real-time traffic data");
+                               }
+                           }
+                       });
+                } else {
+                    Log.w(TAG, "⚠️ No legs found in route");
+                    calculateFallbackETA();
                 }
+            } else {
+                Log.w(TAG, "⚠️ No routes found in response");
+                calculateFallbackETA();
             }
         } catch (JSONException e) {
             Log.e(TAG, "Error parsing directions response", e);
             runOnUiThread(() -> {
-                tvETA.setText("-- min");
-                tvDistance.setText("-- km");
+                tvETA.setText("Error");
+                tvDistance.setText("Error");
+                tvLastUpdate.setText("Last updated: " + getCurrentTime() + " (Parse Error)");
+                if (tvETAStatus != null) {
+                    tvETAStatus.setText("Parse Error");
+                }
             });
         }
     }
@@ -529,13 +631,36 @@ public class RescuerDetailsActivity extends AppCompatActivity {
         // Calculate straight-line distance
         double distance = calculateDistance(rescuerLat, rescuerLong, seniorLat, seniorLong);
         
-        // Estimate travel time based on distance
-        // Assuming average speed of 30 km/h in urban areas
-        double estimatedTimeMinutes = (distance / 30.0) * 60;
+        // Handle very close distances (less than 10 meters)
+        if (distance < 0.01) {
+            distance = 0.01; // Show as 0.01 km (10 meters)
+        }
+        
+        // Estimate travel time based on distance with different speeds for different distances
+        final double estimatedTimeMinutes;
+        if (distance < 0.01) {
+            // Extremely close - minimum 1 minute
+            estimatedTimeMinutes = 1.0;
+        } else if (distance < 1.0) {
+            // Very close - walking speed (5 km/h)
+            estimatedTimeMinutes = (distance / 5.0) * 60 * 1.3; // 30% buffer
+        } else if (distance < 5.0) {
+            // Local area - slower driving (25 km/h)
+            estimatedTimeMinutes = (distance / 25.0) * 60 * 1.3; // 30% buffer
+        } else if (distance < 20.0) {
+            // Urban area - moderate speed (35 km/h)
+            estimatedTimeMinutes = (distance / 35.0) * 60 * 1.3; // 30% buffer
+        } else {
+            // Longer distance - highway speed (50 km/h)
+            estimatedTimeMinutes = (distance / 50.0) * 60 * 1.3; // 30% buffer
+        }
+        
+        // Make variables final for lambda
+        final double finalDistance = distance;
         
         runOnUiThread(() -> {
             tvETA.setText(String.format("%.0f min", estimatedTimeMinutes) + " (est.)");
-            tvDistance.setText(String.format("%.1f km", distance));
+            tvDistance.setText(String.format("%.2f km", finalDistance));
             tvLastUpdate.setText("Last updated: " + getCurrentTime() + " (Estimated)");
             if (tvETAStatus != null) {
                 tvETAStatus.setText("Estimated based on distance");
@@ -607,6 +732,13 @@ public class RescuerDetailsActivity extends AppCompatActivity {
             } else {
                 Log.e(TAG, "❌ tvETAStatus is null in test!");
             }
+            
+            if (tvLastUpdate != null) {
+                tvLastUpdate.setText("Last updated: " + getCurrentTime() + " (Test)");
+                Log.d(TAG, "✅ Test last update text set");
+            } else {
+                Log.e(TAG, "❌ tvLastUpdate is null in test!");
+            }
         });
     }
     
@@ -667,14 +799,92 @@ public class RescuerDetailsActivity extends AppCompatActivity {
         updateRunnable = new Runnable() {
             @Override
             public void run() {
-                // Update ETA every 30 seconds using database calculation
-                calculateETAFromDatabase();
+                // Update rescuer location from database first, then calculate ETA
+                updateRescuerLocationFromDatabase();
                 updateHandler.postDelayed(this, 30000);
             }
         };
         updateHandler.postDelayed(updateRunnable, 30000);
     }
+    
+    private void updateRescuerLocationFromDatabase() {
+        if (rescuerId == null) {
+            Log.w(TAG, "⚠️ No rescuer ID available for location update");
+            return;
+        }
+        
+        Log.d(TAG, "🔄 Updating rescuer location from database for ID: " + rescuerId);
+        
+        db.collection("Sagip")
+                .document("users")
+                .collection("rescuer")
+                .document(rescuerId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        // Get rescuer location from database
+                        GeoPoint rescuerLocation = documentSnapshot.getGeoPoint("currentLocation");
+                        if (rescuerLocation != null) {
+                            double newRescuerLat = rescuerLocation.getLatitude();
+                            double newRescuerLong = rescuerLocation.getLongitude();
+                            
+                            // Check if location has changed significantly
+                            double distanceChange = calculateDistance(rescuerLat, rescuerLong, newRescuerLat, newRescuerLong);
+                            
+                            if (distanceChange > 0.01) { // More than 10 meters change
+                                rescuerLat = newRescuerLat;
+                                rescuerLong = newRescuerLong;
+                                Log.d(TAG, "📍 Rescuer location updated: " + rescuerLat + ", " + rescuerLong);
+                                
+                                // Calculate ETA with updated location using Google Maps API
+                                calculateETA();
+                            } else {
+                                Log.d(TAG, "📍 Rescuer location unchanged, skipping ETA update");
+                            }
+                        } else {
+                            Log.w(TAG, "⚠️ No rescuer location found in database");
+                            // Still try to calculate ETA with existing location
+                            calculateETA();
+                        }
+                    } else {
+                        Log.w(TAG, "❌ Rescuer document not found in database");
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Error updating rescuer location from database: " + e.getMessage());
+                    // Still try to calculate ETA with existing location
+                    calculateETA();
+                });
+    }
 
+    private void getCurrentLocationForETA() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "⚠️ No location permission for current location");
+            return;
+        }
+        
+        Log.d(TAG, "📍 Getting current location for ETA calculation");
+        
+        fusedLocationClient.getLastLocation()
+                .addOnSuccessListener(location -> {
+                    if (location != null) {
+                        // Update senior location with current GPS location
+                        seniorLat = location.getLatitude();
+                        seniorLong = location.getLongitude();
+                        Log.d(TAG, "📍 Updated senior location from GPS: " + seniorLat + ", " + seniorLong);
+                        
+                        // Recalculate ETA with updated senior location
+                        calculateETA();
+                    } else {
+                        Log.w(TAG, "⚠️ No current location available from GPS");
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Error getting current location: " + e.getMessage());
+                });
+    }
+    
     private void callRescuer() {
         if (rescuerPhone != null && !rescuerPhone.equals("Not available")) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED) {

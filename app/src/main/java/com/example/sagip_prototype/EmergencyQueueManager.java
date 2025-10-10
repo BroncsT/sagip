@@ -390,6 +390,20 @@ public class EmergencyQueueManager {
                         barangayNotification.put("isRead", false);
                         barangayNotification.put("isActive", true);
                         
+                        // Add senior coordinates for navigation
+                        if (request.location != null) {
+                            barangayNotification.put("seniorLatitude", request.location.getLatitude());
+                            barangayNotification.put("seniorLongitude", request.location.getLongitude());
+                            Log.d(TAG, "🏘️ Added senior coordinates to barangay notification: " + 
+                                request.location.getLatitude() + ", " + request.location.getLongitude());
+                        } else {
+                            Log.w(TAG, "⚠️ No senior coordinates available for barangay notification");
+                        }
+                        
+                        // Add currentLocation field (full address from senior's profile)
+                        barangayNotification.put("currentLocation", request.locationAddress);
+                        Log.d(TAG, "🏘️ Added currentLocation to barangay notification: " + request.locationAddress);
+                        
                         // Send notification to barangay user
                         String notificationPath = "Sagip/users/barangay/" + barangayUserId + "/notifications";
                         Log.d(TAG, "🏘️ Sending barangay notification to: " + contactPerson + " (" + barangayUserId + ")");

@@ -51,7 +51,7 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
     private TextView tvSeniorName, tvSeniorPhone, tvLocation, tvRescuerName, tvRescuerLocation;
     private TextView tvAssignmentTime, tvEstimatedArrival, tvDistance, tvStatus;
     private TextView tvHospitalName, tvHospitalAddress, tvHospitalDistance;
-    private Button btnCallSenior, btnNavigate, btnUpdateLocation, btnMarkDone, btnNavigateHospital;
+    private Button btnCallSenior, btnNavigateToSenior, btnUpdateLocation, btnMarkDone, btnNavigateHospital;
     private GoogleMap mMap;
     
     // Data
@@ -187,7 +187,7 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         }
         
         btnCallSenior = findViewById(R.id.btn_call_senior);
-        btnNavigate = findViewById(R.id.btn_navigate);
+        btnNavigateToSenior = findViewById(R.id.btn_navigate_to_senior);
         btnUpdateLocation = findViewById(R.id.btn_update_location);
         btnMarkDone = findViewById(R.id.btn_mark_arrived);
         btnNavigateHospital = findViewById(R.id.btn_navigate_hospital);
@@ -214,7 +214,7 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
     
     private void setupButtonListeners() {
         btnCallSenior.setOnClickListener(v -> callSenior());
-        btnNavigate.setOnClickListener(v -> openNavigation());
+        btnNavigateToSenior.setOnClickListener(v -> openNavigation());
         btnUpdateLocation.setOnClickListener(v -> updateLocation());
         btnMarkDone.setOnClickListener(v -> markDone());
         

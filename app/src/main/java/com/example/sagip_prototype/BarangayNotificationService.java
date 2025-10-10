@@ -34,6 +34,7 @@ public class BarangayNotificationService {
     private FirebaseAuth mAuth;
     private ListenerRegistration notificationListener;
     private String currentUserId;
+    private long sessionStartTime; // Track when the current session started
     
     private BarangayNotificationService(Context context) {
         this.context = context.getApplicationContext();
@@ -56,7 +57,9 @@ public class BarangayNotificationService {
         }
         
         currentUserId = mAuth.getCurrentUser().getUid();
+        sessionStartTime = System.currentTimeMillis(); // Set session start time
         Log.d(TAG, "🔔 Starting barangay notification listener for user: " + currentUserId);
+        Log.d(TAG, "🔔 Session started at: " + sessionStartTime);
         
         String notificationPath = "Sagip/users/barangay/" + currentUserId + "/notifications";
         Log.d(TAG, "🔔 Listening to notification path: " + notificationPath);
@@ -68,12 +71,11 @@ public class BarangayNotificationService {
             notificationListener.remove();
         }
         
-        // Listen for recent unread notifications only (last 24 hours)
-        long oneDayAgo = System.currentTimeMillis() - (24 * 60 * 60 * 1000); // 24 hours ago
-        
+        // Only listen for notifications created after the current session started
+        // This prevents showing old notifications when user logs in
         Query query = db.collection(notificationPath)
                 .whereEqualTo("isRead", false)
-                .whereGreaterThan("timestamp", oneDayAgo)
+                .whereGreaterThan("timestamp", sessionStartTime)
                 .orderBy("timestamp", Query.Direction.DESCENDING)
                 .limit(10); // Limit to last 10 recent notifications
         
@@ -109,6 +111,15 @@ public class BarangayNotificationService {
             notificationListener = null;
             Log.d(TAG, "🛑 Stopped barangay notification listener");
         }
+    }
+    
+    /**
+     * Reset the session start time - call this when user logs out
+     */
+    public void resetSession() {
+        sessionStartTime = 0;
+        currentUserId = null;
+        Log.d(TAG, "🔄 Session reset - next login will start fresh");
     }
     
     // Method to clear old notifications (older than 7 days) when user logs in
@@ -149,17 +160,21 @@ public class BarangayNotificationService {
         String notificationPath = "Sagip/users/barangay/" + mAuth.getCurrentUser().getUid() + "/notifications";
         Log.d(TAG, "🔍 Manually checking for notifications at: " + notificationPath);
         
-        // Only check for recent notifications (last 24 hours) to avoid showing old notifications
-        long oneDayAgo = System.currentTimeMillis() - (24 * 60 * 60 * 1000); // 24 hours ago
+        // Only check for notifications created after the current session started
+        // This prevents showing old notifications when user logs in
+        if (sessionStartTime == 0) {
+            sessionStartTime = System.currentTimeMillis();
+            Log.d(TAG, "🔍 Session start time not set, using current time: " + sessionStartTime);
+        }
         
         db.collection(notificationPath)
                 .whereEqualTo("isRead", false)
-                .whereGreaterThan("timestamp", oneDayAgo)
+                .whereGreaterThan("timestamp", sessionStartTime)
                 .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
                 .limit(5) // Only show last 5 recent notifications
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
-                    Log.d(TAG, "🔍 Recent notifications query found " + querySnapshot.size() + " unread notifications from last 24 hours");
+                    Log.d(TAG, "🔍 Recent notifications query found " + querySnapshot.size() + " unread notifications from current session");
                     for (QueryDocumentSnapshot document : querySnapshot) {
                         Log.d(TAG, "🔍 Recent notification: " + document.getId() + " - " + document.getString("title"));
                     }
@@ -230,9 +245,20 @@ public class BarangayNotificationService {
         String requestId = (String) data.get("requestId");
         String emergencyType = (String) data.get("emergencyType");
         
+        // Get senior coordinates for navigation
+        Double seniorLatitude = null;
+        Double seniorLongitude = null;
+        if (data.get("seniorLatitude") instanceof Number) {
+            seniorLatitude = ((Number) data.get("seniorLatitude")).doubleValue();
+        }
+        if (data.get("seniorLongitude") instanceof Number) {
+            seniorLongitude = ((Number) data.get("seniorLongitude")).doubleValue();
+        }
+        
         Log.d(TAG, "🚨 Handling emergency alert for senior: " + seniorName);
         Log.d(TAG, "📱 Emergency details - Senior: " + seniorName + ", Phone: " + seniorPhone + ", Location: " + locationAddress);
         Log.d(TAG, "📱 Emergency details - Barangay: " + barangay + ", Type: " + emergencyType + ", Request ID: " + requestId);
+        Log.d(TAG, "📱 Senior coordinates - Lat: " + seniorLatitude + ", Long: " + seniorLongitude);
         
         // Check if this notification has already been processed recently
         if (hasNotificationBeenProcessedRecently(notificationId)) {
@@ -240,12 +266,16 @@ public class BarangayNotificationService {
             return;
         }
         
+        // Get currentLocation field
+        String currentLocation = (String) data.get("currentLocation");
+        
         // Show notification
-        showEmergencyAlertNotification(notificationId, seniorName, seniorPhone, locationAddress, barangay, requestId, emergencyType);
+        showEmergencyAlertNotification(notificationId, seniorName, seniorPhone, locationAddress, barangay, requestId, emergencyType, seniorLatitude, seniorLongitude, currentLocation);
     }
     
     private void showEmergencyAlertNotification(String notificationId, String seniorName, String seniorPhone, 
-                                             String locationAddress, String barangay, String requestId, String emergencyType) {
+                                             String locationAddress, String barangay, String requestId, String emergencyType, 
+                                             Double seniorLatitude, Double seniorLongitude, String currentLocation) {
         Log.d(TAG, "🚨 Showing EMERGENCY ALERT notification for: " + seniorName);
         
         // Create intent to open Barangay_Dashboard
@@ -257,6 +287,18 @@ public class BarangayNotificationService {
         intent.putExtra("barangay", barangay);
         intent.putExtra("request_id", requestId);
         intent.putExtra("emergency_type", emergencyType);
+        // Add senior coordinates for navigation
+        if (seniorLatitude != null && seniorLongitude != null) {
+            intent.putExtra("senior_latitude", seniorLatitude);
+            intent.putExtra("senior_longitude", seniorLongitude);
+            Log.d(TAG, "🚨 Added senior coordinates to intent: " + seniorLatitude + ", " + seniorLongitude);
+        }
+        
+        // Add currentLocation field
+        if (currentLocation != null && !currentLocation.isEmpty()) {
+            intent.putExtra("current_location", currentLocation);
+            Log.d(TAG, "🚨 Added currentLocation to intent: " + currentLocation);
+        }
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         
         PendingIntent pendingIntent = PendingIntent.getActivity(
@@ -303,8 +345,9 @@ public class BarangayNotificationService {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
         
-        // Create navigation intent for Google Maps
-        Intent navIntent = createNavigationIntent(locationAddress);
+        // Create navigation intent for Google Maps (use currentLocation if available, otherwise locationAddress)
+        String addressForNavigation = (currentLocation != null && !currentLocation.isEmpty()) ? currentLocation : locationAddress;
+        Intent navIntent = createNavigationIntent(addressForNavigation, seniorLatitude, seniorLongitude);
         PendingIntent navPendingIntent = PendingIntent.getActivity(
                 context, 
                 NOTIFICATION_ID + 2, 
@@ -323,7 +366,7 @@ public class BarangayNotificationService {
             Log.d(TAG, "🚨 EMERGENCY ALERT notification sent to barangay user");
             
             // Also show as heads-up notification
-            showHeadsUpNotification(seniorName, barangay, seniorPhone);
+            showHeadsUpNotification(seniorName, barangay, seniorPhone, seniorLatitude, seniorLongitude, currentLocation);
         }
     }
     
@@ -382,7 +425,7 @@ public class BarangayNotificationService {
         return new long[]{0, 1000, 200, 1000, 200, 1000, 200, 1000, 200, 1000};
     }
     
-    private void showHeadsUpNotification(String seniorName, String barangay, String seniorPhone) {
+    private void showHeadsUpNotification(String seniorName, String barangay, String seniorPhone, Double seniorLatitude, Double seniorLongitude, String currentLocation) {
         Log.d(TAG, "🚨 Showing heads-up emergency alert for: " + seniorName);
         
         // Create a separate heads-up notification
@@ -396,8 +439,9 @@ public class BarangayNotificationService {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
         
-        // Create navigation intent for heads-up notification
-        Intent navIntent = createNavigationIntent("Emergency Location - " + barangay);
+        // Create navigation intent for heads-up notification (use coordinates and currentLocation if available)
+        String locationForNavigation = (currentLocation != null && !currentLocation.isEmpty()) ? currentLocation : "Emergency Location - " + barangay;
+        Intent navIntent = createNavigationIntent(locationForNavigation, seniorLatitude, seniorLongitude);
         PendingIntent navPendingIntent = PendingIntent.getActivity(
                 context, 
                 NOTIFICATION_ID + 3, 
@@ -430,24 +474,49 @@ public class BarangayNotificationService {
     }
     
     
-    private Intent createNavigationIntent(String locationAddress) {
+    private Intent createNavigationIntent(String locationAddress, Double latitude, Double longitude) {
         Log.d(TAG, "🗺️ Creating navigation intent for location: " + locationAddress);
+        if (latitude != null && longitude != null) {
+            Log.d(TAG, "🗺️ Using coordinates for navigation: " + latitude + ", " + longitude);
+        }
         
         try {
-            // First try to open Google Maps app with navigation
-            String navigationUri = "google.navigation:q=" + Uri.encode(locationAddress) + "&mode=d";
-            Intent navIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(navigationUri));
-            navIntent.setPackage("com.google.android.apps.maps");
+            Intent navIntent;
             
-            // Check if Google Maps app is available
-            if (navIntent.resolveActivity(context.getPackageManager()) != null) {
-                Log.d(TAG, "🗺️ Google Maps app available, using app navigation");
-                return navIntent;
+            // Use coordinates if available for more accurate navigation
+            if (latitude != null && longitude != null) {
+                // First try to open Google Maps app with coordinates
+                String navigationUri = String.format("google.navigation:q=%.6f,%.6f&mode=d", latitude, longitude);
+                navIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(navigationUri));
+                navIntent.setPackage("com.google.android.apps.maps");
+                
+                // Check if Google Maps app is available
+                if (navIntent.resolveActivity(context.getPackageManager()) != null) {
+                    Log.d(TAG, "🗺️ Google Maps app available, using coordinates navigation");
+                    return navIntent;
+                } else {
+                    // Fallback to web-based Google Maps navigation with coordinates
+                    Log.d(TAG, "🗺️ Google Maps app not available, using web navigation with coordinates");
+                    String webUrl = String.format("https://www.google.com/maps/dir/?api=1&destination=%.6f,%.6f&travelmode=driving", latitude, longitude);
+                    return new Intent(Intent.ACTION_VIEW, Uri.parse(webUrl));
+                }
             } else {
-                // Fallback to web-based Google Maps navigation
-                Log.d(TAG, "🗺️ Google Maps app not available, using web navigation");
-                String webUrl = "https://www.google.com/maps/dir/?api=1&destination=" + Uri.encode(locationAddress) + "&travelmode=driving";
-                return new Intent(Intent.ACTION_VIEW, Uri.parse(webUrl));
+                // Fallback to address-based navigation
+                Log.d(TAG, "🗺️ No coordinates available, using address-based navigation");
+                String navigationUri = "google.navigation:q=" + Uri.encode(locationAddress) + "&mode=d";
+                navIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(navigationUri));
+                navIntent.setPackage("com.google.android.apps.maps");
+                
+                // Check if Google Maps app is available
+                if (navIntent.resolveActivity(context.getPackageManager()) != null) {
+                    Log.d(TAG, "🗺️ Google Maps app available, using address navigation");
+                    return navIntent;
+                } else {
+                    // Fallback to web-based Google Maps navigation
+                    Log.d(TAG, "🗺️ Google Maps app not available, using web navigation with address");
+                    String webUrl = "https://www.google.com/maps/dir/?api=1&destination=" + Uri.encode(locationAddress) + "&travelmode=driving";
+                    return new Intent(Intent.ACTION_VIEW, Uri.parse(webUrl));
+                }
             }
         } catch (Exception e) {
             Log.e(TAG, "❌ Error creating navigation intent: " + e.getMessage());

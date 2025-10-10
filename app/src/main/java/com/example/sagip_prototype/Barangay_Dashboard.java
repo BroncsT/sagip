@@ -83,6 +83,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
     private AlertDialog currentEmergencyDialog;
     private boolean hospitalsLoaded = false;
     private boolean dataLoadingInProgress = false;
+    private java.util.Set<String> shownNotificationIds = new java.util.HashSet<>();
 
     private FusedLocationProviderClient fusedLocationClient;
     private LocationCallback locationCallback;
@@ -222,6 +223,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
         stopLocationUpdates();
     }
 
+
     private void checkAuthStateWithPersistence() {
         // Check if user was previously logged in
         boolean isLoggedIn = sharedPreferences.getBoolean(KEY_IS_LOGGED_IN, false);
@@ -320,7 +322,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
         // Clear old notifications first to prevent showing old alerts
         BarangayNotificationService.getInstance(Barangay_Dashboard.this).clearOldNotifications();
         
-        // Start listening for emergency notifications
+        // Start listening for emergency notifications (only new ones from this session)
         BarangayNotificationService.getInstance(Barangay_Dashboard.this).startListening();
         
         // Start real-time popup listener for emergency notifications
@@ -634,6 +636,9 @@ public class Barangay_Dashboard extends AppCompatActivity {
     public void logoutUser() {
         // Clear stored credentials
         clearStoredCredentials();
+
+        // Reset notification service session
+        BarangayNotificationService.getInstance(this).resetSession();
 
         // Sign out from Firebase
         mAuth.signOut();
@@ -1051,8 +1056,17 @@ public class Barangay_Dashboard extends AppCompatActivity {
             Log.d("Barangay_Dashboard", "Dismissed emergency dialog on destroy");
         }
         
+        // Clear shown notification IDs to prevent memory leaks
+        shownNotificationIds.clear();
+        
+        // Stop location updates
+        stopLocationUpdates();
+        
         // Stop listening for emergency notifications when activity is destroyed
         BarangayNotificationService.getInstance(this).stopListening();
+        
+        // Reset notification service session
+        BarangayNotificationService.getInstance(this).resetSession();
         
         // Unregister language change receiver
         unregisterLanguageChangeReceiver();
@@ -1091,11 +1105,26 @@ public class Barangay_Dashboard extends AppCompatActivity {
             String requestId = intent.getStringExtra("request_id");
             String emergencyType = intent.getStringExtra("emergency_type");
             
+            // Get senior coordinates for navigation
+            Double seniorLatitude = null;
+            Double seniorLongitude = null;
+            if (intent.hasExtra("senior_latitude")) {
+                seniorLatitude = intent.getDoubleExtra("senior_latitude", 0.0);
+            }
+            if (intent.hasExtra("senior_longitude")) {
+                seniorLongitude = intent.getDoubleExtra("senior_longitude", 0.0);
+            }
+            
+            // Get currentLocation field
+            String currentLocation = intent.getStringExtra("current_location");
+            
             if (notificationId != null && seniorName != null) {
                 Log.d("Barangay_Dashboard", "🚨 Received emergency notification - Senior: " + seniorName);
+                Log.d("Barangay_Dashboard", "🚨 Senior coordinates - Lat: " + seniorLatitude + ", Long: " + seniorLongitude);
+                Log.d("Barangay_Dashboard", "🚨 Current location: " + currentLocation);
                 
                 // Show emergency alert dialog
-                showEmergencyAlert(seniorName, seniorPhone, locationAddress, barangay, requestId, emergencyType);
+                showEmergencyAlert(seniorName, seniorPhone, locationAddress, barangay, requestId, emergencyType, seniorLatitude, seniorLongitude, currentLocation);
                 
                 // Mark notification as read to prevent repeated showing
                 markNotificationAsRead(notificationId);
@@ -1108,6 +1137,8 @@ public class Barangay_Dashboard extends AppCompatActivity {
                 intent.removeExtra("barangay");
                 intent.removeExtra("request_id");
                 intent.removeExtra("emergency_type");
+                intent.removeExtra("senior_latitude");
+                intent.removeExtra("senior_longitude");
             }
         }
     }
@@ -1116,7 +1147,8 @@ public class Barangay_Dashboard extends AppCompatActivity {
      * Show emergency alert dialog similar to rescuer dashboard
      */
     private void showEmergencyAlert(String seniorName, String seniorPhone, String locationAddress, 
-                                  String barangay, String requestId, String emergencyType) {
+                                  String barangay, String requestId, String emergencyType, 
+                                  Double seniorLatitude, Double seniorLongitude, String currentLocation) {
         // Check if activity is still valid before showing dialog
         if (isFinishing() || isDestroyed()) {
             Log.w("Barangay_Dashboard", "Cannot show emergency alert dialog - activity is not in valid state");
@@ -1136,6 +1168,8 @@ public class Barangay_Dashboard extends AppCompatActivity {
                         "👤 Senior: " + seniorName + "\n" +
                         "📞 Phone: " + (seniorPhone != null ? seniorPhone : "Not provided") + "\n" +
                         "📍 Location: " + (locationAddress != null ? locationAddress : "Not provided") + "\n" +
+                        (currentLocation != null && !currentLocation.isEmpty() ? 
+                            "🏠 Full Address: " + currentLocation + "\n" : "") +
                         "🏘️ Barangay: " + barangay + "\n" +
                         "🚨 Type: " + (emergencyType != null ? emergencyType : "Emergency") + "\n\n" +
                         "⚠️ Please respond immediately!";
@@ -1163,10 +1197,18 @@ public class Barangay_Dashboard extends AppCompatActivity {
         
         // Navigate button
         builder.setNeutralButton("🗺️ NAVIGATE", (dialog, which) -> {
-            if (locationAddress != null && !locationAddress.isEmpty()) {
+            if (seniorLatitude != null && seniorLongitude != null) {
+                // Use coordinates for more accurate navigation
+                String addressForFallback = (currentLocation != null && !currentLocation.isEmpty()) ? currentLocation : locationAddress;
+                openGoogleMapsNavigationWithCoordinates(seniorLatitude, seniorLongitude, addressForFallback);
+            } else if (currentLocation != null && !currentLocation.isEmpty()) {
+                // Use currentLocation if available
+                openGoogleMapsNavigation(currentLocation);
+            } else if (locationAddress != null && !locationAddress.isEmpty()) {
+                // Fallback to locationAddress
                 openGoogleMapsNavigation(locationAddress);
             } else {
-                Toast.makeText(this, "Location address not available", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Location information not available", Toast.LENGTH_SHORT).show();
             }
         });
         
@@ -1198,6 +1240,12 @@ public class Barangay_Dashboard extends AppCompatActivity {
             }
         });
         
+        // Add dismiss listener to clean up when dialog is dismissed
+        dialog.setOnDismissListener(dialogInterface -> {
+            Log.d("Barangay_Dashboard", "🚨 Emergency alert dialog dismissed");
+            currentEmergencyDialog = null;
+        });
+        
         dialog.show();
         
         // Store reference to current emergency dialog
@@ -1206,6 +1254,40 @@ public class Barangay_Dashboard extends AppCompatActivity {
         Log.d("Barangay_Dashboard", "🚨 Emergency alert dialog shown for: " + seniorName);
     }
     
+    /**
+     * Open Google Maps navigation to emergency location using coordinates
+     */
+    private void openGoogleMapsNavigationWithCoordinates(Double latitude, Double longitude, String locationAddress) {
+        try {
+            Log.d("Barangay_Dashboard", "🗺️ Opening navigation with coordinates: " + latitude + ", " + longitude);
+            
+            // First try to open Google Maps app with coordinates
+            String navigationUri = String.format("google.navigation:q=%.6f,%.6f&mode=d", latitude, longitude);
+            Intent navIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(navigationUri));
+            navIntent.setPackage("com.google.android.apps.maps");
+            
+            // Check if Google Maps app is available
+            if (navIntent.resolveActivity(getPackageManager()) != null) {
+                startActivity(navIntent);
+                Toast.makeText(this, "🗺️ Opening Google Maps navigation to coordinates", Toast.LENGTH_SHORT).show();
+            } else {
+                // Fallback to web-based Google Maps navigation with coordinates
+                String webUrl = String.format("https://www.google.com/maps/dir/?api=1&destination=%.6f,%.6f&travelmode=driving", latitude, longitude);
+                Intent webIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(webUrl));
+                startActivity(webIntent);
+                Toast.makeText(this, "🗺️ Opening web navigation to coordinates", Toast.LENGTH_SHORT).show();
+            }
+        } catch (Exception e) {
+            Log.e("Barangay_Dashboard", "Error opening navigation with coordinates: " + e.getMessage());
+            // Fallback to address-based navigation
+            if (locationAddress != null && !locationAddress.isEmpty()) {
+                openGoogleMapsNavigation(locationAddress);
+            } else {
+                Toast.makeText(this, "Unable to open navigation. Please contact emergency services.", Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
     /**
      * Open Google Maps navigation to emergency location
      */
@@ -1270,12 +1352,16 @@ public class Barangay_Dashboard extends AppCompatActivity {
         
         Log.d("Barangay_Dashboard", "🚨 Starting emergency popup listener for barangay: " + userId);
         
-        // Listen for emergency notifications in real-time
+        // Listen for emergency notifications in real-time (only from current session)
+        long sessionStartTime = System.currentTimeMillis();
+        Log.d("Barangay_Dashboard", "🚨 Starting emergency popup listener with session start time: " + sessionStartTime);
+        
         db.collection("Sagip")
           .document("users")
           .collection("barangay")
           .document(userId)
           .collection("notifications")
+          .whereGreaterThan("timestamp", sessionStartTime)
           .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
           .limit(1)
           .addSnapshotListener((querySnapshot, error) -> {
@@ -1309,12 +1395,31 @@ public class Barangay_Dashboard extends AppCompatActivity {
             Long timestamp = document.getLong("timestamp");
             Boolean isRead = document.getBoolean("isRead");
             
-            // Only process unread emergency notifications
-            if ("EMERGENCY_ALERT".equals(type) && (isRead == null || !isRead)) {
+            // Get senior coordinates for navigation
+            Double seniorLatitude = null;
+            Double seniorLongitude = null;
+            if (document.getDouble("seniorLatitude") != null) {
+                seniorLatitude = document.getDouble("seniorLatitude");
+            }
+            if (document.getDouble("seniorLongitude") != null) {
+                seniorLongitude = document.getDouble("seniorLongitude");
+            }
+            
+            // Get currentLocation field
+            String currentLocation = document.getString("currentLocation");
+            
+            // Only process unread emergency notifications that haven't been shown yet
+            String notificationId = document.getId();
+            if ("EMERGENCY_ALERT".equals(type) && (isRead == null || !isRead) && !shownNotificationIds.contains(notificationId)) {
                 Log.d("Barangay_Dashboard", "🚨 Received emergency popup notification: " + seniorName + " (Request ID: " + requestId + ")");
+                Log.d("Barangay_Dashboard", "🚨 Senior coordinates - Lat: " + seniorLatitude + ", Long: " + seniorLongitude);
+                Log.d("Barangay_Dashboard", "🚨 Current location: " + currentLocation);
+                
+                // Mark this notification as shown to prevent duplicates
+                shownNotificationIds.add(notificationId);
                 
                 // Show emergency alert dialog
-                showEmergencyPopupAlert(seniorName, seniorPhone, locationAddress, barangay, requestId, emergencyType, timestamp);
+                showEmergencyPopupAlert(seniorName, seniorPhone, locationAddress, barangay, requestId, emergencyType, timestamp, seniorLatitude, seniorLongitude, currentLocation);
                 
                 // Mark notification as read
                 document.getReference().update("isRead", true);
@@ -1329,7 +1434,8 @@ public class Barangay_Dashboard extends AppCompatActivity {
      * Show emergency popup alert dialog
      */
     private void showEmergencyPopupAlert(String seniorName, String seniorPhone, String locationAddress,
-                                       String barangay, String requestId, String emergencyType, Long timestamp) {
+                                       String barangay, String requestId, String emergencyType, Long timestamp,
+                                       Double seniorLatitude, Double seniorLongitude, String currentLocation) {
         // Check if activity is still valid before showing dialog
         if (isFinishing() || isDestroyed()) {
             Log.w("Barangay_Dashboard", "Cannot show emergency popup dialog - activity is not in valid state");
@@ -1355,8 +1461,9 @@ public class Barangay_Dashboard extends AppCompatActivity {
                         "👤 Senior: " + seniorName + "\n" +
                         "📞 Phone: " + (seniorPhone != null ? seniorPhone : "Not provided") + "\n" +
                         "📍 Location: " + (locationAddress != null ? locationAddress : "Not provided") + "\n" +
+                        (currentLocation != null && !currentLocation.isEmpty() ? 
+                            "🏠 Full Address: " + currentLocation + "\n" : "") +
                         "🏘️ Barangay: " + barangay + "\n" +
-                        "🚨 Type: " + (emergencyType != null ? emergencyType : "Emergency") + "\n" +
                         "⏰ Time: " + timeStr + "\n\n" +
                         "⚠️ Please respond immediately!";
         
@@ -1383,10 +1490,18 @@ public class Barangay_Dashboard extends AppCompatActivity {
         
         // Navigate button
         builder.setNeutralButton("🗺️ NAVIGATE", (dialog, which) -> {
-            if (locationAddress != null && !locationAddress.isEmpty()) {
+            if (seniorLatitude != null && seniorLongitude != null) {
+                // Use coordinates for more accurate navigation
+                String addressForFallback = (currentLocation != null && !currentLocation.isEmpty()) ? currentLocation : locationAddress;
+                openGoogleMapsNavigationWithCoordinates(seniorLatitude, seniorLongitude, addressForFallback);
+            } else if (currentLocation != null && !currentLocation.isEmpty()) {
+                // Use currentLocation if available
+                openGoogleMapsNavigation(currentLocation);
+            } else if (locationAddress != null && !locationAddress.isEmpty()) {
+                // Fallback to locationAddress
                 openGoogleMapsNavigation(locationAddress);
             } else {
-                Toast.makeText(this, "Location address not available", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Location information not available", Toast.LENGTH_SHORT).show();
             }
         });
         
@@ -1416,6 +1531,12 @@ public class Barangay_Dashboard extends AppCompatActivity {
             } catch (Exception e) {
                 Log.e("Barangay_Dashboard", "Error styling dialog buttons", e);
             }
+        });
+        
+        // Add dismiss listener to clean up when dialog is dismissed
+        dialog.setOnDismissListener(dialogInterface -> {
+            Log.d("Barangay_Dashboard", "🚨 Emergency popup dialog dismissed");
+            currentEmergencyDialog = null;
         });
         
         dialog.show();
