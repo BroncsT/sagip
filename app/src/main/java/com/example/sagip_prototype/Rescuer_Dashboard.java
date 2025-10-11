@@ -1260,9 +1260,17 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                                 if (isActive != null && !isActive) {
                                     // Emergency was deactivated, clear the notification
                                     String helpRequestId = emergency.getString("helpRequestId");
+                                    String respondedBy = emergency.getString("respondedBy");
                                     if (helpRequestId != null) {
                                         clearEmergencyNotification(helpRequestId);
                                         Log.d(TAG, "🚨 Emergency was responded to by another rescuer, clearing notification");
+                                        
+                                        // Show toast to inform user that another rescuer responded
+                                        if (respondedBy != null && !respondedBy.equals(userId)) {
+                                            Toast.makeText(Rescuer_Dashboard.this, 
+                                                "✅ Another rescuer has responded to this emergency", 
+                                                Toast.LENGTH_LONG).show();
+                                        }
                                     }
                                 }
                             }
@@ -1844,7 +1852,8 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                                     "respondedAt", System.currentTimeMillis(),
                                     "rescuerLocation", new GeoPoint(currentLat, currentLong))
                             .addOnSuccessListener(aVoid1 -> {
-                                Log.d(TAG, "Emergency notification deactivated");
+                                Log.d(TAG, "✅ Emergency notification deactivated for other rescuers");
+                                
                                 // Also update the timestamp to prevent it from showing again
                                 db.collection("Sagip")
                                         .document("emergencyNotifications")
@@ -1852,8 +1861,10 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                                         .document(emergencyId)
                                         .update("timestamp", System.currentTimeMillis() - (2 * 60 * 60 * 1000)) // Set to 2 hours ago
                                         .addOnSuccessListener(aVoid2 -> {
-                                            Log.d(TAG, "Emergency timestamp updated to prevent re-showing");
+                                            Log.d(TAG, "✅ Emergency timestamp updated to prevent re-showing");
                                             
+                                            // Clear notifications from other rescuers' devices
+                                            clearNotificationsForOtherRescuers(helpRequestId, emergencyId);
                                         });
                             });
                 })
@@ -1867,9 +1878,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         Log.d(TAG, "📤 [RESCUER_DASHBOARD] Sending rescuer response notification to senior for help request: " + helpRequestId);
         Log.d(TAG, "📤 [RESCUER_DASHBOARD] Current user ID: " + userId);
         
-        // First get the help request details to find the senior information
+        // First get the emergency request details to find the senior information
         db.collection("Sagip")
-                .document("helpRequests")
+                .document("emergencyRequests")
                 .collection("activeRequests")
                 .document(helpRequestId)
                 .get()
@@ -1880,7 +1891,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                         String seniorPhone = documentSnapshot.getString("seniorPhone");
                         String locationAddress = documentSnapshot.getString("locationAddress");
                         
-                        Log.d(TAG, "📤 Help request details - Senior UID: " + seniorUid + ", Name: " + seniorName);
+                        Log.d(TAG, "📤 Emergency request details - Senior UID: " + seniorUid + ", Name: " + seniorName);
                         
                         if (seniorUid != null && !seniorUid.isEmpty()) {
                             // Get current rescuer information
@@ -1919,14 +1930,14 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                                         Log.e(TAG, "❌ Error details: " + e.getMessage());
                                     });
                         } else {
-                            Log.w(TAG, "⚠️ Senior UID not found in help request: " + helpRequestId);
+                            Log.w(TAG, "⚠️ Senior UID not found in emergency request: " + helpRequestId);
                         }
                     } else {
-                        Log.w(TAG, "⚠️ Help request not found: " + helpRequestId);
+                        Log.w(TAG, "⚠️ Emergency request not found: " + helpRequestId);
                     }
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "❌ Error getting help request details for notification", e);
+                    Log.e(TAG, "❌ Error getting emergency request details for notification", e);
                 });
     }
     
@@ -1970,7 +1981,16 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         if (notificationManager != null) {
             // Cancel the specific emergency notification
             notificationManager.cancel(helpRequestId.hashCode());
-            Log.d(TAG, "Cleared emergency notification for: " + helpRequestId);
+            Log.d(TAG, "✅ Cleared emergency notification for: " + helpRequestId);
+            
+            // Also clear any related notifications with similar IDs
+            notificationManager.cancel(helpRequestId.hashCode() + 1);
+            notificationManager.cancel(helpRequestId.hashCode() - 1);
+            
+            // Show a brief toast to confirm notification was cleared
+            Toast.makeText(this, "🚑 Emergency accepted - notification cleared", Toast.LENGTH_SHORT).show();
+        } else {
+            Log.e(TAG, "❌ NotificationManager is null, cannot clear notification");
         }
     }
 
@@ -1989,6 +2009,61 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             currentEmergencyDialog = null;
             Log.d(TAG, "Dismissed emergency popup dialog when returning to dashboard");
         }
+    }
+    
+    // Method to clear notifications for other rescuers when one rescuer accepts
+    private void clearNotificationsForOtherRescuers(String helpRequestId, String emergencyId) {
+        Log.d(TAG, "🔄 Clearing emergency notifications for other rescuers - Help Request: " + helpRequestId + ", Emergency: " + emergencyId);
+        
+        // Get all rescuers and clear their notifications for this specific emergency
+        db.collection("Sagip")
+          .document("users")
+          .collection("rescuer")
+          .get()
+          .addOnSuccessListener(querySnapshot -> {
+              Log.d(TAG, "📋 Found " + querySnapshot.size() + " rescuers to notify about emergency acceptance");
+              
+              for (QueryDocumentSnapshot rescuerDoc : querySnapshot) {
+                  String rescuerId = rescuerDoc.getId();
+                  
+                  // Skip the current rescuer (the one who accepted)
+                  if (rescuerId.equals(userId)) {
+                      continue;
+                  }
+                  
+                  // Clear the specific emergency notification from this rescuer's collection
+                  db.collection("Sagip")
+                    .document("users")
+                    .collection("rescuer")
+                    .document(rescuerId)
+                    .collection("emergencyNotifications")
+                    .whereEqualTo("helpRequestId", helpRequestId)
+                    .get()
+                    .addOnSuccessListener(notificationSnapshot -> {
+                        for (QueryDocumentSnapshot notificationDoc : notificationSnapshot) {
+                            // Mark the notification as cleared/responded
+                            notificationDoc.getReference().update(
+                                "isActive", false,
+                                "respondedBy", userId,
+                                "respondedAt", System.currentTimeMillis(),
+                                "status", "responded_by_other"
+                            ).addOnSuccessListener(aVoid -> {
+                                Log.d(TAG, "✅ Cleared emergency notification for rescuer: " + rescuerId);
+                            }).addOnFailureListener(e -> {
+                                Log.e(TAG, "❌ Failed to clear notification for rescuer " + rescuerId, e);
+                            });
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "❌ Error getting notifications for rescuer " + rescuerId, e);
+                    });
+              }
+              
+              Log.d(TAG, "✅ Finished clearing notifications for other rescuers");
+          })
+          .addOnFailureListener(e -> {
+              Log.e(TAG, "❌ Error getting rescuers list for notification clearing", e);
+          });
     }
     
     private void startEmergencySOSListener() {

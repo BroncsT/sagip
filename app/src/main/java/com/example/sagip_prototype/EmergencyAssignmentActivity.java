@@ -47,6 +47,10 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
     private static final String TAG = "EmergencyAssignmentActivity";
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1001;
     
+    // Arrival detection constants
+    private static final double ARRIVAL_DISTANCE_THRESHOLD = 0.1; // 100 meters in kilometers
+    private static final long ARRIVAL_NOTIFICATION_COOLDOWN = 300000; // 5 minutes in milliseconds
+    
     // UI Components
     private TextView tvSeniorName, tvSeniorPhone, tvLocation, tvRescuerName, tvRescuerLocation;
     private TextView tvAssignmentTime, tvEstimatedArrival, tvDistance, tvStatus;
@@ -61,6 +65,10 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
     private String hospitalName, hospitalAddress;
     private long assignmentTime;
     private String emergencyId;
+    
+    // Arrival detection variables
+    private boolean hasArrived = false;
+    private long lastArrivalNotificationTime = 0;
     
     // Firebase
     private FirebaseFirestore db;
@@ -848,6 +856,9 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         double distance = calculateDistance(rescuerLat, rescuerLng, seniorLat, seniorLng);
         tvDistance.setText(String.format(Locale.getDefault(), "Distance: %.2f km", distance));
         
+        // Check for arrival detection
+        checkForArrival(distance);
+        
         // Estimate arrival time (assuming average speed of 30 km/h in city)
         double estimatedTimeMinutes = (distance / 30.0) * 60; // Convert to minutes
         long estimatedArrivalTime = System.currentTimeMillis() + (long)(estimatedTimeMinutes * 60 * 1000);
@@ -951,6 +962,9 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         saveRescueCompletedDetails();
         
         Toast.makeText(this, "Status updated: Emergency response completed", Toast.LENGTH_LONG).show();
+        
+        // Navigate to rescuer dashboard after completion
+        navigateToRescuerDashboard();
     }
     
     private void updateEmergencyStatus(String status) {
@@ -1180,5 +1194,252 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "❌ Error loading emergency for notification: " + e.getMessage());
                 });
+    }
+    
+    private void navigateToRescuerDashboard() {
+        Log.d(TAG, "🏠 Navigating to rescuer dashboard after emergency completion");
+        
+        try {
+            Intent dashboardIntent = new Intent(this, Rescuer_Dashboard.class);
+            dashboardIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(dashboardIntent);
+            finish();
+            Log.d(TAG, "✅ Successfully navigated to rescuer dashboard");
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error navigating to rescuer dashboard: " + e.getMessage());
+            Toast.makeText(this, "Error navigating to dashboard", Toast.LENGTH_SHORT).show();
+        }
+    }
+    
+    /**
+     * Check if rescuer has arrived at the senior's location
+     * @param distance Current distance between rescuer and senior in kilometers
+     */
+    private void checkForArrival(double distance) {
+        Log.d(TAG, "🔍 Checking arrival status - Distance: " + String.format("%.3f km", distance) + 
+                ", Threshold: " + ARRIVAL_DISTANCE_THRESHOLD + " km, Has arrived: " + hasArrived);
+        
+        // Check if rescuer is within arrival threshold
+        if (distance <= ARRIVAL_DISTANCE_THRESHOLD && !hasArrived) {
+            hasArrived = true;
+            long currentTime = System.currentTimeMillis();
+            
+            // Check cooldown to prevent spam notifications
+            if (currentTime - lastArrivalNotificationTime > ARRIVAL_NOTIFICATION_COOLDOWN) {
+                Log.d(TAG, "🎉 RESCUER HAS ARRIVED! Distance: " + String.format("%.3f km", distance));
+                
+                // Update UI to show arrival status
+                updateArrivalUI();
+                
+                // Send arrival notification to senior
+                sendArrivalNotificationToSenior();
+                
+                // Update last notification time
+                lastArrivalNotificationTime = currentTime;
+                
+                // Show local confirmation
+                Toast.makeText(this, "✅ You have arrived at the location!", Toast.LENGTH_LONG).show();
+            } else {
+                Log.d(TAG, "⏰ Arrival notification on cooldown, skipping notification");
+            }
+        } else if (distance > ARRIVAL_DISTANCE_THRESHOLD && hasArrived) {
+            // Rescuer moved away from location, reset arrival status
+            hasArrived = false;
+            Log.d(TAG, "📍 Rescuer moved away from location, resetting arrival status");
+            updateDepartureUI();
+        }
+    }
+    
+    /**
+     * Update UI to reflect arrival status
+     */
+    private void updateArrivalUI() {
+        tvStatus.setText("✅ ARRIVED");
+        tvStatus.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+        
+        // Update distance display to show arrival
+        tvDistance.setText("Distance: ARRIVED ✅");
+        tvDistance.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+        
+        // Update ETA to show arrival
+        tvEstimatedArrival.setText("ETA: ARRIVED ✅");
+        tvEstimatedArrival.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+        
+        Log.d(TAG, "✅ UI updated to show arrival status");
+    }
+    
+    /**
+     * Update UI when rescuer departs from location
+     */
+    private void updateDepartureUI() {
+        tvStatus.setText("🚨 RESPONDING");
+        tvStatus.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+        
+        // Reset distance and ETA colors
+        tvDistance.setTextColor(getResources().getColor(android.R.color.black));
+        tvEstimatedArrival.setTextColor(getResources().getColor(android.R.color.black));
+        
+        Log.d(TAG, "📍 UI updated to show departure status");
+    }
+    
+    /**
+     * Send arrival notification to the senior
+     */
+    private void sendArrivalNotificationToSenior() {
+        if (emergencyId == null || emergencyId.isEmpty()) {
+            Log.w(TAG, "⚠️ Cannot send arrival notification - no emergency ID");
+            return;
+        }
+        
+        Log.d(TAG, "📤 Sending arrival notification to senior for emergency: " + emergencyId);
+        
+        // Get rescuer details for the notification
+        String rescuerName = getCurrentRescuerName();
+        String rescuerPhone = getCurrentRescuerPhone();
+        String rescuerTeam = getCurrentRescuerTeam();
+        
+        // Get senior UID from emergency document
+        db.collection("Sagip")
+                .document("emergencyRequests")
+                .collection("activeRequests")
+                .document(emergencyId)
+                .get()
+                .addOnSuccessListener(emergencyDoc -> {
+                    if (!emergencyDoc.exists()) {
+                        Log.w(TAG, "⚠️ Emergency document not found for arrival notification: " + emergencyId);
+                        return;
+                    }
+                    
+                    String seniorUid = emergencyDoc.getString("seniorUid");
+                    if (seniorUid == null || seniorUid.isEmpty()) {
+                        Log.w(TAG, "⚠️ Senior UID not found in emergency document");
+                        return;
+                    }
+                    
+                    // Create arrival notification data
+                    Map<String, Object> notification = new HashMap<>();
+                    notification.put("type", "RESCUER_ARRIVED");
+                    notification.put("title", "🚑 Rescuer Has Arrived!");
+                    notification.put("message", "Your rescuer " + rescuerName + " has arrived at your location and is ready to assist you.");
+                    notification.put("emergencyId", emergencyId);
+                    notification.put("rescuerName", rescuerName);
+                    notification.put("rescuerPhone", rescuerPhone);
+                    notification.put("rescuerTeam", rescuerTeam);
+                    notification.put("arrivalTime", System.currentTimeMillis());
+                    notification.put("timestamp", System.currentTimeMillis());
+                    notification.put("isRead", false);
+                    notification.put("isActive", true);
+                    notification.put("priority", "HIGH");
+                    
+                    // Send notification to senior
+                    String notificationPath = "Sagip/users/seniors/" + seniorUid + "/notifications";
+                    Log.d(TAG, "📤 Sending arrival notification to: " + notificationPath);
+                    
+                    db.collection(notificationPath)
+                            .add(notification)
+                            .addOnSuccessListener(documentReference -> {
+                                Log.d(TAG, "✅ Arrival notification sent to senior: " + seniorUid);
+                                Log.d(TAG, "🚑 Rescuer: " + rescuerName + " from " + rescuerTeam);
+                                Log.d(TAG, "📱 Notification ID: " + documentReference.getId());
+                                
+                                // Also update the emergency status to "arrived"
+                                updateEmergencyStatus("arrived");
+                                
+                                // Send push notification to senior's device
+                                sendPushNotificationToSenior(seniorUid, rescuerName, rescuerTeam);
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "❌ Failed to send arrival notification: " + e.getMessage());
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Error loading emergency for arrival notification: " + e.getMessage());
+                });
+    }
+    
+    /**
+     * Get current rescuer's phone number
+     */
+    private String getCurrentRescuerPhone() {
+        // Try to get from Firebase Auth first
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser != null && currentUser.getPhoneNumber() != null) {
+            return currentUser.getPhoneNumber();
+        }
+        
+        // Fallback: return a default message
+        return "Contact emergency services";
+    }
+    
+    /**
+     * Send push notification to senior's device
+     */
+    private void sendPushNotificationToSenior(String seniorUid, String rescuerName, String rescuerTeam) {
+        Log.d(TAG, "📱 Sending push notification to senior: " + seniorUid);
+        
+        // Get senior's FCM token
+        db.collection("Sagip")
+                .document("users")
+                .collection("seniors")
+                .document(seniorUid)
+                .get()
+                .addOnSuccessListener(seniorDoc -> {
+                    if (seniorDoc.exists()) {
+                        String fcmToken = seniorDoc.getString("fcmToken");
+                        if (fcmToken != null && !fcmToken.isEmpty()) {
+                            // Send push notification via Firebase Cloud Messaging
+                            sendFCMNotification(fcmToken, rescuerName, rescuerTeam);
+                        } else {
+                            Log.w(TAG, "⚠️ Senior FCM token not found: " + seniorUid);
+                        }
+                    } else {
+                        Log.w(TAG, "⚠️ Senior document not found: " + seniorUid);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Error getting senior FCM token: " + e.getMessage());
+                });
+    }
+    
+    /**
+     * Send FCM notification to senior's device
+     */
+    private void sendFCMNotification(String fcmToken, String rescuerName, String rescuerTeam) {
+        Log.d(TAG, "📤 Sending FCM notification to token: " + fcmToken);
+        
+        // Create notification payload
+        Map<String, Object> notificationData = new HashMap<>();
+        notificationData.put("title", "🚑 Rescuer Has Arrived!");
+        notificationData.put("body", "Your rescuer " + rescuerName + " from " + rescuerTeam + " has arrived at your location.");
+        notificationData.put("type", "RESCUER_ARRIVED");
+        notificationData.put("emergencyId", emergencyId);
+        notificationData.put("rescuerName", rescuerName);
+        notificationData.put("rescuerTeam", rescuerTeam);
+        notificationData.put("timestamp", System.currentTimeMillis());
+        
+        // Send to Firebase Cloud Messaging
+        // Note: In a real implementation, you would use Firebase Admin SDK on your server
+        // For now, we'll log the notification data
+        Log.d(TAG, "📱 FCM Notification Data: " + notificationData.toString());
+        Log.d(TAG, "📱 FCM Token: " + fcmToken);
+        
+        // TODO: Implement actual FCM sending via Firebase Admin SDK on server side
+        // This would typically be done through a Cloud Function or your backend server
+    }
+    
+    /**
+     * Test method for arrival detection (for debugging purposes)
+     * Call this method to simulate arrival detection
+     */
+    private void testArrivalDetection() {
+        Log.d(TAG, "🧪 Testing arrival detection...");
+        
+        // Simulate being very close to senior location
+        double testDistance = 0.05; // 50 meters
+        Log.d(TAG, "🧪 Simulating distance: " + testDistance + " km");
+        
+        checkForArrival(testDistance);
+        
+        Toast.makeText(this, "🧪 Test arrival detection triggered", Toast.LENGTH_SHORT).show();
     }
 }

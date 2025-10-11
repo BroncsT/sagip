@@ -43,11 +43,6 @@
         </LinearLayout>
 
         <!-- Map -->
-        <com.google.android.gms.maps.MapView
-            android:id="@+id/map"
-            android:layout_width="match_parent"
-            android:layout_height="200dp"
-            android:layout_marginBottom="16dp" />
 
         <!-- Senior Information Card -->
         <androidx.cardview.widget.CardView
@@ -310,7 +305,7 @@
 
             </LinearLayout>
 
-            <!-- Row 2: Update Location and Mark Arrived -->
+            <!-- Row 2: Update Location and Done Rescuer -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -334,7 +329,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:layout_marginStart="8dp"
-                    android:text="✅ MARK ARRIVED"
+                    android:text="✅ DONE RESCUER"
                     android:background="@drawable/rounded_button_success"
                     android:textColor="@color/white"
                     android:textSize="14sp"

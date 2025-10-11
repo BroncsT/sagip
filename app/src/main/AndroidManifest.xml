@@ -231,7 +231,7 @@
         <service
             android:name=".FCMNotificationService"
             android:exported="false">
-            <intent-filter>
+            <intent-filt      er>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
