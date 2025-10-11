@@ -142,11 +142,13 @@ public class Senior_Dashboard extends AppCompatActivity {
         // Register broadcast receiver for immediate popup
         registerRescuerAcceptedReceiver();
         
-        // Check for rescuer data from RescuerDetailsActivity
-        handleIncomingRescuerData();
+        // Check for rescuer data from RescuerDetailsActivity first
+        boolean hasIncomingRescuerData = handleIncomingRescuerData();
         
-        // Check for active emergencies and show floating panel
-        checkForActiveEmergencies();
+        // Only check for active emergencies if we don't have incoming rescuer data
+        if (!hasIncomingRescuerData) {
+            checkForActiveEmergencies();
+        }
         
         // Handle rescuer response notification if app was opened from notification
         // Add a delay to ensure UI is fully loaded
@@ -978,7 +980,12 @@ public class Senior_Dashboard extends AppCompatActivity {
         loadCachedName();
         
         // Handle rescuer data from RescuerDetailsActivity
-        handleIncomingRescuerData();
+        boolean hasIncomingRescuerData = handleIncomingRescuerData();
+        
+        // Only check for active emergencies if we don't have incoming rescuer data
+        if (!hasIncomingRescuerData) {
+            checkForActiveEmergencies();
+        }
         
         // Handle rescuer response notification
         handleRescuerResponseNotification(intent);
@@ -1553,7 +1560,8 @@ public class Senior_Dashboard extends AppCompatActivity {
         if (floatingEmergencyPanel != null) {
             floatingEmergencyPanel.setVisibility(android.view.View.VISIBLE);
             Log.d(TAG, "📋 Floating emergency panel shown successfully");
-            } else {
+            Log.d(TAG, "📋 Panel visibility: " + (floatingEmergencyPanel.getVisibility() == android.view.View.VISIBLE ? "VISIBLE" : "NOT VISIBLE"));
+        } else {
             Log.e(TAG, "❌ floatingEmergencyPanel is null!");
         }
     }
@@ -1701,7 +1709,7 @@ public class Senior_Dashboard extends AppCompatActivity {
         return R * c; // Distance in km
     }
     
-    private void handleIncomingRescuerData() {
+    private boolean handleIncomingRescuerData() {
         Intent intent = getIntent();
         if (intent != null && intent.getBooleanExtra("showFloatingPanel", false)) {
             Log.d(TAG, "📤 Received rescuer data from RescuerDetailsActivity");
@@ -1753,7 +1761,9 @@ public class Senior_Dashboard extends AppCompatActivity {
             intent.removeExtra("seniorLong");
             
             Log.d(TAG, "📋 Floating panel shown with rescuer data from RescuerDetailsActivity");
+            return true; // Indicate that we found incoming rescuer data
         }
+        return false; // No incoming rescuer data found
     }
     
     // Method to check for active emergencies and show floating panel

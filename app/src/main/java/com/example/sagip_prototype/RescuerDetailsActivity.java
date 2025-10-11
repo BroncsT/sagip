@@ -947,10 +947,15 @@ public class RescuerDetailsActivity extends AppCompatActivity {
             dashboardIntent.putExtra("seniorLong", seniorLong);
             
             Log.d(TAG, "📤 Passing rescuer data to dashboard:");
+            Log.d(TAG, "   showFloatingPanel: true");
             Log.d(TAG, "   Rescuer ID: " + rescuerId);
             Log.d(TAG, "   Rescuer Name: " + (tvRescuerName != null ? tvRescuerName.getText().toString() : "Rescuer"));
             Log.d(TAG, "   ETA: " + (tvETA != null ? tvETA.getText().toString() : "-- min"));
             Log.d(TAG, "   Distance: " + (tvDistance != null ? tvDistance.getText().toString() : "-- km"));
+            Log.d(TAG, "   Rescuer Location: " + rescuerLat + ", " + rescuerLong);
+            Log.d(TAG, "   Senior Location: " + seniorLat + ", " + seniorLong);
+        } else {
+            Log.w(TAG, "⚠️ No rescuer ID available, not passing data to dashboard");
         }
         
         startActivity(dashboardIntent);
