@@ -15,6 +15,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.cardview.widget.CardView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
@@ -55,6 +56,7 @@ public class RescuerDetailsActivity extends AppCompatActivity {
     private Button btnCallRescuer, btnBack, btnRefreshETA;
     private Button btnTestETA, btnCheckDatabase, btnForceETA;
     private ProgressBar loadingIndicator;
+    
 
     // Data
     private String emergencyId;
@@ -176,6 +178,7 @@ public class RescuerDetailsActivity extends AppCompatActivity {
         
         // Store phone number
         this.rescuerPhone = rescuerPhone;
+
         
         Log.d(TAG, "✅ Rescuer info updated from notification");
     }
@@ -196,6 +199,7 @@ public class RescuerDetailsActivity extends AppCompatActivity {
         btnCheckDatabase = findViewById(R.id.btnCheckDatabase);
         btnForceETA = findViewById(R.id.btnForceETA);
         loadingIndicator = findViewById(R.id.loadingIndicator);
+        
         
         // Debug UI element initialization
         Log.d(TAG, "🔍 UI Elements initialized:");
@@ -243,6 +247,7 @@ public class RescuerDetailsActivity extends AppCompatActivity {
                 calculateETAFromDatabase();
             }
         });
+        
     }
 
     private void loadEmergencyDetails() {
@@ -344,6 +349,7 @@ public class RescuerDetailsActivity extends AppCompatActivity {
                         tvRescuerName.setText(name);
                         tvRescuerTeam.setText(team);
                         tvRescuerPhone.setText(phone);
+                        
                         
                         // Get rescuer location from database
                         GeoPoint rescuerLocation = documentSnapshot.getGeoPoint("currentLocation");
@@ -481,19 +487,25 @@ public class RescuerDetailsActivity extends AppCompatActivity {
             }
         });
 
-        executorService.execute(() -> {
-            try {
-                String url = buildDirectionsUrl(rescuerLat, rescuerLong, seniorLat, seniorLong);
-                Log.d(TAG, "🌐 Making Google Directions API request: " + url);
-                String response = makeDirectionsRequest(url);
-                Log.d(TAG, "🌐 Received response length: " + response.length());
-                parseDirectionsResponse(response);
-            } catch (Exception e) {
-                Log.e(TAG, "Error calculating ETA with Google Directions API, using fallback calculation", e);
-                // Fallback to straight-line distance calculation
-                calculateFallbackETA();
-            }
-        });
+        // Check if executor service is still available
+        if (executorService != null && !executorService.isShutdown()) {
+            executorService.execute(() -> {
+                try {
+                    String url = buildDirectionsUrl(rescuerLat, rescuerLong, seniorLat, seniorLong);
+                    Log.d(TAG, "🌐 Making Google Directions API request: " + url);
+                    String response = makeDirectionsRequest(url);
+                    Log.d(TAG, "🌐 Received response length: " + response.length());
+                    parseDirectionsResponse(response);
+                } catch (Exception e) {
+                    Log.e(TAG, "Error calculating ETA with Google Directions API, using fallback calculation", e);
+                    // Fallback to straight-line distance calculation
+                    calculateFallbackETA();
+                }
+            });
+        } else {
+            Log.w(TAG, "⚠️ Executor service is null or shutdown, using fallback calculation");
+            calculateFallbackETA();
+        }
     }
 
     private String buildDirectionsUrl(double originLat, double originLng, double destLat, double destLng) {
@@ -592,6 +604,7 @@ public class RescuerDetailsActivity extends AppCompatActivity {
                                    tvETAStatus.setText("Real-time traffic data");
                                }
                            }
+                           
                        });
                 } else {
                     Log.w(TAG, "⚠️ No legs found in route");
@@ -913,16 +926,73 @@ public class RescuerDetailsActivity extends AppCompatActivity {
         return new java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
                 .format(new java.util.Date());
     }
+    
+    // Navigation method
+    private void goBackToDashboard() {
+        Log.d(TAG, "🏠 Navigating back to dashboard with rescuer info");
+        Intent dashboardIntent = new Intent(this, Senior_Dashboard.class);
+        dashboardIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        
+        // Pass rescuer information to show floating panel
+        if (rescuerId != null) {
+            dashboardIntent.putExtra("showFloatingPanel", true);
+            dashboardIntent.putExtra("rescuerId", rescuerId);
+            dashboardIntent.putExtra("rescuerName", tvRescuerName != null ? tvRescuerName.getText().toString() : "Rescuer");
+            dashboardIntent.putExtra("rescuerPhone", rescuerPhone);
+            dashboardIntent.putExtra("eta", tvETA != null ? tvETA.getText().toString() : "-- min");
+            dashboardIntent.putExtra("distance", tvDistance != null ? tvDistance.getText().toString() : "-- km");
+            dashboardIntent.putExtra("rescuerLat", rescuerLat);
+            dashboardIntent.putExtra("rescuerLong", rescuerLong);
+            dashboardIntent.putExtra("seniorLat", seniorLat);
+            dashboardIntent.putExtra("seniorLong", seniorLong);
+            
+            Log.d(TAG, "📤 Passing rescuer data to dashboard:");
+            Log.d(TAG, "   Rescuer ID: " + rescuerId);
+            Log.d(TAG, "   Rescuer Name: " + (tvRescuerName != null ? tvRescuerName.getText().toString() : "Rescuer"));
+            Log.d(TAG, "   ETA: " + (tvETA != null ? tvETA.getText().toString() : "-- min"));
+            Log.d(TAG, "   Distance: " + (tvDistance != null ? tvDistance.getText().toString() : "-- km"));
+        }
+        
+        startActivity(dashboardIntent);
+        finish();
+    }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        
+        // Clean up handler
         if (updateHandler != null && updateRunnable != null) {
             updateHandler.removeCallbacks(updateRunnable);
         }
-        if (executorService != null) {
+        
+        // Clean up executor service
+        if (executorService != null && !executorService.isShutdown()) {
             executorService.shutdown();
+            try {
+                // Wait for existing tasks to complete
+                if (!executorService.awaitTermination(1, java.util.concurrent.TimeUnit.SECONDS)) {
+                    executorService.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                executorService.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
         }
+        
+        Log.d(TAG, "🧹 RescuerDetailsActivity destroyed and cleaned up");
+    }
+    
+    @Override
+    protected void onPause() {
+        super.onPause();
+        Log.d(TAG, "⏸️ RescuerDetailsActivity paused");
+    }
+    
+    @Override
+    protected void onResume() {
+        super.onResume();
+        Log.d(TAG, "▶️ RescuerDetailsActivity resumed");
     }
 
     @Override

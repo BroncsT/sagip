@@ -248,13 +248,16 @@ public class EmergencyQueueManager {
                                         rescuerResponseNotification.put("isActive", true);
                                         
                                         // Send notification to senior's notification collection
-                                        String notificationPath = "Sagip/users/seniors/" + seniorUid + "/notifications";
-                                        Log.d(TAG, "📤 Sending notification to path: " + notificationPath);
+                                        Log.d(TAG, "📤 Sending notification to senior: " + seniorUid);
                                         Log.d(TAG, "📤 Notification data: " + rescuerResponseNotification.toString());
                                         Log.d(TAG, "📤 Senior UID for notification path: " + seniorUid);
                                         Log.d(TAG, "📤 ETA in notification: " + etaMinutes + " minutes, Distance: " + distance + " km");
                                         
-                                        db.collection(notificationPath)
+                                        db.collection("Sagip")
+                                                .document("users")
+                                                .collection("seniors")
+                                                .document(seniorUid)
+                                                .collection("notifications")
                                                 .add(rescuerResponseNotification)
                                                 .addOnSuccessListener(documentReference -> {
                                                     Log.d(TAG, "✅ Rescuer response notification sent to senior: " + seniorName);
@@ -355,6 +358,7 @@ public class EmergencyQueueManager {
         
         Log.d(TAG, "🏘️ Notifying barangay users for emergency in: " + request.barangay);
         Log.d(TAG, "🏘️ Emergency details - Senior: " + request.seniorName + ", Request ID: " + request.requestId);
+        Log.d(TAG, "🏘️ Senior UID to exclude: " + request.seniorUid);
         
         // Find all barangay users in the same barangay
         db.collection("Sagip")
@@ -374,6 +378,12 @@ public class EmergencyQueueManager {
                         String barangayUserId = document.getId();
                         String barangayName = document.getString("barangayName");
                         String contactPerson = document.getString("contactPerson");
+                        
+                        // Skip notification if this is the senior who made the emergency call
+                        if (barangayUserId.equals(request.seniorUid)) {
+                            Log.d(TAG, "🏘️ Skipping notification to senior who made the emergency call: " + request.seniorName);
+                            continue;
+                        }
                         
                         // Create notification for barangay user
                         Map<String, Object> barangayNotification = new java.util.HashMap<>();

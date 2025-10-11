@@ -1,6 +1,8 @@
 package com.example.sagip_prototype;
 
+import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.view.WindowManager;
@@ -323,7 +325,11 @@ public class Barangay_Registration extends AppCompatActivity {
     
     private void registerLanguageChangeReceiver() {
         android.content.IntentFilter filter = new android.content.IntentFilter("com.example.sagip_prototype.LANGUAGE_CHANGED");
-        registerReceiver(languageChangeReceiver, filter);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(languageChangeReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(languageChangeReceiver, filter);
+        }
     }
     
     private void unregisterLanguageChangeReceiver() {

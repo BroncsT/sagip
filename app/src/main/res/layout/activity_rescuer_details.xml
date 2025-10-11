@@ -392,6 +392,7 @@
 
     </LinearLayout>
 
+
     <!-- Loading Indicator -->
     <ProgressBar
         android:id="@+id/loadingIndicator"

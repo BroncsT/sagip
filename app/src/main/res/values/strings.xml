@@ -760,6 +760,13 @@
     <string name="dialog_enable_notifications_barangay">To receive emergency alerts from seniors in your barangay, please enable notifications for this app.\n\nThis is essential for the safety of your community members.</string>
     <string name="dialog_enable_notifications_senior">To receive updates about your emergency requests and rescuer responses, please enable notifications for this app.\n\nThis ensures you stay informed about your safety.</string>
     <string name="dialog_test_navigation_message">Test navigation to Christ in You Heale Parish in Magalang, Pampanga?</string>
+    
+    <!-- Rescuer Arrival Dialog -->
+    <string name="dialog_rescuer_arrival_title">🎉 You Have Arrived!</string>
+    <string name="dialog_rescuer_arrival_message">You have successfully arrived at the emergency location. The senior has been notified of your arrival.\n\nPlease proceed to assist the person in need.</string>
+    <string name="button_acknowledged">✅ Acknowledged</string>
+    <string name="button_call_senior">📞 Call Senior</string>
+    <string name="toast_arrival_confirmed">✅ Arrival confirmed! Senior has been notified.</string>
 
     <!-- Dialog Buttons -->
     <string name="button_send_help">🚨 SEND HELP</string>
@@ -768,10 +775,15 @@
     <string name="button_later">Later</string>
     <string name="button_respond_now">🚨 RESPOND NOW</string>
     <string name="button_google_nav">🗺️ GOOGLE NAV</string>
-    <string name="button_call_senior">📞 CALL SENIOR</string>
     <string name="button_dismiss">Dismiss</string>
     <string name="button_respond_now_old">🚑 RESPOND NOW</string>
     <string name="button_ok">OK</string>
+    <string name="button_view_details">📋 View Details</string>
+    <string name="button_call_rescuer">📞 Call Rescuer</string>
+
+    <!-- Rescuer Accepted Dialog -->
+    <string name="dialog_rescuer_accepted_title">🎉 Help is Coming!</string>
+    <string name="dialog_rescuer_accepted_message">%1$s from %2$s has accepted your emergency request and is on their way to help you.\n\nYou can view detailed information about your rescuer or call them directly.</string>
 
     <!-- Additional UI Text -->
     <string name="text_not_available">Not available</string>

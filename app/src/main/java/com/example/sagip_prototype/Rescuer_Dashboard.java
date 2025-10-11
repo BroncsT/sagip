@@ -1914,11 +1914,14 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                             rescuerResponseNotification.put("isActive", true);
                             
                             // Send notification to senior's notification collection
-                            String notificationPath = "Sagip/users/seniors/" + seniorUid + "/notifications";
-                            Log.d(TAG, "📤 Sending notification to path: " + notificationPath);
+                            Log.d(TAG, "📤 Sending notification to senior: " + seniorUid);
                             Log.d(TAG, "📤 Notification data: " + rescuerResponseNotification.toString());
                             
-                            db.collection(notificationPath)
+                            db.collection("Sagip")
+                                    .document("users")
+                                    .collection("seniors")
+                                    .document(seniorUid)
+                                    .collection("notifications")
                                     .add(rescuerResponseNotification)
                                     .addOnSuccessListener(documentReference -> {
                                         Log.d(TAG, "✅ Rescuer response notification sent to senior: " + seniorName);

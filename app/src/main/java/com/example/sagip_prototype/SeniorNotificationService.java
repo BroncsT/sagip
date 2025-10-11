@@ -29,6 +29,11 @@ public class SeniorNotificationService {
     public static synchronized SeniorNotificationService getInstance(Context context) {
         if (instance == null) {
             instance = new SeniorNotificationService(context);
+        } else {
+            // Update context and auth references when switching users
+            instance.context = context;
+            instance.mAuth = FirebaseAuth.getInstance();
+            instance.db = FirebaseFirestore.getInstance();
         }
         return instance;
     }
@@ -66,6 +71,7 @@ public class SeniorNotificationService {
                 .collection("seniors")
                 .document(userId)
                 .collection("notifications")
+                .whereEqualTo("isRead", false)
                 .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
                 .addSnapshotListener((querySnapshot, error) -> {
                     if (error != null) {
@@ -74,19 +80,17 @@ public class SeniorNotificationService {
                     }
                     
                     Log.d(TAG, "📱 Notification listener triggered - documents: " + (querySnapshot != null ? querySnapshot.size() : 0));
+                    if (querySnapshot != null && !querySnapshot.isEmpty()) {
+                        Log.d(TAG, "📱 Processing " + querySnapshot.size() + " notification documents");
+                    }
                     
                     if (querySnapshot != null && !querySnapshot.isEmpty()) {
-                        int unreadCount = 0;
+                        Log.d(TAG, "📱 Processing " + querySnapshot.size() + " unread notification documents");
                         for (QueryDocumentSnapshot document : querySnapshot) {
-                            // Filter for unread notifications in code instead of query
-                            Boolean isRead = document.getBoolean("isRead");
-                            if (isRead == null || !isRead) {
-                                Log.d(TAG, "📱 Processing unread notification document: " + document.getId());
-                                handleNotification(document);
-                                unreadCount++;
-                            }
+                            Log.d(TAG, "📱 Processing unread notification document: " + document.getId());
+                            handleNotification(document);
                         }
-                        Log.d(TAG, "📱 Processed " + unreadCount + " unread notifications out of " + querySnapshot.size() + " total");
+                        Log.d(TAG, "📱 Processed " + querySnapshot.size() + " unread notifications");
                     } else {
                         Log.d(TAG, "📱 No notifications found");
                     }
@@ -98,6 +102,17 @@ public class SeniorNotificationService {
             notificationListener.remove();
             notificationListener = null;
             Log.d(TAG, "🛑 Stopped senior notification listener");
+        }
+    }
+    
+    /**
+     * Reset the service when switching users to prevent cross-user notifications
+     */
+    public static void resetInstance() {
+        if (instance != null) {
+            instance.stopListening();
+            instance = null;
+            Log.d(TAG, "🔄 SeniorNotificationService instance reset for user switch");
         }
     }
     
@@ -116,24 +131,21 @@ public class SeniorNotificationService {
             Log.d(TAG, "📱 Notification data - Rescuer: " + rescuerName + ", Phone: " + rescuerPhone + ", RequestId: " + requestId);
             Log.d(TAG, "📱 Full document data: " + document.getData().toString());
             
-            // Only process unread notifications
-            if (isRead == null || !isRead) {
-                Log.d(TAG, "📱 Processing unread notification: " + type);
-                
-                if ("RESCUER_RESPONSE".equals(type)) {
-                    Log.d(TAG, "📱 Showing rescuer response notification for: " + rescuerName);
-                    showRescuerResponseNotificationWithDocument(title, message, rescuerName, rescuerPhone, requestId, document);
-                } else {
-                    Log.d(TAG, "📱 Unknown notification type: " + type);
-                }
-                
-                // Mark notification as read
-                document.getReference().update("isRead", true)
-                        .addOnSuccessListener(aVoid -> Log.d(TAG, "📱 Notification marked as read"))
-                        .addOnFailureListener(e -> Log.e(TAG, "📱 Failed to mark notification as read", e));
+            // Process notification (already filtered for unread in query)
+            Log.d(TAG, "📱 Processing unread notification: " + type);
+            
+            Log.d(TAG, "📱 Processing notification - Type: " + type + ", Rescuer: " + rescuerName + ", Request ID: " + requestId);
+            if ("RESCUER_RESPONSE".equals(type)) {
+                Log.d(TAG, "📱 ✅ RESCUER_RESPONSE type matched! Showing rescuer response notification for: " + rescuerName);
+                showRescuerResponseNotificationWithDocument(title, message, rescuerName, rescuerPhone, requestId, document);
             } else {
-                Log.d(TAG, "📱 Skipping already read notification: " + type);
+                Log.d(TAG, "📱 ❌ Unknown notification type: " + type + " (expected: RESCUER_RESPONSE)");
             }
+            
+            // Mark notification as read
+            document.getReference().update("isRead", true)
+                    .addOnSuccessListener(aVoid -> Log.d(TAG, "📱 Notification marked as read"))
+                    .addOnFailureListener(e -> Log.e(TAG, "📱 Failed to mark notification as read", e));
             
         } catch (Exception e) {
             Log.e(TAG, "Error handling notification: " + e.getMessage(), e);
@@ -162,8 +174,10 @@ public class SeniorNotificationService {
     private void showRescuerResponseNotificationWithDocument(String title, String message, String rescuerName, 
                                                            String rescuerPhone, String requestId, 
                                                            QueryDocumentSnapshot document) {
+        Log.d(TAG, "📱 ===== showRescuerResponseNotificationWithDocument CALLED =====");
         Log.d(TAG, "📱 Showing rescuer response notification with document data");
         Log.d(TAG, "📱 Rescuer: " + rescuerName + ", Phone: " + rescuerPhone + ", Request ID: " + requestId);
+        Log.d(TAG, "📱 Title: " + title + ", Message: " + message);
         
         NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         
@@ -177,7 +191,10 @@ public class SeniorNotificationService {
             }
         }
         
-        // Create intent to open senior dashboard
+        // Show popup immediately instead of creating notification
+        showRescuerAcceptedPopupImmediately(rescuerName, rescuerPhone, requestId, document);
+        
+        // Also create notification for background cases
         Intent intent = new Intent(context, Senior_Dashboard.class);
         intent.putExtra("notification_type", "rescuer_response");
         intent.putExtra("rescuer_name", rescuerName);
@@ -614,5 +631,35 @@ public class SeniorNotificationService {
         } catch (Exception e) {
             Log.e(TAG, "❌ Error sending test notification: " + e.getMessage(), e);
         }
+    }
+    
+    private void showRescuerAcceptedPopupImmediately(String rescuerName, String rescuerPhone, String requestId, QueryDocumentSnapshot document) {
+        Log.d(TAG, "🎉 Showing rescuer accepted popup immediately for: " + rescuerName);
+        
+        // Get additional data from document
+        String rescuerTeam = document.getString("rescuerTeam");
+        String emergencyStatus = document.getString("emergency_status");
+        String assignedRescuerId = document.getString("assigned_rescuer_id");
+        String hospitalId = document.getString("hospitalId");
+        String hospitalName = document.getString("hospitalName");
+        String hospitalAddress = document.getString("hospitalAddress");
+        String hospitalPhone = document.getString("hospitalPhone");
+        
+        // Create a broadcast intent to show the popup in the Senior_Dashboard
+        Intent popupIntent = new Intent("com.example.sagip_prototype.SHOW_RESCUER_ACCEPTED_POPUP");
+        popupIntent.putExtra("rescuer_name", rescuerName);
+        popupIntent.putExtra("rescuer_phone", rescuerPhone);
+        popupIntent.putExtra("rescuer_team", rescuerTeam);
+        popupIntent.putExtra("request_id", requestId);
+        popupIntent.putExtra("assigned_rescuer_id", assignedRescuerId);
+        popupIntent.putExtra("emergency_status", emergencyStatus);
+        popupIntent.putExtra("hospital_id", hospitalId);
+        popupIntent.putExtra("hospital_name", hospitalName);
+        popupIntent.putExtra("hospital_address", hospitalAddress);
+        popupIntent.putExtra("hospital_phone", hospitalPhone);
+        
+        // Send broadcast
+        context.sendBroadcast(popupIntent);
+        Log.d(TAG, "📡 Broadcast sent to show rescuer accepted popup");
     }
 }

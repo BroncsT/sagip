@@ -2,6 +2,7 @@ package com.example.sagip_prototype;
 
 import android.Manifest;
 import android.app.NotificationManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -637,8 +638,8 @@ public class Barangay_Dashboard extends AppCompatActivity {
         // Clear stored credentials
         clearStoredCredentials();
 
-        // Reset notification service session
-        BarangayNotificationService.getInstance(this).resetSession();
+        // Reset notification service to prevent cross-user notifications
+        BarangayNotificationService.resetInstance();
 
         // Sign out from Firebase
         mAuth.signOut();
@@ -1065,8 +1066,8 @@ public class Barangay_Dashboard extends AppCompatActivity {
         // Stop listening for emergency notifications when activity is destroyed
         BarangayNotificationService.getInstance(this).stopListening();
         
-        // Reset notification service session
-        BarangayNotificationService.getInstance(this).resetSession();
+        // Reset notification service to prevent cross-user notifications
+        BarangayNotificationService.resetInstance();
         
         // Unregister language change receiver
         unregisterLanguageChangeReceiver();
@@ -1079,7 +1080,11 @@ public class Barangay_Dashboard extends AppCompatActivity {
     
     private void registerLanguageChangeReceiver() {
         android.content.IntentFilter filter = new android.content.IntentFilter("com.example.sagip_prototype.LANGUAGE_CHANGED");
-        registerReceiver(languageChangeReceiver, filter);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(languageChangeReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(languageChangeReceiver, filter);
+        }
     }
     
     private void unregisterLanguageChangeReceiver() {

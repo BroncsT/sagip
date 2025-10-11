@@ -3,7 +3,10 @@ package com.example.sagip_prototype;
 import android.Manifest;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Address;
@@ -68,6 +71,16 @@ public class Senior_Dashboard extends AppCompatActivity {
 
     TextView tvFullName, tvCurrentLocation;
     Button btnFindHospital, btnSOS;
+    
+    // Floating Emergency Panel UI Elements
+    private androidx.cardview.widget.CardView floatingEmergencyPanel;
+    private TextView tvFloatingRescuerName, tvFloatingETA, tvFloatingDistance;
+    private Button btnViewDetails, btnFloatingCall, btnFloatingRefresh;
+    
+    // Emergency tracking
+    private String currentEmergencyId = null;
+    private String currentRescuerId = null;
+    private String currentRescuerPhone = null;
 
     private FusedLocationProviderClient fusedLocationClient;
     private LocationCallback locationCallback;
@@ -77,6 +90,8 @@ public class Senior_Dashboard extends AppCompatActivity {
     private String currentLocationAddress = "";
     private String currentBarangay = "";
 
+    // Broadcast receiver for immediate popup
+    private BroadcastReceiver rescuerAcceptedReceiver;
 
     private ActivityResultLauncher<String[]> locationPermissionRequest;
 
@@ -121,17 +136,17 @@ public class Senior_Dashboard extends AppCompatActivity {
         // Check and request notification permission
         checkAndRequestNotificationPermission();
         
-        // Send test notification to verify notification system is working
-        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-            Log.d(TAG, "🧪 Sending test notification after 3 second delay");
-            checkNotificationSystemStatus();
-            SeniorNotificationService.getInstance(this).sendTestNotification();
-        }, 3000); // Send test notification after 3 seconds
-        
         // Register for FCM notifications
         registerForFCMNotifications();
         
+        // Register broadcast receiver for immediate popup
+        registerRescuerAcceptedReceiver();
         
+        // Check for rescuer data from RescuerDetailsActivity
+        handleIncomingRescuerData();
+        
+        // Check for active emergencies and show floating panel
+        checkForActiveEmergencies();
         
         // Handle rescuer response notification if app was opened from notification
         // Add a delay to ensure UI is fully loaded
@@ -145,7 +160,45 @@ public class Senior_Dashboard extends AppCompatActivity {
         tvCurrentLocation = findViewById(R.id.tvCurrentLocation);
         btnSOS = findViewById(R.id.sosButton);
         
+        // Initialize floating emergency panel
+        floatingEmergencyPanel = findViewById(R.id.floatingEmergencyPanel);
+        tvFloatingRescuerName = findViewById(R.id.tvFloatingRescuerName);
+        tvFloatingETA = findViewById(R.id.tvFloatingETA);
+        tvFloatingDistance = findViewById(R.id.tvFloatingDistance);
+        btnViewDetails = findViewById(R.id.btnViewDetails);
+        btnFloatingCall = findViewById(R.id.btnFloatingCall);
+        btnFloatingRefresh = findViewById(R.id.btnFloatingRefresh);
+        
+        // Debug floating panel initialization
+        Log.d(TAG, "🔍 Floating panel initialization:");
+        Log.d(TAG, "   floatingEmergencyPanel: " + (floatingEmergencyPanel != null ? "✅ Found" : "❌ NULL"));
+        Log.d(TAG, "   tvFloatingRescuerName: " + (tvFloatingRescuerName != null ? "✅ Found" : "❌ NULL"));
+        Log.d(TAG, "   tvFloatingETA: " + (tvFloatingETA != null ? "✅ Found" : "❌ NULL"));
+        Log.d(TAG, "   tvFloatingDistance: " + (tvFloatingDistance != null ? "✅ Found" : "❌ NULL"));
+        Log.d(TAG, "   btnViewDetails: " + (btnViewDetails != null ? "✅ Found" : "❌ NULL"));
+        Log.d(TAG, "   btnFloatingCall: " + (btnFloatingCall != null ? "✅ Found" : "❌ NULL"));
+        Log.d(TAG, "   btnFloatingRefresh: " + (btnFloatingRefresh != null ? "✅ Found" : "❌ NULL"));
+        
         btnSOS.setOnClickListener(v -> showSOSConfirmationDialog());
+        
+        // Set up floating panel click listeners
+        btnViewDetails.setOnClickListener(v -> {
+            if (currentEmergencyId != null) {
+                navigateToRescuerDetails();
+            }
+        });
+        
+        btnFloatingCall.setOnClickListener(v -> {
+            if (currentRescuerPhone != null && !currentRescuerPhone.isEmpty()) {
+                callRescuer();
+            } else {
+                Toast.makeText(this, "Rescuer phone number not available", Toast.LENGTH_SHORT).show();
+            }
+        });
+        
+        btnFloatingRefresh.setOnClickListener(v -> {
+            refreshEmergencyStatus();
+        });
     }
 
     private void setupBottomNavigation() {
@@ -373,30 +426,30 @@ public class Senior_Dashboard extends AppCompatActivity {
     }
     
     private void testCurrentLocation() {
-        Log.d(TAG, "🧪 Testing current location status...");
-        Log.d(TAG, "🧪 Current location values: " + currentLat + ", " + currentLong);
-        Log.d(TAG, "🧪 Location updates active: " + locationUpdatesActive);
+        Log.d(TAG, "🔍 Checking current location status...");
+        Log.d(TAG, "📍 Current location values: " + currentLat + ", " + currentLong);
+        Log.d(TAG, "📍 Location updates active: " + locationUpdatesActive);
         
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
                 ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             
-            Log.d(TAG, "🧪 Location permission granted, requesting last known location...");
+            Log.d(TAG, "📍 Location permission granted, requesting last known location...");
             fusedLocationClient.getLastLocation()
                     .addOnSuccessListener(location -> {
                         if (location != null) {
-                            Log.d(TAG, "🧪 Last known location: " + location.getLatitude() + ", " + location.getLongitude());
+                            Log.d(TAG, "📍 Last known location: " + location.getLatitude() + ", " + location.getLongitude());
                             currentLat = location.getLatitude();
                             currentLong = location.getLongitude();
-                            Log.d(TAG, "🧪 Updated current location: " + currentLat + ", " + currentLong);
+                            Log.d(TAG, "📍 Updated current location: " + currentLat + ", " + currentLong);
                         } else {
-                            Log.w(TAG, "🧪 No last known location available");
+                            Log.w(TAG, "📍 No last known location available");
                         }
                     })
                     .addOnFailureListener(e -> {
-                        Log.e(TAG, "🧪 Error getting last known location: " + e.getMessage());
+                        Log.e(TAG, "❌ Error getting last known location: " + e.getMessage());
                     });
         } else {
-            Log.w(TAG, "🧪 No location permission granted");
+            Log.w(TAG, "⚠️ No location permission granted");
         }
     }
     
@@ -741,6 +794,10 @@ public class Senior_Dashboard extends AppCompatActivity {
 
     private void clearStoredCredentials() {
         Log.d(TAG, "Clearing stored credentials");
+        
+        // Reset notification service to prevent cross-user notifications
+        SeniorNotificationService.resetInstance();
+        
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.remove(KEY_IS_LOGGED_IN);
         editor.remove(KEY_USER_ID);
@@ -920,18 +977,23 @@ public class Senior_Dashboard extends AppCompatActivity {
         // Load cached name immediately when returning to dashboard via new intent
         loadCachedName();
         
+        // Handle rescuer data from RescuerDetailsActivity
+        handleIncomingRescuerData();
+        
         // Handle rescuer response notification
         handleRescuerResponseNotification(intent);
         
-        Log.d(TAG, "onNewIntent called - reloading cached name");
+        Log.d(TAG, "onNewIntent called - reloading cached name and checking for rescuer data");
     }
     
     private void handleRescuerResponseNotification(Intent intent) {
+        Log.d(TAG, "🔍 handleRescuerResponseNotification called with intent: " + (intent != null ? "not null" : "null"));
         if (intent != null) {
             String notificationType = intent.getStringExtra("notification_type");
             Log.d(TAG, "🔍 Checking notification type: " + notificationType);
+            Log.d(TAG, "🔍 All intent extras: " + intent.getExtras());
             
-            if ("rescuer_response".equals(notificationType)) {
+            if ("rescuer_response".equals(notificationType) || "RESCUER_RESPONSE".equals(notificationType)) {
                 String rescuerName = intent.getStringExtra("rescuer_name");
                 String rescuerPhone = intent.getStringExtra("rescuer_phone");
                 String requestId = intent.getStringExtra("request_id");
@@ -948,24 +1010,15 @@ public class Senior_Dashboard extends AppCompatActivity {
                 Log.d(TAG, "🏢 Rescue Team: " + rescuerTeam);
                 Log.d(TAG, "🏥 Hospital: " + hospitalName + " at " + hospitalAddress);
                 
-                // Automatically navigate to rescuer details page
-                Log.d(TAG, "🚑 Auto-navigating to rescuer details page");
-                Log.d(TAG, "📍 Passing senior location: " + currentLat + ", " + currentLong);
-                Intent rescuerDetailsIntent = new Intent(this, RescuerDetailsActivity.class);
-                rescuerDetailsIntent.putExtra("emergencyId", requestId);
-                rescuerDetailsIntent.putExtra("rescuerName", rescuerName);
-                rescuerDetailsIntent.putExtra("rescuerPhone", rescuerPhone);
-                rescuerDetailsIntent.putExtra("rescuerTeam", rescuerTeam);
-                rescuerDetailsIntent.putExtra("assignedRescuerId", assignedRescuerId);
-                rescuerDetailsIntent.putExtra("emergencyStatus", emergencyStatus);
-                rescuerDetailsIntent.putExtra("hospitalId", hospitalId);
-                rescuerDetailsIntent.putExtra("hospitalName", hospitalName);
-                rescuerDetailsIntent.putExtra("hospitalAddress", hospitalAddress);
-                rescuerDetailsIntent.putExtra("hospitalPhone", hospitalPhone);
-                // Add senior location to intent
-                rescuerDetailsIntent.putExtra("seniorLat", currentLat);
-                rescuerDetailsIntent.putExtra("seniorLong", currentLong);
-                startActivity(rescuerDetailsIntent);
+                // Show popup notification before navigating to rescuer details
+                showRescuerAcceptedPopup(rescuerName, rescuerPhone, rescuerTeam, requestId, assignedRescuerId, emergencyStatus, hospitalId, hospitalName, hospitalAddress, hospitalPhone);
+                
+                // Update floating panel with rescuer info
+                currentEmergencyId = requestId;
+                currentRescuerId = assignedRescuerId;
+                currentRescuerPhone = rescuerPhone;
+                updateFloatingEmergencyPanel(rescuerName, "-- min", "-- km");
+                showFloatingEmergencyPanel();
                 
                 // Clear the intent extras to prevent repeated handling
                 intent.removeExtra("notification_type");
@@ -1133,6 +1186,133 @@ public class Senior_Dashboard extends AppCompatActivity {
         Log.d(TAG, "📱 Rescuer response dialog shown for: " + rescuerName);
     }
 
+    private void showRescuerAcceptedPopup(String rescuerName, String rescuerPhone, String rescuerTeam, 
+                                        String requestId, String assignedRescuerId, String emergencyStatus,
+                                        String hospitalId, String hospitalName, String hospitalAddress, String hospitalPhone) {
+        // Check if activity is still valid before showing dialog
+        if (isFinishing() || isDestroyed()) {
+            Log.w(TAG, "Cannot show rescuer accepted popup - activity is not in valid state");
+            return;
+        }
+        
+        Log.d(TAG, "🎉 Showing rescuer accepted popup for: " + rescuerName);
+        
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(getString(R.string.dialog_rescuer_accepted_title));
+        builder.setMessage(getString(R.string.dialog_rescuer_accepted_message, rescuerName, rescuerTeam));
+        builder.setIcon(android.R.drawable.ic_dialog_info);
+        builder.setCancelable(false);
+        
+        // View Details button - navigates to rescuer details page
+        builder.setPositiveButton(getString(R.string.button_view_details), (dialog, which) -> {
+            Log.d(TAG, "🚑 User chose to view rescuer details");
+            navigateToRescuerDetails(rescuerName, rescuerPhone, rescuerTeam, requestId, assignedRescuerId, 
+                                   emergencyStatus, hospitalId, hospitalName, hospitalAddress, hospitalPhone);
+            dialog.dismiss();
+        });
+        
+        // Call Rescuer button
+        if (rescuerPhone != null && !rescuerPhone.isEmpty()) {
+            builder.setNeutralButton(getString(R.string.button_call_rescuer), (dialog, which) -> {
+                Log.d(TAG, "📞 User chose to call rescuer: " + rescuerPhone);
+                Intent callIntent = new Intent(Intent.ACTION_DIAL);
+                callIntent.setData(android.net.Uri.parse("tel:" + rescuerPhone));
+                startActivity(callIntent);
+                dialog.dismiss();
+            });
+        }
+        
+        // Dismiss button
+        builder.setNegativeButton(getString(R.string.button_dismiss), (dialog, which) -> {
+            Log.d(TAG, "❌ User dismissed rescuer accepted popup");
+            dialog.dismiss();
+        });
+        
+        AlertDialog dialog = builder.create();
+        dialog.setOnShowListener(dialogInterface -> {
+            try {
+                // Style the buttons
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark, null));
+                    if (dialog.getButton(AlertDialog.BUTTON_NEUTRAL) != null) {
+                        dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setTextColor(getResources().getColor(android.R.color.holo_blue_dark, null));
+                    }
+                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.darker_gray, null));
+                } else {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+                    if (dialog.getButton(AlertDialog.BUTTON_NEUTRAL) != null) {
+                        dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setTextColor(getResources().getColor(android.R.color.holo_blue_dark));
+                    }
+                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.darker_gray));
+                }
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextSize(16);
+                if (dialog.getButton(AlertDialog.BUTTON_NEUTRAL) != null) {
+                    dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setTextSize(16);
+                }
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextSize(16);
+            } catch (Exception e) {
+                Log.e(TAG, "Error styling rescuer accepted popup buttons", e);
+            }
+        });
+        
+        dialog.show();
+        Log.d(TAG, "🎉 Rescuer accepted popup shown for: " + rescuerName);
+    }
+    
+    private void navigateToRescuerDetails(String rescuerName, String rescuerPhone, String rescuerTeam, 
+                                        String requestId, String assignedRescuerId, String emergencyStatus,
+                                        String hospitalId, String hospitalName, String hospitalAddress, String hospitalPhone) {
+        Log.d(TAG, "🚑 Navigating to rescuer details page");
+        Log.d(TAG, "📍 Passing senior location: " + currentLat + ", " + currentLong);
+        
+        Intent rescuerDetailsIntent = new Intent(this, RescuerDetailsActivity.class);
+        rescuerDetailsIntent.putExtra("emergencyId", requestId);
+        rescuerDetailsIntent.putExtra("rescuerName", rescuerName);
+        rescuerDetailsIntent.putExtra("rescuerPhone", rescuerPhone);
+        rescuerDetailsIntent.putExtra("rescuerTeam", rescuerTeam);
+        rescuerDetailsIntent.putExtra("assignedRescuerId", assignedRescuerId);
+        rescuerDetailsIntent.putExtra("emergencyStatus", emergencyStatus);
+        rescuerDetailsIntent.putExtra("hospitalId", hospitalId);
+        rescuerDetailsIntent.putExtra("hospitalName", hospitalName);
+        rescuerDetailsIntent.putExtra("hospitalAddress", hospitalAddress);
+        rescuerDetailsIntent.putExtra("hospitalPhone", hospitalPhone);
+        // Add senior location to intent
+        rescuerDetailsIntent.putExtra("seniorLat", currentLat);
+        rescuerDetailsIntent.putExtra("seniorLong", currentLong);
+        startActivity(rescuerDetailsIntent);
+    }
+    
+    private void registerRescuerAcceptedReceiver() {
+        rescuerAcceptedReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if ("com.example.sagip_prototype.SHOW_RESCUER_ACCEPTED_POPUP".equals(intent.getAction())) {
+                    Log.d(TAG, "📡 Received broadcast to show rescuer accepted popup");
+                    
+                    String rescuerName = intent.getStringExtra("rescuer_name");
+                    String rescuerPhone = intent.getStringExtra("rescuer_phone");
+                    String rescuerTeam = intent.getStringExtra("rescuer_team");
+                    String requestId = intent.getStringExtra("request_id");
+                    String assignedRescuerId = intent.getStringExtra("assigned_rescuer_id");
+                    String emergencyStatus = intent.getStringExtra("emergency_status");
+                    String hospitalId = intent.getStringExtra("hospital_id");
+                    String hospitalName = intent.getStringExtra("hospital_name");
+                    String hospitalAddress = intent.getStringExtra("hospital_address");
+                    String hospitalPhone = intent.getStringExtra("hospital_phone");
+                    
+                    // Show the popup immediately
+                    showRescuerAcceptedPopup(rescuerName, rescuerPhone, rescuerTeam, requestId, 
+                                          assignedRescuerId, emergencyStatus, hospitalId, 
+                                          hospitalName, hospitalAddress, hospitalPhone);
+                }
+            }
+        };
+        
+        IntentFilter filter = new IntentFilter("com.example.sagip_prototype.SHOW_RESCUER_ACCEPTED_POPUP");
+        registerReceiver(rescuerAcceptedReceiver, filter);
+        Log.d(TAG, "📡 Registered rescuer accepted broadcast receiver");
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
@@ -1145,6 +1325,9 @@ public class Senior_Dashboard extends AppCompatActivity {
         
         // Load active emergencies from database to ensure local cache is up to date
         EmergencyQueueManager.getInstance(this).loadActiveEmergenciesFromDatabase();
+        
+        // Check for active emergencies and update floating panel
+        checkForActiveEmergencies();
         
         // Check notification permission status
         Log.d(TAG, "🔔 App resumed, checking notification status");
@@ -1199,6 +1382,12 @@ public class Senior_Dashboard extends AppCompatActivity {
         
         // Stop listening for rescuer response notifications when activity is destroyed
         SeniorNotificationService.getInstance(this).stopListening();
+        
+        // Unregister broadcast receiver
+        if (rescuerAcceptedReceiver != null) {
+            unregisterReceiver(rescuerAcceptedReceiver);
+            Log.d(TAG, "📡 Unregistered rescuer accepted broadcast receiver");
+        }
         
         // Remove emergency status listener
     }
@@ -1343,49 +1532,6 @@ public class Senior_Dashboard extends AppCompatActivity {
                 });
     }
     
-    private void checkNotificationSystemStatus() {
-        Log.d(TAG, "🔍 Checking notification system status...");
-        
-        NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        if (notificationManager == null) {
-            Log.e(TAG, "❌ NotificationManager is null");
-            return;
-        }
-        
-        // Check if notifications are enabled
-        boolean notificationsEnabled = true;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            notificationsEnabled = notificationManager.areNotificationsEnabled();
-            Log.d(TAG, "🔍 Notifications enabled: " + notificationsEnabled);
-        }
-        
-        // Check notification channels
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            String channelId = "senior_notifications";
-            NotificationChannel channel = notificationManager.getNotificationChannel(channelId);
-            if (channel != null) {
-                Log.d(TAG, "🔍 Notification channel exists: " + channelId);
-                Log.d(TAG, "🔍 Channel importance: " + channel.getImportance());
-                Log.d(TAG, "🔍 Channel can show badge: " + channel.canShowBadge());
-                Log.d(TAG, "🔍 Channel can vibrate: " + channel.shouldVibrate());
-                Log.d(TAG, "🔍 Channel can show lights: " + channel.shouldShowLights());
-            } else {
-                Log.e(TAG, "❌ Notification channel does not exist: " + channelId);
-            }
-        }
-        
-        // Check if app has notification permission
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                Log.w(TAG, "⚠️ POST_NOTIFICATIONS permission not granted");
-            } else {
-                Log.d(TAG, "✅ POST_NOTIFICATIONS permission granted");
-            }
-        }
-        
-        Log.d(TAG, "🔍 Notification system status check complete");
-    }
-    
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -1400,5 +1546,268 @@ public class Senior_Dashboard extends AppCompatActivity {
             }
         }
     }
+    
+    // Floating Emergency Panel Methods
+    private void showFloatingEmergencyPanel() {
+        Log.d(TAG, "📋 showFloatingEmergencyPanel() called");
+        if (floatingEmergencyPanel != null) {
+            floatingEmergencyPanel.setVisibility(android.view.View.VISIBLE);
+            Log.d(TAG, "📋 Floating emergency panel shown successfully");
+            } else {
+            Log.e(TAG, "❌ floatingEmergencyPanel is null!");
+        }
+    }
+    
+    private void hideFloatingEmergencyPanel() {
+        if (floatingEmergencyPanel != null) {
+            floatingEmergencyPanel.setVisibility(android.view.View.GONE);
+            Log.d(TAG, "📋 Floating emergency panel hidden");
+        }
+    }
+    
+    private void updateFloatingEmergencyPanel(String rescuerName, String eta, String distance) {
+        if (floatingEmergencyPanel != null && floatingEmergencyPanel.getVisibility() == android.view.View.VISIBLE) {
+            if (tvFloatingRescuerName != null) {
+                tvFloatingRescuerName.setText(rescuerName != null ? rescuerName : "Loading...");
+            }
+            if (tvFloatingETA != null) {
+                tvFloatingETA.setText(eta != null ? eta : "-- min");
+            }
+            if (tvFloatingDistance != null) {
+                tvFloatingDistance.setText(distance != null ? distance : "-- km");
+            }
+            Log.d(TAG, "📋 Floating emergency panel updated");
+        }
+    }
+    
+    private void navigateToRescuerDetails() {
+        if (currentEmergencyId != null) {
+            Log.d(TAG, "🚑 Navigating to rescuer details for emergency: " + currentEmergencyId);
+            Intent intent = new Intent(this, RescuerDetailsActivity.class);
+            intent.putExtra("emergencyId", currentEmergencyId);
+            intent.putExtra("seniorLat", currentLat);
+            intent.putExtra("seniorLong", currentLong);
+            startActivity(intent);
+        }
+    }
+    
+    private void callRescuer() {
+        if (currentRescuerPhone != null && !currentRescuerPhone.isEmpty()) {
+            Intent callIntent = new Intent(Intent.ACTION_DIAL);
+            callIntent.setData(android.net.Uri.parse("tel:" + currentRescuerPhone));
+            startActivity(callIntent);
+        }
+    }
+    
+    private void refreshEmergencyStatus() {
+        if (currentEmergencyId != null && currentRescuerId != null) {
+            Log.d(TAG, "🔄 Refreshing emergency status for: " + currentEmergencyId);
+            // Reload rescuer details and recalculate ETA
+            loadRescuerDetailsForFloatingPanel(currentRescuerId);
+        } else if (currentEmergencyId != null) {
+            // Load emergency details and update floating panel
+            loadEmergencyDetailsForFloatingPanel();
+        }
+    }
+    
+    private void loadEmergencyDetailsForFloatingPanel() {
+        if (currentEmergencyId == null) return;
+        
+        db.collection("Sagip")
+                .document("emergencyRequests")
+                .collection("activeRequests")
+                .document(currentEmergencyId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String assignedRescuerId = documentSnapshot.getString("assignedRescuerId");
+                        if (assignedRescuerId != null && !assignedRescuerId.isEmpty()) {
+                            currentRescuerId = assignedRescuerId;
+                            loadRescuerDetailsForFloatingPanel(assignedRescuerId);
+                        }
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error loading emergency details for floating panel", e);
+                });
+    }
+    
+    private void loadRescuerDetailsForFloatingPanel(String rescuerId) {
+        db.collection("Sagip")
+                .document("users")
+                .collection("rescuer")
+                .document(rescuerId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String rescuerName = documentSnapshot.getString("rescuegroup");
+                        if (rescuerName == null || rescuerName.isEmpty()) {
+                            rescuerName = documentSnapshot.getString("name");
+                        }
+                        if (rescuerName == null || rescuerName.isEmpty()) {
+                            rescuerName = "Rescuer " + rescuerId.substring(0, Math.min(8, rescuerId.length()));
+                        }
+                        
+                        String phone = documentSnapshot.getString("mobileNumber");
+                        if (phone != null && !phone.isEmpty()) {
+                            currentRescuerPhone = phone;
+                        }
+                        
+                        // Get rescuer location for ETA calculation
+                        Double rescuerLat = documentSnapshot.getDouble("latitude");
+                        Double rescuerLong = documentSnapshot.getDouble("longitude");
+                        
+                        if (rescuerLat != null && rescuerLong != null && currentLat != 0.0 && currentLong != 0.0) {
+                            // Calculate real ETA and distance
+                            calculateETAForFloatingPanel(rescuerName, rescuerLat, rescuerLong);
+                        } else {
+                            // Show panel with placeholder data
+                            updateFloatingEmergencyPanel(rescuerName, "-- min", "-- km");
+                            showFloatingEmergencyPanel();
+                        }
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error loading rescuer details for floating panel", e);
+                });
+    }
+    
+    private void calculateETAForFloatingPanel(String rescuerName, double rescuerLat, double rescuerLong) {
+        Log.d(TAG, "🔄 Calculating ETA for floating panel - Rescuer: " + rescuerLat + ", " + rescuerLong + " Senior: " + currentLat + ", " + currentLong);
+        
+        // Calculate distance using Haversine formula
+        double distance = calculateDistance(rescuerLat, rescuerLong, currentLat, currentLong);
+        String distanceText = String.format("%.1f km", distance);
+        
+        // Estimate ETA based on distance (assuming average speed of 30 km/h in city)
+        int etaMinutes = (int) Math.ceil((distance / 30.0) * 60);
+        String etaText = etaMinutes + " min";
+        
+        Log.d(TAG, "📊 Calculated ETA: " + etaText + ", Distance: " + distanceText);
+        
+        // Update floating panel with calculated data
+        updateFloatingEmergencyPanel(rescuerName, etaText, distanceText);
+        showFloatingEmergencyPanel();
+    }
+    
+    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+        final int R = 6371; // Radius of the earth in km
+        double latDistance = Math.toRadians(lat2 - lat1);
+        double lonDistance = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c; // Distance in km
+    }
+    
+    private void handleIncomingRescuerData() {
+        Intent intent = getIntent();
+        if (intent != null && intent.getBooleanExtra("showFloatingPanel", false)) {
+            Log.d(TAG, "📤 Received rescuer data from RescuerDetailsActivity");
+            
+            String rescuerId = intent.getStringExtra("rescuerId");
+            String rescuerName = intent.getStringExtra("rescuerName");
+            String rescuerPhone = intent.getStringExtra("rescuerPhone");
+            String eta = intent.getStringExtra("eta");
+            String distance = intent.getStringExtra("distance");
+            double rescuerLat = intent.getDoubleExtra("rescuerLat", 0.0);
+            double rescuerLong = intent.getDoubleExtra("rescuerLong", 0.0);
+            double seniorLat = intent.getDoubleExtra("seniorLat", 0.0);
+            double seniorLong = intent.getDoubleExtra("seniorLong", 0.0);
+            
+            Log.d(TAG, "📤 Rescuer data received:");
+            Log.d(TAG, "   Rescuer ID: " + rescuerId);
+            Log.d(TAG, "   Rescuer Name: " + rescuerName);
+            Log.d(TAG, "   ETA: " + eta);
+            Log.d(TAG, "   Distance: " + distance);
+            Log.d(TAG, "   Rescuer Location: " + rescuerLat + ", " + rescuerLong);
+            Log.d(TAG, "   Senior Location: " + seniorLat + ", " + seniorLong);
+            
+            // Update current location if provided
+            if (seniorLat != 0.0 && seniorLong != 0.0) {
+                currentLat = seniorLat;
+                currentLong = seniorLong;
+                Log.d(TAG, "📍 Updated current location from intent: " + currentLat + ", " + currentLong);
+            }
+            
+            // Set emergency tracking variables
+            currentEmergencyId = "FLOATING_PANEL_" + System.currentTimeMillis();
+            currentRescuerId = rescuerId;
+            currentRescuerPhone = rescuerPhone;
+            
+            // Show floating panel with rescuer data
+            updateFloatingEmergencyPanel(rescuerName, eta, distance);
+            showFloatingEmergencyPanel();
+            
+            // Clear the intent extras to prevent repeated handling
+            intent.removeExtra("showFloatingPanel");
+            intent.removeExtra("rescuerId");
+            intent.removeExtra("rescuerName");
+            intent.removeExtra("rescuerPhone");
+            intent.removeExtra("eta");
+            intent.removeExtra("distance");
+            intent.removeExtra("rescuerLat");
+            intent.removeExtra("rescuerLong");
+            intent.removeExtra("seniorLat");
+            intent.removeExtra("seniorLong");
+            
+            Log.d(TAG, "📋 Floating panel shown with rescuer data from RescuerDetailsActivity");
+        }
+    }
+    
+    // Method to check for active emergencies and show floating panel
+    private void checkForActiveEmergencies() {
+        String seniorId = mAuth.getCurrentUser().getUid();
+        Log.d(TAG, "🔍 Checking for active emergencies for senior: " + seniorId);
+        
+        // Check for emergencies with various active statuses
+        db.collection("Sagip")
+                .document("emergencyRequests")
+                .collection("activeRequests")
+                .whereEqualTo("seniorId", seniorId)
+                .whereIn("status", java.util.Arrays.asList("assigned", "in_progress", "en_route", "accepted"))
+                .limit(1)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    Log.d(TAG, "🔍 Found " + querySnapshot.size() + " active emergencies");
+                    if (!querySnapshot.isEmpty()) {
+                        QueryDocumentSnapshot document = (QueryDocumentSnapshot) querySnapshot.getDocuments().get(0);
+                        currentEmergencyId = document.getId();
+                        String assignedRescuerId = document.getString("assignedRescuerId");
+                        String emergencyStatus = document.getString("status");
+                        
+                        Log.d(TAG, "🔍 Active emergency found - ID: " + currentEmergencyId + ", Status: " + emergencyStatus + ", Rescuer ID: " + assignedRescuerId);
+                        
+                        if (assignedRescuerId != null && !assignedRescuerId.isEmpty()) {
+                            currentRescuerId = assignedRescuerId;
+                            loadRescuerDetailsForFloatingPanel(assignedRescuerId);
+            } else {
+                            // Emergency exists but no rescuer assigned yet
+                            Log.d(TAG, "🔍 Emergency exists but no rescuer assigned yet");
+                            hideFloatingEmergencyPanel();
+                            currentEmergencyId = null;
+                            currentRescuerId = null;
+                            currentRescuerPhone = null;
+                        }
+                    } else {
+                        // No active emergency, hide floating panel
+                        Log.d(TAG, "🔍 No active emergencies found, hiding floating panel");
+                        hideFloatingEmergencyPanel();
+                        currentEmergencyId = null;
+                        currentRescuerId = null;
+                        currentRescuerPhone = null;
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error checking for active emergencies", e);
+                    // Hide floating panel on error
+                    hideFloatingEmergencyPanel();
+                    currentEmergencyId = null;
+                    currentRescuerId = null;
+                    currentRescuerPhone = null;
+                });
+    }
+    
     
 }

@@ -15,6 +15,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
@@ -1177,10 +1178,13 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                     notification.put("isActive", true);
                     
                     // Send notification to senior
-                    String notificationPath = "Sagip/users/seniors/" + seniorUid + "/notifications";
-                    Log.d(TAG, "📤 Sending hospital details notification to: " + notificationPath);
+                    Log.d(TAG, "📤 Sending hospital details notification to senior: " + seniorUid);
                     
-                    db.collection(notificationPath)
+                    db.collection("Sagip")
+                            .document("users")
+                            .collection("seniors")
+                            .document(seniorUid)
+                            .collection("notifications")
                             .add(notification)
                             .addOnSuccessListener(documentReference -> {
                                 Log.d(TAG, "✅ Hospital details notification sent to senior: " + seniorUid);
@@ -1237,8 +1241,8 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                 // Update last notification time
                 lastArrivalNotificationTime = currentTime;
                 
-                // Show local confirmation
-                Toast.makeText(this, "✅ You have arrived at the location!", Toast.LENGTH_LONG).show();
+                // Show arrival confirmation popup to rescuer
+                showArrivalConfirmationPopup();
             } else {
                 Log.d(TAG, "⏰ Arrival notification on cooldown, skipping notification");
             }
@@ -1280,6 +1284,62 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         tvEstimatedArrival.setTextColor(getResources().getColor(android.R.color.black));
         
         Log.d(TAG, "📍 UI updated to show departure status");
+    }
+
+    private void showArrivalConfirmationPopup() {
+        // Create a prominent arrival confirmation dialog
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(getString(R.string.dialog_rescuer_arrival_title));
+        builder.setMessage(getString(R.string.dialog_rescuer_arrival_message));
+        builder.setIcon(android.R.drawable.ic_dialog_info);
+        
+        // Make the dialog prominent and non-cancelable
+        builder.setCancelable(false);
+        
+        // Add action buttons
+        builder.setPositiveButton(getString(R.string.button_acknowledged), (dialog, which) -> {
+            dialog.dismiss();
+            // Show success toast
+            Toast.makeText(this, getString(R.string.toast_arrival_confirmed), Toast.LENGTH_LONG).show();
+        });
+        
+        // Add a "Call Senior" button if phone number is available
+        if (seniorPhone != null && !seniorPhone.isEmpty()) {
+            builder.setNeutralButton(getString(R.string.button_call_senior), (dialog, which) -> {
+                Intent callIntent = new Intent(Intent.ACTION_DIAL);
+                callIntent.setData(android.net.Uri.parse("tel:" + seniorPhone));
+                startActivity(callIntent);
+            });
+        }
+        
+        AlertDialog dialog = builder.create();
+        
+        // Style the dialog to make it more prominent
+        dialog.setOnShowListener(dialogInterface -> {
+            try {
+                // Make the positive button green to indicate success
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark, null));
+                    if (dialog.getButton(AlertDialog.BUTTON_NEUTRAL) != null) {
+                        dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setTextColor(getResources().getColor(android.R.color.holo_blue_dark, null));
+                    }
+                } else {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+                    if (dialog.getButton(AlertDialog.BUTTON_NEUTRAL) != null) {
+                        dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setTextColor(getResources().getColor(android.R.color.holo_blue_dark));
+                    }
+                }
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextSize(16);
+                if (dialog.getButton(AlertDialog.BUTTON_NEUTRAL) != null) {
+                    dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setTextSize(16);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error styling arrival confirmation dialog buttons", e);
+            }
+        });
+        
+        dialog.show();
+        Log.d(TAG, "🎉 Arrival confirmation popup shown to rescuer");
     }
     
     /**
@@ -1332,10 +1392,13 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                     notification.put("priority", "HIGH");
                     
                     // Send notification to senior
-                    String notificationPath = "Sagip/users/seniors/" + seniorUid + "/notifications";
-                    Log.d(TAG, "📤 Sending arrival notification to: " + notificationPath);
+                    Log.d(TAG, "📤 Sending arrival notification to senior: " + seniorUid);
                     
-                    db.collection(notificationPath)
+                    db.collection("Sagip")
+                            .document("users")
+                            .collection("seniors")
+                            .document(seniorUid)
+                            .collection("notifications")
                             .add(notification)
                             .addOnSuccessListener(documentReference -> {
                                 Log.d(TAG, "✅ Arrival notification sent to senior: " + seniorUid);

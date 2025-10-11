@@ -1032,12 +1032,13 @@ public class RescuerNavigationActivity extends BaseRescuerActivity implements On
                     .collection("activeRequests")
                     .document(helpRequestId)
                     .update(updates)
-                    .addOnSuccessListener(aVoid -> {
-                        // Send arrival notification to senior
-                        sendArrivalNotificationToSenior();
-                        Toast.makeText(this, "✅ Marked as arrived! Senior has been notified.", Toast.LENGTH_LONG).show();
-                        finish();
-                    })
+                .addOnSuccessListener(aVoid -> {
+                    // Send arrival notification to senior
+                    sendArrivalNotificationToSenior();
+                    
+                    // Show arrival confirmation popup to rescuer
+                    showArrivalConfirmationPopup();
+                })
                     .addOnFailureListener(e -> {
                         Log.e(TAG, "Error updating help request status", e);
                         Toast.makeText(this, "Error updating status", Toast.LENGTH_SHORT).show();
@@ -1079,15 +1080,9 @@ public class RescuerNavigationActivity extends BaseRescuerActivity implements On
                 .addOnSuccessListener(aVoid -> {
                     // Send arrival notification to senior
                     sendArrivalNotificationToSenior();
-                    Toast.makeText(this, "✅ Automatically marked as arrived! Senior has been notified.", Toast.LENGTH_LONG).show();
                     
-                    // Stop navigation
-                    stopNavigation();
-                    
-                    // Close the rescuer navigation activity after a brief delay
-                    new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                        finish();
-                    }, 2000); // 2 second delay to show the success message
+                    // Show arrival confirmation popup to rescuer
+                    showArrivalConfirmationPopup();
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error automatically updating help request status", e);
@@ -1223,6 +1218,81 @@ public class RescuerNavigationActivity extends BaseRescuerActivity implements On
             .addOnFailureListener(e -> {
                 Log.e(TAG, "Error getting help request details for arrival notification", e);
             });
+    }
+
+    private void showArrivalConfirmationPopup() {
+        // Create a prominent arrival confirmation dialog
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(getString(R.string.dialog_rescuer_arrival_title));
+        builder.setMessage(getString(R.string.dialog_rescuer_arrival_message));
+        builder.setIcon(android.R.drawable.ic_dialog_info);
+        
+        // Make the dialog prominent and non-cancelable
+        builder.setCancelable(false);
+        
+        // Add action buttons
+        builder.setPositiveButton(getString(R.string.button_acknowledged), (dialog, which) -> {
+            dialog.dismiss();
+            // Stop navigation
+            stopNavigation();
+            
+            // Show success toast
+            Toast.makeText(this, getString(R.string.toast_arrival_confirmed), Toast.LENGTH_LONG).show();
+            
+            // Close the rescuer navigation activity after a brief delay
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                finish();
+            }, 1500); // 1.5 second delay to show the success message
+        });
+        
+        // Add a "Call Senior" button if phone number is available
+        String seniorPhone = getSeniorPhoneNumber();
+        if (seniorPhone != null && !seniorPhone.isEmpty()) {
+            builder.setNeutralButton(getString(R.string.button_call_senior), (dialog, which) -> {
+                Intent callIntent = new Intent(Intent.ACTION_DIAL);
+                callIntent.setData(android.net.Uri.parse("tel:" + seniorPhone));
+                startActivity(callIntent);
+            });
+        }
+        
+        AlertDialog dialog = builder.create();
+        
+        // Style the dialog to make it more prominent
+        dialog.setOnShowListener(dialogInterface -> {
+            try {
+                // Make the positive button green to indicate success
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark, null));
+                    if (dialog.getButton(AlertDialog.BUTTON_NEUTRAL) != null) {
+                        dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setTextColor(getResources().getColor(android.R.color.holo_blue_dark, null));
+                    }
+                } else {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+                    if (dialog.getButton(AlertDialog.BUTTON_NEUTRAL) != null) {
+                        dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setTextColor(getResources().getColor(android.R.color.holo_blue_dark));
+                    }
+                }
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextSize(16);
+                if (dialog.getButton(AlertDialog.BUTTON_NEUTRAL) != null) {
+                    dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setTextSize(16);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error styling arrival confirmation dialog buttons", e);
+            }
+        });
+        
+        dialog.show();
+        Log.d(TAG, "🎉 Arrival confirmation popup shown to rescuer");
+    }
+
+    private String getSeniorPhoneNumber() {
+        // Try to get senior phone number from the help request
+        if (helpRequestId != null && !helpRequestId.isEmpty()) {
+            // This would need to be implemented to fetch from the help request document
+            // For now, return null as we don't have direct access to the senior's phone
+            return null;
+        }
+        return null;
     }
 
     private void updateSpeedIndicator(Location location) {

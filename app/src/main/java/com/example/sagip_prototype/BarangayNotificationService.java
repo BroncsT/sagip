@@ -46,6 +46,11 @@ public class BarangayNotificationService {
     public static synchronized BarangayNotificationService getInstance(Context context) {
         if (instance == null) {
             instance = new BarangayNotificationService(context);
+        } else {
+            // Update context and auth references when switching users
+            instance.context = context.getApplicationContext();
+            instance.mAuth = FirebaseAuth.getInstance();
+            instance.db = FirebaseFirestore.getInstance();
         }
         return instance;
     }
@@ -120,6 +125,18 @@ public class BarangayNotificationService {
         sessionStartTime = 0;
         currentUserId = null;
         Log.d(TAG, "🔄 Session reset - next login will start fresh");
+    }
+    
+    /**
+     * Reset the service when switching users to prevent cross-user notifications
+     */
+    public static void resetInstance() {
+        if (instance != null) {
+            instance.stopListening();
+            instance.resetSession();
+            instance = null;
+            Log.d(TAG, "🔄 BarangayNotificationService instance reset for user switch");
+        }
     }
     
     // Method to clear old notifications (older than 7 days) when user logs in
