@@ -7,7 +7,7 @@ import java.util.Map;
 public class Emergency {
     public String emergencyId;
     public String helpRequestId;
-    public String seniorId;
+    public String seniorUid;
     public String seniorName;
     public String seniorPhone;
     public GeoPoint location;
@@ -46,10 +46,10 @@ public class Emergency {
         // Default constructor for Firestore
     }
     
-    public Emergency(String emergencyId, String seniorId, String seniorName, 
+    public Emergency(String emergencyId, String seniorUid, String seniorName, 
                     GeoPoint location, String emergencyType, String severity) {
         this.emergencyId = emergencyId;
-        this.seniorId = seniorId;
+        this.seniorUid = seniorUid;
         this.seniorName = seniorName;
         this.location = location;
         this.emergencyType = emergencyType;

@@ -48,9 +48,6 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
     private static final String TAG = "EmergencyAssignmentActivity";
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1001;
     
-    // Arrival detection constants
-    private static final double ARRIVAL_DISTANCE_THRESHOLD = 0.1; // 100 meters in kilometers
-    private static final long ARRIVAL_NOTIFICATION_COOLDOWN = 300000; // 5 minutes in milliseconds
     
     // UI Components
     private TextView tvSeniorName, tvSeniorPhone, tvLocation, tvRescuerName, tvRescuerLocation;
@@ -67,9 +64,6 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
     private long assignmentTime;
     private String emergencyId;
     
-    // Arrival detection variables
-    private boolean hasArrived = false;
-    private long lastArrivalNotificationTime = 0;
     
     // Firebase
     private FirebaseFirestore db;
@@ -80,6 +74,18 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_emergency_assignment);
+        
+        Log.d(TAG, "🚨🚨🚨 EmergencyAssignmentActivity CREATED 🚨🚨🚨");
+        Log.d(TAG, "🔍 [ACTIVITY_CREATE] Intent extras:");
+        Bundle extras = getIntent().getExtras();
+        if (extras != null) {
+            for (String key : extras.keySet()) {
+                Object value = extras.get(key);
+                Log.d(TAG, "🔍 [ACTIVITY_CREATE]   " + key + " = " + value);
+            }
+        } else {
+            Log.w(TAG, "🔍 [ACTIVITY_CREATE] No intent extras found!");
+        }
         
         // Initialize Firebase
         db = FirebaseFirestore.getInstance();
@@ -227,6 +233,8 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         btnUpdateLocation.setOnClickListener(v -> updateLocation());
         btnMarkDone.setOnClickListener(v -> markDone());
         
+        // Test functionality removed to prevent confusion
+        
         // Add null check and debug logging for hospital navigation button
         if (btnNavigateHospital != null) {
             btnNavigateHospital.setOnClickListener(v -> {
@@ -319,6 +327,12 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
                     Log.d(TAG, "📊 Hospital query result: " + querySnapshot.size() + " hospitals found");
+                    
+                    // Debug: Log all hospital documents
+                    for (DocumentSnapshot doc : querySnapshot) {
+                        Log.d(TAG, "🏥 Hospital document: " + doc.getId() + " | Data: " + doc.getData());
+                    }
+                    
                     if (!querySnapshot.isEmpty()) {
                         // Find the nearest hospital based on senior's location
                         findNearestHospital(querySnapshot);
@@ -857,9 +871,6 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         double distance = calculateDistance(rescuerLat, rescuerLng, seniorLat, seniorLng);
         tvDistance.setText(String.format(Locale.getDefault(), "Distance: %.2f km", distance));
         
-        // Check for arrival detection
-        checkForArrival(distance);
-        
         // Estimate arrival time (assuming average speed of 30 km/h in city)
         double estimatedTimeMinutes = (distance / 30.0) * 60; // Convert to minutes
         long estimatedArrivalTime = System.currentTimeMillis() + (long)(estimatedTimeMinutes * 60 * 1000);
@@ -1074,8 +1085,21 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        Log.d(TAG, "🚨🚨🚨 EmergencyAssignmentActivity DESTROYED 🚨🚨🚨");
         // Update status to in-progress when leaving
         updateEmergencyStatus("in_progress");
+    }
+    
+    @Override
+    protected void onResume() {
+        super.onResume();
+        Log.d(TAG, "🚨🚨🚨 EmergencyAssignmentActivity RESUMED 🚨🚨🚨");
+    }
+    
+    @Override
+    protected void onPause() {
+        super.onPause();
+        Log.d(TAG, "🚨🚨🚨 EmergencyAssignmentActivity PAUSED 🚨🚨🚨");
     }
     
     private void sendHospitalDetailsNotificationToSenior(DocumentSnapshot hospitalDoc, double distance) {
@@ -1215,210 +1239,10 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         }
     }
     
-    /**
-     * Check if rescuer has arrived at the senior's location
-     * @param distance Current distance between rescuer and senior in kilometers
-     */
-    private void checkForArrival(double distance) {
-        Log.d(TAG, "🔍 Checking arrival status - Distance: " + String.format("%.3f km", distance) + 
-                ", Threshold: " + ARRIVAL_DISTANCE_THRESHOLD + " km, Has arrived: " + hasArrived);
-        
-        // Check if rescuer is within arrival threshold
-        if (distance <= ARRIVAL_DISTANCE_THRESHOLD && !hasArrived) {
-            hasArrived = true;
-            long currentTime = System.currentTimeMillis();
-            
-            // Check cooldown to prevent spam notifications
-            if (currentTime - lastArrivalNotificationTime > ARRIVAL_NOTIFICATION_COOLDOWN) {
-                Log.d(TAG, "🎉 RESCUER HAS ARRIVED! Distance: " + String.format("%.3f km", distance));
-                
-                // Update UI to show arrival status
-                updateArrivalUI();
-                
-                // Send arrival notification to senior
-                sendArrivalNotificationToSenior();
-                
-                // Update last notification time
-                lastArrivalNotificationTime = currentTime;
-                
-                // Show arrival confirmation popup to rescuer
-                showArrivalConfirmationPopup();
-            } else {
-                Log.d(TAG, "⏰ Arrival notification on cooldown, skipping notification");
-            }
-        } else if (distance > ARRIVAL_DISTANCE_THRESHOLD && hasArrived) {
-            // Rescuer moved away from location, reset arrival status
-            hasArrived = false;
-            Log.d(TAG, "📍 Rescuer moved away from location, resetting arrival status");
-            updateDepartureUI();
-        }
-    }
     
-    /**
-     * Update UI to reflect arrival status
-     */
-    private void updateArrivalUI() {
-        tvStatus.setText("✅ ARRIVED");
-        tvStatus.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
-        
-        // Update distance display to show arrival
-        tvDistance.setText("Distance: ARRIVED ✅");
-        tvDistance.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
-        
-        // Update ETA to show arrival
-        tvEstimatedArrival.setText("ETA: ARRIVED ✅");
-        tvEstimatedArrival.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
-        
-        Log.d(TAG, "✅ UI updated to show arrival status");
-    }
     
-    /**
-     * Update UI when rescuer departs from location
-     */
-    private void updateDepartureUI() {
-        tvStatus.setText("🚨 RESPONDING");
-        tvStatus.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
-        
-        // Reset distance and ETA colors
-        tvDistance.setTextColor(getResources().getColor(android.R.color.black));
-        tvEstimatedArrival.setTextColor(getResources().getColor(android.R.color.black));
-        
-        Log.d(TAG, "📍 UI updated to show departure status");
-    }
 
-    private void showArrivalConfirmationPopup() {
-        // Create a prominent arrival confirmation dialog
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle(getString(R.string.dialog_rescuer_arrival_title));
-        builder.setMessage(getString(R.string.dialog_rescuer_arrival_message));
-        builder.setIcon(android.R.drawable.ic_dialog_info);
-        
-        // Make the dialog prominent and non-cancelable
-        builder.setCancelable(false);
-        
-        // Add action buttons
-        builder.setPositiveButton(getString(R.string.button_acknowledged), (dialog, which) -> {
-            dialog.dismiss();
-            // Show success toast
-            Toast.makeText(this, getString(R.string.toast_arrival_confirmed), Toast.LENGTH_LONG).show();
-        });
-        
-        // Add a "Call Senior" button if phone number is available
-        if (seniorPhone != null && !seniorPhone.isEmpty()) {
-            builder.setNeutralButton(getString(R.string.button_call_senior), (dialog, which) -> {
-                Intent callIntent = new Intent(Intent.ACTION_DIAL);
-                callIntent.setData(android.net.Uri.parse("tel:" + seniorPhone));
-                startActivity(callIntent);
-            });
-        }
-        
-        AlertDialog dialog = builder.create();
-        
-        // Style the dialog to make it more prominent
-        dialog.setOnShowListener(dialogInterface -> {
-            try {
-                // Make the positive button green to indicate success
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark, null));
-                    if (dialog.getButton(AlertDialog.BUTTON_NEUTRAL) != null) {
-                        dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setTextColor(getResources().getColor(android.R.color.holo_blue_dark, null));
-                    }
-                } else {
-                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark));
-                    if (dialog.getButton(AlertDialog.BUTTON_NEUTRAL) != null) {
-                        dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setTextColor(getResources().getColor(android.R.color.holo_blue_dark));
-                    }
-                }
-                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextSize(16);
-                if (dialog.getButton(AlertDialog.BUTTON_NEUTRAL) != null) {
-                    dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setTextSize(16);
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Error styling arrival confirmation dialog buttons", e);
-            }
-        });
-        
-        dialog.show();
-        Log.d(TAG, "🎉 Arrival confirmation popup shown to rescuer");
-    }
     
-    /**
-     * Send arrival notification to the senior
-     */
-    private void sendArrivalNotificationToSenior() {
-        if (emergencyId == null || emergencyId.isEmpty()) {
-            Log.w(TAG, "⚠️ Cannot send arrival notification - no emergency ID");
-            return;
-        }
-        
-        Log.d(TAG, "📤 Sending arrival notification to senior for emergency: " + emergencyId);
-        
-        // Get rescuer details for the notification
-        String rescuerName = getCurrentRescuerName();
-        String rescuerPhone = getCurrentRescuerPhone();
-        String rescuerTeam = getCurrentRescuerTeam();
-        
-        // Get senior UID from emergency document
-        db.collection("Sagip")
-                .document("emergencyRequests")
-                .collection("activeRequests")
-                .document(emergencyId)
-                .get()
-                .addOnSuccessListener(emergencyDoc -> {
-                    if (!emergencyDoc.exists()) {
-                        Log.w(TAG, "⚠️ Emergency document not found for arrival notification: " + emergencyId);
-                        return;
-                    }
-                    
-                    String seniorUid = emergencyDoc.getString("seniorUid");
-                    if (seniorUid == null || seniorUid.isEmpty()) {
-                        Log.w(TAG, "⚠️ Senior UID not found in emergency document");
-                        return;
-                    }
-                    
-                    // Create arrival notification data
-                    Map<String, Object> notification = new HashMap<>();
-                    notification.put("type", "RESCUER_ARRIVED");
-                    notification.put("title", "🚑 Rescuer Has Arrived!");
-                    notification.put("message", "Your rescuer " + rescuerName + " has arrived at your location and is ready to assist you.");
-                    notification.put("emergencyId", emergencyId);
-                    notification.put("rescuerName", rescuerName);
-                    notification.put("rescuerPhone", rescuerPhone);
-                    notification.put("rescuerTeam", rescuerTeam);
-                    notification.put("arrivalTime", System.currentTimeMillis());
-                    notification.put("timestamp", System.currentTimeMillis());
-                    notification.put("isRead", false);
-                    notification.put("isActive", true);
-                    notification.put("priority", "HIGH");
-                    
-                    // Send notification to senior
-                    Log.d(TAG, "📤 Sending arrival notification to senior: " + seniorUid);
-                    
-                    db.collection("Sagip")
-                            .document("users")
-                            .collection("seniors")
-                            .document(seniorUid)
-                            .collection("notifications")
-                            .add(notification)
-                            .addOnSuccessListener(documentReference -> {
-                                Log.d(TAG, "✅ Arrival notification sent to senior: " + seniorUid);
-                                Log.d(TAG, "🚑 Rescuer: " + rescuerName + " from " + rescuerTeam);
-                                Log.d(TAG, "📱 Notification ID: " + documentReference.getId());
-                                
-                                // Also update the emergency status to "arrived"
-                                updateEmergencyStatus("arrived");
-                                
-                                // Send push notification to senior's device
-                                sendPushNotificationToSenior(seniorUid, rescuerName, rescuerTeam);
-                            })
-                            .addOnFailureListener(e -> {
-                                Log.e(TAG, "❌ Failed to send arrival notification: " + e.getMessage());
-                            });
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "❌ Error loading emergency for arrival notification: " + e.getMessage());
-                });
-    }
     
     /**
      * Get current rescuer's phone number
@@ -1490,19 +1314,6 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         // This would typically be done through a Cloud Function or your backend server
     }
     
-    /**
-     * Test method for arrival detection (for debugging purposes)
-     * Call this method to simulate arrival detection
-     */
-    private void testArrivalDetection() {
-        Log.d(TAG, "🧪 Testing arrival detection...");
-        
-        // Simulate being very close to senior location
-        double testDistance = 0.05; // 50 meters
-        Log.d(TAG, "🧪 Simulating distance: " + testDistance + " km");
-        
-        checkForArrival(testDistance);
-        
-        Toast.makeText(this, "🧪 Test arrival detection triggered", Toast.LENGTH_SHORT).show();
-    }
+    
+    
 }

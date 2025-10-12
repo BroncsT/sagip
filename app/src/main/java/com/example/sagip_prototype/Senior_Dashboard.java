@@ -72,10 +72,6 @@ public class Senior_Dashboard extends AppCompatActivity {
     TextView tvFullName, tvCurrentLocation;
     Button btnFindHospital, btnSOS;
     
-    // Floating Emergency Panel UI Elements
-    private androidx.cardview.widget.CardView floatingEmergencyPanel;
-    private TextView tvFloatingRescuerName, tvFloatingETA, tvFloatingDistance;
-    private Button btnViewDetails, btnFloatingCall, btnFloatingRefresh;
     
     // Emergency tracking
     private String currentEmergencyId = null;
@@ -133,6 +129,9 @@ public class Senior_Dashboard extends AppCompatActivity {
         // Start listening for rescuer response notifications immediately
         SeniorNotificationService.getInstance(this).startListening();
         
+        
+        // Test functionality removed - notification system is working
+        
         // Check and request notification permission
         checkAndRequestNotificationPermission();
         
@@ -142,13 +141,6 @@ public class Senior_Dashboard extends AppCompatActivity {
         // Register broadcast receiver for immediate popup
         registerRescuerAcceptedReceiver();
         
-        // Check for rescuer data from RescuerDetailsActivity first
-        boolean hasIncomingRescuerData = handleIncomingRescuerData();
-        
-        // Only check for active emergencies if we don't have incoming rescuer data
-        if (!hasIncomingRescuerData) {
-            checkForActiveEmergencies();
-        }
         
         // Handle rescuer response notification if app was opened from notification
         // Add a delay to ensure UI is fully loaded
@@ -162,45 +154,9 @@ public class Senior_Dashboard extends AppCompatActivity {
         tvCurrentLocation = findViewById(R.id.tvCurrentLocation);
         btnSOS = findViewById(R.id.sosButton);
         
-        // Initialize floating emergency panel
-        floatingEmergencyPanel = findViewById(R.id.floatingEmergencyPanel);
-        tvFloatingRescuerName = findViewById(R.id.tvFloatingRescuerName);
-        tvFloatingETA = findViewById(R.id.tvFloatingETA);
-        tvFloatingDistance = findViewById(R.id.tvFloatingDistance);
-        btnViewDetails = findViewById(R.id.btnViewDetails);
-        btnFloatingCall = findViewById(R.id.btnFloatingCall);
-        btnFloatingRefresh = findViewById(R.id.btnFloatingRefresh);
-        
-        // Debug floating panel initialization
-        Log.d(TAG, "🔍 Floating panel initialization:");
-        Log.d(TAG, "   floatingEmergencyPanel: " + (floatingEmergencyPanel != null ? "✅ Found" : "❌ NULL"));
-        Log.d(TAG, "   tvFloatingRescuerName: " + (tvFloatingRescuerName != null ? "✅ Found" : "❌ NULL"));
-        Log.d(TAG, "   tvFloatingETA: " + (tvFloatingETA != null ? "✅ Found" : "❌ NULL"));
-        Log.d(TAG, "   tvFloatingDistance: " + (tvFloatingDistance != null ? "✅ Found" : "❌ NULL"));
-        Log.d(TAG, "   btnViewDetails: " + (btnViewDetails != null ? "✅ Found" : "❌ NULL"));
-        Log.d(TAG, "   btnFloatingCall: " + (btnFloatingCall != null ? "✅ Found" : "❌ NULL"));
-        Log.d(TAG, "   btnFloatingRefresh: " + (btnFloatingRefresh != null ? "✅ Found" : "❌ NULL"));
         
         btnSOS.setOnClickListener(v -> showSOSConfirmationDialog());
         
-        // Set up floating panel click listeners
-        btnViewDetails.setOnClickListener(v -> {
-            if (currentEmergencyId != null) {
-                navigateToRescuerDetails();
-            }
-        });
-        
-        btnFloatingCall.setOnClickListener(v -> {
-            if (currentRescuerPhone != null && !currentRescuerPhone.isEmpty()) {
-                callRescuer();
-            } else {
-                Toast.makeText(this, "Rescuer phone number not available", Toast.LENGTH_SHORT).show();
-            }
-        });
-        
-        btnFloatingRefresh.setOnClickListener(v -> {
-            refreshEmergencyStatus();
-        });
     }
 
     private void setupBottomNavigation() {
@@ -398,7 +354,7 @@ public class Senior_Dashboard extends AppCompatActivity {
     private void createEmergencyWithLocation(String seniorName, String phoneNumber, double latitude, double longitude) {
         // Create emergency request with unique ID
         String requestId = "SOS_" + System.currentTimeMillis() + "_" + mAuth.getCurrentUser().getUid();
-        String seniorId = mAuth.getCurrentUser().getUid();
+        String seniorUid = mAuth.getCurrentUser().getUid();
         
         // Create GeoPoint for location coordinates
         com.google.firebase.firestore.GeoPoint location = null;
@@ -412,7 +368,7 @@ public class Senior_Dashboard extends AppCompatActivity {
         // Add to emergency queue
         EmergencyQueueManager.EmergencyRequest emergencyRequest = new EmergencyQueueManager.EmergencyRequest(
                 requestId,
-                seniorId,
+                seniorUid,
                 seniorName,
                 phoneNumber,
                 currentLocationAddress,
@@ -482,7 +438,7 @@ public class Senior_Dashboard extends AppCompatActivity {
         emergencyData.put("severity", getString(R.string.text_high));
         emergencyData.put("timestamp", System.currentTimeMillis());
         emergencyData.put("status", getString(R.string.text_active));
-        emergencyData.put("seniorId", mAuth.getCurrentUser().getUid());
+        emergencyData.put("seniorUid", mAuth.getCurrentUser().getUid());
         
         // Get all rescuers and send them the emergency alert
         db.collection("Sagip")
@@ -979,13 +935,6 @@ public class Senior_Dashboard extends AppCompatActivity {
         // Load cached name immediately when returning to dashboard via new intent
         loadCachedName();
         
-        // Handle rescuer data from RescuerDetailsActivity
-        boolean hasIncomingRescuerData = handleIncomingRescuerData();
-        
-        // Only check for active emergencies if we don't have incoming rescuer data
-        if (!hasIncomingRescuerData) {
-            checkForActiveEmergencies();
-        }
         
         // Handle rescuer response notification
         handleRescuerResponseNotification(intent);
@@ -1020,12 +969,10 @@ public class Senior_Dashboard extends AppCompatActivity {
                 // Show popup notification before navigating to rescuer details
                 showRescuerAcceptedPopup(rescuerName, rescuerPhone, rescuerTeam, requestId, assignedRescuerId, emergencyStatus, hospitalId, hospitalName, hospitalAddress, hospitalPhone);
                 
-                // Update floating panel with rescuer info
+                // Update emergency tracking variables
                 currentEmergencyId = requestId;
                 currentRescuerId = assignedRescuerId;
                 currentRescuerPhone = rescuerPhone;
-                updateFloatingEmergencyPanel(rescuerName, "-- min", "-- km");
-                showFloatingEmergencyPanel();
                 
                 // Clear the intent extras to prevent repeated handling
                 intent.removeExtra("notification_type");
@@ -1333,8 +1280,6 @@ public class Senior_Dashboard extends AppCompatActivity {
         // Load active emergencies from database to ensure local cache is up to date
         EmergencyQueueManager.getInstance(this).loadActiveEmergenciesFromDatabase();
         
-        // Check for active emergencies and update floating panel
-        checkForActiveEmergencies();
         
         // Check notification permission status
         Log.d(TAG, "🔔 App resumed, checking notification status");
@@ -1554,270 +1499,9 @@ public class Senior_Dashboard extends AppCompatActivity {
         }
     }
     
-    // Floating Emergency Panel Methods
-    private void showFloatingEmergencyPanel() {
-        Log.d(TAG, "📋 showFloatingEmergencyPanel() called");
-        if (floatingEmergencyPanel != null) {
-            floatingEmergencyPanel.setVisibility(android.view.View.VISIBLE);
-            Log.d(TAG, "📋 Floating emergency panel shown successfully");
-            Log.d(TAG, "📋 Panel visibility: " + (floatingEmergencyPanel.getVisibility() == android.view.View.VISIBLE ? "VISIBLE" : "NOT VISIBLE"));
-        } else {
-            Log.e(TAG, "❌ floatingEmergencyPanel is null!");
-        }
-    }
     
-    private void hideFloatingEmergencyPanel() {
-        if (floatingEmergencyPanel != null) {
-            floatingEmergencyPanel.setVisibility(android.view.View.GONE);
-            Log.d(TAG, "📋 Floating emergency panel hidden");
-        }
-    }
     
-    private void updateFloatingEmergencyPanel(String rescuerName, String eta, String distance) {
-        if (floatingEmergencyPanel != null && floatingEmergencyPanel.getVisibility() == android.view.View.VISIBLE) {
-            if (tvFloatingRescuerName != null) {
-                tvFloatingRescuerName.setText(rescuerName != null ? rescuerName : "Loading...");
-            }
-            if (tvFloatingETA != null) {
-                tvFloatingETA.setText(eta != null ? eta : "-- min");
-            }
-            if (tvFloatingDistance != null) {
-                tvFloatingDistance.setText(distance != null ? distance : "-- km");
-            }
-            Log.d(TAG, "📋 Floating emergency panel updated");
-        }
-    }
     
-    private void navigateToRescuerDetails() {
-        if (currentEmergencyId != null) {
-            Log.d(TAG, "🚑 Navigating to rescuer details for emergency: " + currentEmergencyId);
-            Intent intent = new Intent(this, RescuerDetailsActivity.class);
-            intent.putExtra("emergencyId", currentEmergencyId);
-            intent.putExtra("seniorLat", currentLat);
-            intent.putExtra("seniorLong", currentLong);
-            startActivity(intent);
-        }
-    }
-    
-    private void callRescuer() {
-        if (currentRescuerPhone != null && !currentRescuerPhone.isEmpty()) {
-            Intent callIntent = new Intent(Intent.ACTION_DIAL);
-            callIntent.setData(android.net.Uri.parse("tel:" + currentRescuerPhone));
-            startActivity(callIntent);
-        }
-    }
-    
-    private void refreshEmergencyStatus() {
-        if (currentEmergencyId != null && currentRescuerId != null) {
-            Log.d(TAG, "🔄 Refreshing emergency status for: " + currentEmergencyId);
-            // Reload rescuer details and recalculate ETA
-            loadRescuerDetailsForFloatingPanel(currentRescuerId);
-        } else if (currentEmergencyId != null) {
-            // Load emergency details and update floating panel
-            loadEmergencyDetailsForFloatingPanel();
-        }
-    }
-    
-    private void loadEmergencyDetailsForFloatingPanel() {
-        if (currentEmergencyId == null) return;
-        
-        db.collection("Sagip")
-                .document("emergencyRequests")
-                .collection("activeRequests")
-                .document(currentEmergencyId)
-                .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    if (documentSnapshot.exists()) {
-                        String assignedRescuerId = documentSnapshot.getString("assignedRescuerId");
-                        if (assignedRescuerId != null && !assignedRescuerId.isEmpty()) {
-                            currentRescuerId = assignedRescuerId;
-                            loadRescuerDetailsForFloatingPanel(assignedRescuerId);
-                        }
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error loading emergency details for floating panel", e);
-                });
-    }
-    
-    private void loadRescuerDetailsForFloatingPanel(String rescuerId) {
-        db.collection("Sagip")
-                .document("users")
-                .collection("rescuer")
-                .document(rescuerId)
-                .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    if (documentSnapshot.exists()) {
-                        String rescuerName = documentSnapshot.getString("rescuegroup");
-                        if (rescuerName == null || rescuerName.isEmpty()) {
-                            rescuerName = documentSnapshot.getString("name");
-                        }
-                        if (rescuerName == null || rescuerName.isEmpty()) {
-                            rescuerName = "Rescuer " + rescuerId.substring(0, Math.min(8, rescuerId.length()));
-                        }
-                        
-                        String phone = documentSnapshot.getString("mobileNumber");
-                        if (phone != null && !phone.isEmpty()) {
-                            currentRescuerPhone = phone;
-                        }
-                        
-                        // Get rescuer location for ETA calculation
-                        Double rescuerLat = documentSnapshot.getDouble("latitude");
-                        Double rescuerLong = documentSnapshot.getDouble("longitude");
-                        
-                        if (rescuerLat != null && rescuerLong != null && currentLat != 0.0 && currentLong != 0.0) {
-                            // Calculate real ETA and distance
-                            calculateETAForFloatingPanel(rescuerName, rescuerLat, rescuerLong);
-                        } else {
-                            // Show panel with placeholder data
-                            updateFloatingEmergencyPanel(rescuerName, "-- min", "-- km");
-                            showFloatingEmergencyPanel();
-                        }
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error loading rescuer details for floating panel", e);
-                });
-    }
-    
-    private void calculateETAForFloatingPanel(String rescuerName, double rescuerLat, double rescuerLong) {
-        Log.d(TAG, "🔄 Calculating ETA for floating panel - Rescuer: " + rescuerLat + ", " + rescuerLong + " Senior: " + currentLat + ", " + currentLong);
-        
-        // Calculate distance using Haversine formula
-        double distance = calculateDistance(rescuerLat, rescuerLong, currentLat, currentLong);
-        String distanceText = String.format("%.1f km", distance);
-        
-        // Estimate ETA based on distance (assuming average speed of 30 km/h in city)
-        int etaMinutes = (int) Math.ceil((distance / 30.0) * 60);
-        String etaText = etaMinutes + " min";
-        
-        Log.d(TAG, "📊 Calculated ETA: " + etaText + ", Distance: " + distanceText);
-        
-        // Update floating panel with calculated data
-        updateFloatingEmergencyPanel(rescuerName, etaText, distanceText);
-        showFloatingEmergencyPanel();
-    }
-    
-    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-        final int R = 6371; // Radius of the earth in km
-        double latDistance = Math.toRadians(lat2 - lat1);
-        double lonDistance = Math.toRadians(lon2 - lon1);
-        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
-                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c; // Distance in km
-    }
-    
-    private boolean handleIncomingRescuerData() {
-        Intent intent = getIntent();
-        if (intent != null && intent.getBooleanExtra("showFloatingPanel", false)) {
-            Log.d(TAG, "📤 Received rescuer data from RescuerDetailsActivity");
-            
-            String rescuerId = intent.getStringExtra("rescuerId");
-            String rescuerName = intent.getStringExtra("rescuerName");
-            String rescuerPhone = intent.getStringExtra("rescuerPhone");
-            String eta = intent.getStringExtra("eta");
-            String distance = intent.getStringExtra("distance");
-            double rescuerLat = intent.getDoubleExtra("rescuerLat", 0.0);
-            double rescuerLong = intent.getDoubleExtra("rescuerLong", 0.0);
-            double seniorLat = intent.getDoubleExtra("seniorLat", 0.0);
-            double seniorLong = intent.getDoubleExtra("seniorLong", 0.0);
-            
-            Log.d(TAG, "📤 Rescuer data received:");
-            Log.d(TAG, "   Rescuer ID: " + rescuerId);
-            Log.d(TAG, "   Rescuer Name: " + rescuerName);
-            Log.d(TAG, "   ETA: " + eta);
-            Log.d(TAG, "   Distance: " + distance);
-            Log.d(TAG, "   Rescuer Location: " + rescuerLat + ", " + rescuerLong);
-            Log.d(TAG, "   Senior Location: " + seniorLat + ", " + seniorLong);
-            
-            // Update current location if provided
-            if (seniorLat != 0.0 && seniorLong != 0.0) {
-                currentLat = seniorLat;
-                currentLong = seniorLong;
-                Log.d(TAG, "📍 Updated current location from intent: " + currentLat + ", " + currentLong);
-            }
-            
-            // Set emergency tracking variables
-            currentEmergencyId = "FLOATING_PANEL_" + System.currentTimeMillis();
-            currentRescuerId = rescuerId;
-            currentRescuerPhone = rescuerPhone;
-            
-            // Show floating panel with rescuer data
-            updateFloatingEmergencyPanel(rescuerName, eta, distance);
-            showFloatingEmergencyPanel();
-            
-            // Clear the intent extras to prevent repeated handling
-            intent.removeExtra("showFloatingPanel");
-            intent.removeExtra("rescuerId");
-            intent.removeExtra("rescuerName");
-            intent.removeExtra("rescuerPhone");
-            intent.removeExtra("eta");
-            intent.removeExtra("distance");
-            intent.removeExtra("rescuerLat");
-            intent.removeExtra("rescuerLong");
-            intent.removeExtra("seniorLat");
-            intent.removeExtra("seniorLong");
-            
-            Log.d(TAG, "📋 Floating panel shown with rescuer data from RescuerDetailsActivity");
-            return true; // Indicate that we found incoming rescuer data
-        }
-        return false; // No incoming rescuer data found
-    }
-    
-    // Method to check for active emergencies and show floating panel
-    private void checkForActiveEmergencies() {
-        String seniorId = mAuth.getCurrentUser().getUid();
-        Log.d(TAG, "🔍 Checking for active emergencies for senior: " + seniorId);
-        
-        // Check for emergencies with various active statuses
-        db.collection("Sagip")
-                .document("emergencyRequests")
-                .collection("activeRequests")
-                .whereEqualTo("seniorId", seniorId)
-                .whereIn("status", java.util.Arrays.asList("assigned", "in_progress", "en_route", "accepted"))
-                .limit(1)
-                .get()
-                .addOnSuccessListener(querySnapshot -> {
-                    Log.d(TAG, "🔍 Found " + querySnapshot.size() + " active emergencies");
-                    if (!querySnapshot.isEmpty()) {
-                        QueryDocumentSnapshot document = (QueryDocumentSnapshot) querySnapshot.getDocuments().get(0);
-                        currentEmergencyId = document.getId();
-                        String assignedRescuerId = document.getString("assignedRescuerId");
-                        String emergencyStatus = document.getString("status");
-                        
-                        Log.d(TAG, "🔍 Active emergency found - ID: " + currentEmergencyId + ", Status: " + emergencyStatus + ", Rescuer ID: " + assignedRescuerId);
-                        
-                        if (assignedRescuerId != null && !assignedRescuerId.isEmpty()) {
-                            currentRescuerId = assignedRescuerId;
-                            loadRescuerDetailsForFloatingPanel(assignedRescuerId);
-            } else {
-                            // Emergency exists but no rescuer assigned yet
-                            Log.d(TAG, "🔍 Emergency exists but no rescuer assigned yet");
-                            hideFloatingEmergencyPanel();
-                            currentEmergencyId = null;
-                            currentRescuerId = null;
-                            currentRescuerPhone = null;
-                        }
-                    } else {
-                        // No active emergency, hide floating panel
-                        Log.d(TAG, "🔍 No active emergencies found, hiding floating panel");
-                        hideFloatingEmergencyPanel();
-                        currentEmergencyId = null;
-                        currentRescuerId = null;
-                        currentRescuerPhone = null;
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error checking for active emergencies", e);
-                    // Hide floating panel on error
-                    hideFloatingEmergencyPanel();
-                    currentEmergencyId = null;
-                    currentRescuerId = null;
-                    currentRescuerPhone = null;
-                });
-    }
     
     
 }

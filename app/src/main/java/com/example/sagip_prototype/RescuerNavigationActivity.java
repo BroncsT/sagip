@@ -630,11 +630,14 @@ public class RescuerNavigationActivity extends BaseRescuerActivity implements On
                                 textToSpeech.speak("You have arrived at your destination", TextToSpeech.QUEUE_FLUSH, null, null);
                             }
                             
-                            // Show arrival notification
+                            // Show arrival notification and enable arrived button instead of automatic marking
                             showArrivalNotification();
                             
-                            // Automatically send arrival notification to senior
-                            automaticallyMarkArrived();
+                            // Show the arrived button instead of automatically marking as arrived
+                            if (btnArrived != null) {
+                                btnArrived.setVisibility(View.VISIBLE);
+                                btnArrived.setText("✅ Mark as Arrived (" + String.format("%.0f", distanceToDestination) + "m)");
+                            }
                         }
                     }
                     
@@ -669,24 +672,16 @@ public class RescuerNavigationActivity extends BaseRescuerActivity implements On
         // Show a prominent arrival notification
         Toast.makeText(this, "🏁 ARRIVED! You are at the emergency location!", Toast.LENGTH_LONG).show();
         
-        // Also show a dialog for confirmation
+        // Show a dialog for confirmation
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("🏁 Arrived at Destination");
-        builder.setMessage("You have arrived at the emergency location. Would you like to mark as arrived?");
-        builder.setIcon(android.R.drawable.ic_dialog_alert);
+        builder.setMessage("You have arrived at the emergency location. Use the 'Mark as Arrived' button below to confirm your arrival.");
+        builder.setIcon(android.R.drawable.ic_dialog_info);
         
-        builder.setPositiveButton("✅ Mark as Arrived", (dialog, which) -> {
-            automaticallyMarkArrived();
+        builder.setPositiveButton("OK", (dialog, which) -> {
             dialog.dismiss();
         });
         
-        builder.setNegativeButton("Not Yet", (dialog, which) -> {
-            // Reset the arrival flag so it can trigger again
-            hasAutomaticallyMarkedArrived = false;
-            dialog.dismiss();
-        });
-        
-        builder.setCancelable(false);
         AlertDialog dialog = builder.create();
         dialog.show();
     }
@@ -1019,6 +1014,9 @@ public class RescuerNavigationActivity extends BaseRescuerActivity implements On
         builder.setMessage("Have you arrived at the emergency location?");
         
         builder.setPositiveButton("Yes, Arrived", (dialog, which) -> {
+            // Prevent multiple automatic arrivals
+            hasAutomaticallyMarkedArrived = true;
+            
             // Update help request status
             if (helpRequestId != null && !helpRequestId.isEmpty()) {
                 Map<String, Object> updates = new HashMap<>();

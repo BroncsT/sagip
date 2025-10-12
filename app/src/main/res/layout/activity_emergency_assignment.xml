@@ -94,15 +94,25 @@
                     android:textColor="@color/text_secondary"
                     android:layout_marginBottom="12dp" />
 
-                <Button
-                    android:id="@+id/btn_navigate_to_senior"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="🗺️ NAVIGATE TO SENIOR"
-                    android:background="@drawable/rounded_button_primary"
-                    android:textColor="@color/white"
-                    android:textSize="14sp"
-                    android:padding="12dp" />
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btn_navigate_to_senior"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="8dp"
+                        android:text="🗺️ NAVIGATE TO SENIOR"
+                        android:background="@drawable/rounded_button_primary"
+                        android:textColor="@color/white"
+                        android:textSize="14sp"
+                        android:padding="12dp" />
+
+
+                </LinearLayout>
 
             </LinearLayout>
 

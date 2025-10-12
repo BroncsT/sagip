@@ -132,22 +132,31 @@ public class EmergencyQueueManager {
     }
     
     public void assignRescuer(String requestId, String rescuerId) {
-        Log.d(TAG, "🔍 [EMERGENCY_QUEUE_MANAGER] Attempting to assign rescuer " + rescuerId + " to emergency: " + requestId);
-        Log.d(TAG, "🔍 [EMERGENCY_QUEUE_MANAGER] Active emergencies count: " + activeEmergencies.size());
+        Log.d(TAG, "🚨🚨🚨 [EMERGENCY_QUEUE_MANAGER] ===== ASSIGN_RESCUER CALLED =====");
+        Log.d(TAG, "🚨🚨🚨 [EMERGENCY_QUEUE_MANAGER] RequestId: " + requestId);
+        Log.d(TAG, "🚨🚨🚨 [EMERGENCY_QUEUE_MANAGER] RescuerId: " + rescuerId);
+        Log.d(TAG, "🚨🚨🚨 [EMERGENCY_QUEUE_MANAGER] Active emergencies count: " + activeEmergencies.size());
+        Log.d(TAG, "🚨🚨🚨 [EMERGENCY_QUEUE_MANAGER] Stack trace: " + java.util.Arrays.toString(Thread.currentThread().getStackTrace()));
         
         boolean found = false;
         for (EmergencyRequest request : activeEmergencies) {
-            Log.d(TAG, "🔍 Checking emergency: " + request.requestId + " vs " + requestId);
+            Log.d(TAG, "🔍 [EMERGENCY_QUEUE_MANAGER] Checking emergency: " + request.requestId + " vs " + requestId);
             if (request.requestId != null && request.requestId.equals(requestId)) {
                 request.status = "assigned";
                 request.assignedRescuerId = rescuerId;
-                Log.d(TAG, "👤 Assigned rescuer " + rescuerId + " to emergency: " + request.seniorName);
+                Log.d(TAG, "👤 [EMERGENCY_QUEUE_MANAGER] Assigned rescuer " + rescuerId + " to emergency: " + request.seniorName);
                 
                 // Update the database with the assignment
                 updateEmergencyInDatabase(request);
                 
+                // Remove emergency notification from rescuer's personal notification collection
+                Log.d(TAG, "🔍 [EMERGENCY_QUEUE_MANAGER] Removing emergency notification from rescuer collection...");
+                removeEmergencyNotificationFromRescuer(requestId, rescuerId);
+                
                 // Send notification to senior about rescuer response
+                Log.d(TAG, "🔍 [EMERGENCY_QUEUE_MANAGER] About to call sendRescuerResponseNotificationToSenior...");
                 sendRescuerResponseNotificationToSenior(requestId, rescuerId);
+                Log.d(TAG, "🔍 [EMERGENCY_QUEUE_MANAGER] sendRescuerResponseNotificationToSenior called");
                 
                 found = true;
                 break;
@@ -155,8 +164,10 @@ public class EmergencyQueueManager {
         }
         
         if (!found) {
-            Log.w(TAG, "⚠️ Emergency not found for assignment: " + requestId);
+            Log.w(TAG, "⚠️ [EMERGENCY_QUEUE_MANAGER] Emergency not found for assignment: " + requestId);
         }
+        
+        Log.d(TAG, "🔍 [EMERGENCY_QUEUE_MANAGER] ===== ASSIGN_RESCUER COMPLETED =====");
     }
     
     private void updateEmergencyInDatabase(EmergencyRequest request) {
@@ -177,8 +188,10 @@ public class EmergencyQueueManager {
     }
     
     private void sendRescuerResponseNotificationToSenior(String requestId, String rescuerId) {
-        Log.d(TAG, "📤 [EMERGENCY_QUEUE_MANAGER] Sending rescuer response notification to senior for help request: " + requestId);
-        Log.d(TAG, "📤 [EMERGENCY_QUEUE_MANAGER] Rescuer ID: " + rescuerId);
+        Log.d(TAG, "📤 [EMERGENCY_QUEUE_MANAGER] ===== SEND_NOTIFICATION CALLED =====");
+        Log.d(TAG, "📤 [EMERGENCY_QUEUE_MANAGER] RequestId: " + requestId);
+        Log.d(TAG, "📤 [EMERGENCY_QUEUE_MANAGER] RescuerId: " + rescuerId);
+        Log.d(TAG, "📤 [EMERGENCY_QUEUE_MANAGER] Stack trace: " + java.util.Arrays.toString(Thread.currentThread().getStackTrace()));
         Log.d(TAG, "📤 [EMERGENCY_QUEUE_MANAGER] Starting notification process...");
         
         // First get the help request details to find the senior information
@@ -526,8 +539,8 @@ public class EmergencyQueueManager {
                                 request.priority = 4; // Default priority
                             }
                             
-                            // Add to local queue if not already there
-                            addEmergencyRequest(request);
+                            // Don't add to local queue again - it's already there
+                            // addEmergencyRequest(request);
                             
                             callback.onEmergencyLoaded(request);
                         } else {
@@ -575,8 +588,8 @@ public class EmergencyQueueManager {
                                 request.priority = 4; // Default priority
                             }
                             
-                            // Add to local queue if not already there
-                            addEmergencyRequest(request);
+                            // Don't add to local queue again - it's already there
+                            // addEmergencyRequest(request);
                             
                             callback.onEmergencyLoaded(request);
                         } else {
@@ -1012,5 +1025,45 @@ public class EmergencyQueueManager {
     // Callback interface for ETA calculation
     private interface ETACallback {
         void onETACalculated(double etaMinutes, double distanceKm);
+    }
+    
+    /**
+     * Remove emergency notification from rescuer's personal notification collection
+     * This prevents duplicate notifications when a rescuer responds to an emergency
+     */
+    private void removeEmergencyNotificationFromRescuer(String requestId, String rescuerId) {
+        Log.d(TAG, "🗑️ [REMOVE_NOTIFICATION] Removing emergency notification from rescuer collection");
+        Log.d(TAG, "🗑️ [REMOVE_NOTIFICATION] RequestId: " + requestId);
+        Log.d(TAG, "🗑️ [REMOVE_NOTIFICATION] RescuerId: " + rescuerId);
+        
+        // Query the rescuer's emergency notifications collection to find the notification with matching requestId
+        db.collection("Sagip")
+          .document("users")
+          .collection("rescuer")
+          .document(rescuerId)
+          .collection("emergencyNotifications")
+          .whereEqualTo("requestId", requestId)
+          .get()
+          .addOnSuccessListener(querySnapshot -> {
+              if (querySnapshot != null && !querySnapshot.isEmpty()) {
+                  Log.d(TAG, "🗑️ [REMOVE_NOTIFICATION] Found " + querySnapshot.size() + " notification(s) to remove");
+                  
+                  // Delete all matching notifications
+                  for (QueryDocumentSnapshot document : querySnapshot) {
+                      document.getReference().delete()
+                          .addOnSuccessListener(aVoid -> {
+                              Log.d(TAG, "✅ [REMOVE_NOTIFICATION] Successfully removed notification: " + document.getId());
+                          })
+                          .addOnFailureListener(e -> {
+                              Log.e(TAG, "❌ [REMOVE_NOTIFICATION] Failed to remove notification " + document.getId() + ": " + e.getMessage());
+                          });
+                  }
+              } else {
+                  Log.d(TAG, "ℹ️ [REMOVE_NOTIFICATION] No emergency notifications found for requestId: " + requestId);
+              }
+          })
+          .addOnFailureListener(e -> {
+              Log.e(TAG, "❌ [REMOVE_NOTIFICATION] Error querying rescuer notifications: " + e.getMessage());
+          });
     }
 }

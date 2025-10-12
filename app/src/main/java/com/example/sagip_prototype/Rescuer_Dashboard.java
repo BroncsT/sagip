@@ -615,6 +615,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1001;
     private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 1002;
     private static final String PREF_NAME = "SagipAppPrefs";
+    
+    // Track if emergency dialog is currently showing to prevent duplicates
+    private static boolean isEmergencyDialogShowing = false;
     private static final String KEY_USER_ID = "userId";
     private static final String KEY_USER_TYPE = "userType";
     private static final String KEY_IS_LOGGED_IN = "isLoggedIn";
@@ -731,14 +734,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         
         // Handle emergency notification if app was opened from notification
         handleEmergencyNotificationIntent();
-        
-        // Test custom alarm sound removed as requested
 
-        // Initialize navigate to hospital button
-
-        // Initialize test navigation button
-
-        // Initialize location services
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
         // Initialize location components immediately in onCreate
@@ -760,11 +756,6 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         // Initialize FCM token for notifications
         initializeFCMToken();
 
-        // Start rescuer background notification service (2-minute checks)
-        // Notification services are already started in MainActivity (RescuerForegroundService, WebSocketNotificationService, etc.)
-        // These foreground services will continue running when app is closed
-
-        // Create notification channel
         createNotificationChannel();
 
         // Clear any old emergency notifications on startup
@@ -860,9 +851,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 Log.d(TAG, "=== CHECKING FOR REAL-TIME FCM NOTIFICATIONS IN ONRESUME ===");
                 Log.d(TAG, "User Type: " + userType);
                 Log.d(TAG, "User ID: " + userId);
-                
-                // Stop old background service since we now use dedicated rescuer foreground service
-                // Check for FCM notifications locally since app is active
+
                 HospitalStatusUpdateNotificationService.checkAndDisplayNotificationsForRescuer(this, userId);
                 
                 // Update last check time
@@ -1425,8 +1414,14 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                       " - " + nextEmergency.seniorName + " (Time in queue: " + 
                       (nextEmergency.getTimeInQueue() / 1000) + "s)");
             
-            // Show emergency alert dialog with FIFO information
-            showEmergencyAlertFIFO(nextEmergency);
+            // Show emergency alert dialog using new system
+            showEmergencySOSAlert(
+                nextEmergency.seniorName, 
+                nextEmergency.seniorPhone, 
+                nextEmergency.locationAddress, 
+                nextEmergency.timestamp,
+                nextEmergency.helpRequestId
+            );
         }
     }
     
@@ -1447,151 +1442,6 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             }
         } catch (Exception e) {
             Log.e(TAG, "Error playing notification sound", e);
-        }
-    }
-
-    private void showEmergencyAlertFIFO(EmergencyItem emergency) {
-        // Update title to show FIFO queue status
-        String fullMessage = emergency.message + "\n\n" +
-                "Senior: " + emergency.seniorName + "\n" +
-                "Phone: " + (emergency.seniorPhone != null && !emergency.seniorPhone.isEmpty() ? emergency.seniorPhone : "Not provided") + "\n" +
-                "Location: " + emergency.locationAddress + "\n" +
-                "📍 Distance: " + emergency.getDistanceText() + "\n" +
-                "⏰ Time in Queue: " + getTimeInQueueText(emergency.getTimeInQueue());
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setMessage(fullMessage);
-        builder.setIcon(android.R.drawable.ic_dialog_alert);
-
-        // RESPOND button - most important action
-        builder.setPositiveButton("🚑 RESPOND NOW", (dialog, which) -> {
-            Log.d(TAG, "🚨 OLD SYSTEM: RESPOND NOW clicked for emergency: " + emergency.helpRequestId);
-            clearEmergencyNotification(emergency.helpRequestId);
-            respondToEmergency(emergency.helpRequestId, emergency.emergencyId);
-            
-            dialog.dismiss();
-            handleEmergencyDialogDismissed();
-        });
-
-        // GOOGLE NAVIGATION button - opens embedded Google Navigation
-        builder.setNeutralButton("🗺️ GOOGLE NAV", (dialog, which) -> {
-            clearEmergencyNotification(emergency.helpRequestId);
-            Log.d("Rescuer_Dashboard", "Opening Google Navigation with data: " + emergency.seniorName + " at " + emergency.locationAddress);
-            openGoogleNavigation(emergency.latitude, emergency.longitude, emergency.locationAddress, 
-                    emergency.seniorName, emergency.seniorPhone, emergency.helpRequestId);
-            dialog.dismiss();
-            handleEmergencyDialogDismissed();
-        });
-
-        // Add buttons based on conditions
-        if (totalActiveEmergencies > 1) {
-            // Multiple emergencies - show SKIP and VIEW ALL buttons
-            builder.setNeutralButton("⏭️ SKIP (FIFO)", (dialog, which) -> {
-                dialog.dismiss();
-                handleEmergencyDialogDismissed();
-            });
-            
-            builder.setNegativeButton("📋 VIEW EMERGENCY LIST", (dialog, which) -> {
-                openEmergencyListActivity();
-                dialog.dismiss();
-            });
-        } else if (emergency.seniorPhone != null && !emergency.seniorPhone.isEmpty()) {
-            // Single emergency with phone - show CALL button
-            builder.setNegativeButton("📞 CALL", (dialog, which) -> {
-                clearEmergencyNotification(emergency.helpRequestId);
-                callSenior(emergency.seniorPhone);
-                dialog.dismiss();
-                handleEmergencyDialogDismissed();
-            });
-        }
-
-        // Make dialog not cancelable so rescuer must choose an action
-        builder.setCancelable(false);
-
-        AlertDialog dialog = builder.create();
-        dialog.show();
-        
-        // Store reference to current emergency dialog
-        currentEmergencyDialog = dialog;
-
-        // Make RESPOND button red and larger
-        if (dialog.getButton(AlertDialog.BUTTON_POSITIVE) != null) {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextSize(16);
-        }
-    }
-
-    private void showEmergencyAlert(String title, String message, String seniorName,
-                                    String seniorPhone, String locationAddress, Double latitude,
-                                    Double longitude, String helpRequestId, String emergencyId) {
-
-        // Update title to show queue status
-        String queueInfo = totalActiveEmergencies > 1 ? " (" + totalActiveEmergencies + " emergencies)" : "";
-        String fullTitle = title + queueInfo;
-
-        String fullMessage = message + "\n\n" +
-                "Senior: " + seniorName + "\n" +
-                "Phone: " + (seniorPhone != null && !seniorPhone.isEmpty() ? seniorPhone : "Not provided") + "\n" +
-                "Location: " + locationAddress;
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle(fullTitle);
-        builder.setMessage(fullMessage);
-        builder.setIcon(android.R.drawable.ic_dialog_alert);
-
-        // RESPOND button - most important action
-        builder.setPositiveButton("🚑 RESPOND NOW", (dialog, which) -> {
-            clearEmergencyNotification(helpRequestId);
-            respondToEmergency(helpRequestId, emergencyId);
-            openGoogleNavigation(latitude, longitude, locationAddress, seniorName, seniorPhone, helpRequestId);
-            dialog.dismiss();
-            handleEmergencyDialogDismissed();
-        });
-
-        // GOOGLE NAVIGATION button - opens embedded Google Navigation
-        builder.setNeutralButton("🗺️ GOOGLE NAV", (dialog, which) -> {
-            clearEmergencyNotification(helpRequestId);
-            Log.d("Rescuer_Dashboard", "Opening Google Navigation with data: " + seniorName + " at " + locationAddress);
-            openGoogleNavigation(latitude, longitude, locationAddress, seniorName, seniorPhone, helpRequestId);
-            dialog.dismiss();
-            handleEmergencyDialogDismissed();
-        });
-
-        // Add buttons based on conditions
-        if (totalActiveEmergencies > 1) {
-            // Multiple emergencies - show SKIP and VIEW ALL buttons
-            builder.setNeutralButton("⏭️ SKIP", (dialog, which) -> {
-                dialog.dismiss();
-                handleEmergencyDialogDismissed();
-            });
-            
-            builder.setNegativeButton("📋 VIEW ALL", (dialog, which) -> {
-                showEmergencySummary();
-                dialog.dismiss();
-            });
-        } else if (seniorPhone != null && !seniorPhone.isEmpty()) {
-            // Single emergency with phone - show CALL button
-            builder.setNegativeButton("📞 CALL", (dialog, which) -> {
-                clearEmergencyNotification(helpRequestId);
-                callSenior(seniorPhone);
-                dialog.dismiss();
-                handleEmergencyDialogDismissed();
-            });
-        }
-
-        // Make dialog not cancelable so rescuer must choose an action
-        builder.setCancelable(false);
-
-        AlertDialog dialog = builder.create();
-        dialog.show();
-        
-        // Store reference to current emergency dialog
-        currentEmergencyDialog = dialog;
-
-        // Make RESPOND button red and larger
-        if (dialog.getButton(AlertDialog.BUTTON_POSITIVE) != null) {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextSize(16);
         }
     }
 
@@ -1813,136 +1663,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         }
     }
 
-    private void respondToEmergency(String helpRequestId, String emergencyId) {
-        Log.d(TAG, "🚨 [RESCUER_DASHBOARD] Responding to emergency - Help Request ID: " + helpRequestId + ", Emergency ID: " + emergencyId);
-        
-        // Clear the system notification immediately
-        clearEmergencyNotification(helpRequestId);
-        
-        // Update help request status
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("status", "responded");
-        updates.put("respondedBy", userId);
-        updates.put("respondedAt", System.currentTimeMillis());
-        updates.put("rescuerLocation", new GeoPoint(currentLat, currentLong));
-
-        db.collection("Sagip")
-                .document("helpRequests")
-                .collection("activeRequests")
-                .document(helpRequestId)
-                .update(updates)
-                .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(this, getString(R.string.response_recorded), Toast.LENGTH_LONG).show();
-
-                    // Show assignment popup
-                    showAssignmentPopupForOldSystem(helpRequestId);
-
-                    // Also update the rescuer's own document with current location for tracking
-
-                    // Send notification to senior about rescuer response
-                    sendRescuerResponseNotificationToSenior(helpRequestId);
-
-                    // Deactivate the emergency notification so other rescuers know it's handled
-                    db.collection("Sagip")
-                            .document("emergencyNotifications")
-                            .collection("activeEmergencies")
-                            .document(emergencyId)
-                            .update("isActive", false,
-                                    "respondedBy", userId,
-                                    "respondedAt", System.currentTimeMillis(),
-                                    "rescuerLocation", new GeoPoint(currentLat, currentLong))
-                            .addOnSuccessListener(aVoid1 -> {
-                                Log.d(TAG, "✅ Emergency notification deactivated for other rescuers");
-                                
-                                // Also update the timestamp to prevent it from showing again
-                                db.collection("Sagip")
-                                        .document("emergencyNotifications")
-                                        .collection("activeEmergencies")
-                                        .document(emergencyId)
-                                        .update("timestamp", System.currentTimeMillis() - (2 * 60 * 60 * 1000)) // Set to 2 hours ago
-                                        .addOnSuccessListener(aVoid2 -> {
-                                            Log.d(TAG, "✅ Emergency timestamp updated to prevent re-showing");
-                                            
-                                            // Clear notifications from other rescuers' devices
-                                            clearNotificationsForOtherRescuers(helpRequestId, emergencyId);
-                                        });
-                            });
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error updating emergency response", e);
-                    Toast.makeText(this, getString(R.string.error_recording_response), Toast.LENGTH_SHORT).show();
-                });
-    }
+    // OLD SYSTEM REMOVED - Now using EmergencyQueueManager only
     
-    private void sendRescuerResponseNotificationToSenior(String helpRequestId) {
-        Log.d(TAG, "📤 [RESCUER_DASHBOARD] Sending rescuer response notification to senior for help request: " + helpRequestId);
-        Log.d(TAG, "📤 [RESCUER_DASHBOARD] Current user ID: " + userId);
-        
-        // First get the emergency request details to find the senior information
-        db.collection("Sagip")
-                .document("emergencyRequests")
-                .collection("activeRequests")
-                .document(helpRequestId)
-                .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    if (documentSnapshot.exists()) {
-                        String seniorUid = documentSnapshot.getString("seniorUid");
-                        String seniorName = documentSnapshot.getString("seniorName");
-                        String seniorPhone = documentSnapshot.getString("seniorPhone");
-                        String locationAddress = documentSnapshot.getString("locationAddress");
-                        
-                        Log.d(TAG, "📤 Emergency request details - Senior UID: " + seniorUid + ", Name: " + seniorName);
-                        
-                        if (seniorUid != null && !seniorUid.isEmpty()) {
-                            // Get current rescuer information
-                            String rescuerName = getCurrentRescuerName();
-                            String rescuerPhone = getCurrentRescuerPhone();
-                            String rescuerTeam = getCurrentRescuerTeam();
-                            
-                            // Create notification data for senior
-                            Map<String, Object> rescuerResponseNotification = new HashMap<>();
-                            rescuerResponseNotification.put("type", "RESCUER_RESPONSE");
-                            rescuerResponseNotification.put("title", "🚑 Help is on the way! (Dashboard)");
-                            rescuerResponseNotification.put("message", rescuerName + " from " + (rescuerTeam != null ? rescuerTeam : "Rescue Team") + " is responding to your emergency [via RescuerDashboard]");
-                            rescuerResponseNotification.put("rescuerName", rescuerName);
-                            rescuerResponseNotification.put("rescuerPhone", rescuerPhone);
-                            rescuerResponseNotification.put("rescuerTeam", rescuerTeam);
-                            rescuerResponseNotification.put("requestId", helpRequestId);
-                            rescuerResponseNotification.put("locationAddress", locationAddress);
-                            rescuerResponseNotification.put("timestamp", System.currentTimeMillis());
-                            rescuerResponseNotification.put("isRead", false);
-                            rescuerResponseNotification.put("isActive", true);
-                            
-                            // Send notification to senior's notification collection
-                            Log.d(TAG, "📤 Sending notification to senior: " + seniorUid);
-                            Log.d(TAG, "📤 Notification data: " + rescuerResponseNotification.toString());
-                            
-                            db.collection("Sagip")
-                                    .document("users")
-                                    .collection("seniors")
-                                    .document(seniorUid)
-                                    .collection("notifications")
-                                    .add(rescuerResponseNotification)
-                                    .addOnSuccessListener(documentReference -> {
-                                        Log.d(TAG, "✅ Rescuer response notification sent to senior: " + seniorName);
-                                        Log.d(TAG, "📱 Notification ID: " + documentReference.getId());
-                                        Log.d(TAG, "📱 Notification details - Rescuer: " + rescuerName + ", Phone: " + rescuerPhone + ", Team: " + rescuerTeam);
-                                    })
-                                    .addOnFailureListener(e -> {
-                                        Log.e(TAG, "❌ Failed to send rescuer response notification to senior", e);
-                                        Log.e(TAG, "❌ Error details: " + e.getMessage());
-                                    });
-                        } else {
-                            Log.w(TAG, "⚠️ Senior UID not found in emergency request: " + helpRequestId);
-                        }
-                    } else {
-                        Log.w(TAG, "⚠️ Emergency request not found: " + helpRequestId);
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "❌ Error getting emergency request details for notification", e);
-                });
-    }
+    // OLD SYSTEM REMOVED - Notifications now handled by EmergencyQueueManager
     
     private String getCurrentRescuerName() {
         // Get rescuer name from current user data
@@ -2134,11 +1857,25 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     }
     
     private void showEmergencySOSAlert(String seniorName, String seniorPhone, String locationAddress, Long timestamp, String requestId) {
+        Log.d(TAG, "🔍 [SHOW_DIALOG] showEmergencySOSAlert called for: " + seniorName);
+        Log.d(TAG, "🔍 [SHOW_DIALOG] RequestId: " + requestId);
+        Log.d(TAG, "🔍 [SHOW_DIALOG] isEmergencyDialogShowing: " + isEmergencyDialogShowing);
+        
+        // Check if dialog is already showing to prevent duplicates
+        if (isEmergencyDialogShowing) {
+            Log.w(TAG, "⚠️ [SHOW_DIALOG] Emergency dialog already showing, ignoring duplicate call");
+            return;
+        }
+        
         // Check if activity is still valid before showing dialog
         if (isFinishing() || isDestroyed()) {
             Log.w(TAG, "Cannot show emergency alert dialog - activity is not in valid state");
             return;
         }
+        
+        // Mark dialog as showing
+        isEmergencyDialogShowing = true;
+        Log.d(TAG, "🔍 [SHOW_DIALOG] Setting isEmergencyDialogShowing = true");
         
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle(getString(R.string.dialog_emergency_sos_alert));
@@ -2162,28 +1899,45 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         
         // Respond to emergency button
         builder.setPositiveButton(getString(R.string.button_respond_now), (dialog, which) -> {
-            Log.d(TAG, "🚨 NEW SYSTEM: RESPOND NOW clicked for emergency: " + requestId);
+            Log.d(TAG, "🚨🚨🚨 RESPOND NOW BUTTON CLICKED 🚨🚨🚨");
+            Log.d(TAG, "🔍 [RESPOND_NOW] Emergency: " + requestId);
+            Log.d(TAG, "🔍 [RESPOND_NOW] Senior: " + seniorName);
+            Log.d(TAG, "🔍 [RESPOND_NOW] Location: " + locationAddress);
+            Log.d(TAG, "🔍 [RESPOND_NOW] Timestamp: " + timestamp);
+            Log.d(TAG, "🔍 [RESPOND_NOW] Dialog dismissed: " + (dialog instanceof AlertDialog ? ((AlertDialog) dialog).isShowing() : "unknown"));
+            
+            // Reset dialog flag
+            isEmergencyDialogShowing = false;
+            Log.d(TAG, "🔍 [RESPOND_NOW] Reset isEmergencyDialogShowing = false");
             
             // Clear all emergency notifications and dialogs
             clearAllEmergencyNotifications();
-            Log.d(TAG, "Cleared all emergency notifications and dialogs");
+            Log.d(TAG, "🔍 [RESPOND_NOW] Cleared all emergency notifications and dialogs");
             
             // Dismiss dialog immediately
             dialog.dismiss();
+            Log.d(TAG, "🔍 [RESPOND_NOW] Dialog dismissed successfully");
             
             // Assign this rescuer to the emergency (this will launch Emergency Assignment Activity)
             if (requestId != null) {
+                Log.d(TAG, "🔍 [RESPOND_NOW] Calling assignRescuerToEmergencyById with requestId: " + requestId);
                 assignRescuerToEmergencyById(requestId);
             } else {
+                Log.d(TAG, "🔍 [RESPOND_NOW] Calling assignRescuerToEmergency with seniorName: " + seniorName);
                 assignRescuerToEmergency(seniorName, locationAddress, timestamp);
             }
             
             // Show confirmation to rescuer
             Toast.makeText(this, getString(R.string.toast_assigned_to_emergency), Toast.LENGTH_LONG).show();
+            Log.d(TAG, "🔍 [RESPOND_NOW] Toast shown to rescuer");
         });
         
         // Call senior button
         builder.setNeutralButton(getString(R.string.button_call_senior), (dialog, which) -> {
+            // Reset dialog flag
+            isEmergencyDialogShowing = false;
+            Log.d(TAG, "🔍 [CALL_SENIOR] Reset isEmergencyDialogShowing = false");
+            
             // Open phone dialer
             Intent callIntent = new Intent(Intent.ACTION_DIAL);
             callIntent.setData(Uri.parse("tel:" + seniorPhone));
@@ -2193,10 +1947,27 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         
         // Dismiss button
         builder.setNegativeButton(getString(R.string.button_dismiss), (dialog, which) -> {
+            // Reset dialog flag
+            isEmergencyDialogShowing = false;
+            Log.d(TAG, "🔍 [DISMISS] Reset isEmergencyDialogShowing = false");
+            
             dialog.dismiss();
         });
         
+        // Dismiss any existing emergency dialog before showing new one
+        if (currentEmergencyDialog != null && currentEmergencyDialog.isShowing()) {
+            currentEmergencyDialog.dismiss();
+            Log.d(TAG, "Dismissed existing emergency dialog before showing new one");
+        }
+        
         AlertDialog dialog = builder.create();
+        
+        // Add dismiss listener to reset flag if dialog is dismissed by other means
+        dialog.setOnDismissListener(dialogInterface -> {
+            isEmergencyDialogShowing = false;
+            Log.d(TAG, "🔍 [DIALOG_DISMISSED] Reset isEmergencyDialogShowing = false");
+        });
+        
         dialog.show();
         
         // Store reference to current emergency dialog
@@ -3583,6 +3354,11 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     }
     
     private void assignRescuerToEmergency(String seniorName, String locationAddress, Long timestamp) {
+        Log.d(TAG, "🔍 [ASSIGN_BY_DETAILS] Starting assignRescuerToEmergency");
+        Log.d(TAG, "🔍 [ASSIGN_BY_DETAILS] SeniorName: " + seniorName);
+        Log.d(TAG, "🔍 [ASSIGN_BY_DETAILS] LocationAddress: " + locationAddress);
+        Log.d(TAG, "🔍 [ASSIGN_BY_DETAILS] Timestamp: " + timestamp);
+        
         // Get current rescuer ID
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser == null) {
@@ -3591,45 +3367,49 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         }
         
         String rescuerId = currentUser.getUid();
-        Log.d(TAG, "🔍 Looking for emergency to assign rescuer: " + rescuerId);
-        Log.d(TAG, "🔍 Searching for: " + seniorName + " at " + locationAddress + " at " + timestamp);
+        Log.d(TAG, "🔍 [ASSIGN_BY_DETAILS] Looking for emergency to assign rescuer: " + rescuerId);
+        Log.d(TAG, "🔍 [ASSIGN_BY_DETAILS] Searching for: " + seniorName + " at " + locationAddress + " at " + timestamp);
         
         // Find the emergency request by senior name and timestamp
         List<EmergencyQueueManager.EmergencyRequest> activeEmergencies = 
                 EmergencyQueueManager.getInstance(this).getActiveEmergencies();
         
-        Log.d(TAG, "🔍 Found " + activeEmergencies.size() + " active emergencies");
+        Log.d(TAG, "🔍 [ASSIGN_BY_DETAILS] Found " + activeEmergencies.size() + " active emergencies");
         
         boolean found = false;
         for (EmergencyQueueManager.EmergencyRequest emergency : activeEmergencies) {
-            Log.d(TAG, "🔍 Checking emergency: " + emergency.seniorName + " at " + emergency.locationAddress + " at " + emergency.timestamp);
-            Log.d(TAG, "🔍 Name match: " + emergency.seniorName.equals(seniorName));
-            Log.d(TAG, "🔍 Location match: " + emergency.locationAddress.equals(locationAddress));
-            Log.d(TAG, "🔍 Time diff: " + Math.abs(emergency.timestamp - timestamp) + " (threshold: 60000)");
+            Log.d(TAG, "🔍 [ASSIGN_BY_DETAILS] Checking emergency: " + emergency.seniorName + " at " + emergency.locationAddress + " at " + emergency.timestamp);
+            Log.d(TAG, "🔍 [ASSIGN_BY_DETAILS] Name match: " + emergency.seniorName.equals(seniorName));
+            Log.d(TAG, "🔍 [ASSIGN_BY_DETAILS] Location match: " + emergency.locationAddress.equals(locationAddress));
+            Log.d(TAG, "🔍 [ASSIGN_BY_DETAILS] Time diff: " + Math.abs(emergency.timestamp - timestamp) + " (threshold: 60000)");
             
             if (emergency.seniorName.equals(seniorName) && 
                 emergency.locationAddress.equals(locationAddress) &&
                 Math.abs(emergency.timestamp - timestamp) < 60000) { // Within 1 minute
                 
+                Log.d(TAG, "🔍 [ASSIGN_BY_DETAILS] Match found! Calling assignRescuer...");
                 // Assign this rescuer to the emergency
                 EmergencyQueueManager.getInstance(this).assignRescuer(emergency.requestId, rescuerId);
+                Log.d(TAG, "🔍 [ASSIGN_BY_DETAILS] assignRescuer called successfully");
                 
                 // Show popup confirmation to rescuer
                 showRescuerAssignmentPopup(seniorName, locationAddress, rescuerId, emergency.requestId);
                 
-                Log.d(TAG, "👤 Rescuer " + rescuerId + " assigned to emergency: " + emergency.requestId);
+                Log.d(TAG, "👤 [ASSIGN_BY_DETAILS] Rescuer " + rescuerId + " assigned to emergency: " + emergency.requestId);
                 found = true;
                 break;
             }
         }
         
         if (!found) {
-            Log.w(TAG, "⚠️ No matching emergency found for assignment");
+            Log.w(TAG, "⚠️ [ASSIGN_BY_DETAILS] No matching emergency found for assignment");
             Toast.makeText(this, "⚠️ Emergency not found in queue", Toast.LENGTH_SHORT).show();
         }
     }
     
     private void assignRescuerToEmergencyById(String requestId) {
+        Log.d(TAG, "🔍 [ASSIGN_BY_ID] Starting assignRescuerToEmergencyById for requestId: " + requestId);
+        
         // Get current rescuer ID
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser == null) {
@@ -3638,42 +3418,53 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         }
         
         String rescuerId = currentUser.getUid();
-        Log.d(TAG, "🔍 Assigning rescuer " + rescuerId + " to emergency: " + requestId);
+        Log.d(TAG, "🔍 [ASSIGN_BY_ID] Assigning rescuer " + rescuerId + " to emergency: " + requestId);
         
         // First try to get the emergency from local EmergencyQueueManager
         EmergencyQueueManager.EmergencyRequest emergency = 
                 EmergencyQueueManager.getInstance(this).getEmergencyById(requestId);
         
         if (emergency != null) {
-            // Emergency found in local queue, assign rescuer
+            Log.d(TAG, "🔍 [ASSIGN_BY_ID] Emergency found in local queue, calling assignRescuer...");
+            Log.d(TAG, "🚨🚨🚨 ABOUT TO CALL assignRescuer 🚨🚨🚨");
+            Log.d(TAG, "🚨🚨🚨 RequestId: " + requestId + ", RescuerId: " + rescuerId + " 🚨🚨🚨");
+            // Emergency found in local queue, assign rescuer (this will send notification)
             EmergencyQueueManager.getInstance(this).assignRescuer(requestId, rescuerId);
+            Log.d(TAG, "🔍 [ASSIGN_BY_ID] assignRescuer called successfully");
             
             // Show popup confirmation to rescuer
             showRescuerAssignmentPopup(emergency.seniorName, emergency.locationAddress, rescuerId, requestId);
             
-            Log.d(TAG, "👤 Rescuer " + rescuerId + " assigned to emergency: " + requestId);
+            Log.d(TAG, "👤 [ASSIGN_BY_ID] Rescuer " + rescuerId + " assigned to emergency: " + requestId);
         } else {
             // Emergency not found in local queue, try to load from database
-            Log.d(TAG, "⚠️ Emergency not found in local queue, loading from database...");
+            Log.d(TAG, "⚠️ [ASSIGN_BY_ID] Emergency not found in local queue, loading from database...");
             loadEmergencyFromDatabaseAndAssign(requestId, rescuerId);
         }
     }
     
     private void loadEmergencyFromDatabaseAndAssign(String requestId, String rescuerId) {
+        Log.d(TAG, "🔍 [LOAD_FROM_DB] Starting loadEmergencyFromDatabaseAndAssign for requestId: " + requestId);
+        
         // Load emergency from database using EmergencyQueueManager
         EmergencyQueueManager.getInstance(this).loadEmergencyByIdFromDatabase(requestId, new EmergencyQueueManager.EmergencyLoadCallback() {
             @Override
             public void onEmergencyLoaded(EmergencyQueueManager.EmergencyRequest emergency) {
+                Log.d(TAG, "🔍 [LOAD_FROM_DB] onEmergencyLoaded callback triggered");
                 if (emergency != null) {
-                    // Assign rescuer to emergency
+                    Log.d(TAG, "🔍 [LOAD_FROM_DB] Emergency loaded from database, calling assignRescuer...");
+                    Log.d(TAG, "🚨🚨🚨 ABOUT TO CALL assignRescuer FROM DATABASE 🚨🚨🚨");
+                    Log.d(TAG, "🚨🚨🚨 RequestId: " + requestId + ", RescuerId: " + rescuerId + " 🚨🚨🚨");
+                    // Assign rescuer to emergency (this will send notification)
                     EmergencyQueueManager.getInstance(Rescuer_Dashboard.this).assignRescuer(requestId, rescuerId);
+                    Log.d(TAG, "🔍 [LOAD_FROM_DB] assignRescuer called successfully from database callback");
                     
                     // Show popup confirmation to rescuer
                     showRescuerAssignmentPopup(emergency.seniorName, emergency.locationAddress, rescuerId, requestId);
                     
-                    Log.d(TAG, "👤 Rescuer " + rescuerId + " assigned to emergency from database: " + requestId);
+                    Log.d(TAG, "👤 [LOAD_FROM_DB] Rescuer " + rescuerId + " assigned to emergency from database: " + requestId);
                 } else {
-                    Log.w(TAG, "⚠️ Emergency not found in database with ID: " + requestId);
+                    Log.w(TAG, "⚠️ [LOAD_FROM_DB] Emergency not found in database with ID: " + requestId);
                     Toast.makeText(Rescuer_Dashboard.this, "⚠️ Emergency not found in database", Toast.LENGTH_SHORT).show();
                 }
             }
@@ -3694,6 +3485,12 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     }
     
     private void launchEmergencyAssignmentActivity(String seniorName, String locationAddress, String rescuerId, String requestId) {
+        Log.d(TAG, "🚀🚀🚀 LAUNCHING EmergencyAssignmentActivity 🚀🚀🚀");
+        Log.d(TAG, "🔍 [LAUNCH] Senior: " + seniorName);
+        Log.d(TAG, "🔍 [LAUNCH] Location: " + locationAddress);
+        Log.d(TAG, "🔍 [LAUNCH] RescuerId: " + rescuerId);
+        Log.d(TAG, "🔍 [LAUNCH] RequestId: " + requestId);
+        
         Intent intent = new Intent(this, EmergencyAssignmentActivity.class);
         intent.putExtra("senior_name", seniorName);
         intent.putExtra("location_address", locationAddress);
@@ -3734,8 +3531,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 String phoneInIntent = intent.getStringExtra("senior_phone");
                 Log.d(TAG, "🔍 Phone in intent before launch (fallback): " + phoneInIntent);
         
+        Log.d(TAG, "🔍 [LAUNCH] Starting EmergencyAssignmentActivity...");
         startActivity(intent);
-                Log.d(TAG, "🚀 Launched EmergencyAssignmentActivity for: " + seniorName + " (fallback mode)");
+        Log.d(TAG, "🚀 Launched EmergencyAssignmentActivity for: " + seniorName + " (fallback mode)");
             }
         } else {
             // Old system - no requestId available
@@ -3751,6 +3549,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             String phoneInIntent = intent.getStringExtra("senior_phone");
             Log.d(TAG, "🔍 Phone in intent before launch (old system): " + phoneInIntent);
             
+            Log.d(TAG, "🔍 [LAUNCH] Starting EmergencyAssignmentActivity (old system)...");
             startActivity(intent);
             Log.d(TAG, "🚀 Launched EmergencyAssignmentActivity for: " + seniorName + " (old system)");
         }
@@ -3803,6 +3602,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                         String phoneInIntent = intent.getStringExtra("senior_phone");
                         Log.d(TAG, "🔍 Phone in intent before launch: " + phoneInIntent);
                         
+                        Log.d(TAG, "🔍 [LAUNCH] Starting EmergencyAssignmentActivity (with location and phone)...");
                         startActivity(intent);
                         Log.d(TAG, "🚀 Launched EmergencyAssignmentActivity for: " + emergency.seniorName + " with location and phone");
                     })
@@ -3822,6 +3622,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                         String phoneInIntent = intent.getStringExtra("senior_phone");
                         Log.d(TAG, "🔍 Phone in intent before launch (failed): " + phoneInIntent);
                         
+                        Log.d(TAG, "🔍 [LAUNCH] Starting EmergencyAssignmentActivity (data failed)...");
                         startActivity(intent);
                         Log.d(TAG, "🚀 Launched EmergencyAssignmentActivity for: " + emergency.seniorName + " (data failed)");
                     });
@@ -3840,6 +3641,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             String phoneInIntent = intent.getStringExtra("senior_phone");
             Log.d(TAG, "🔍 Phone in intent before launch (no user ID): " + phoneInIntent);
             
+            Log.d(TAG, "🔍 [LAUNCH] Starting EmergencyAssignmentActivity (no user ID)...");
             startActivity(intent);
             Log.d(TAG, "🚀 Launched EmergencyAssignmentActivity for: " + emergency.seniorName + " (no user ID)");
         }
@@ -3854,33 +3656,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         return null;
     }
     
-    private void showAssignmentPopupForOldSystem(String helpRequestId) {
-        // Get emergency details from the help request
-        db.collection("Sagip")
-                .document("helpRequests")
-                .collection("activeRequests")
-                .document(helpRequestId)
-                .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    if (documentSnapshot.exists()) {
-                        String seniorName = documentSnapshot.getString("seniorName");
-                        String locationAddress = documentSnapshot.getString("locationAddress");
-                        String rescuerId = mAuth.getCurrentUser().getUid();
-                        
-                        if (seniorName != null && locationAddress != null) {
-                            // Show the assignment popup
-                            showRescuerAssignmentPopup(seniorName, locationAddress, rescuerId, null);
-                        } else {
-                            Log.w(TAG, "⚠️ Missing senior name or location for popup");
-                        }
-                    } else {
-                        Log.w(TAG, "⚠️ Help request document not found: " + helpRequestId);
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "❌ Error getting help request details: " + e.getMessage());
-                });
-    }
+    // OLD SYSTEM REMOVED - Assignment popup now handled by EmergencyQueueManager
 
     private void saveLocationToFirestore(double latitude, double longitude) {
         if (mAuth.getCurrentUser() != null) {

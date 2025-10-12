@@ -158,10 +158,19 @@ public class EmergencySOSBackgroundService extends Service {
                   return;
               }
               
+              Log.d(TAG, "🔍 [FIRESTORE_LISTENER] Query snapshot received");
+              Log.d(TAG, "🔍 [FIRESTORE_LISTENER] Has documents: " + (querySnapshot != null && !querySnapshot.isEmpty()));
+              if (querySnapshot != null) {
+                  Log.d(TAG, "🔍 [FIRESTORE_LISTENER] Document count: " + querySnapshot.size());
+              }
+              
               if (querySnapshot != null && !querySnapshot.isEmpty()) {
                   for (QueryDocumentSnapshot document : querySnapshot) {
+                      Log.d(TAG, "🔍 [FIRESTORE_LISTENER] Processing document: " + document.getId());
                       handleEmergencySOSNotification(document);
                   }
+              } else {
+                  Log.d(TAG, "🔍 [FIRESTORE_LISTENER] No documents in snapshot");
               }
           });
     }
@@ -174,21 +183,32 @@ public class EmergencySOSBackgroundService extends Service {
             String seniorName = document.getString("seniorName");
             String seniorPhone = document.getString("seniorPhone");
             String locationAddress = document.getString("locationAddress");
+            String requestId = document.getString("requestId");
             Long timestamp = document.getLong("timestamp");
             Boolean isRead = document.getBoolean("isRead");
             
+            Log.d(TAG, "🔍 [HANDLE_NOTIFICATION] Document ID: " + document.getId());
+            Log.d(TAG, "🔍 [HANDLE_NOTIFICATION] Type: " + type);
+            Log.d(TAG, "🔍 [HANDLE_NOTIFICATION] IsRead: " + isRead);
+            Log.d(TAG, "🔍 [HANDLE_NOTIFICATION] RequestId: " + requestId);
+            Log.d(TAG, "🔍 [HANDLE_NOTIFICATION] SeniorName: " + seniorName);
+            
             // Only process unread emergency SOS notifications
             if ("EMERGENCY_SOS".equals(type) && (isRead == null || !isRead)) {
-                Log.d(TAG, "🚨 Received emergency SOS notification: " + seniorName);
+                Log.d(TAG, "🚨 Received emergency SOS notification: " + seniorName + " (Request ID: " + requestId + ")");
                 
                 // Show high-priority notification with alarm sound
-                showEmergencySOSNotification(seniorName, seniorPhone, locationAddress, timestamp, document.getId());
+                showEmergencySOSNotification(seniorName, seniorPhone, locationAddress, timestamp, requestId, document.getId());
                 
                 // Mark notification as read
                 document.getReference().update("isRead", true);
                 
                 // Vibrate device
                 vibrateDevice();
+            } else if ("EMERGENCY_SOS".equals(type) && isRead != null && isRead) {
+                Log.d(TAG, "🔇 Ignoring already read emergency SOS notification: " + seniorName + " (Request ID: " + requestId + ")");
+            } else {
+                Log.d(TAG, "🔇 Ignoring non-emergency notification: " + type + " (IsRead: " + isRead + ")");
             }
             
         } catch (Exception e) {
@@ -196,8 +216,8 @@ public class EmergencySOSBackgroundService extends Service {
         }
     }
     
-    private void showEmergencySOSNotification(String seniorName, String seniorPhone, String locationAddress, Long timestamp, String notificationId) {
-        Log.d(TAG, "🔔 Creating emergency SOS background notification for: " + seniorName);
+    private void showEmergencySOSNotification(String seniorName, String seniorPhone, String locationAddress, Long timestamp, String requestId, String notificationId) {
+        Log.d(TAG, "🔔 Creating emergency SOS background notification for: " + seniorName + " (Request ID: " + requestId + ")");
         
         // Test sound playback directly
         testSoundPlayback();
@@ -211,6 +231,7 @@ public class EmergencySOSBackgroundService extends Service {
         notificationIntent.putExtra("senior_name", seniorName);
         notificationIntent.putExtra("senior_phone", seniorPhone);
         notificationIntent.putExtra("location_address", locationAddress);
+        notificationIntent.putExtra("request_id", requestId);
         notificationIntent.putExtra("from_emergency_notification", true);
         
         // Create pending intent
