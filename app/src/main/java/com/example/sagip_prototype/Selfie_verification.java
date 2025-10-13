@@ -239,6 +239,10 @@ public class Selfie_verification extends AppCompatActivity {
         takeSelfieButton.setVisibility(View.GONE);
         manualCaptureButton.setVisibility(View.VISIBLE);
 
+        // Configure preview view for optimal display
+        previewView.setScaleType(PreviewView.ScaleType.FILL_CENTER);
+        previewView.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
+
         // Update instructions
         instructionsTextView.setText(getString(R.string.detecting_face_instructions));
 
@@ -270,6 +274,10 @@ public class Selfie_verification extends AppCompatActivity {
 
         Preview preview = new Preview.Builder().build();
         preview.setSurfaceProvider(previewView.getSurfaceProvider());
+
+        // Configure preview view scaling to fill the entire container
+        previewView.setScaleType(PreviewView.ScaleType.FILL_CENTER);
+        previewView.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
 
         ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
@@ -564,6 +572,21 @@ public class Selfie_verification extends AppCompatActivity {
                         Toast.makeText(Selfie_verification.this, getString(R.string.failed_submit_verification, e.getMessage()), Toast.LENGTH_SHORT).show();
                     }
                 });
+    }
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        
+        // Reconfigure camera preview when orientation changes
+        if (previewView.getVisibility() == View.VISIBLE && cameraProvider != null) {
+            // Small delay to allow layout to settle
+            new android.os.Handler().postDelayed(() -> {
+                if (cameraProvider != null) {
+                    bindCameraUseCases();
+                }
+            }, 100);
+        }
     }
 
     @Override
