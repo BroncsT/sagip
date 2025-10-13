@@ -343,8 +343,6 @@
     <string name="relationship_nephew">Pamangkin na Lalaki</string>
     <string name="relationship_niece">Pamangkin na Babae</string>
     <string name="relationship_grandchild">Apo</string>
-    <string name="relationship_parent">Magulang</string>
-    <string name="relationship_grandparent">Lolo/Lola</string>
     <string name="relationship_friend">Kaibigan</string>
     <string name="relationship_neighbor">Kapitbahay</string>
     <string name="relationship_caregiver">Tagapag-alaga</string>
@@ -378,6 +376,21 @@
     
     <!-- Senior Add Emergency Contact -->
     <string name="hi_user">kamusta user</string>
+    <string name="add_emergency_contact_title">📞 Magdagdag ng Emergency Contact</string>
+    <string name="hi_user_greeting">👤 Kamusta, User</string>
+    <string name="contact_information_title">📝 Impormasyon ng Kontakto</string>
+    <string name="relationship_label_with_icon">👥 Relasyon</string>
+    <string name="emergency_contact_accuracy_tip">💡 Siguraduhing tumpak ang lahat ng impormasyon para sa mga emergency na sitwasyon</string>
+
+    <!-- Senior Emergency Contact List -->
+    <string name="emergency_contacts_title">📞 Mga Emergency Contact</string>
+    <string name="contact_count_format">%d mga kontakto</string>
+    <string name="emergency_contacts_subtitle">Pamahalaan ang inyong listahan ng emergency contact para sa mabilis na access sa mga emergency</string>
+    <string name="no_emergency_contacts">Walang Emergency Contacts</string>
+    <string name="add_first_contact_message">Magdagdag ng inyong unang emergency contact para makapagsimula</string>
+    <string name="senior_label">Senior:</string>
+    <string name="phone_label">Telepono:</string>
+    <string name="loading_text">Naglo-load...</string>
     
     <!-- Selfie Verification -->
     <string name="start_automatic_capture">Simulan ang Automatic Capture</string>
@@ -852,7 +865,6 @@
     <string name="barangay_information_not_found">Hindi nahanap ang impormasyon ng barangay</string>
     <string name="user_profile_not_found">Hindi nahanap ang profile ng user</string>
     <string name="error_loading_barangay_info">Error sa pag-load ng impormasyon ng barangay: %1$s</string>
-    <string name="loading_text">Naglo-load...</string>
     <string name="no_seniors_found">Walang nahanap na senior sa barangay na ito</string>
     <string name="error_loading_seniors">Error sa pag-load ng mga senior: %1$s</string>
     
@@ -869,7 +881,6 @@
     <string name="help_on_way_title">🚑 Papunta na ang tulong!</string>
     <string name="rescuer_assigned_message">Naka-assign na ang isang rescuer sa inyong emergency!</string>
     <string name="rescue_group_label">🏢 Rescue Group:</string>
-    <string name="phone_label">📞 Telepono:</string>
     <string name="status_label_dialog">📊 Status:</string>
     <string name="assigned_status">✅ Naka-assign</string>
     <string name="pending_status">⏳ Pending</string>

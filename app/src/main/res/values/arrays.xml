@@ -47,8 +47,6 @@
         <item>@string/relationship_nephew</item>
         <item>@string/relationship_niece</item>
         <item>@string/relationship_grandchild</item>
-        <item>@string/relationship_parent</item>
-        <item>@string/relationship_grandparent</item>
         <item>@string/relationship_friend</item>
         <item>@string/relationship_neighbor</item>
         <item>@string/relationship_caregiver</item>

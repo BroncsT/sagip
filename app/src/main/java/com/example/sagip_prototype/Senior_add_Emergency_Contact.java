@@ -6,12 +6,15 @@ import android.text.InputFilter;
 import android.text.Spanned;
 import android.util.Log;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.ScrollView;
 import android.widget.Spinner;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
@@ -31,6 +34,9 @@ public class Senior_add_Emergency_Contact extends AppCompatActivity {
 
     private Spinner relationshipSpinner;
     private String selectedRelationship = "";
+    private TextView seniorNameTextView;
+    private TextView mobileNumberTextView;
+    private ScrollView scrollView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -44,9 +50,17 @@ public class Senior_add_Emergency_Contact extends AppCompatActivity {
         relationshipSpinner = findViewById(R.id.emerContact_relationship);
         Button addEmergencyContact = findViewById(R.id.addEmerContact);
         ImageView backArrow = findViewById(R.id.backArrow);
+        
+        // Initialize TextViews for senior info
+        seniorNameTextView = findViewById(R.id.senior_name);
+        mobileNumberTextView = findViewById(R.id.mobileNumber);
+        scrollView = findViewById(R.id.scrollView);
 
         // Setup relationship spinner
         setupRelationshipSpinner();
+
+        // Load senior information
+        loadSeniorInformation();
 
         // Setup back arrow click listener
         backArrow.setOnClickListener(v -> finish());
@@ -63,6 +77,15 @@ public class Senior_add_Emergency_Contact extends AppCompatActivity {
                 return null;
             }
         }});
+
+        // Simple scroll to bottom when address field is focused
+        emerAddress.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) {
+                scrollView.postDelayed(() -> {
+                    scrollView.fullScroll(ScrollView.FOCUS_DOWN);
+                }, 200);
+            }
+        });
 
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         FirebaseAuth mAuth = FirebaseAuth.getInstance();
@@ -99,6 +122,89 @@ public class Senior_add_Emergency_Contact extends AppCompatActivity {
                 checkForDuplicateAndAdd(uid, userType, name, number, address, relationship, db);
             }
         });
+    }
+
+    private void loadSeniorInformation() {
+        FirebaseAuth mAuth = FirebaseAuth.getInstance();
+        FirebaseUser user = mAuth.getCurrentUser();
+        
+        if (user == null) {
+            // User not authenticated, show default text
+            seniorNameTextView.setText(getString(R.string.loading_text));
+            mobileNumberTextView.setText(getString(R.string.loading_text));
+            return;
+        }
+
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        String uid = user.getUid();
+        
+        db.collection("Sagip")
+                .document("users")
+                .collection("seniors")
+                .document(uid)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        // Debug: Log all available fields
+                        Log.d("Senior_add_Emergency_Contact", "Available fields: " + documentSnapshot.getData().keySet());
+                        
+                        // Get senior's name
+                        String firstName = documentSnapshot.getString("firstName");
+                        String lastName = documentSnapshot.getString("lastName");
+                        String fullName = "";
+                        
+                        if (firstName != null && lastName != null) {
+                            fullName = firstName + " " + lastName;
+                        } else if (firstName != null) {
+                            fullName = firstName;
+                        } else if (lastName != null) {
+                            fullName = lastName;
+                        } else {
+                            fullName = "Unknown User";
+                        }
+                        
+                        // Get senior's phone number - try different possible field names
+                        String phoneNumber = documentSnapshot.getString("phoneNumber");
+                        if (phoneNumber == null || phoneNumber.isEmpty()) {
+                            phoneNumber = documentSnapshot.getString("mobileNumber");
+                        }
+                        if (phoneNumber == null || phoneNumber.isEmpty()) {
+                            phoneNumber = documentSnapshot.getString("phone");
+                        }
+                        if (phoneNumber == null || phoneNumber.isEmpty()) {
+                            phoneNumber = documentSnapshot.getString("mobile");
+                        }
+                        if (phoneNumber == null || phoneNumber.isEmpty()) {
+                            phoneNumber = documentSnapshot.getString("contactNumber");
+                        }
+                        if (phoneNumber == null || phoneNumber.isEmpty()) {
+                            phoneNumber = "No phone number";
+                        } else {
+                            // Remove +63 prefix if present and replace with 0
+                            if (phoneNumber.startsWith("+63")) {
+                                phoneNumber = phoneNumber.substring(3); // Remove +63, keep the rest
+                                if (!phoneNumber.startsWith("0")) {
+                                    phoneNumber = "0" + phoneNumber; // Add 0 only if it doesn't start with 0
+                                }
+                            }
+                        }
+                        
+                        // Update the TextViews
+                        seniorNameTextView.setText(fullName);
+                        mobileNumberTextView.setText(phoneNumber);
+                        
+                    } else {
+                        // Document doesn't exist
+                        seniorNameTextView.setText("User not found");
+                        mobileNumberTextView.setText("No phone number");
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    // Error loading data
+                    Log.e("Senior_add_Emergency_Contact", "Error loading senior information: " + e.getMessage());
+                    seniorNameTextView.setText("Error loading data");
+                    mobileNumberTextView.setText("Error loading data");
+                });
     }
 
     private void setupRelationshipSpinner() {

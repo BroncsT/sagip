@@ -64,6 +64,13 @@ public class RescuerDetailsActivity extends AppCompatActivity {
     private String rescuerPhone;
     private double seniorLat, seniorLong;
     private double rescuerLat, rescuerLong;
+    
+    // Hospital data from intent
+    private String hospitalId;
+    private String hospitalName;
+    private String hospitalAddress;
+    private String hospitalPhone;
+    private double hospitalLat, hospitalLng;
 
     // Services
     private FirebaseFirestore db;
@@ -103,6 +110,14 @@ public class RescuerDetailsActivity extends AppCompatActivity {
         String assignedRescuerId = getIntent().getStringExtra("assignedRescuerId");
         String emergencyStatus = getIntent().getStringExtra("emergencyStatus");
         
+        // Get hospital data from intent (if available)
+        hospitalId = getIntent().getStringExtra("hospitalId");
+        hospitalName = getIntent().getStringExtra("hospitalName");
+        hospitalAddress = getIntent().getStringExtra("hospitalAddress");
+        hospitalPhone = getIntent().getStringExtra("hospitalPhone");
+        hospitalLat = getIntent().getDoubleExtra("hospitalLat", 0.0);
+        hospitalLng = getIntent().getDoubleExtra("hospitalLng", 0.0);
+        
         // Get senior location from intent
         double intentSeniorLat = getIntent().getDoubleExtra("seniorLat", 0.0);
         double intentSeniorLong = getIntent().getDoubleExtra("seniorLong", 0.0);
@@ -114,10 +129,20 @@ public class RescuerDetailsActivity extends AppCompatActivity {
         Log.d(TAG, "   Assigned Rescuer ID: " + assignedRescuerId);
         Log.d(TAG, "   Emergency Status: " + emergencyStatus);
         Log.d(TAG, "   Senior Location from Intent: " + intentSeniorLat + ", " + intentSeniorLong);
+        Log.d(TAG, "   Hospital ID: " + hospitalId);
+        Log.d(TAG, "   Hospital Name: " + hospitalName);
+        Log.d(TAG, "   Hospital Address: " + hospitalAddress);
+        Log.d(TAG, "   Hospital Phone: " + hospitalPhone);
+        Log.d(TAG, "   Hospital Location: " + hospitalLat + ", " + hospitalLng);
         
         // If we have rescuer data from notification, use it directly
         if (rescuerName != null && rescuerPhone != null) {
             updateRescuerInfoFromNotification(rescuerName, rescuerPhone, rescuerTeam, assignedRescuerId, emergencyStatus);
+        }
+        
+        // If we have hospital data from intent, use it directly
+        if (hospitalName != null && !hospitalName.isEmpty()) {
+            updateHospitalInfoFromIntent();
         }
 
         initializeViews();
@@ -181,6 +206,23 @@ public class RescuerDetailsActivity extends AppCompatActivity {
 
         
         Log.d(TAG, "✅ Rescuer info updated from notification");
+    }
+    
+    private void updateHospitalInfoFromIntent() {
+        Log.d(TAG, "🏥 Updating hospital info from intent data");
+        
+        // Update UI with hospital data from intent
+        runOnUiThread(() -> {
+            // Note: The RescuerDetailsActivity doesn't have hospital UI elements
+            // This method is here for future expansion or if hospital info needs to be displayed
+            Log.d(TAG, "🏥 Hospital data from intent:");
+            Log.d(TAG, "   Name: " + hospitalName);
+            Log.d(TAG, "   Address: " + hospitalAddress);
+            Log.d(TAG, "   Phone: " + hospitalPhone);
+            Log.d(TAG, "   Location: " + hospitalLat + ", " + hospitalLng);
+        });
+        
+        Log.d(TAG, "✅ Hospital info updated from intent");
     }
 
     private void initializeViews() {

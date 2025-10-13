@@ -755,6 +755,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
 
         // Initialize FCM token for notifications
         initializeFCMToken();
+        
+        // Setup test SMS button (for debugging)
+        setupTestSMSButton();
 
         createNotificationChannel();
 
@@ -2297,6 +2300,168 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         }
     }
 
+    /**
+     * Request SMS permission for emergency notifications
+     */
+    private void requestSMSPermissionForEmergencyNotifications() {
+        Log.d(TAG, "📱 Checking SMS permission for emergency notifications...");
+        
+        if (!PermissionManager.hasSMSPermission(this)) {
+            Log.d(TAG, "📱 SMS permission not granted, showing permission dialog...");
+            
+            // Show explanation dialog first
+            new AlertDialog.Builder(this)
+                .setTitle("📱 SMS Permission Required")
+                .setMessage("This app needs SMS permission to send emergency notifications to seniors' emergency contacts when you respond to SOS calls.\n\n" +
+                           "This helps ensure that family members are immediately informed when you're responding to an emergency.\n\n" +
+                           "Would you like to grant SMS permission?")
+                .setPositiveButton("Grant Permission", (dialog, which) -> {
+                    Log.d(TAG, "📱 User agreed to grant SMS permission, requesting...");
+                    PermissionManager.requestSMSPermission(this);
+                })
+                .setNegativeButton("Not Now", (dialog, which) -> {
+                    Log.d(TAG, "📱 User declined SMS permission");
+                    Toast.makeText(this, "SMS permission declined. Emergency contacts will not be notified.", Toast.LENGTH_LONG).show();
+                })
+                .setCancelable(false)
+                .show();
+        } else {
+            Log.d(TAG, "📱 SMS permission already granted");
+            // Test SMS functionality
+            testSMSSending();
+        }
+    }
+
+    /**
+     * Test SMS sending functionality
+     */
+    private void testSMSSending() {
+        Log.d(TAG, "🧪 Testing SMS functionality...");
+        
+        // Show test dialog
+        new AlertDialog.Builder(this)
+            .setTitle("🧪 Test SMS Functionality")
+            .setMessage("SMS permission is granted. Would you like to test SMS sending?\n\n" +
+                       "This will send a test SMS to verify the functionality works.")
+            .setPositiveButton("Test SMS", (dialog, which) -> {
+                Log.d(TAG, "🧪 User wants to test SMS, sending test message...");
+                
+                // Send test SMS
+                EmergencyContactSMSService smsService = EmergencyContactSMSService.getInstance(this);
+                smsService.sendTestSMS("+639123456789", "🧪 Test SMS from SAGIP Emergency System - SMS functionality is working!");
+                
+                Toast.makeText(this, "Test SMS sent! Check the logs for details.", Toast.LENGTH_LONG).show();
+            })
+            .setNegativeButton("Skip Test", (dialog, which) -> {
+                Log.d(TAG, "🧪 User skipped SMS test");
+            })
+            .setCancelable(true)
+            .show();
+    }
+
+    /**
+     * Setup test SMS button for debugging
+     */
+    private void setupTestSMSButton() {
+        Button testSMSButton = findViewById(R.id.btnTestSMS);
+        if (testSMSButton != null) {
+            // Show button in debug mode
+            testSMSButton.setVisibility(View.VISIBLE);
+            
+            testSMSButton.setOnClickListener(v -> {
+                Log.d(TAG, "🧪 Test SMS button clicked");
+                
+                if (PermissionManager.hasSMSPermission(this)) {
+                    // Permission granted, send test SMS
+                    EmergencyContactSMSService smsService = EmergencyContactSMSService.getInstance(this);
+                    smsService.sendTestSMS("+639123456789", "🧪 Test SMS from SAGIP Emergency System - SMS functionality is working!");
+                    
+                    Toast.makeText(this, "Test SMS sent! Check the logs for details.", Toast.LENGTH_LONG).show();
+                } else {
+                    // No permission, request it
+                    Toast.makeText(this, "SMS permission not granted. Please grant permission first.", Toast.LENGTH_LONG).show();
+                    PermissionManager.requestSMSPermission(this);
+                }
+            });
+        }
+        
+        // Add debug emergency contacts button
+        Button debugContactsButton = findViewById(R.id.btnDebugContacts);
+        if (debugContactsButton != null) {
+            debugContactsButton.setVisibility(View.VISIBLE);
+            
+            debugContactsButton.setOnClickListener(v -> {
+                Log.d(TAG, "🔍 Debug emergency contacts button clicked");
+                
+                // Get current user UID for testing
+                FirebaseUser currentUser = mAuth.getCurrentUser();
+                if (currentUser != null) {
+                    String uid = currentUser.getUid();
+                    Log.d(TAG, "🔍 Testing emergency contacts for UID: " + uid);
+                    
+                    EmergencyContactSMSService smsService = EmergencyContactSMSService.getInstance(this);
+                    smsService.debugEmergencyContacts(uid);
+                    
+                    Toast.makeText(this, "Debug emergency contacts - check logs for details", Toast.LENGTH_LONG).show();
+                } else {
+                    Toast.makeText(this, "No user logged in", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+        
+        // Add test emergency flow button
+        Button testEmergencyFlowButton = findViewById(R.id.btnTestEmergencyFlow);
+        if (testEmergencyFlowButton != null) {
+            testEmergencyFlowButton.setVisibility(View.VISIBLE);
+            
+            testEmergencyFlowButton.setOnClickListener(v -> {
+                Log.d(TAG, "🚨 Test emergency flow button clicked");
+                
+                // Test the complete emergency SMS flow
+                testEmergencySMSFlow();
+            });
+        }
+    }
+
+    /**
+     * Test the complete emergency SMS flow
+     */
+    private void testEmergencySMSFlow() {
+        Log.d(TAG, "🚨 Testing complete emergency SMS flow...");
+        
+        // Check SMS permission first
+        if (!PermissionManager.hasSMSPermission(this)) {
+            Log.e(TAG, "❌ SMS permission not granted for emergency flow test");
+            Toast.makeText(this, "SMS permission not granted. Please grant permission first.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        
+        // Get current user info
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) {
+            Log.e(TAG, "❌ No user logged in for emergency flow test");
+            Toast.makeText(this, "No user logged in", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        String uid = currentUser.getUid();
+        Log.d(TAG, "🚨 Testing emergency flow for UID: " + uid);
+        
+        // Test with mock emergency data
+        EmergencyContactSMSService smsService = EmergencyContactSMSService.getInstance(this);
+        smsService.sendEmergencySMSNotifications(
+            uid, // seniorUid
+            "Test Senior", // seniorName
+            "Test Rescuer", // rescuerName
+            "+639123456789", // rescuerPhone
+            "Test Team", // rescuerTeam
+            "Test Location, Test City", // locationAddress
+            "Medical Emergency" // emergencyType
+        );
+        
+        Toast.makeText(this, "Emergency SMS flow test initiated - check logs for details", Toast.LENGTH_LONG).show();
+    }
+
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
@@ -2575,6 +2740,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                                 if (currentUser != null) {
                                     saveUserToPreferences(uid, userType, currentUser.getPhoneNumber());
                                 }
+
+                                // Request SMS permission for emergency notifications
+                                requestSMSPermissionForEmergencyNotifications();
 
                                 // Emergency listener will be started in onResume()
                             } else {
@@ -3037,6 +3205,17 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 Log.w(TAG, "Notification permission denied");
                 Toast.makeText(this, "Notification permission denied - you may not receive emergency alerts", 
                         Toast.LENGTH_LONG).show();
+            }
+        } else if (requestCode == PermissionManager.SMS_PERMISSION_REQUEST_CODE) {
+            boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            Log.d(TAG, "📱 [PERMISSION_RESULT] SMS permission result: " + granted);
+            
+            if (granted) {
+                Log.d(TAG, "📱 [PERMISSION_RESULT] SMS permission granted!");
+                Toast.makeText(this, "SMS permission granted! Emergency contacts will be notified.", Toast.LENGTH_SHORT).show();
+            } else {
+                Log.w(TAG, "⚠️ [PERMISSION_RESULT] SMS permission denied");
+                Toast.makeText(this, "SMS permission denied. Emergency contacts will not be notified.", Toast.LENGTH_LONG).show();
             }
         }
     }
@@ -3556,95 +3735,36 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     }
     
     private void getSeniorLocationAndLaunch(Intent intent, EmergencyQueueManager.EmergencyRequest emergency, String rescuerId) {
-        // Get senior's current location and phone number from database
-        String seniorUserId = extractUserIdFromRequestId(emergency.requestId);
-        if (seniorUserId != null) {
-            db.collection("Sagip/users/seniors")
-                    .document(seniorUserId)
-                    .get()
-                    .addOnSuccessListener(documentSnapshot -> {
-                        if (documentSnapshot.exists()) {
-                            // Get location coordinates
-                            Double lat = documentSnapshot.getDouble("latitude");
-                            Double lng = documentSnapshot.getDouble("longitude");
-                            
-                            if (lat != null && lng != null) {
-                                intent.putExtra("senior_lat", lat);
-                                intent.putExtra("senior_lng", lng);
-                                Log.d(TAG, "📍 Got senior location from database: " + lat + ", " + lng);
-                            } else {
-                                // Fallback: Use a default location (you can change this to your city's coordinates)
-                                double defaultLat = 14.5995; // Manila coordinates as fallback
-                                double defaultLng = 120.9842;
-                                intent.putExtra("senior_lat", defaultLat);
-                                intent.putExtra("senior_lng", defaultLng);
-                                Log.w(TAG, "⚠️ Senior location not available in database, using fallback: " + defaultLat + ", " + defaultLng);
-                            }
-                            
-                            // Phone number already set from emergency data, just log database phone for comparison
-                            String databasePhone = documentSnapshot.getString("mobileNumber");
-                            Log.d(TAG, "📞 Database phone (for comparison): " + databasePhone);
-                            Log.d(TAG, "📞 Using emergency data phone (already set)");
-                        } else {
-                            // Fallback: Use a default location
-                            double defaultLat = 14.5995; // Manila coordinates as fallback
-                            double defaultLng = 120.9842;
-                            intent.putExtra("senior_lat", defaultLat);
-                            intent.putExtra("senior_lng", defaultLng);
-                            Log.w(TAG, "⚠️ Senior document not found, using fallback location: " + defaultLat + ", " + defaultLng);
-                        }
-                        
-                        // Generate emergency ID for tracking
-                        String emergencyId = "EMERGENCY_" + System.currentTimeMillis() + "_" + rescuerId;
-                        intent.putExtra("emergency_id", emergencyId);
-                        
-                        // Debug: Check intent before launching
-                        String phoneInIntent = intent.getStringExtra("senior_phone");
-                        Log.d(TAG, "🔍 Phone in intent before launch: " + phoneInIntent);
-                        
-                        Log.d(TAG, "🔍 [LAUNCH] Starting EmergencyAssignmentActivity (with location and phone)...");
-                        startActivity(intent);
-                        Log.d(TAG, "🚀 Launched EmergencyAssignmentActivity for: " + emergency.seniorName + " with location and phone");
-                    })
-                    .addOnFailureListener(e -> {
-                        Log.e(TAG, "❌ Failed to get senior data: " + e.getMessage());
-                        // Fallback: Use a default location
-                        double defaultLat = 14.5995; // Manila coordinates as fallback
-                        double defaultLng = 120.9842;
-                        intent.putExtra("senior_lat", defaultLat);
-                        intent.putExtra("senior_lng", defaultLng);
-                        Log.w(TAG, "⚠️ Database query failed, using fallback location: " + defaultLat + ", " + defaultLng);
-                        
-                        String emergencyId = "EMERGENCY_" + System.currentTimeMillis() + "_" + rescuerId;
-                        intent.putExtra("emergency_id", emergencyId);
-                        
-                        // Debug: Check intent before launching
-                        String phoneInIntent = intent.getStringExtra("senior_phone");
-                        Log.d(TAG, "🔍 Phone in intent before launch (failed): " + phoneInIntent);
-                        
-                        Log.d(TAG, "🔍 [LAUNCH] Starting EmergencyAssignmentActivity (data failed)...");
-                        startActivity(intent);
-                        Log.d(TAG, "🚀 Launched EmergencyAssignmentActivity for: " + emergency.seniorName + " (data failed)");
-                    });
+        // Use location data directly from the emergency object (same as notification flow)
+        Log.d(TAG, "🔍 [SENIOR_LOCATION] Using location from emergency data");
+        
+        if (emergency.location != null) {
+            // Use the location coordinates from the emergency data
+            double lat = emergency.location.getLatitude();
+            double lng = emergency.location.getLongitude();
+            intent.putExtra("senior_lat", lat);
+            intent.putExtra("senior_lng", lng);
+            Log.d(TAG, "📍 Using senior location from emergency data: " + lat + ", " + lng);
         } else {
-            // No senior user ID, use fallback
+            // Fallback: Use a default location if emergency location is not available
             double defaultLat = 14.5995; // Manila coordinates as fallback
             double defaultLng = 120.9842;
             intent.putExtra("senior_lat", defaultLat);
             intent.putExtra("senior_lng", defaultLng);
-            Log.w(TAG, "⚠️ No senior user ID, using fallback location: " + defaultLat + ", " + defaultLng);
-            
-            String emergencyId = "EMERGENCY_" + System.currentTimeMillis() + "_" + rescuerId;
-            intent.putExtra("emergency_id", emergencyId);
-            
-            // Debug: Check intent before launching
-            String phoneInIntent = intent.getStringExtra("senior_phone");
-            Log.d(TAG, "🔍 Phone in intent before launch (no user ID): " + phoneInIntent);
-            
-            Log.d(TAG, "🔍 [LAUNCH] Starting EmergencyAssignmentActivity (no user ID)...");
-            startActivity(intent);
-            Log.d(TAG, "🚀 Launched EmergencyAssignmentActivity for: " + emergency.seniorName + " (no user ID)");
+            Log.w(TAG, "⚠️ Emergency location not available, using fallback: " + defaultLat + ", " + defaultLng);
         }
+        
+        // Generate emergency ID for tracking
+        String emergencyId = "EMERGENCY_" + System.currentTimeMillis() + "_" + rescuerId;
+        intent.putExtra("emergency_id", emergencyId);
+        
+        // Debug: Check intent before launching
+        String phoneInIntent = intent.getStringExtra("senior_phone");
+        Log.d(TAG, "🔍 Phone in intent before launch: " + phoneInIntent);
+        
+        Log.d(TAG, "🔍 [LAUNCH] Starting EmergencyAssignmentActivity (with emergency location data)...");
+        startActivity(intent);
+        Log.d(TAG, "🚀 Launched EmergencyAssignmentActivity for: " + emergency.seniorName + " with emergency location data");
     }
     
     private String extractUserIdFromRequestId(String requestId) {
@@ -3657,6 +3777,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     }
     
     // OLD SYSTEM REMOVED - Assignment popup now handled by EmergencyQueueManager
+
 
     private void saveLocationToFirestore(double latitude, double longitude) {
         if (mAuth.getCurrentUser() != null) {

@@ -323,7 +323,9 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         Log.d(TAG, "📍 Senior location for hospital search: " + seniorLat + ", " + seniorLng);
         
         // Query hospitals from database
-        db.collection("Sagip/users/hospital")
+        db.collection("Sagip")
+                .document("users")
+                .collection("hospital")
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
                     Log.d(TAG, "📊 Hospital query result: " + querySnapshot.size() + " hospitals found");

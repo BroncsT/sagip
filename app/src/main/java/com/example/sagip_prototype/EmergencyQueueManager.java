@@ -1,5 +1,6 @@
 package com.example.sagip_prototype;
 
+import android.app.Activity;
 import android.content.Context;
 import android.util.Log;
 
@@ -157,6 +158,10 @@ public class EmergencyQueueManager {
                 Log.d(TAG, "🔍 [EMERGENCY_QUEUE_MANAGER] About to call sendRescuerResponseNotificationToSenior...");
                 sendRescuerResponseNotificationToSenior(requestId, rescuerId);
                 Log.d(TAG, "🔍 [EMERGENCY_QUEUE_MANAGER] sendRescuerResponseNotificationToSenior called");
+                
+                // Send SMS notifications to emergency contacts
+                Log.d(TAG, "📱 [EMERGENCY_QUEUE_MANAGER] Sending SMS notifications to emergency contacts...");
+                sendSMSToEmergencyContacts(request, rescuerId);
                 
                 found = true;
                 break;
@@ -1027,6 +1032,74 @@ public class EmergencyQueueManager {
         void onETACalculated(double etaMinutes, double distanceKm);
     }
     
+    /**
+     * Send SMS notifications to emergency contacts when a rescuer accepts an SOS call
+     */
+    private void sendSMSToEmergencyContacts(EmergencyRequest request, String rescuerId) {
+        Log.d(TAG, "🚨🚨🚨 SMS NOTIFICATION TRIGGERED 🚨🚨🚨");
+        Log.d(TAG, "📱 [SMS_SERVICE] Starting SMS notification process");
+        Log.d(TAG, "📱 [SMS_SERVICE] Senior: " + request.seniorName + " (" + request.seniorUid + ")");
+        Log.d(TAG, "📱 [SMS_SERVICE] Rescuer ID: " + rescuerId);
+        Log.d(TAG, "📱 [SMS_SERVICE] Location: " + request.locationAddress);
+        Log.d(TAG, "📱 [SMS_SERVICE] Emergency Type: " + request.emergencyType);
+        
+        // Get rescuer information first
+        getRescuerInfoFromDatabase(rescuerId, new RescuerInfoCallback() {
+            @Override
+            public void onRescuerInfoReceived(String rescuerName, String rescuerPhone, String rescuerTeam) {
+                Log.d(TAG, "📱 [SMS_SERVICE] Rescuer info received - Name: " + rescuerName + ", Phone: " + rescuerPhone + ", Team: " + rescuerTeam);
+                
+                // Send SMS notifications using the SMS service
+                EmergencyContactSMSService smsService = EmergencyContactSMSService.getInstance(context);
+                Log.d(TAG, "📱 [SMS_SERVICE] SMS service instance created");
+                
+                // Check if SMS permission is granted
+                boolean hasPermission = smsService.hasSMSPermission();
+                Log.d(TAG, "📱 [SMS_SERVICE] SMS permission granted: " + hasPermission);
+                
+                if (hasPermission) {
+                    Log.d(TAG, "📱 [SMS_SERVICE] Calling sendEmergencySMSNotifications...");
+                    smsService.sendEmergencySMSNotifications(
+                        request.seniorUid,
+                        request.seniorName,
+                        rescuerName,
+                        rescuerPhone,
+                        rescuerTeam,
+                        request.locationAddress,
+                        request.emergencyType
+                    );
+                    Log.d(TAG, "📱 [SMS_SERVICE] sendEmergencySMSNotifications called successfully");
+                } else {
+                    Log.w(TAG, "⚠️ [SMS_SERVICE] SMS permission not granted - cannot send emergency SMS notifications");
+                    Log.w(TAG, "⚠️ [SMS_SERVICE] Please grant SMS permission in app settings");
+                    
+                    // Try to request permission if we have an activity context
+                    if (context instanceof Activity) {
+                        Log.d(TAG, "📱 [SMS_SERVICE] Requesting SMS permission...");
+                        PermissionManager.requestSMSPermission((Activity) context);
+                    } else {
+                        Log.w(TAG, "⚠️ [SMS_SERVICE] Cannot request permission - context is not an Activity");
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * Handle SMS permission result and retry sending SMS if permission was granted
+     */
+    public void handleSMSPermissionResult(boolean granted, EmergencyRequest request, String rescuerId) {
+        Log.d(TAG, "📱 [SMS_PERMISSION] Permission result: " + granted);
+        
+        if (granted) {
+            Log.d(TAG, "📱 [SMS_PERMISSION] SMS permission granted, retrying SMS send...");
+            // Retry sending SMS notifications
+            sendSMSToEmergencyContacts(request, rescuerId);
+        } else {
+            Log.w(TAG, "⚠️ [SMS_PERMISSION] SMS permission denied - emergency contacts will not be notified");
+        }
+    }
+
     /**
      * Remove emergency notification from rescuer's personal notification collection
      * This prevents duplicate notifications when a rescuer responds to an emergency

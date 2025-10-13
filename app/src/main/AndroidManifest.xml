@@ -97,6 +97,7 @@
         <activity
             android:name=".Senior_add_Emergency_Contact"
             android:configChanges="locale|orientation|screenSize|keyboardHidden"
+            android:windowSoftInputMode="adjustResize"
             android:exported="false" />
         <activity
             android:name=".Barangay_Registration"
