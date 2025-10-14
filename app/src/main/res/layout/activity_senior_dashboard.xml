@@ -113,19 +113,6 @@
         app:layout_constraintVertical_bias="0.448" />
 
     <!-- Test Notification Button (for debugging) -->
-    <Button
-        android:id="@+id/testNotificationBtn"
-        android:layout_width="120dp"
-        android:layout_height="40dp"
-        android:text="🧪 Test Notification"
-        android:textSize="12sp"
-        android:textColor="@color/white"
-        android:background="@drawable/rounded_background"
-        app:backgroundTint="@color/secondary_blue"
-        app:layout_constraintTop_toBottomOf="@id/sosButton"
-        app:layout_constraintStart_toStartOf="@id/sosButton"
-        app:layout_constraintEnd_toEndOf="@id/sosButton"
-        android:layout_marginTop="10dp" />
 
     <!-- Live Tracking Map Section -->
     <androidx.cardview.widget.CardView

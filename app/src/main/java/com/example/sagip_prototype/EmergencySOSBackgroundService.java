@@ -37,6 +37,9 @@ public class EmergencySOSBackgroundService extends Service {
     private String userId;
     private boolean isListening = false;
     
+    // Static MediaPlayer to track current playing sound
+    private static MediaPlayer currentMediaPlayer = null;
+    
     @Override
     public void onCreate() {
         super.onCreate();
@@ -73,6 +76,9 @@ public class EmergencySOSBackgroundService extends Service {
         super.onDestroy();
         Log.d(TAG, "EmergencySOSBackgroundService destroyed");
         isListening = false;
+        
+        // Stop any playing emergency sound when service is destroyed
+        stopEmergencySound();
     }
     
     @Override
@@ -340,27 +346,55 @@ public class EmergencySOSBackgroundService extends Service {
             Uri soundUri = getCustomAlarmSound();
             Log.d(TAG, "🔊 Testing with sound URI: " + soundUri.toString());
             
-            MediaPlayer mediaPlayer = MediaPlayer.create(this, soundUri);
-            if (mediaPlayer != null) {
+            // Stop any currently playing sound
+            stopEmergencySound();
+            
+            currentMediaPlayer = MediaPlayer.create(this, soundUri);
+            if (currentMediaPlayer != null) {
                 Log.d(TAG, "🔊 MediaPlayer created successfully");
-                mediaPlayer.setOnPreparedListener(mp -> {
+                currentMediaPlayer.setOnPreparedListener(mp -> {
                     Log.d(TAG, "🔊 MediaPlayer prepared, starting playback");
                     mp.start();
                 });
-                mediaPlayer.setOnErrorListener((mp, what, extra) -> {
+                currentMediaPlayer.setOnErrorListener((mp, what, extra) -> {
                     Log.e(TAG, "❌ MediaPlayer error: what=" + what + ", extra=" + extra);
                     mp.release();
+                    currentMediaPlayer = null;
                     return true;
                 });
-                mediaPlayer.setOnCompletionListener(mp -> {
+                currentMediaPlayer.setOnCompletionListener(mp -> {
                     Log.d(TAG, "🔊 Sound playback completed");
                     mp.release();
+                    currentMediaPlayer = null;
                 });
             } else {
                 Log.e(TAG, "❌ Failed to create MediaPlayer");
             }
         } catch (Exception e) {
             Log.e(TAG, "❌ Error testing sound playback: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Static method to stop the emergency sound from anywhere in the app
+     */
+    public static void stopEmergencySound() {
+        Log.d(TAG, "🔇 Stopping emergency sound...");
+        if (currentMediaPlayer != null) {
+            try {
+                if (currentMediaPlayer.isPlaying()) {
+                    currentMediaPlayer.stop();
+                    Log.d(TAG, "🔇 Emergency sound stopped successfully");
+                }
+                currentMediaPlayer.release();
+                currentMediaPlayer = null;
+                Log.d(TAG, "🔇 MediaPlayer released and cleared");
+            } catch (Exception e) {
+                Log.e(TAG, "❌ Error stopping emergency sound: " + e.getMessage(), e);
+                currentMediaPlayer = null;
+            }
+        } else {
+            Log.d(TAG, "🔇 No emergency sound currently playing");
         }
     }
     

@@ -1929,6 +1929,10 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             Log.d(TAG, "🔍 [RESPOND_NOW] Senior: " + seniorName);
             Log.d(TAG, "🔍 [RESPOND_NOW] GPS coordinates: " + seniorLat + ", " + seniorLng);
             
+            // Stop emergency sound immediately when rescuer responds
+            EmergencySOSBackgroundService.stopEmergencySound();
+            Log.d(TAG, "🔇 [RESPOND_NOW] Emergency sound stopped");
+            
             // Reset dialog flag
             isEmergencyDialogShowing = false;
             
@@ -1958,6 +1962,11 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         // Decline button
         builder.setNegativeButton(getString(R.string.button_decline), (dialog, which) -> {
             Log.d(TAG, "🚨 DECLINE BUTTON CLICKED");
+            
+            // Stop emergency sound when rescuer declines
+            EmergencySOSBackgroundService.stopEmergencySound();
+            Log.d(TAG, "🔇 [DECLINE] Emergency sound stopped");
+            
             isEmergencyDialogShowing = false;
             // Optionally notify that rescuer declined
         });
@@ -2022,6 +2031,10 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             Log.d(TAG, "🔍 [RESPOND_NOW] Location: " + locationAddress);
             Log.d(TAG, "🔍 [RESPOND_NOW] Timestamp: " + timestamp);
             Log.d(TAG, "🔍 [RESPOND_NOW] Dialog dismissed: " + (dialog instanceof AlertDialog ? ((AlertDialog) dialog).isShowing() : "unknown"));
+            
+            // Stop emergency sound immediately when rescuer responds
+            EmergencySOSBackgroundService.stopEmergencySound();
+            Log.d(TAG, "🔇 [RESPOND_NOW] Emergency sound stopped");
             
             // Reset dialog flag
             isEmergencyDialogShowing = false;
