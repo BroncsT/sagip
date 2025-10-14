@@ -750,8 +750,11 @@
     <string name="button_google_nav">🗺️ GOOGLE NAV</string>
     <string name="button_call_senior">📞 TAWAGAN ANG SENIOR</string>
     <string name="button_dismiss">Tanggalin</string>
+    <string name="button_decline">Tanggihan</string>
     <string name="button_respond_now_old">🚑 TUMUGON NGAYON</string>
     <string name="button_ok">OK</string>
+    <string name="button_view_details">📋 Tingnan ang Detalye</string>
+    <string name="button_call_rescuer">📞 Tawagan ang Rescuer</string>
 
     <!-- Additional UI Text -->
     <string name="text_not_available">Hindi available</string>

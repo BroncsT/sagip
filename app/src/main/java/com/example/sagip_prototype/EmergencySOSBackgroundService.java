@@ -85,7 +85,7 @@ public class EmergencySOSBackgroundService extends Service {
             NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID,
                 "Emergency SOS Alerts",
-                NotificationManager.IMPORTANCE_MAX
+                NotificationManager.IMPORTANCE_HIGH
             );
             
             // Configure custom alarm sound for emergency notifications
@@ -187,6 +187,10 @@ public class EmergencySOSBackgroundService extends Service {
             Long timestamp = document.getLong("timestamp");
             Boolean isRead = document.getBoolean("isRead");
             
+            // Read GPS coordinates from notification data
+            Double seniorLat = document.getDouble("seniorLat");
+            Double seniorLng = document.getDouble("seniorLng");
+            
             Log.d(TAG, "🔍 [HANDLE_NOTIFICATION] Document ID: " + document.getId());
             Log.d(TAG, "🔍 [HANDLE_NOTIFICATION] Type: " + type);
             Log.d(TAG, "🔍 [HANDLE_NOTIFICATION] IsRead: " + isRead);
@@ -198,7 +202,7 @@ public class EmergencySOSBackgroundService extends Service {
                 Log.d(TAG, "🚨 Received emergency SOS notification: " + seniorName + " (Request ID: " + requestId + ")");
                 
                 // Show high-priority notification with alarm sound
-                showEmergencySOSNotification(seniorName, seniorPhone, locationAddress, timestamp, requestId, document.getId());
+                showEmergencySOSNotification(seniorName, seniorPhone, locationAddress, timestamp, requestId, document.getId(), seniorLat, seniorLng);
                 
                 // Mark notification as read
                 document.getReference().update("isRead", true);
@@ -216,7 +220,7 @@ public class EmergencySOSBackgroundService extends Service {
         }
     }
     
-    private void showEmergencySOSNotification(String seniorName, String seniorPhone, String locationAddress, Long timestamp, String requestId, String notificationId) {
+    private void showEmergencySOSNotification(String seniorName, String seniorPhone, String locationAddress, Long timestamp, String requestId, String notificationId, Double seniorLat, Double seniorLng) {
         Log.d(TAG, "🔔 Creating emergency SOS background notification for: " + seniorName + " (Request ID: " + requestId + ")");
         
         // Test sound playback directly
@@ -226,7 +230,7 @@ public class EmergencySOSBackgroundService extends Service {
         
         // Create intent for when notification is tapped - this will open the app even when closed
         Intent notificationIntent = new Intent(this, Rescuer_Dashboard.class);
-        notificationIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        notificationIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         notificationIntent.putExtra("emergency_sos_clicked", true);
         notificationIntent.putExtra("senior_name", seniorName);
         notificationIntent.putExtra("senior_phone", seniorPhone);
@@ -234,10 +238,20 @@ public class EmergencySOSBackgroundService extends Service {
         notificationIntent.putExtra("request_id", requestId);
         notificationIntent.putExtra("from_emergency_notification", true);
         
-        // Create pending intent
+        // Add GPS coordinates for accurate navigation
+        if (seniorLat != null && seniorLng != null) {
+            notificationIntent.putExtra("senior_lat", seniorLat);
+            notificationIntent.putExtra("senior_lng", seniorLng);
+            Log.d(TAG, "📍 Added GPS coordinates to notification intent: " + seniorLat + ", " + seniorLng);
+        } else {
+            Log.w(TAG, "⚠️ No GPS coordinates available for notification intent");
+        }
+        
+        // Create pending intent with unique request code
+        int requestCode = (int) System.currentTimeMillis() % Integer.MAX_VALUE;
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 this, 
-                notificationId.hashCode(), 
+                requestCode, 
                 notificationIntent, 
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
@@ -247,7 +261,7 @@ public class EmergencySOSBackgroundService extends Service {
         callIntent.setData(android.net.Uri.parse("tel:" + seniorPhone));
         PendingIntent callPendingIntent = PendingIntent.getActivity(
                 this,
-                (notificationId + "_call").hashCode(),
+                requestCode + 1,
                 callIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
@@ -258,7 +272,7 @@ public class EmergencySOSBackgroundService extends Service {
             android.net.Uri.encode("Angeles City, Pampanga") + "&travelmode=driving"));
         PendingIntent navPendingIntent = PendingIntent.getActivity(
                 this,
-                (notificationId + "_nav").hashCode(),
+                requestCode + 2,
                 navIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
@@ -284,7 +298,7 @@ public class EmergencySOSBackgroundService extends Service {
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                .setAutoCancel(false) // Don't auto-cancel so user can tap it
+                .setAutoCancel(true) // Allow notification to be dismissed when clicked
                 .setContentIntent(pendingIntent)
                 .setSound(getCustomAlarmSound()) // AudioAttributes are set on the channel, not here
                 .setVibrate(new long[]{0, 1000, 500, 1000, 500, 1000})
@@ -292,13 +306,17 @@ public class EmergencySOSBackgroundService extends Service {
                 .setFullScreenIntent(pendingIntent, true) // Show as full screen on lock screen
                 .addAction(android.R.drawable.ic_menu_call, "📞 CALL", callPendingIntent)
                 .addAction(android.R.drawable.ic_menu_directions, "🗺️ NAVIGATE", navPendingIntent)
-                .setOngoing(true); // Make it persistent
+                .setOngoing(false) // Allow notification to be dismissed
+                .setDefaults(NotificationCompat.DEFAULT_ALL); // Add default notification behavior
         
         android.app.Notification notification = builder.build();
-        notificationManager.notify(notificationId.hashCode(), notification);
+        notificationManager.notify(requestCode, notification);
         Log.d(TAG, "🔔 Emergency SOS notification sent for: " + seniorName);
+        Log.d(TAG, "🔊 Notification ID: " + requestCode);
         Log.d(TAG, "🔊 Notification sound URI: " + getCustomAlarmSound().toString());
         Log.d(TAG, "🔊 Notification flags: " + notification.flags);
+        Log.d(TAG, "🔊 Notification has content intent: " + (notification.contentIntent != null));
+        Log.d(TAG, "🔊 Notification is clickable: " + notification.contentIntent);
     }
     
     private void vibrateDevice() {

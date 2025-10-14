@@ -788,6 +788,7 @@
     <string name="button_respond_now">🚨 RESPOND NOW</string>
     <string name="button_google_nav">🗺️ GOOGLE NAV</string>
     <string name="button_dismiss">Dismiss</string>
+    <string name="button_decline">Decline</string>
     <string name="button_respond_now_old">🚑 RESPOND NOW</string>
     <string name="button_ok">OK</string>
     <string name="button_view_details">📋 View Details</string>

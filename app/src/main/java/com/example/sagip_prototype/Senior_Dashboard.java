@@ -154,6 +154,20 @@ public class Senior_Dashboard extends AppCompatActivity {
         tvCurrentLocation = findViewById(R.id.tvCurrentLocation);
         btnSOS = findViewById(R.id.sosButton);
         
+        // Add test button for debugging senior notifications
+        android.widget.Button testNotificationBtn = findViewById(R.id.testNotificationBtn);
+        if (testNotificationBtn != null) {
+            testNotificationBtn.setOnClickListener(v -> {
+                Log.d(TAG, "🧪 [TEST] Test notification button clicked");
+                FirebaseUser currentUser = mAuth.getCurrentUser();
+                if (currentUser != null) {
+                    Log.d(TAG, "🧪 [TEST] Sending test notification to senior: " + currentUser.getUid());
+                    EmergencyQueueManager.getInstance(this).sendTestNotificationToSenior(currentUser.getUid());
+                } else {
+                    Log.w(TAG, "🧪 [TEST] No authenticated user found");
+                }
+            });
+        }
         
         btnSOS.setOnClickListener(v -> showSOSConfirmationDialog());
         

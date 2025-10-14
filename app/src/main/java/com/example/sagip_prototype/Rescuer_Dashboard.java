@@ -978,7 +978,10 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         Intent intent = getIntent();
         if (intent != null) {
             String notificationType = intent.getStringExtra("notification_type");
-            Log.d(TAG, "Activity opened from notification - Type: " + notificationType);
+            Log.d(TAG, "🔍 [NOTIFICATION_CLICK] Activity opened from notification - Type: " + notificationType);
+            Log.d(TAG, "🔍 [NOTIFICATION_CLICK] Intent extras: " + intent.getExtras());
+            Log.d(TAG, "🔍 [NOTIFICATION_CLICK] Emergency SOS clicked: " + intent.getBooleanExtra("emergency_sos_clicked", false));
+            Log.d(TAG, "🔍 [NOTIFICATION_CLICK] From emergency notification: " + intent.getBooleanExtra("from_emergency_notification", false));
             
             if ("hospital_update".equals(notificationType) || "hospital_status_update".equals(notificationType)) {
                 // Handle hospital status update notification
@@ -1024,12 +1027,20 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 String seniorName = intent.getStringExtra("senior_name");
                 String seniorPhone = intent.getStringExtra("senior_phone");
                 String locationAddress = intent.getStringExtra("location_address");
+                String requestId = intent.getStringExtra("request_id");
+                Double seniorLat = intent.getDoubleExtra("senior_lat", 0.0);
+                Double seniorLng = intent.getDoubleExtra("senior_lng", 0.0);
                 
                 Log.d(TAG, "🚨 App opened from emergency SOS notification - Senior: " + seniorName);
+                Log.d(TAG, "📍 GPS coordinates from notification click: " + seniorLat + ", " + seniorLng);
                 
                 // Show emergency alert dialog immediately
                 if (seniorName != null && locationAddress != null) {
-                    showEmergencySOSAlert(seniorName, seniorPhone, locationAddress, System.currentTimeMillis());
+                    if (seniorLat != 0.0 && seniorLng != 0.0) {
+                        showEmergencySOSAlertWithLocation(seniorName, seniorPhone, locationAddress, System.currentTimeMillis(), requestId, seniorLat, seniorLng);
+                    } else {
+                        showEmergencySOSAlert(seniorName, seniorPhone, locationAddress, System.currentTimeMillis(), requestId);
+                    }
                 }
                 
                 // Clear the intent extras to prevent repeated handling
@@ -1837,12 +1848,22 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             Long timestamp = document.getLong("timestamp");
             Boolean isRead = document.getBoolean("isRead");
             
+            // Read GPS coordinates from notification data
+            Double seniorLat = document.getDouble("seniorLat");
+            Double seniorLng = document.getDouble("seniorLng");
+            
             // Only process unread emergency SOS notifications
             if ("EMERGENCY_SOS".equals(type) && (isRead == null || !isRead)) {
                 Log.d(TAG, "🚨 Received emergency SOS notification: " + seniorName + " (Request ID: " + requestId + ")");
                 
-                // Show emergency alert dialog with request ID
-                showEmergencySOSAlert(seniorName, seniorPhone, locationAddress, timestamp, requestId);
+                if (seniorLat != null && seniorLng != null) {
+                    Log.d(TAG, "📍 GPS coordinates from notification: " + seniorLat + ", " + seniorLng);
+                } else {
+                    Log.w(TAG, "⚠️ No GPS coordinates in notification data");
+                }
+                
+                // Show emergency alert dialog with request ID and GPS coordinates
+                showEmergencySOSAlertWithLocation(seniorName, seniorPhone, locationAddress, timestamp, requestId, seniorLat, seniorLng);
                 
                 // Mark notification as read
                 document.getReference().update("isRead", true);
@@ -1857,6 +1878,99 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     
     private void showEmergencySOSAlert(String seniorName, String seniorPhone, String locationAddress, Long timestamp) {
         showEmergencySOSAlert(seniorName, seniorPhone, locationAddress, timestamp, null);
+    }
+    
+    private void showEmergencySOSAlertWithLocation(String seniorName, String seniorPhone, String locationAddress, Long timestamp, String requestId, Double seniorLat, Double seniorLng) {
+        Log.d(TAG, "🔍 [SHOW_DIALOG] showEmergencySOSAlertWithLocation called for: " + seniorName);
+        Log.d(TAG, "🔍 [SHOW_DIALOG] RequestId: " + requestId);
+        Log.d(TAG, "🔍 [SHOW_DIALOG] GPS coordinates: " + seniorLat + ", " + seniorLng);
+        Log.d(TAG, "🔍 [SHOW_DIALOG] isEmergencyDialogShowing: " + isEmergencyDialogShowing);
+        
+        // Check if dialog is already showing to prevent duplicates
+        if (isEmergencyDialogShowing) {
+            Log.w(TAG, "⚠️ [SHOW_DIALOG] Emergency dialog already showing, ignoring duplicate call");
+            return;
+        }
+        
+        // Check if activity is still valid before showing dialog
+        if (isFinishing() || isDestroyed()) {
+            Log.w(TAG, "Cannot show emergency alert dialog - activity is not in valid state");
+            return;
+        }
+        
+        // Mark dialog as showing
+        isEmergencyDialogShowing = true;
+        Log.d(TAG, "🔍 [SHOW_DIALOG] Setting isEmergencyDialogShowing = true");
+        
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(getString(R.string.dialog_emergency_sos_alert));
+        
+        String timeStr = "Unknown time";
+        if (timestamp != null) {
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("MMM dd, yyyy HH:mm:ss", Locale.getDefault());
+            timeStr = sdf.format(new java.util.Date(timestamp));
+        }
+        
+        String message = "🚨 URGENT: Senior needs immediate help!\n\n" +
+                        "👤 Senior: " + seniorName + "\n" +
+                        "📞 Phone: " + seniorPhone + "\n" +
+                        "📍 Location: " + locationAddress + "\n" +
+                        "⏰ Time: " + timeStr + "\n\n" +
+                        "⚠️ Please respond immediately!";
+        
+        builder.setMessage(message);
+        builder.setIcon(android.R.drawable.ic_dialog_alert);
+        builder.setCancelable(false);
+        
+        // Respond to emergency button
+        builder.setPositiveButton(getString(R.string.button_respond_now), (dialog, which) -> {
+            Log.d(TAG, "🚨🚨🚨 RESPOND NOW BUTTON CLICKED 🚨🚨🚨");
+            Log.d(TAG, "🔍 [RESPOND_NOW] Emergency: " + requestId);
+            Log.d(TAG, "🔍 [RESPOND_NOW] Senior: " + seniorName);
+            Log.d(TAG, "🔍 [RESPOND_NOW] GPS coordinates: " + seniorLat + ", " + seniorLng);
+            
+            // Reset dialog flag
+            isEmergencyDialogShowing = false;
+            
+            // Clear all emergency notifications and dialogs
+            clearAllEmergencyNotifications();
+            Log.d(TAG, "🔍 [RESPOND_NOW] Cleared all emergency notifications and dialogs");
+            
+            // Dismiss dialog immediately
+            dialog.dismiss();
+            Log.d(TAG, "🔍 [RESPOND_NOW] Dialog dismissed successfully");
+            
+            // Assign this rescuer to the emergency (this will send notification to senior)
+            if (requestId != null) {
+                Log.d(TAG, "🔍 [RESPOND_NOW] Calling assignRescuerToEmergencyById with requestId: " + requestId);
+                assignRescuerToEmergencyById(requestId);
+            } else {
+                Log.w(TAG, "⚠️ No request ID available, using fallback method");
+                // For fallback, we still need to assign the rescuer
+                assignRescuerToEmergency(seniorName, locationAddress, System.currentTimeMillis());
+            }
+            
+            // Show confirmation to rescuer
+            Toast.makeText(this, getString(R.string.toast_assigned_to_emergency), Toast.LENGTH_LONG).show();
+            Log.d(TAG, "🔍 [RESPOND_NOW] Toast shown to rescuer");
+        });
+        
+        // Decline button
+        builder.setNegativeButton(getString(R.string.button_decline), (dialog, which) -> {
+            Log.d(TAG, "🚨 DECLINE BUTTON CLICKED");
+            isEmergencyDialogShowing = false;
+            // Optionally notify that rescuer declined
+        });
+        
+        // Show the dialog
+        try {
+            AlertDialog dialog = builder.create();
+            dialog.show();
+            Log.d(TAG, "✅ Emergency SOS alert dialog shown successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error showing emergency alert dialog: " + e.getMessage(), e);
+            isEmergencyDialogShowing = false;
+        }
     }
     
     private void showEmergencySOSAlert(String seniorName, String seniorPhone, String locationAddress, Long timestamp, String requestId) {
@@ -3663,6 +3777,28 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         launchEmergencyAssignmentActivity(seniorName, locationAddress, rescuerId, requestId);
     }
     
+    private void launchEmergencyAssignmentActivityWithLocation(String seniorName, String locationAddress, String rescuerId, String requestId, Double seniorLat, Double seniorLng) {
+        Log.d(TAG, "🔍 [LAUNCH] launchEmergencyAssignmentActivityWithLocation called for: " + seniorName);
+        Log.d(TAG, "🔍 [LAUNCH] GPS coordinates: " + seniorLat + ", " + seniorLng);
+        
+        Intent intent = new Intent(this, EmergencyAssignmentActivity.class);
+        intent.putExtra("senior_name", seniorName);
+        intent.putExtra("senior_phone", "Not available");
+        intent.putExtra("location_address", locationAddress);
+        intent.putExtra("senior_lat", seniorLat != null ? seniorLat : 0.0);
+        intent.putExtra("senior_lng", seniorLng != null ? seniorLng : 0.0);
+        intent.putExtra("assignment_time", System.currentTimeMillis());
+        intent.putExtra("request_id", requestId);
+        
+        // Generate emergency ID for tracking
+        String emergencyId = "EMERGENCY_" + System.currentTimeMillis() + "_" + rescuerId;
+        intent.putExtra("emergency_id", emergencyId);
+        
+        Log.d(TAG, "🔍 [LAUNCH] Starting EmergencyAssignmentActivity with GPS coordinates from notification...");
+        startActivity(intent);
+        Log.d(TAG, "🚀 Launched EmergencyAssignmentActivity for: " + seniorName + " with GPS coordinates from notification");
+    }
+    
     private void launchEmergencyAssignmentActivity(String seniorName, String locationAddress, String rescuerId, String requestId) {
         Log.d(TAG, "🚀🚀🚀 LAUNCHING EmergencyAssignmentActivity 🚀🚀🚀");
         Log.d(TAG, "🔍 [LAUNCH] Senior: " + seniorName);
@@ -3697,8 +3833,16 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 // Get senior's coordinates from database
                 getSeniorLocationAndLaunch(intent, emergency, rescuerId);
             } else {
-                // Fallback if emergency not found in local cache
+                // Fallback if emergency not found in local cache - try to get senior's current location
+                Log.w(TAG, "⚠️ Emergency not found in local cache, attempting to fetch senior's current location");
                 intent.putExtra("senior_phone", "Not available");
+                
+                // Try to extract senior UID from requestId and fetch current location
+                String seniorUid = extractUserIdFromRequestId(requestId);
+                if (seniorUid != null) {
+                    fetchSeniorCurrentLocationAndLaunch(intent, seniorUid, seniorName, rescuerId);
+                } else {
+                    // No senior UID available, use default location
         intent.putExtra("senior_lat", 0.0);
         intent.putExtra("senior_lng", 0.0);
         
@@ -3713,6 +3857,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         Log.d(TAG, "🔍 [LAUNCH] Starting EmergencyAssignmentActivity...");
         startActivity(intent);
         Log.d(TAG, "🚀 Launched EmergencyAssignmentActivity for: " + seniorName + " (fallback mode)");
+                }
             }
         } else {
             // Old system - no requestId available
@@ -3735,23 +3880,95 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     }
     
     private void getSeniorLocationAndLaunch(Intent intent, EmergencyQueueManager.EmergencyRequest emergency, String rescuerId) {
-        // Use location data directly from the emergency object (same as notification flow)
-        Log.d(TAG, "🔍 [SENIOR_LOCATION] Using location from emergency data");
+        Log.d(TAG, "🔍 [SENIOR_LOCATION] Fetching senior's current location from database");
         
+        // Extract senior UID from the emergency request ID
+        String seniorUid = extractUserIdFromRequestId(emergency.requestId);
+        
+        if (seniorUid != null) {
+            // Fetch senior's current location from their profile
+            db.collection("Sagip")
+                .document("users")
+                .collection("seniors")
+                .document(seniorUid)
+                .get()
+                        .addOnSuccessListener(documentSnapshot -> {
+                            if (documentSnapshot.exists()) {
+                                // Get senior's current location from latitude/longitude fields (not currentLocation string)
+                                Double seniorLat = documentSnapshot.getDouble("latitude");
+                                Double seniorLng = documentSnapshot.getDouble("longitude");
+                                
+                                if (seniorLat != null && seniorLng != null && seniorLat != 0.0 && seniorLng != 0.0) {
+                                    // Use the senior's current GPS coordinates
+                                    intent.putExtra("senior_lat", seniorLat);
+                                    intent.putExtra("senior_lng", seniorLng);
+                                    Log.d(TAG, "📍 Using senior's current GPS location from database: " + seniorLat + ", " + seniorLng);
+                                    
+                                    // Also get the address for display
+                                    String currentLocationAddress = documentSnapshot.getString("currentLocation");
+                                    if (currentLocationAddress != null && !currentLocationAddress.isEmpty()) {
+                                        Log.d(TAG, "📍 Senior's current address: " + currentLocationAddress);
+                                    }
+                                } else {
+                                    // Fallback to emergency location if current GPS location not available
+                                    if (emergency.location != null) {
+                                        double lat = emergency.location.getLatitude();
+                                        double lng = emergency.location.getLongitude();
+                                        intent.putExtra("senior_lat", lat);
+                                        intent.putExtra("senior_lng", lng);
+                                        Log.w(TAG, "⚠️ Senior current GPS location not available, using emergency location: " + lat + ", " + lng);
+                                    } else {
+                                        // Final fallback: Use default location
+                                        double defaultLat = 14.5995;
+                                        double defaultLng = 120.9842;
+                                        intent.putExtra("senior_lat", defaultLat);
+                                        intent.putExtra("senior_lng", defaultLng);
+                                        Log.w(TAG, "⚠️ No location data available, using fallback: " + defaultLat + ", " + defaultLng);
+                                    }
+                                }
+                        
+                        // Generate emergency ID for tracking
+                        String emergencyId = "EMERGENCY_" + System.currentTimeMillis() + "_" + rescuerId;
+                        intent.putExtra("emergency_id", emergencyId);
+                        
+                        // Debug: Check intent before launching
+                        String phoneInIntent = intent.getStringExtra("senior_phone");
+                        Log.d(TAG, "🔍 Phone in intent before launch: " + phoneInIntent);
+                        
+                        Log.d(TAG, "🔍 [LAUNCH] Starting EmergencyAssignmentActivity (with senior's current location)...");
+                        startActivity(intent);
+                        Log.d(TAG, "🚀 Launched EmergencyAssignmentActivity for: " + emergency.seniorName + " with current location data");
+                    } else {
+                        Log.w(TAG, "⚠️ Senior document not found, using emergency location");
+                        useEmergencyLocationAsFallback(intent, emergency, rescuerId);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Error fetching senior's current location: " + e.getMessage());
+                    Log.w(TAG, "⚠️ Using emergency location as fallback due to database error");
+                    useEmergencyLocationAsFallback(intent, emergency, rescuerId);
+                });
+        } else {
+            Log.w(TAG, "⚠️ Could not extract senior UID from request ID, using emergency location");
+            useEmergencyLocationAsFallback(intent, emergency, rescuerId);
+        }
+    }
+    
+    private void useEmergencyLocationAsFallback(Intent intent, EmergencyQueueManager.EmergencyRequest emergency, String rescuerId) {
         if (emergency.location != null) {
             // Use the location coordinates from the emergency data
             double lat = emergency.location.getLatitude();
             double lng = emergency.location.getLongitude();
             intent.putExtra("senior_lat", lat);
             intent.putExtra("senior_lng", lng);
-            Log.d(TAG, "📍 Using senior location from emergency data: " + lat + ", " + lng);
+            Log.d(TAG, "📍 Using emergency location as fallback: " + lat + ", " + lng);
         } else {
-            // Fallback: Use a default location if emergency location is not available
+            // Final fallback: Use a default location
             double defaultLat = 14.5995; // Manila coordinates as fallback
             double defaultLng = 120.9842;
             intent.putExtra("senior_lat", defaultLat);
             intent.putExtra("senior_lng", defaultLng);
-            Log.w(TAG, "⚠️ Emergency location not available, using fallback: " + defaultLat + ", " + defaultLng);
+            Log.w(TAG, "⚠️ No location data available, using default: " + defaultLat + ", " + defaultLng);
         }
         
         // Generate emergency ID for tracking
@@ -3760,11 +3977,85 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         
         // Debug: Check intent before launching
         String phoneInIntent = intent.getStringExtra("senior_phone");
-        Log.d(TAG, "🔍 Phone in intent before launch: " + phoneInIntent);
+        Log.d(TAG, "🔍 Phone in intent before launch (fallback): " + phoneInIntent);
         
-        Log.d(TAG, "🔍 [LAUNCH] Starting EmergencyAssignmentActivity (with emergency location data)...");
+        Log.d(TAG, "🔍 [LAUNCH] Starting EmergencyAssignmentActivity (with fallback location)...");
         startActivity(intent);
-        Log.d(TAG, "🚀 Launched EmergencyAssignmentActivity for: " + emergency.seniorName + " with emergency location data");
+        Log.d(TAG, "🚀 Launched EmergencyAssignmentActivity for: " + emergency.seniorName + " with fallback location data");
+    }
+    
+    private void fetchSeniorCurrentLocationAndLaunch(Intent intent, String seniorUid, String seniorName, String rescuerId) {
+        Log.d(TAG, "🔍 [SENIOR_LOCATION_FALLBACK] Fetching senior's current location from database for UID: " + seniorUid);
+        
+        // Fetch senior's current location from their profile
+        db.collection("Sagip")
+            .document("users")
+            .collection("seniors")
+            .document(seniorUid)
+            .get()
+                    .addOnSuccessListener(documentSnapshot -> {
+                        if (documentSnapshot.exists()) {
+                            // Get senior's current location from latitude/longitude fields (not currentLocation string)
+                            Double seniorLat = documentSnapshot.getDouble("latitude");
+                            Double seniorLng = documentSnapshot.getDouble("longitude");
+                            
+                            if (seniorLat != null && seniorLng != null && seniorLat != 0.0 && seniorLng != 0.0) {
+                                // Use the senior's current GPS coordinates
+                                intent.putExtra("senior_lat", seniorLat);
+                                intent.putExtra("senior_lng", seniorLng);
+                                Log.d(TAG, "📍 Using senior's current GPS location from database (fallback): " + seniorLat + ", " + seniorLng);
+                                
+                                // Also get the address for display
+                                String currentLocationAddress = documentSnapshot.getString("currentLocation");
+                                if (currentLocationAddress != null && !currentLocationAddress.isEmpty()) {
+                                    Log.d(TAG, "📍 Senior's current address (fallback): " + currentLocationAddress);
+                                }
+                            } else {
+                                // Fallback: Use default location
+                                double defaultLat = 14.5995;
+                                double defaultLng = 120.9842;
+                                intent.putExtra("senior_lat", defaultLat);
+                                intent.putExtra("senior_lng", defaultLng);
+                                Log.w(TAG, "⚠️ Senior current GPS location not available, using default: " + defaultLat + ", " + defaultLng);
+                            }
+                } else {
+                    // Senior document not found, use default location
+                    double defaultLat = 14.5995;
+                    double defaultLng = 120.9842;
+                    intent.putExtra("senior_lat", defaultLat);
+                    intent.putExtra("senior_lng", defaultLng);
+                    Log.w(TAG, "⚠️ Senior document not found, using default location: " + defaultLat + ", " + defaultLng);
+                }
+                
+                // Generate emergency ID for tracking
+                String emergencyId = "EMERGENCY_" + System.currentTimeMillis() + "_" + rescuerId;
+                intent.putExtra("emergency_id", emergencyId);
+                
+                // Debug: Check intent before launching
+                String phoneInIntent = intent.getStringExtra("senior_phone");
+                Log.d(TAG, "🔍 Phone in intent before launch (fallback): " + phoneInIntent);
+                
+                Log.d(TAG, "🔍 [LAUNCH] Starting EmergencyAssignmentActivity (with senior's current location fallback)...");
+                startActivity(intent);
+                Log.d(TAG, "🚀 Launched EmergencyAssignmentActivity for: " + seniorName + " with current location data (fallback)");
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "❌ Error fetching senior's current location (fallback): " + e.getMessage());
+                
+                // Use default location on error
+                double defaultLat = 14.5995;
+                double defaultLng = 120.9842;
+                intent.putExtra("senior_lat", defaultLat);
+                intent.putExtra("senior_lng", defaultLng);
+                
+                // Generate emergency ID for tracking
+                String emergencyId = "EMERGENCY_" + System.currentTimeMillis() + "_" + rescuerId;
+                intent.putExtra("emergency_id", emergencyId);
+                
+                Log.d(TAG, "🔍 [LAUNCH] Starting EmergencyAssignmentActivity (with default location due to error)...");
+                startActivity(intent);
+                Log.d(TAG, "🚀 Launched EmergencyAssignmentActivity for: " + seniorName + " with default location due to error");
+            });
     }
     
     private String extractUserIdFromRequestId(String requestId) {

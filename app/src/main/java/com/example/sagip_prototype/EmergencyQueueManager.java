@@ -139,6 +139,9 @@ public class EmergencyQueueManager {
         Log.d(TAG, "🚨🚨🚨 [EMERGENCY_QUEUE_MANAGER] Active emergencies count: " + activeEmergencies.size());
         Log.d(TAG, "🚨🚨🚨 [EMERGENCY_QUEUE_MANAGER] Stack trace: " + java.util.Arrays.toString(Thread.currentThread().getStackTrace()));
         
+        // Add a test log to verify this method is being called
+        Log.d(TAG, "🔍 [DEBUG] assignRescuer method is being executed - this should appear in logs when rescuer clicks Respond Now");
+        
         boolean found = false;
         for (EmergencyRequest request : activeEmergencies) {
             Log.d(TAG, "🔍 [EMERGENCY_QUEUE_MANAGER] Checking emergency: " + request.requestId + " vs " + requestId);
@@ -156,6 +159,7 @@ public class EmergencyQueueManager {
                 
                 // Send notification to senior about rescuer response
                 Log.d(TAG, "🔍 [EMERGENCY_QUEUE_MANAGER] About to call sendRescuerResponseNotificationToSenior...");
+                Log.d(TAG, "🔍 [DEBUG] This should appear in logs when senior notification is being sent");
                 sendRescuerResponseNotificationToSenior(requestId, rescuerId);
                 Log.d(TAG, "🔍 [EMERGENCY_QUEUE_MANAGER] sendRescuerResponseNotificationToSenior called");
                 
@@ -282,6 +286,13 @@ public class EmergencyQueueManager {
                                                     Log.d(TAG, "📱 Notification ID: " + documentReference.getId());
                                                     Log.d(TAG, "📱 Notification details - Rescuer: " + rescuerName + ", Phone: " + rescuerPhone + ", Team: " + rescuerTeam);
                                                     Log.d(TAG, "📱 ETA: " + etaMinutes + " minutes, Distance: " + distance + " km");
+                                                    Log.d(TAG, "📱 Notification path: Sagip/users/seniors/" + seniorUid + "/notifications");
+                                                    Log.d(TAG, "📱 Notification type: RESCUER_RESPONSE");
+                                                    Log.d(TAG, "📱 Notification title: " + rescuerResponseNotification.get("title"));
+                                                    Log.d(TAG, "📱 Notification message: " + rescuerResponseNotification.get("message"));
+                                                    
+                                                    // Also send FCM notification to ensure senior receives it
+                                                    sendFCMNotificationToSenior(seniorUid, rescuerResponseNotification);
                                                 })
                                                 .addOnFailureListener(e -> {
                                                     Log.e(TAG, "❌ Failed to send rescuer response notification to senior", e);
@@ -544,8 +555,22 @@ public class EmergencyQueueManager {
                                 request.priority = 4; // Default priority
                             }
                             
-                            // Don't add to local queue again - it's already there
-                            // addEmergencyRequest(request);
+                            // Add to local queue if not already there
+                            boolean exists = false;
+                            for (EmergencyRequest existing : activeEmergencies) {
+                                if (existing.requestId != null && existing.requestId.equals(request.requestId)) {
+                                    exists = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (!exists) {
+                                Log.d(TAG, "🔍 [LOAD_FROM_DB] Adding emergency to local queue: " + request.requestId);
+                                activeEmergencies.add(request);
+                                sortByFIFO();
+                            } else {
+                                Log.d(TAG, "🔍 [LOAD_FROM_DB] Emergency already exists in local queue: " + request.requestId);
+                            }
                             
                             callback.onEmergencyLoaded(request);
                         } else {
@@ -593,8 +618,22 @@ public class EmergencyQueueManager {
                                 request.priority = 4; // Default priority
                             }
                             
-                            // Don't add to local queue again - it's already there
-                            // addEmergencyRequest(request);
+                            // Add to local queue if not already there
+                            boolean exists = false;
+                            for (EmergencyRequest existing : activeEmergencies) {
+                                if (existing.requestId != null && existing.requestId.equals(request.requestId)) {
+                                    exists = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (!exists) {
+                                Log.d(TAG, "🔍 [LOAD_FROM_DB] Adding emergency to local queue: " + request.requestId);
+                                activeEmergencies.add(request);
+                                sortByFIFO();
+                            } else {
+                                Log.d(TAG, "🔍 [LOAD_FROM_DB] Emergency already exists in local queue: " + request.requestId);
+                            }
                             
                             callback.onEmergencyLoaded(request);
                         } else {
@@ -714,6 +753,15 @@ public class EmergencyQueueManager {
         notificationData.put("priority", request.priority);
         notificationData.put("emergencyType", request.emergencyType);
         
+        // Add GPS coordinates for accurate navigation
+        if (request.location != null) {
+            notificationData.put("seniorLat", request.location.getLatitude());
+            notificationData.put("seniorLng", request.location.getLongitude());
+            Log.d(TAG, "📍 Added GPS coordinates to notification: " + request.location.getLatitude() + ", " + request.location.getLongitude());
+        } else {
+            Log.w(TAG, "⚠️ No GPS coordinates available for notification");
+        }
+        
         db.collection("Sagip/users/rescuer/" + rescuerId + "/emergencyNotifications")
                 .add(notificationData)
                 .addOnSuccessListener(documentReference -> {
@@ -806,9 +854,9 @@ public class EmergencyQueueManager {
                         String fcmToken = documentSnapshot.getString("fcmToken");
                         if (fcmToken != null && !fcmToken.isEmpty()) {
                             Log.d(TAG, "📱 FCM Token found for senior user: " + fcmToken.substring(0, Math.min(20, fcmToken.length())) + "...");
-                            // TODO: Send FCM message using Firebase Admin SDK or HTTP API
-                            // For now, we'll log that we would send it
-                            Log.d(TAG, "📱 Would send FCM notification with data: " + notificationData);
+                            
+                            // Send FCM notification using Firebase Functions approach
+                            sendRealFCMNotificationToSenior(fcmToken, notificationData);
                         } else {
                             Log.w(TAG, "⚠️ No FCM token found for senior user: " + seniorUserId);
                         }
@@ -818,6 +866,36 @@ public class EmergencyQueueManager {
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "❌ Error getting FCM token for senior user: " + seniorUserId, e);
+                });
+    }
+    
+    private void sendRealFCMNotificationToSenior(String fcmToken, Map<String, Object> notificationData) {
+        Log.d(TAG, "📱 Sending real FCM notification to senior token: " + fcmToken.substring(0, Math.min(20, fcmToken.length())) + "...");
+        
+        // Save notification to Firestore to trigger Firebase Function
+        Map<String, Object> fcmNotificationData = new java.util.HashMap<>();
+        fcmNotificationData.put("type", "RESCUER_RESPONSE");
+        fcmNotificationData.put("title", notificationData.get("title"));
+        fcmNotificationData.put("message", notificationData.get("message"));
+        fcmNotificationData.put("rescuerName", notificationData.get("rescuerName"));
+        fcmNotificationData.put("rescuerPhone", notificationData.get("rescuerPhone"));
+        fcmNotificationData.put("rescuerTeam", notificationData.get("rescuerTeam"));
+        fcmNotificationData.put("requestId", notificationData.get("requestId"));
+        fcmNotificationData.put("etaMinutes", notificationData.get("etaMinutes"));
+        fcmNotificationData.put("distanceKm", notificationData.get("distanceKm"));
+        fcmNotificationData.put("targetToken", fcmToken);
+        fcmNotificationData.put("timestamp", System.currentTimeMillis());
+        
+        // Save to FCM notifications collection to trigger Firebase Function
+        db.collection("Sagip")
+                .document("fcmNotifications")
+                .collection("seniorNotifications")
+                .add(fcmNotificationData)
+                .addOnSuccessListener(documentReference -> {
+                    Log.d(TAG, "✅ FCM notification data saved to trigger Firebase Function: " + documentReference.getId());
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Failed to save FCM notification data: " + e.getMessage());
                 });
     }
     
@@ -1098,6 +1176,47 @@ public class EmergencyQueueManager {
         } else {
             Log.w(TAG, "⚠️ [SMS_PERMISSION] SMS permission denied - emergency contacts will not be notified");
         }
+    }
+
+    /**
+     * Test method to send a direct notification to senior for debugging
+     * This bypasses the normal flow to test if the SeniorNotificationService is working
+     */
+    public void sendTestNotificationToSenior(String seniorUid) {
+        Log.d(TAG, "🧪 [TEST_NOTIFICATION] Sending test notification to senior: " + seniorUid);
+        
+        // Create test notification data
+        Map<String, Object> testNotification = new java.util.HashMap<>();
+        testNotification.put("type", "RESCUER_RESPONSE");
+        testNotification.put("title", "🧪 TEST - Help is on the way! (Test Notification)");
+        testNotification.put("message", "Test Rescuer from Test Rescue Team is responding to your emergency. ETA: 5 min");
+        testNotification.put("rescuerName", "Test Rescuer");
+        testNotification.put("rescuerPhone", "1234567890");
+        testNotification.put("rescuerTeam", "Test Rescue Team");
+        testNotification.put("requestId", "TEST_" + System.currentTimeMillis());
+        testNotification.put("emergency_status", "assigned");
+        testNotification.put("assigned_rescuer_id", "test_rescuer_id");
+        testNotification.put("etaMinutes", 5.0);
+        testNotification.put("distanceKm", 2.5);
+        testNotification.put("timestamp", System.currentTimeMillis());
+        testNotification.put("isRead", false);
+        testNotification.put("isActive", true);
+        
+        // Send directly to senior's notification collection
+        db.collection("Sagip")
+                .document("users")
+                .collection("seniors")
+                .document(seniorUid)
+                .collection("notifications")
+                .add(testNotification)
+                .addOnSuccessListener(documentReference -> {
+                    Log.d(TAG, "✅ [TEST_NOTIFICATION] Test notification sent successfully to senior: " + seniorUid);
+                    Log.d(TAG, "✅ [TEST_NOTIFICATION] Notification ID: " + documentReference.getId());
+                    Log.d(TAG, "✅ [TEST_NOTIFICATION] This should trigger SeniorNotificationService if it's working");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ [TEST_NOTIFICATION] Failed to send test notification to senior: " + e.getMessage());
+                });
     }
 
     /**

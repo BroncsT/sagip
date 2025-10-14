@@ -82,6 +82,9 @@ public class SeniorNotificationService {
                     Log.d(TAG, "📱 Notification listener triggered - documents: " + (querySnapshot != null ? querySnapshot.size() : 0));
                     if (querySnapshot != null && !querySnapshot.isEmpty()) {
                         Log.d(TAG, "📱 Processing " + querySnapshot.size() + " notification documents");
+                        for (QueryDocumentSnapshot doc : querySnapshot) {
+                            Log.d(TAG, "📱 Document ID: " + doc.getId() + ", Type: " + doc.getString("type") + ", IsRead: " + doc.getBoolean("isRead"));
+                        }
                     }
                     
                     if (querySnapshot != null && !querySnapshot.isEmpty()) {
