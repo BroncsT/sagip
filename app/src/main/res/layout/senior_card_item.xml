@@ -4,44 +4,50 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="8dp"
+    android:layout_marginStart="8dp"
+    android:layout_marginEnd="8dp"
+    android:layout_marginBottom="12dp"
     android:clickable="true"
     android:focusable="true"
-    android:background="@color/offwhite"
-    app:cardElevation="3dp">
+    android:foreground="?android:attr/selectableItemBackground"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="4dp"
+    app:cardBackgroundColor="@color/white"
+    app:strokeWidth="0dp">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:padding="15dp">
+        android:padding="20dp">
 
+        <!-- Profile Image with enhanced styling -->
         <ImageView
             android:id="@+id/seniorImgView"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
+            android:layout_width="70dp"
+            android:layout_height="70dp"
+            android:layout_marginStart="4dp"
             android:adjustViewBounds="true"
-            android:background="@drawable/circle_background"
+            android:background="@drawable/profile_image_background"
             android:cropToPadding="true"
-            android:padding="2dp"
+            android:padding="3dp"
             android:scaleType="centerCrop"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            tools:srcCompat="@tools:sample/avatars" />
+            app:layout_constraintTop_toTopOf="parent" />
 
+        <!-- Text Container -->
         <LinearLayout
             android:id="@+id/textContainer"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:gravity="center_vertical"
+            android:layout_marginStart="20dp"
             android:orientation="vertical"
             app:layout_constraintBottom_toBottomOf="@id/seniorImgView"
-            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/actionContainer"
             app:layout_constraintStart_toEndOf="@id/seniorImgView"
             app:layout_constraintTop_toTopOf="@id/seniorImgView">
 
+            <!-- Senior Name -->
             <TextView
                 android:id="@+id/seniorProfileName"
                 android:layout_width="match_parent"
@@ -49,52 +55,70 @@
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:textColor="@color/black"
-                android:textSize="22sp"
+                android:textSize="20sp"
                 android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"
                 tools:hint="Juan Dela Cruz" />
 
+            <!-- Age -->
             <TextView
                 android:id="@+id/seniorAge"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:gravity="start"
-                android:textColor="@color/black"
-                android:textSize="16sp"
-                tools:hint="Age: 65" />
+                android:layout_marginTop="6dp"
+                android:textColor="@color/gray"
+                android:textSize="15sp"
+                android:fontFamily="sans-serif"
+                tools:hint="Age: 65 years old" />
 
-            <LinearLayout
+            <!-- Phone Number -->
+            <TextView
+                android:id="@+id/seniorAddress"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:id="@+id/seniorAddress"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:maxLines="1"
-                    android:textColor="@color/black"
-                    android:textSize="16sp"
-                    tools:hint="Phone: +63 961 011 3560" />
-
-                <TextView
-                    android:id="@+id/viewSeniorProfile"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="end"
-                    android:maxLines="1"
-                    android:clickable="true"
-                    android:contextClickable="true"
-                    android:focusable="true"
-                    android:layout_marginEnd="5dp"
-                    android:text="View Profile"
-                    android:textColor="@color/backgroundRed"
-                    android:textStyle="bold"
-                    android:textSize="16sp" />
-            </LinearLayout>
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/gray"
+                android:textSize="14sp"
+                android:fontFamily="sans-serif"
+                tools:hint="+63 961 011 3560" />
 
         </LinearLayout>
+
+        <!-- Action Container -->
+        <LinearLayout
+            android:id="@+id/actionContainer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <!-- View Profile Button -->
+            <TextView
+                android:id="@+id/viewSeniorProfile"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/view_profile_button"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:minWidth="100dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:text="View Profile"
+                android:textColor="@color/white"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium" />
+
+        </LinearLayout>
+
     </androidx.constraintlayout.widget.ConstraintLayout>
 
 </com.google.android.material.card.MaterialCardView>

@@ -1,6 +1,7 @@
 package com.example.sagip_prototype;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -22,6 +23,12 @@ public class Barangay_Profile extends BaseProfileActivity {
         FirebaseAuth mAuth;
         FirebaseFirestore db;
         FirebaseStorage storage;
+        
+        private static final String PREF_NAME = "SagipAppPrefs";
+        private static final String KEY_CACHED_BARANGAY_NAME = "cachedBarangayName";
+        private static final String KEY_CACHED_EMAIL = "cachedEmail";
+        private SharedPreferences sharedPreferences;
+        private boolean dataLoaded = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -30,6 +37,7 @@ public class Barangay_Profile extends BaseProfileActivity {
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
         storage = FirebaseStorage.getInstance();
+        sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
         setContentView(R.layout.activity_barangay_profile);
         
         // Add language selection functionality
@@ -74,6 +82,14 @@ public class Barangay_Profile extends BaseProfileActivity {
             }
         });
 
+        // Load cached data immediately for instant display
+        loadCachedData();
+        
+        // Load user data only if not already loaded
+        if (!dataLoaded) {
+            loadUserData();
+        }
+
         BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavBar2);
         bottomNavigationView.setSelectedItemId(R.id.barangay_profile);
 
@@ -95,6 +111,100 @@ public class Barangay_Profile extends BaseProfileActivity {
             }
             return false;
         });
+    }
+
+    private void loadCachedData() {
+        TextView profileName = findViewById(R.id.profileName);
+        TextView profileEmail = findViewById(R.id.profileEmail);
+        
+        // Load cached barangay name
+        String cachedBarangayName = sharedPreferences.getString(KEY_CACHED_BARANGAY_NAME, null);
+        if (cachedBarangayName != null) {
+            profileName.setText(cachedBarangayName);
+            Log.d("Barangay_Profile", "Loaded cached barangay name: " + cachedBarangayName);
+        }
+        
+        // Load cached email
+        String cachedEmail = sharedPreferences.getString(KEY_CACHED_EMAIL, null);
+        if (cachedEmail != null) {
+            profileEmail.setText(cachedEmail);
+            Log.d("Barangay_Profile", "Loaded cached email: " + cachedEmail);
+        }
+    }
+
+    private void loadUserData() {
+        if (mAuth.getCurrentUser() == null) {
+            Log.e("Barangay_Profile", "User not authenticated");
+            return;
+        }
+
+        // Prevent duplicate loading
+        if (dataLoaded) {
+            Log.d("Barangay_Profile", "Data already loaded, skipping loadUserData");
+            return;
+        }
+
+        String uid = mAuth.getCurrentUser().getUid();
+        String userType = "barangay";
+
+        db.collection("Sagip")
+                .document("users")
+                .collection(userType)
+                .document(uid)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String barangayNameValue = documentSnapshot.getString("barangayName");
+                        String authEmail = mAuth.getCurrentUser().getEmail();
+
+                        // Update UI elements
+                        TextView profileName = findViewById(R.id.profileName);
+                        TextView profileEmail = findViewById(R.id.profileEmail);
+
+                        // Display barangay name in the profileName field
+                        if (barangayNameValue != null) {
+                            profileName.setText(barangayNameValue);
+                            // Cache the barangay name
+                            cacheBarangayName(barangayNameValue);
+                        }
+
+                        // Get email from Firebase Authentication
+                        if (authEmail != null) {
+                            profileEmail.setText(authEmail);
+                            // Cache the email
+                            cacheEmail(authEmail);
+                        }
+
+                        dataLoaded = true;
+                        Log.d("Barangay_Profile", "User data loaded successfully");
+                    } else {
+                        Log.e("Barangay_Profile", "User document not found");
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("Barangay_Profile", "Error loading user data: " + e.getMessage());
+                });
+    }
+
+    private void cacheBarangayName(String barangayName) {
+        sharedPreferences.edit()
+                .putString(KEY_CACHED_BARANGAY_NAME, barangayName)
+                .apply();
+        Log.d("Barangay_Profile", "Cached barangay name: " + barangayName);
+    }
+
+    private void cacheEmail(String email) {
+        sharedPreferences.edit()
+                .putString(KEY_CACHED_EMAIL, email)
+                .apply();
+        Log.d("Barangay_Profile", "Cached email: " + email);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Reload cached data when returning to the activity
+        loadCachedData();
     }
 
     @Override

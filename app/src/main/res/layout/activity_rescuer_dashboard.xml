@@ -232,40 +232,10 @@
             </LinearLayout>
 
             <!-- Test SMS Button (for debugging) -->
-            <Button
-                android:id="@+id/btnTestSMS"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="🧪 Test SMS"
-                android:textSize="14sp"
-                android:textColor="@color/white"
-                android:background="@drawable/button_background"
-                android:layout_marginBottom="10dp"
-                android:visibility="gone" />
-                
+
             <!-- Debug Emergency Contacts Button (for debugging) -->
-            <Button
-                android:id="@+id/btnDebugContacts"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="🔍 Debug Emergency Contacts"
-                android:textSize="14sp"
-                android:textColor="@color/white"
-                android:background="@drawable/button_background"
-                android:layout_marginBottom="10dp"
-                android:visibility="gone" />
-                
+
             <!-- Test Emergency Flow Button (for debugging) -->
-            <Button
-                android:id="@+id/btnTestEmergencyFlow"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="🚨 Test Emergency Flow"
-                android:textSize="14sp"
-                android:textColor="@color/white"
-                android:background="@drawable/button_background"
-                android:layout_marginBottom="10dp"
-                android:visibility="gone" />
 
             <!-- Quick Actions Section -->
 

@@ -764,11 +764,11 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
-        
+
         // Apply saved language preference
         String savedLanguage = LanguageSelectionActivity.getSavedLanguage(this);
         LanguageSelectionActivity.setAppLanguage(this, savedLanguage);
-        
+
         setContentView(R.layout.activity_rescuer_dashboard);
 
 		// Initialize Google Map fragment inside the container
@@ -813,21 +813,21 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         db = FirebaseFirestore.getInstance();
         brgyName = findViewById(R.id.barangayStaffName);
         currentLocationText = findViewById(R.id.currentLocationValue);
-        
+
         // Initialize route control panel
         routeControlPanel = findViewById(R.id.routeControlPanel);
         routeInfoText = findViewById(R.id.routeInfoText);
         btnClearRoute = findViewById(R.id.btnClearRoute);
-        
+
         // Set up clear route button
         btnClearRoute.setOnClickListener(v -> clearRoute());
-        
+
         // Initialize executor service for route requests
         executorService = Executors.newSingleThreadExecutor();
-        
+
         // Initialize emergency queue manager
         EmergencyQueueManager.getInstance(this).loadActiveEmergenciesFromDatabase();
-        
+
         // Handle emergency notification if app was opened from notification
         handleEmergencyNotificationIntent();
 
@@ -851,10 +851,6 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
 
         // Initialize FCM token for notifications
         initializeFCMToken();
-        
-        // Setup test SMS button (for debugging)
-        setupTestSMSButton();
-
         createNotificationChannel();
 
         // Clear any old emergency notifications on startup
@@ -1263,9 +1259,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             emergencyListener.remove();
             emergencyListener = null;
         }
-        
-        // Stop background notification service
-        // Stop all notification services when logging out
+
         stopAllNotificationServices();
 
         // Clear stored credentials
@@ -2690,73 +2684,6 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             .show();
     }
 
-    /**
-     * Setup test SMS button for debugging
-     */
-    private void setupTestSMSButton() {
-        Button testSMSButton = findViewById(R.id.btnTestSMS);
-        if (testSMSButton != null) {
-            // Show button in debug mode
-            testSMSButton.setVisibility(View.VISIBLE);
-            
-            testSMSButton.setOnClickListener(v -> {
-                Log.d(TAG, "🧪 Test SMS button clicked");
-                
-                if (PermissionManager.hasSMSPermission(this)) {
-                    // Permission granted, send test SMS
-                    EmergencyContactSMSService smsService = EmergencyContactSMSService.getInstance(this);
-                    smsService.sendTestSMS("+639123456789", "🧪 Test SMS from SAGIP Emergency System - SMS functionality is working!");
-                    
-                    Toast.makeText(this, "Test SMS sent! Check the logs for details.", Toast.LENGTH_LONG).show();
-                } else {
-                    // No permission, request it
-                    Toast.makeText(this, "SMS permission not granted. Please grant permission first.", Toast.LENGTH_LONG).show();
-                    PermissionManager.requestSMSPermission(this);
-                }
-            });
-        }
-        
-        // Add debug emergency contacts button
-        Button debugContactsButton = findViewById(R.id.btnDebugContacts);
-        if (debugContactsButton != null) {
-            debugContactsButton.setVisibility(View.VISIBLE);
-            
-            debugContactsButton.setOnClickListener(v -> {
-                Log.d(TAG, "🔍 Debug emergency contacts button clicked");
-                
-                // Get current user UID for testing
-                FirebaseUser currentUser = mAuth.getCurrentUser();
-                if (currentUser != null) {
-                    String uid = currentUser.getUid();
-                    Log.d(TAG, "🔍 Testing emergency contacts for UID: " + uid);
-                    
-                    EmergencyContactSMSService smsService = EmergencyContactSMSService.getInstance(this);
-                    smsService.debugEmergencyContacts(uid);
-                    
-                    Toast.makeText(this, "Debug emergency contacts - check logs for details", Toast.LENGTH_LONG).show();
-                } else {
-                    Toast.makeText(this, "No user logged in", Toast.LENGTH_SHORT).show();
-                }
-            });
-        }
-        
-        // Add test emergency flow button
-        Button testEmergencyFlowButton = findViewById(R.id.btnTestEmergencyFlow);
-        if (testEmergencyFlowButton != null) {
-            testEmergencyFlowButton.setVisibility(View.VISIBLE);
-            
-            testEmergencyFlowButton.setOnClickListener(v -> {
-                Log.d(TAG, "🚨 Test emergency flow button clicked");
-                
-                // Test the complete emergency SMS flow
-                testEmergencySMSFlow();
-            });
-        }
-    }
-
-    /**
-     * Test the complete emergency SMS flow
-     */
     private void testEmergencySMSFlow() {
         Log.d(TAG, "🚨 Testing complete emergency SMS flow...");
         

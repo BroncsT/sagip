@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -33,6 +34,7 @@ public class Barangay_List extends AppCompatActivity implements SeniorAdapter.On
     private SeniorAdapter seniorAdapter;
     private List<Senior> seniorsList;
     private TextView noSeniorsText;
+    private LinearLayout noSeniorsContainer;
     private TextView labelProfile;
     private ImageView backButton;
     private ImageView notificationButton;
@@ -105,6 +107,7 @@ public class Barangay_List extends AppCompatActivity implements SeniorAdapter.On
     private void initializeViews() {
         seniorsRecyclerView = findViewById(R.id.seniorsRecyclerView);
         noSeniorsText = findViewById(R.id.noSeniorsText);
+        noSeniorsContainer = findViewById(R.id.noSeniorsContainer);
         labelProfile = findViewById(R.id.labelProfile);
         backButton = findViewById(R.id.backButton);
         notificationButton = findViewById(R.id.notification);
@@ -388,12 +391,12 @@ public class Barangay_List extends AppCompatActivity implements SeniorAdapter.On
 
     private void showNoSeniorsMessage(String message) {
         noSeniorsText.setText(message);
-        noSeniorsText.setVisibility(View.VISIBLE);
+        noSeniorsContainer.setVisibility(View.VISIBLE);
         seniorsRecyclerView.setVisibility(View.GONE);
     }
 
     private void hideNoSeniorsMessage() {
-        noSeniorsText.setVisibility(View.GONE);
+        noSeniorsContainer.setVisibility(View.GONE);
         seniorsRecyclerView.setVisibility(View.VISIBLE);
     }
 
