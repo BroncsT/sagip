@@ -34,6 +34,7 @@ import com.google.firebase.auth.PhoneAuthProvider;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.QuerySnapshot;
+import com.google.firebase.messaging.FirebaseMessaging;
 
 import java.util.concurrent.TimeUnit;
 
@@ -224,6 +225,8 @@ public class MainActivity extends AppCompatActivity {
         if (phoneNumber != null) {
             userEditor.putString("user_phone", phoneNumber);
         }
+        // Clear logout flag since user is now logged in
+        userEditor.putBoolean("user_logged_out", false);
         userEditor.apply();
         
         // Start notification services in background thread to prevent ANR
@@ -232,22 +235,8 @@ public class MainActivity extends AppCompatActivity {
                 // Verify FCM token registration for notifications
                 FCMTokenManager.verifyTokenRegistration(this);
                 
-                // Start appropriate notification service based on user type
-                if ("rescuer".equals(userType)) {
-                    // Start dedicated rescuer foreground service for reliable notifications when app is closed
-                    startRescuerForegroundService();
-                    // Start hospital status notification service for immediate hospital updates
-                    startHospitalStatusNotificationService();
-                    // Emergency notification service disabled to prevent duplicate notifications
-                    // EmergencySOSBackgroundService handles emergency notifications
-                    // startEmergencyNotificationService();
-                } else if ("hospital".equals(userType)) {
-                    // Start hospital status reminder service for status update notifications
-                    startHospitalStatusReminderService();
-                } else {
-                    // Start general background service for other user types
-                    startBackgroundNotificationService();
-                }
+                // Use BackgroundServiceManager to start appropriate services based on user type
+                BackgroundServiceManager.startBackgroundServicesForUser(this, userType);
                 
                 // Also start WorkManager for reliable background notifications (FCM alternative)
                 NotificationWorkManager.startNotificationMonitoring(this);
@@ -318,6 +307,34 @@ public class MainActivity extends AppCompatActivity {
         // Reset fresh install flag so next launch will be treated as fresh
         editor.putBoolean("FRESH_INSTALL_FLAG", true);
         editor.apply();
+        
+        // Set logout flag to prevent services from restarting
+        SharedPreferences userPrefs = getSharedPreferences("user_prefs", MODE_PRIVATE);
+        SharedPreferences.Editor userEditor = userPrefs.edit();
+        userEditor.putBoolean("user_logged_out", true);
+        userEditor.remove("user_id");
+        userEditor.remove("user_type");
+        userEditor.remove("user_phone");
+        userEditor.apply();
+        
+        // Stop all background services and clear notifications
+        BackgroundServiceManager.stopAllBackgroundServices(this);
+        
+        // Clear FCM token to prevent notifications from being sent to old user
+        try {
+            FirebaseMessaging.getInstance().deleteToken()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        Log.d(TAG, "FCM token deleted successfully");
+                    } else {
+                        Log.w(TAG, "Failed to delete FCM token: " + task.getException());
+                    }
+                });
+        } catch (Exception e) {
+            Log.w(TAG, "Error deleting FCM token: " + e.getMessage());
+        }
+        
+        Log.d(TAG, "Logout flag set to prevent service restarts and FCM token cleared");
     }
 
     private void initializeUI() {
@@ -1468,6 +1485,19 @@ public class MainActivity extends AppCompatActivity {
         Toast.makeText(MainActivity.this, "Error finding user profile. Please login again.", Toast.LENGTH_SHORT).show();
         auth.signOut();
         clearStoredCredentials();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        Log.d(TAG, "MainActivity destroyed - cleaning up resources");
+        
+        // Stop all background services when activity is destroyed
+        try {
+            BackgroundServiceManager.stopAllBackgroundServices(this);
+        } catch (Exception e) {
+            Log.e(TAG, "Error stopping background services in onDestroy: " + e.getMessage());
+        }
     }
 
 }

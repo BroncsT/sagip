@@ -103,8 +103,10 @@ public class Hospital_Profile extends BaseProfileActivity {
                 .setMessage("Are you sure you want to logout?")
                 .setPositiveButton("Yes", (dialog, which) -> {
                     // User confirmed logout
-                    // Stop notification service FIRST
-                    stopStatusNotificationService();
+                    Log.d("Hospital_Profile", "🚪 User logging out - stopping all background services");
+                    
+                    // Stop ALL background services to prevent notifications to wrong user
+                    BackgroundServiceManager.stopAllBackgroundServices(this);
                     
                     // Clear stored credentials
                     clearStoredCredentials();

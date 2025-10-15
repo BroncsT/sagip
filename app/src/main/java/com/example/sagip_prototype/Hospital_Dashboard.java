@@ -602,8 +602,10 @@ public class Hospital_Dashboard extends AppCompatActivity {
 
     // Method to handle logout - clears stored credentials and signs out from Firebase
     public void logoutUser() {
-        // Cancel background notifications since user is logging out
-        cancelBackgroundNotifications();
+        Log.d("Hospital_Dashboard", "🚪 User logging out - stopping all background services");
+        
+        // Stop ALL background services to prevent notifications to wrong user
+        BackgroundServiceManager.stopAllBackgroundServices(this);
         
         // Clear stored credentials
         clearStoredCredentials();

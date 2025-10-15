@@ -147,6 +147,11 @@ public class Senior_Profile extends BaseProfileActivity {
                 .setMessage("Are you sure you want to log out?")
                 .setPositiveButton("Yes", (dialog, which) -> {
                     // Proceed with logout
+                    Log.d(TAG, "🚪 User logging out - stopping all background services");
+                    
+                    // Stop ALL background services to prevent notifications to wrong user
+                    BackgroundServiceManager.stopAllBackgroundServices(this);
+                    
                     // Clear stored credentials first
                     clearStoredCredentials();
                     

@@ -39,6 +39,15 @@ public class RescuerForegroundService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "🚨 RescuerForegroundService started");
         
+        // Check if user has logged out - if so, don't restart
+        SharedPreferences prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+        boolean isLoggedOut = prefs.getBoolean("user_logged_out", false);
+        if (isLoggedOut) {
+            Log.w(TAG, "⚠️ User has logged out, stopping RescuerForegroundService");
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+        
         // Check if user is a rescuer
         SharedPreferences sharedPreferences = getSharedPreferences("SagipAppPrefs", MODE_PRIVATE);
         String userType = sharedPreferences.getString("userType", null);

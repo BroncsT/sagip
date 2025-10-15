@@ -380,27 +380,44 @@ public class EmergencyQueueManager {
     
     // Method to notify barangay users about emergency in their area
     private void notifyBarangayUsers(EmergencyRequest request) {
+        Log.d(TAG, "🏘️ [BARANGAY_NOTIFICATION] Starting barangay notification process");
+        Log.d(TAG, "🏘️ [BARANGAY_NOTIFICATION] Request ID: " + request.requestId);
+        Log.d(TAG, "🏘️ [BARANGAY_NOTIFICATION] Senior: " + request.seniorName);
+        Log.d(TAG, "🏘️ [BARANGAY_NOTIFICATION] Barangay: '" + request.barangay + "'");
+        Log.d(TAG, "🏘️ [BARANGAY_NOTIFICATION] Location: " + request.locationAddress);
+        
         if (request.barangay == null || request.barangay.isEmpty()) {
-            Log.w(TAG, "⚠️ No barangay information available for emergency: " + request.requestId);
+            Log.e(TAG, "❌ [BARANGAY_NOTIFICATION] CRITICAL ERROR: No barangay information available for emergency: " + request.requestId);
+            Log.e(TAG, "❌ [BARANGAY_NOTIFICATION] This is why barangay users are not receiving notifications!");
+            Log.e(TAG, "❌ [BARANGAY_NOTIFICATION] Senior profile may be missing barangay field or it's empty");
+            Log.e(TAG, "❌ [BARANGAY_NOTIFICATION] Emergency request details:");
+            Log.e(TAG, "❌ [BARANGAY_NOTIFICATION] - Senior UID: " + request.seniorUid);
+            Log.e(TAG, "❌ [BARANGAY_NOTIFICATION] - Senior Name: " + request.seniorName);
+            Log.e(TAG, "❌ [BARANGAY_NOTIFICATION] - Location: " + request.locationAddress);
+            Log.e(TAG, "❌ [BARANGAY_NOTIFICATION] - Barangay: '" + request.barangay + "'");
             return;
         }
         
-        Log.d(TAG, "🏘️ Notifying barangay users for emergency in: " + request.barangay);
-        Log.d(TAG, "🏘️ Emergency details - Senior: " + request.seniorName + ", Request ID: " + request.requestId);
-        Log.d(TAG, "🏘️ Senior UID to exclude: " + request.seniorUid);
+        Log.d(TAG, "🏘️ [BARANGAY_NOTIFICATION] Barangay information is valid, proceeding with notification");
+        Log.d(TAG, "🏘️ [BARANGAY_NOTIFICATION] Notifying barangay users for emergency in: " + request.barangay);
+        Log.d(TAG, "🏘️ [BARANGAY_NOTIFICATION] Emergency details - Senior: " + request.seniorName + ", Request ID: " + request.requestId);
+        Log.d(TAG, "🏘️ [BARANGAY_NOTIFICATION] Senior UID to exclude: " + request.seniorUid);
         
         // Find all barangay users in the same barangay
+        Log.d(TAG, "🏘️ [BARANGAY_NOTIFICATION] Querying for barangay users with barangayName = '" + request.barangay + "'");
         db.collection("Sagip")
                 .document("users")
                 .collection("barangay")
                 .whereEqualTo("barangayName", request.barangay)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
-                    Log.d(TAG, "🏘️ Found " + querySnapshot.size() + " barangay users in " + request.barangay);
+                    Log.d(TAG, "🏘️ [BARANGAY_NOTIFICATION] Query successful - Found " + querySnapshot.size() + " barangay users in " + request.barangay);
                     
                     if (querySnapshot.isEmpty()) {
-                        Log.w(TAG, "⚠️ No barangay users found for barangay: " + request.barangay);
-                        Log.d(TAG, "🏘️ Query was: whereEqualTo('barangayName', '" + request.barangay + "')");
+                        Log.e(TAG, "❌ [BARANGAY_NOTIFICATION] CRITICAL: No barangay users found for barangay: " + request.barangay);
+                        Log.e(TAG, "❌ [BARANGAY_NOTIFICATION] This means no barangay officials are registered for this barangay!");
+                        Log.e(TAG, "❌ [BARANGAY_NOTIFICATION] Query was: whereEqualTo('barangayName', '" + request.barangay + "')");
+                        Log.e(TAG, "❌ [BARANGAY_NOTIFICATION] Check if barangay users are properly registered in the database");
                     }
                     
                     for (QueryDocumentSnapshot document : querySnapshot) {
@@ -451,14 +468,17 @@ public class EmergencyQueueManager {
                         db.collection(notificationPath)
                                 .add(barangayNotification)
                                 .addOnSuccessListener(documentReference -> {
-                                    Log.d(TAG, "✅ Barangay notification sent to: " + contactPerson + " in " + barangayName);
-                                    Log.d(TAG, "✅ Notification document ID: " + documentReference.getId());
+                                    Log.d(TAG, "✅ [BARANGAY_NOTIFICATION] SUCCESS: Barangay notification sent to: " + contactPerson + " in " + barangayName);
+                                    Log.d(TAG, "✅ [BARANGAY_NOTIFICATION] Notification document ID: " + documentReference.getId());
+                                    Log.d(TAG, "✅ [BARANGAY_NOTIFICATION] Notification path: " + notificationPath);
                                     
                                     // Also send FCM notification for background delivery
                                     sendFCMNotificationToBarangay(barangayUserId, barangayNotification);
                                 })
                                 .addOnFailureListener(e -> {
-                                    Log.e(TAG, "❌ Failed to send barangay notification to: " + contactPerson, e);
+                                    Log.e(TAG, "❌ [BARANGAY_NOTIFICATION] FAILED to send notification to: " + contactPerson, e);
+                                    Log.e(TAG, "❌ [BARANGAY_NOTIFICATION] Error details: " + e.getMessage());
+                                    Log.e(TAG, "❌ [BARANGAY_NOTIFICATION] Notification path: " + notificationPath);
                                 });
                     }
                 })

@@ -356,6 +356,21 @@ public class Senior_Dashboard extends AppCompatActivity {
         String requestId = "SOS_" + System.currentTimeMillis() + "_" + mAuth.getCurrentUser().getUid();
         String seniorUid = mAuth.getCurrentUser().getUid();
         
+        // Validate and fix barangay information
+        String barangayForEmergency = validateAndFixBarangay();
+        if (barangayForEmergency == null || barangayForEmergency.isEmpty()) {
+            Log.e(TAG, "❌ Cannot proceed with emergency - no valid barangay information");
+            Toast.makeText(this, "Cannot send emergency alert: Barangay information is missing. Please update your profile.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        
+        Log.d(TAG, "🚨 Creating emergency request:");
+        Log.d(TAG, "🚨 Senior: " + seniorName);
+        Log.d(TAG, "🚨 Phone: " + phoneNumber);
+        Log.d(TAG, "🚨 Location: " + currentLocationAddress);
+        Log.d(TAG, "🚨 Barangay: " + barangayForEmergency);
+        Log.d(TAG, "🚨 Coordinates: " + latitude + ", " + longitude);
+        
         // Create GeoPoint for location coordinates
         com.google.firebase.firestore.GeoPoint location = null;
         if (latitude != 0.0 && longitude != 0.0) {
@@ -372,7 +387,7 @@ public class Senior_Dashboard extends AppCompatActivity {
                 seniorName,
                 phoneNumber,
                 currentLocationAddress,
-                currentBarangay,
+                barangayForEmergency,
                 System.currentTimeMillis(),
                 getString(R.string.text_medical),
                 location
@@ -383,6 +398,99 @@ public class Senior_Dashboard extends AppCompatActivity {
         showSOSConfirmationDialog(seniorName, phoneNumber, requestId);
     }
     
+    /**
+     * Validates and fixes barangay information for emergency requests
+     * @return Valid barangay name or null if cannot be determined
+     */
+    private String validateAndFixBarangay() {
+        Log.d(TAG, "🔍 Validating barangay information for emergency...");
+        Log.d(TAG, "🔍 Current barangay from profile: '" + currentBarangay + "'");
+        
+        // Check if currentBarangay is valid
+        if (currentBarangay != null && !currentBarangay.trim().isEmpty()) {
+            Log.d(TAG, "✅ Barangay from profile is valid: " + currentBarangay);
+            return currentBarangay.trim();
+        }
+        
+        // Try to extract barangay from location address
+        if (currentLocationAddress != null && !currentLocationAddress.trim().isEmpty()) {
+            String extractedBarangay = extractBarangayFromAddress(currentLocationAddress);
+            if (extractedBarangay != null && !extractedBarangay.isEmpty()) {
+                Log.d(TAG, "✅ Extracted barangay from address: " + extractedBarangay);
+                // Update the currentBarangay for future use
+                currentBarangay = extractedBarangay;
+                return extractedBarangay;
+            }
+        }
+        
+        // Try to determine barangay from coordinates (if available)
+        if (currentLat != 0.0 && currentLong != 0.0) {
+            String coordinateBarangay = determineBarangayFromCoordinates(currentLat, currentLong);
+            if (coordinateBarangay != null && !coordinateBarangay.isEmpty()) {
+                Log.d(TAG, "✅ Determined barangay from coordinates: " + coordinateBarangay);
+                // Update the currentBarangay for future use
+                currentBarangay = coordinateBarangay;
+                return coordinateBarangay;
+            }
+        }
+        
+        // Last resort: use a default barangay or prompt user
+        Log.e(TAG, "❌ Cannot determine barangay from profile, address, or coordinates");
+        Log.e(TAG, "❌ Profile barangay: '" + currentBarangay + "'");
+        Log.e(TAG, "❌ Location address: '" + currentLocationAddress + "'");
+        Log.e(TAG, "❌ Coordinates: " + currentLat + ", " + currentLong);
+        
+        return null;
+    }
+    
+    /**
+     * Extracts barangay name from location address
+     */
+    private String extractBarangayFromAddress(String address) {
+        if (address == null || address.trim().isEmpty()) {
+            return null;
+        }
+        
+        String lowerAddress = address.toLowerCase().trim();
+        Log.d(TAG, "🔍 Extracting barangay from address: " + address);
+        
+        // Common barangay patterns in the Philippines
+        String[] barangayPatterns = {
+            "barangay", "brgy", "brgy.", "barrio"
+        };
+        
+        for (String pattern : barangayPatterns) {
+            int index = lowerAddress.indexOf(pattern);
+            if (index != -1) {
+                // Extract text after the pattern
+                String afterPattern = address.substring(index + pattern.length()).trim();
+                // Remove common suffixes and clean up
+                String barangay = afterPattern.split("[,\\s]+")[0].trim();
+                if (!barangay.isEmpty() && barangay.length() > 2) {
+                    Log.d(TAG, "🔍 Found barangay pattern '" + pattern + "' -> '" + barangay + "'");
+                    return barangay;
+                }
+            }
+        }
+        
+        Log.d(TAG, "🔍 No barangay pattern found in address");
+        return null;
+    }
+    
+    /**
+     * Determines barangay from coordinates (simplified version)
+     * In a real implementation, this would use reverse geocoding
+     */
+    private String determineBarangayFromCoordinates(double lat, double lng) {
+        Log.d(TAG, "🔍 Determining barangay from coordinates: " + lat + ", " + lng);
+        
+        // This is a simplified implementation
+        // In a real app, you would use Google Maps Geocoding API or similar
+        // For now, we'll return null to indicate we can't determine it from coordinates
+        Log.d(TAG, "🔍 Coordinate-based barangay determination not implemented");
+        return null;
+    }
+
     private void testCurrentLocation() {
         Log.d(TAG, "🔍 Checking current location status...");
         Log.d(TAG, "📍 Current location values: " + currentLat + ", " + currentLong);
@@ -1095,6 +1203,11 @@ public class Senior_Dashboard extends AppCompatActivity {
         // View Details button
         builder.setPositiveButton(getString(R.string.view_details_button), (dialog, which) -> {
             Log.d(TAG, "User clicked View Details for request: " + requestId);
+            
+            // Stop the emergency alert sound when senior clicks "View Details"
+            EmergencySOSBackgroundService.stopEmergencySound();
+            Log.d(TAG, "🔇 Emergency alert sound stopped when senior clicked 'View Details'");
+            
             // Navigate to rescuer details page
             Intent intent = new Intent(this, RescuerDetailsActivity.class);
             intent.putExtra("emergencyId", requestId);
@@ -1104,6 +1217,10 @@ public class Senior_Dashboard extends AppCompatActivity {
         // Call rescuer button
         builder.setNeutralButton(getString(R.string.call_rescuer_button), (dialog, which) -> {
             if (rescuerPhone != null && !rescuerPhone.isEmpty()) {
+                // Stop the emergency alert sound when senior clicks "Call Rescuer"
+                EmergencySOSBackgroundService.stopEmergencySound();
+                Log.d(TAG, "🔇 Emergency alert sound stopped when senior clicked 'Call Rescuer'");
+                
                 Intent callIntent = new Intent(Intent.ACTION_DIAL);
                 callIntent.setData(android.net.Uri.parse("tel:" + rescuerPhone));
                 startActivity(callIntent);
@@ -1160,6 +1277,11 @@ public class Senior_Dashboard extends AppCompatActivity {
         // View Details button - navigates to rescuer details page
         builder.setPositiveButton(getString(R.string.button_view_details), (dialog, which) -> {
             Log.d(TAG, "🚑 User chose to view rescuer details");
+            
+            // Stop the emergency alert sound when senior clicks "View Details"
+            EmergencySOSBackgroundService.stopEmergencySound();
+            Log.d(TAG, "🔇 Emergency alert sound stopped when senior clicked 'View Details'");
+            
             navigateToRescuerDetails(rescuerName, rescuerPhone, rescuerTeam, requestId, assignedRescuerId, 
                                    emergencyStatus, hospitalId, hospitalName, hospitalAddress, hospitalPhone);
             dialog.dismiss();
@@ -1169,6 +1291,11 @@ public class Senior_Dashboard extends AppCompatActivity {
         if (rescuerPhone != null && !rescuerPhone.isEmpty()) {
             builder.setNeutralButton(getString(R.string.button_call_rescuer), (dialog, which) -> {
                 Log.d(TAG, "📞 User chose to call rescuer: " + rescuerPhone);
+                
+                // Stop the emergency alert sound when senior clicks "Call Rescuer"
+                EmergencySOSBackgroundService.stopEmergencySound();
+                Log.d(TAG, "🔇 Emergency alert sound stopped when senior clicked 'Call Rescuer'");
+                
                 Intent callIntent = new Intent(Intent.ACTION_DIAL);
                 callIntent.setData(android.net.Uri.parse("tel:" + rescuerPhone));
                 startActivity(callIntent);
@@ -1498,10 +1625,6 @@ public class Senior_Dashboard extends AppCompatActivity {
             }
         }
     }
-    
-    
-    
-    
     
     
 }

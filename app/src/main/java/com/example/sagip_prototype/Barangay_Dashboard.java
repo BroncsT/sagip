@@ -1534,7 +1534,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
                 }
                 dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextSize(16);
             } catch (Exception e) {
-                Log.e("Barangay_Dashboard", "Error styling dialog buttons", e);
+                 
             }
         });
         

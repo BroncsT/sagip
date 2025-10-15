@@ -7,6 +7,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.media.AudioAttributes;
 import android.media.MediaPlayer;
 import android.media.RingtoneManager;
@@ -48,23 +49,49 @@ public class EmergencySOSBackgroundService extends Service {
         db = FirebaseFirestore.getInstance();
         mAuth = FirebaseAuth.getInstance();
         
-        // Get current user ID
-        if (mAuth.getCurrentUser() != null) {
-            userId = mAuth.getCurrentUser().getUid();
-        }
-        
         createNotificationChannel();
+        
+        // Note: User data and emergency listener will be set up in onStartCommand()
+        // to ensure we always have fresh user data when the service starts
+        // startForeground() is called in onStartCommand() to prevent crash
     }
     
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "EmergencySOSBackgroundService started");
         
-        // Start as foreground service
+        // ALWAYS start as foreground service first to prevent crash
         startForeground(FOREGROUND_SERVICE_ID, createForegroundNotification());
         
-        // Start listening for emergency notifications
-        if (userId != null && !isListening) {
+        // Check if user has logged out - if so, don't restart
+        SharedPreferences prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+        boolean isLoggedOut = prefs.getBoolean("user_logged_out", false);
+        if (isLoggedOut) {
+            Log.w(TAG, "⚠️ User has logged out, stopping EmergencySOSBackgroundService");
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+        
+        // Refresh user data from SharedPreferences and Firebase Auth on each start
+        String userType = prefs.getString("user_type", null);
+        String userIdFromPrefs = prefs.getString("user_id", null);
+        
+        // Get current user from Firebase Auth
+        if (mAuth.getCurrentUser() != null) {
+            userId = mAuth.getCurrentUser().getUid();
+        } else {
+            userId = userIdFromPrefs; // Fallback to SharedPreferences
+        }
+        
+        // Check if user is still logged in and is a rescuer
+        if (userType == null || !userType.equals("rescuer") || userId == null) {
+            Log.w(TAG, "⚠️ EmergencySOSBackgroundService onStartCommand - Invalid user session (userType: " + userType + ", userId: " + userId + "), stopping service");
+            stopSelf();
+            return START_NOT_STICKY; // Don't restart if killed
+        }
+        
+        // Start listening for emergency notifications with fresh user data
+        if (!isListening) {
             startEmergencySOSListener();
         }
         
@@ -123,7 +150,7 @@ public class EmergencySOSBackgroundService extends Service {
     }
     
     private Notification createForegroundNotification() {
-        Intent notificationIntent = new Intent(this, Rescuer_Dashboard.class);
+        Intent notificationIntent = getDashboardIntentForCurrentUser();
         PendingIntent pendingIntent = PendingIntent.getActivity(
             this, 0, notificationIntent, 
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
@@ -147,6 +174,16 @@ public class EmergencySOSBackgroundService extends Service {
             return;
         }
         
+        // Check if current user is a rescuer - if not, stop the service
+        SharedPreferences prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+        String userType = prefs.getString("user_type", null);
+        
+        if (userType == null || !userType.equals("rescuer")) {
+            Log.w(TAG, "⚠️ User is not a rescuer (userType: " + userType + "), stopping EmergencySOSBackgroundService");
+            stopSelf();
+            return;
+        }
+        
         Log.d(TAG, "🚨 Starting emergency SOS listener for rescuer: " + userId);
         isListening = true;
         
@@ -161,6 +198,17 @@ public class EmergencySOSBackgroundService extends Service {
           .addSnapshotListener((querySnapshot, error) -> {
               if (error != null) {
                   Log.e(TAG, "Error listening to emergency SOS notifications: " + error.getMessage(), error);
+                  return;
+              }
+              
+              // Check if user is still a rescuer before processing notifications
+              SharedPreferences currentPrefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+              String currentUserType = currentPrefs.getString("user_type", null);
+              boolean isLoggedOut = currentPrefs.getBoolean("user_logged_out", false);
+              
+              if (isLoggedOut || currentUserType == null || !currentUserType.equals("rescuer")) {
+                  Log.w(TAG, "⚠️ User is no longer a rescuer or has logged out (userType: " + currentUserType + ", isLoggedOut: " + isLoggedOut + "), stopping EmergencySOSBackgroundService");
+                  stopSelf();
                   return;
               }
               
@@ -183,6 +231,17 @@ public class EmergencySOSBackgroundService extends Service {
     
     private void handleEmergencySOSNotification(QueryDocumentSnapshot document) {
         try {
+            // Double-check user type before processing notification
+            SharedPreferences currentPrefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+            String currentUserType = currentPrefs.getString("user_type", null);
+            boolean isLoggedOut = currentPrefs.getBoolean("user_logged_out", false);
+            
+            if (isLoggedOut || currentUserType == null || !currentUserType.equals("rescuer")) {
+                Log.w(TAG, "⚠️ User is no longer a rescuer or has logged out (userType: " + currentUserType + ", isLoggedOut: " + isLoggedOut + "), ignoring emergency notification");
+                stopSelf();
+                return;
+            }
+            
             String type = document.getString("type");
             String title = document.getString("title");
             String message = document.getString("message");
@@ -235,7 +294,7 @@ public class EmergencySOSBackgroundService extends Service {
         NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         
         // Create intent for when notification is tapped - this will open the app even when closed
-        Intent notificationIntent = new Intent(this, Rescuer_Dashboard.class);
+        Intent notificationIntent = getDashboardIntentForCurrentUser();
         notificationIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         notificationIntent.putExtra("emergency_sos_clicked", true);
         notificationIntent.putExtra("senior_name", seniorName);
@@ -427,6 +486,39 @@ public class EmergencySOSBackgroundService extends Service {
             Uri fallbackSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
             Log.d(TAG, "🔊 Using fallback alarm sound: " + fallbackSound.toString());
             return fallbackSound;
+        }
+    }
+    
+    /**
+     * Gets the appropriate dashboard intent based on the current user type
+     * @return Intent for the current user's dashboard
+     */
+    private Intent getDashboardIntentForCurrentUser() {
+        SharedPreferences sharedPreferences = getSharedPreferences("SagipAppPrefs", MODE_PRIVATE);
+        String userType = sharedPreferences.getString("userType", null);
+        
+        Log.d(TAG, "Getting dashboard intent for user type: " + userType);
+        
+        // Handle null userType
+        if (userType == null) {
+            Log.w(TAG, "User type is null, defaulting to rescuer dashboard");
+            return new Intent(this, Rescuer_Dashboard.class);
+        }
+        
+        switch (userType) {
+            case "hospital":
+                return new Intent(this, Hospital_Dashboard.class);
+            case "rescuer":
+                return new Intent(this, Rescuer_Dashboard.class);
+            case "barangay":
+                return new Intent(this, Barangay_Dashboard.class);
+            case "seniors":
+            case "senior":
+                return new Intent(this, Senior_Dashboard.class);
+            default:
+                // Default to rescuer dashboard if user type is unknown
+                Log.w(TAG, "Unknown user type: " + userType + ", defaulting to rescuer dashboard");
+                return new Intent(this, Rescuer_Dashboard.class);
         }
     }
 }

@@ -87,6 +87,10 @@ public class RescuerDetailsActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_rescuer_details);
 
+        // Stop the emergency alert sound when RescuerDetailsActivity is opened
+        EmergencySOSBackgroundService.stopEmergencySound();
+        Log.d(TAG, "🔇 Emergency alert sound stopped when RescuerDetailsActivity opened");
+
         // Initialize services
         db = FirebaseFirestore.getInstance();
         mAuth = FirebaseAuth.getInstance();

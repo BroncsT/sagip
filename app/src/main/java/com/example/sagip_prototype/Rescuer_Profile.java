@@ -157,6 +157,11 @@ public class Rescuer_Profile extends BaseRescuerActivity {
 
     // Method to handle logout and clear emergency state
     private void handleLogout() {
+        Log.d(TAG, "🚪 User logging out - stopping all background services");
+        
+        // Stop ALL background services to prevent notifications to wrong user
+        BackgroundServiceManager.stopAllBackgroundServices(this);
+        
         // Clear stored credentials first
         clearStoredCredentials();
         

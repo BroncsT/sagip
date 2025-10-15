@@ -41,17 +41,37 @@ public class HospitalStatusNotificationService extends Service {
         // Create notification channel
         createNotificationChannel();
         
-        // Get user info
-        SharedPreferences prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
-        currentUserId = prefs.getString("user_id", null);
-        currentUserType = prefs.getString("user_type", null);
-        
         executor = Executors.newSingleThreadScheduledExecutor();
+        
+        // Note: User data will be set up in onStartCommand() to ensure we always have fresh user data
     }
     
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "HospitalStatusNotificationService started");
+        
+        // ALWAYS start as foreground service first to prevent crash
+        startForeground(SERVICE_ID, createServiceNotification());
+        
+        // Check if user has logged out - if so, don't restart
+        SharedPreferences prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+        boolean isLoggedOut = prefs.getBoolean("user_logged_out", false);
+        if (isLoggedOut) {
+            Log.w(TAG, "⚠️ User has logged out, stopping HospitalStatusNotificationService");
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+        
+        // Refresh user data from SharedPreferences on each start to ensure we have current user info
+        currentUserId = prefs.getString("user_id", null);
+        currentUserType = prefs.getString("user_type", null);
+        
+        // Check if user is still logged in and is a rescuer
+        if (currentUserId == null || currentUserType == null || !currentUserType.equals("rescuer")) {
+            Log.w(TAG, "⚠️ No valid rescuer session (userId: " + currentUserId + ", userType: " + currentUserType + "), stopping HospitalStatusNotificationService");
+            stopSelf();
+            return START_NOT_STICKY;
+        }
         
         if (intent != null) {
             String action = intent.getStringExtra("action");
@@ -60,6 +80,9 @@ public class HospitalStatusNotificationService extends Service {
             } else if ("stop_monitoring".equals(action)) {
                 stopMonitoring();
             }
+        } else {
+            // If no specific action, start monitoring by default
+            startMonitoring();
         }
         
         return START_STICKY;
@@ -73,9 +96,6 @@ public class HospitalStatusNotificationService extends Service {
         
         Log.d(TAG, "Starting hospital status notification monitoring for rescuer: " + currentUserId);
         isMonitoring = true;
-        
-        // Start as foreground service
-        startForeground(SERVICE_ID, createServiceNotification());
         
         // Start polling every 1 second for immediate notifications
         executor.scheduleAtFixedRate(this::checkForHospitalStatusUpdates, 0, 1, TimeUnit.SECONDS);

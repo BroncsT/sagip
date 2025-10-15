@@ -57,6 +57,46 @@ public class RescuerBackgroundNotificationService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "RescuerBackgroundNotificationService started with flags: " + flags + ", startId: " + startId);
         
+        // ALWAYS start as foreground service first to prevent crash
+        startForegroundService();
+        
+        // Check if user has logged out - if so, don't restart
+        SharedPreferences prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+        boolean isLoggedOut = prefs.getBoolean("user_logged_out", false);
+        if (isLoggedOut) {
+            Log.w(TAG, "⚠️ User has logged out, stopping RescuerBackgroundNotificationService");
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+        
+        // Refresh user data from both SharedPreferences to ensure consistency
+        String userId = prefs.getString("user_id", null);
+        String userType = prefs.getString("user_type", null);
+        
+        // Also check the main SharedPreferences for consistency
+        String mainUserId = sharedPreferences.getString(KEY_USER_ID, null);
+        String mainUserType = sharedPreferences.getString(KEY_USER_TYPE, null);
+        
+        // Use the most recent user data (prefer user_prefs as it's updated last)
+        if (userId != null && userType != null) {
+            // Update main SharedPreferences with current user data
+            sharedPreferences.edit()
+                .putString(KEY_USER_ID, userId)
+                .putString(KEY_USER_TYPE, userType)
+                .apply();
+        } else if (mainUserId != null && mainUserType != null) {
+            // Fallback to main SharedPreferences if user_prefs is empty
+            userId = mainUserId;
+            userType = mainUserType;
+        }
+        
+        // Check if user is still logged in and is a rescuer
+        if (userId == null || userType == null || !userType.equals("rescuer")) {
+            Log.w(TAG, "⚠️ No valid rescuer session (userId: " + userId + ", userType: " + userType + "), stopping RescuerBackgroundNotificationService");
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+        
         if (intent != null) {
             String action = intent.getStringExtra("action");
             Log.d(TAG, "Service action: " + action);
@@ -104,11 +144,12 @@ public class RescuerBackgroundNotificationService extends Service {
     }
     
     private void startNotificationMonitoring() {
+        // Get fresh user data from SharedPreferences
         String userId = sharedPreferences.getString(KEY_USER_ID, null);
         String userType = sharedPreferences.getString(KEY_USER_TYPE, null);
         
         if (userId == null || !"rescuer".equals(userType)) {
-            Log.d(TAG, "Not a rescuer user or no userId, stopping service");
+            Log.d(TAG, "Not a rescuer user or no userId (userId: " + userId + ", userType: " + userType + "), stopping service");
             stopSelf();
             return;
         }
@@ -124,9 +165,6 @@ public class RescuerBackgroundNotificationService extends Service {
         
         // Mark service as running
         sharedPreferences.edit().putBoolean("rescuerServiceRunning", true).apply();
-        
-        // Start as foreground service
-        startForegroundService();
         
         // Schedule periodic checks
         schedulePeriodicChecks();
@@ -192,11 +230,12 @@ public class RescuerBackgroundNotificationService extends Service {
     }
     
     private void checkForNewNotifications() {
+        // Get fresh user data from SharedPreferences
         String userId = sharedPreferences.getString(KEY_USER_ID, null);
         String userType = sharedPreferences.getString(KEY_USER_TYPE, null);
         
         if (userId == null || !"rescuer".equals(userType)) {
-            Log.d(TAG, "Not a rescuer user, stopping service");
+            Log.d(TAG, "Not a rescuer user (userId: " + userId + ", userType: " + userType + "), stopping service");
             stopSelf();
             return;
         }
@@ -256,7 +295,7 @@ public class RescuerBackgroundNotificationService extends Service {
     }
     
     private void showHospitalUpdateNotification(String hospitalName, String hospitalStatus, int availableBeds, int availableDoctors) {
-        Intent intent = new Intent(this, Rescuer_Dashboard.class);
+        Intent intent = getDashboardIntentForCurrentUser();
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         
         // Add hospital data to intent for notification click handling
@@ -350,6 +389,39 @@ public class RescuerBackgroundNotificationService extends Service {
                 return "🔴";
             default:
                 return "⚪";
+        }
+    }
+    
+    /**
+     * Gets the appropriate dashboard intent based on the current user type
+     * @return Intent for the current user's dashboard
+     */
+    private Intent getDashboardIntentForCurrentUser() {
+        SharedPreferences sharedPreferences = getSharedPreferences("SagipAppPrefs", MODE_PRIVATE);
+        String userType = sharedPreferences.getString("userType", null);
+        
+        Log.d(TAG, "Getting dashboard intent for user type: " + userType);
+        
+        // Handle null userType
+        if (userType == null) {
+            Log.w(TAG, "User type is null, defaulting to rescuer dashboard");
+            return new Intent(this, Rescuer_Dashboard.class);
+        }
+        
+        switch (userType) {
+            case "hospital":
+                return new Intent(this, Hospital_Dashboard.class);
+            case "rescuer":
+                return new Intent(this, Rescuer_Dashboard.class);
+            case "barangay":
+                return new Intent(this, Barangay_Dashboard.class);
+            case "seniors":
+            case "senior":
+                return new Intent(this, Senior_Dashboard.class);
+            default:
+                // Default to rescuer dashboard if user type is unknown
+                Log.w(TAG, "Unknown user type: " + userType + ", defaulting to rescuer dashboard");
+                return new Intent(this, Rescuer_Dashboard.class);
         }
     }
     

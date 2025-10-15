@@ -48,7 +48,17 @@ public class AlternativeNotificationManager {
             return;
         }
         
-        Log.d(TAG, "Starting alternative notification monitoring");
+        // Check if user is logged in
+        SharedPreferences prefs = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+        String userId = prefs.getString("user_id", null);
+        String userType = prefs.getString("user_type", null);
+        
+        if (userId == null || userType == null) {
+            Log.w(TAG, "⚠️ No user info available, cannot start monitoring");
+            return;
+        }
+        
+        Log.d(TAG, "Starting alternative notification monitoring for user: " + userId + " (type: " + userType + ")");
         isMonitoring = true;
         
         executor = Executors.newSingleThreadScheduledExecutor();
@@ -118,7 +128,7 @@ public class AlternativeNotificationManager {
     private void showLocalNotification(String notificationId, String title, String message, String type) {
         NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         
-        Intent intent = new Intent(context, Rescuer_Dashboard.class);
+        Intent intent = getDashboardIntentForCurrentUser();
         intent.putExtra("notification_type", type);
         intent.putExtra("notification_id", notificationId);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -190,5 +200,38 @@ public class AlternativeNotificationManager {
             "This is a test notification without FCM",
             "test"
         );
+    }
+    
+    /**
+     * Gets the appropriate dashboard intent based on the current user type
+     * @return Intent for the current user's dashboard
+     */
+    private Intent getDashboardIntentForCurrentUser() {
+        SharedPreferences sharedPreferences = context.getSharedPreferences("SagipAppPrefs", Context.MODE_PRIVATE);
+        String userType = sharedPreferences.getString("userType", null);
+        
+        Log.d(TAG, "Getting dashboard intent for user type: " + userType);
+        
+        // Handle null userType
+        if (userType == null) {
+            Log.w(TAG, "User type is null, defaulting to rescuer dashboard");
+            return new Intent(context, Rescuer_Dashboard.class);
+        }
+        
+        switch (userType) {
+            case "hospital":
+                return new Intent(context, Hospital_Dashboard.class);
+            case "rescuer":
+                return new Intent(context, Rescuer_Dashboard.class);
+            case "barangay":
+                return new Intent(context, Barangay_Dashboard.class);
+            case "seniors":
+            case "senior":
+                return new Intent(context, Senior_Dashboard.class);
+            default:
+                // Default to rescuer dashboard if user type is unknown
+                Log.w(TAG, "Unknown user type: " + userType + ", defaulting to rescuer dashboard");
+                return new Intent(context, Rescuer_Dashboard.class);
+        }
     }
 }

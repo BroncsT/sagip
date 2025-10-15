@@ -75,6 +75,16 @@ public class HospitalStatusReminderService extends Service {
             return;
         }
         
+        // Check if current user is a hospital - if not, stop the service
+        SharedPreferences prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+        String userType = prefs.getString("user_type", null);
+        
+        if (userType == null || !userType.equals("hospital")) {
+            Log.w(TAG, "⚠️ User is not a hospital (userType: " + userType + "), stopping HospitalStatusReminderService");
+            stopSelf();
+            return;
+        }
+        
         Log.d(TAG, "Starting hospital status reminder monitoring for user: " + currentUserId);
         isMonitoring = true;
         

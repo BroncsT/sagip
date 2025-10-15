@@ -618,6 +618,26 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     
     // Track if emergency dialog is currently showing to prevent duplicates
     private static boolean isEmergencyDialogShowing = false;
+    private static final Object dialogLock = new Object(); // Synchronization lock for dialog state
+    
+    /**
+     * Safely resets the emergency dialog state
+     */
+    private static void resetEmergencyDialogState() {
+        synchronized (dialogLock) {
+            isEmergencyDialogShowing = false;
+            Log.d(TAG, "🔍 [RESET_STATE] Emergency dialog state reset");
+        }
+    }
+    
+    /**
+     * Safely checks if emergency dialog is showing
+     */
+    private static boolean isEmergencyDialogCurrentlyShowing() {
+        synchronized (dialogLock) {
+            return isEmergencyDialogShowing;
+        }
+    }
     private static final String KEY_USER_ID = "userId";
     private static final String KEY_USER_TYPE = "userType";
     private static final String KEY_IS_LOGGED_IN = "isLoggedIn";
@@ -663,6 +683,82 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     private boolean isProcessingEmergency = false;
     private int totalActiveEmergencies = 0;
     private long queueStartTime = 0; // Track when first emergency was added
+    
+    /**
+     * Queues an emergency for processing to prevent conflicts
+     */
+    private void queueEmergencyForProcessing(String seniorName, String seniorPhone, String locationAddress, 
+                                           Long timestamp, String requestId, Double seniorLat, Double seniorLng) {
+        // Create emergency item with proper parameters for the constructor
+        String title = "🚨 EMERGENCY HELP REQUEST";
+        String message = seniorName + " needs immediate assistance!";
+        EmergencyItem emergency = new EmergencyItem(title, message, seniorName, seniorPhone, locationAddress, 
+                                                   seniorLat, seniorLng, requestId, requestId, 1, 1, 0.0);
+        
+        synchronized (emergencyQueue) {
+            emergencyQueue.offer(emergency);
+            totalActiveEmergencies++;
+            
+            if (queueStartTime == 0) {
+                queueStartTime = System.currentTimeMillis();
+            }
+            
+            Log.d(TAG, "🚨 [QUEUE] Added emergency to queue. Queue size: " + emergencyQueue.size() + 
+                  ", Total active: " + totalActiveEmergencies);
+        }
+        
+        // Process queue if not already processing
+        if (!isProcessingEmergency) {
+            processEmergencyQueue();
+        }
+    }
+    
+    /**
+     * Processes the emergency queue one by one
+     */
+    private void processEmergencyQueue() {
+        if (isProcessingEmergency) {
+            return; // Already processing
+        }
+        
+        isProcessingEmergency = true;
+        
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+            EmergencyItem emergency;
+            
+            synchronized (emergencyQueue) {
+                emergency = emergencyQueue.poll();
+            }
+            
+            if (emergency != null) {
+                Log.d(TAG, "🚨 [PROCESS] Processing emergency from queue: " + emergency.seniorName);
+                
+                // Show the emergency dialog
+                if (emergency.latitude != null && emergency.longitude != null) {
+                    showEmergencySOSAlertWithLocation(emergency.seniorName, emergency.seniorPhone, 
+                                                    emergency.locationAddress, emergency.timestamp, 
+                                                    emergency.helpRequestId, emergency.latitude, emergency.longitude);
+                } else {
+                    showEmergencySOSAlert(emergency.seniorName, emergency.seniorPhone, 
+                                        emergency.locationAddress, emergency.timestamp, emergency.helpRequestId);
+                }
+                
+                // Process next emergency after a delay
+                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                    isProcessingEmergency = false;
+                    processEmergencyQueue(); // Process next emergency
+                }, 2000); // 2 second delay between emergencies
+                
+            } else {
+                isProcessingEmergency = false;
+                Log.d(TAG, "🚨 [QUEUE] No more emergencies to process");
+            }
+        });
+    }
+    
+    /**
+     * Emergency item class for queue management
+     */
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -802,12 +898,26 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             }
         }
 
-        // Start emergency listener when activity resumes (only if not already started)
-        if (emergencyListener == null) {
-            Log.d(TAG, "Starting emergency listener in onResume()");
-            startEmergencyListener();
+        // Check if user is still logged in before starting emergency listener
+        SharedPreferences prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+        boolean isLoggedOut = prefs.getBoolean("user_logged_out", false);
+        String currentUserType = prefs.getString("user_type", null);
+        
+        if (isLoggedOut || currentUserType == null || !currentUserType.equals("rescuer")) {
+            Log.w(TAG, "⚠️ User has logged out or is not a rescuer, not starting emergency listener");
+            // Clean up any existing listener
+            if (emergencyListener != null) {
+                emergencyListener.remove();
+                emergencyListener = null;
+            }
         } else {
-            Log.d(TAG, "Emergency listener already active, skipping start");
+            // Start emergency listener when activity resumes (only if not already started)
+            if (emergencyListener == null) {
+                Log.d(TAG, "Starting emergency listener in onResume()");
+                startEmergencyListener();
+            } else {
+                Log.d(TAG, "Emergency listener already active, skipping start");
+            }
         }
         
         // Start emergency SOS notification listener
@@ -822,7 +932,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         // Test emergency notification system
         testEmergencyNotificationSystem();
         
-        // Debug: Check if there are any existing emergency notifications
+        // Debug: Check if there are any existing emergency notifications (without playing sounds)
         checkForExistingEmergencyNotifications();
 
         // Clear any old notifications when app comes to foreground
@@ -940,6 +1050,18 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             currentEmergencyDialog = null;
             Log.d(TAG, "Dismissed emergency popup dialog");
         }
+        
+        // Clear emergency queue
+        synchronized (emergencyQueue) {
+            emergencyQueue.clear();
+            totalActiveEmergencies = 0;
+            queueStartTime = 0;
+            isProcessingEmergency = false;
+            Log.d(TAG, "Cleared emergency queue");
+        }
+        
+        // Reset dialog state
+        resetEmergencyDialogState();
     }
 
     private void handleEmergencyNotificationIntent() {
@@ -959,8 +1081,13 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 // Show emergency alert dialog immediately after a short delay to ensure UI is ready
                 if (seniorName != null && locationAddress != null) {
                     new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                        showEmergencySOSAlert(seniorName, seniorPhone, locationAddress, System.currentTimeMillis());
-                    }, 1000); // 1 second delay to ensure UI is fully loaded
+                        // Double-check activity is still valid before showing dialog
+                        if (!isFinishing() && !isDestroyed()) {
+                            showEmergencySOSAlert(seniorName, seniorPhone, locationAddress, System.currentTimeMillis());
+                        } else {
+                            Log.w(TAG, "Activity no longer valid, cannot show emergency dialog");
+                        }
+                    }, 500); // Reduced delay to 500ms for faster response
                 }
                 
                 // Clear the intent extras to prevent repeated handling
@@ -1013,8 +1140,13 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 if (seniorName != null && locationAddress != null) {
                     // Show assignment confirmation dialog
                     new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                        showRescuerAssignmentPopup(seniorName, locationAddress, mAuth.getCurrentUser().getUid(), null);
-                    }, 1000);
+                        // Double-check activity is still valid before showing dialog
+                        if (!isFinishing() && !isDestroyed()) {
+                            showRescuerAssignmentPopup(seniorName, locationAddress, mAuth.getCurrentUser().getUid(), null);
+                        } else {
+                            Log.w(TAG, "Activity no longer valid, cannot show assignment popup");
+                        }
+                    }, 500); // Reduced delay for faster response
                 }
                 
                 // Clear the intent extras
@@ -1318,8 +1450,31 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
 
         Log.d(TAG, "�� NEW EMERGENCY: " + seniorName + " at " + locationAddress);
 
-        // Play notification sound
-        playNotificationSound();
+        // Check if this is a truly new emergency (created within the last 5 minutes)
+        // This prevents old emergencies from triggering sounds when rescuer logs in
+        Long timestamp = emergency.getLong("timestamp");
+        boolean isNewEmergency = false;
+        if (timestamp != null) {
+            long currentTime = System.currentTimeMillis();
+            long emergencyAge = currentTime - timestamp;
+            long fiveMinutesInMs = 5 * 60 * 1000; // 5 minutes in milliseconds
+            
+            if (emergencyAge <= fiveMinutesInMs) {
+                isNewEmergency = true;
+                Log.d(TAG, "✅ Emergency is new (age: " + (emergencyAge / 1000) + " seconds)");
+            } else {
+                Log.d(TAG, "⚠️ Emergency is old (age: " + (emergencyAge / 1000) + " seconds), skipping sound");
+            }
+        } else {
+            // If no timestamp, assume it's new to be safe
+            isNewEmergency = true;
+            Log.w(TAG, "⚠️ No timestamp found for emergency, treating as new");
+        }
+
+        // Only play notification sound for truly new emergencies
+        if (isNewEmergency) {
+            playNotificationSound();
+        }
 
         // Check if this rescuer has already responded to this emergency
         String respondedBy = emergency.getString("respondedBy");
@@ -1402,8 +1557,31 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         
         Log.d(TAG, "FIFO: Emergency #" + queuePosition + " added to queue. Total active emergencies: " + totalActiveEmergencies);
         
-        // Play sound for new emergency
-        playNotificationSound();
+        // Check if this is a truly new emergency (created within the last 5 minutes)
+        // This prevents old emergencies from triggering sounds when rescuer logs in
+        Long timestamp = emergency.getLong("timestamp");
+        boolean isNewEmergency = false;
+        if (timestamp != null) {
+            long currentTime = System.currentTimeMillis();
+            long emergencyAge = currentTime - timestamp;
+            long fiveMinutesInMs = 5 * 60 * 1000; // 5 minutes in milliseconds
+            
+            if (emergencyAge <= fiveMinutesInMs) {
+                isNewEmergency = true;
+                Log.d(TAG, "✅ Emergency is new (age: " + (emergencyAge / 1000) + " seconds)");
+            } else {
+                Log.d(TAG, "⚠️ Emergency is old (age: " + (emergencyAge / 1000) + " seconds), skipping sound");
+            }
+        } else {
+            // If no timestamp, assume it's new to be safe
+            isNewEmergency = true;
+            Log.w(TAG, "⚠️ No timestamp found for emergency, treating as new");
+        }
+
+        // Only play sound for truly new emergencies
+        if (isNewEmergency) {
+            playNotificationSound();
+        }
         
         // Show system notification with FIFO position
         String fifoMessage = message + " - " + locationAddress + " (Queue #" + queuePosition + ")";
@@ -1440,9 +1618,6 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     }
     
     // Legacy method for backward compatibility
-    private void processEmergencyQueue() {
-        processEmergencyQueueFIFO();
-    }
 
 
     private void playNotificationSound() {
@@ -1812,6 +1987,14 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             return;
         }
         
+        // Check if user has logged out
+        SharedPreferences prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+        boolean isLoggedOut = prefs.getBoolean("user_logged_out", false);
+        if (isLoggedOut) {
+            Log.w(TAG, "⚠️ User has logged out, not starting emergency SOS listener");
+            return;
+        }
+        
         Log.d(TAG, "🚨 Starting emergency SOS listener for rescuer: " + userId);
         
         // Listen for emergency SOS notifications in real-time
@@ -1862,8 +2045,8 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                     Log.w(TAG, "⚠️ No GPS coordinates in notification data");
                 }
                 
-                // Show emergency alert dialog with request ID and GPS coordinates
-                showEmergencySOSAlertWithLocation(seniorName, seniorPhone, locationAddress, timestamp, requestId, seniorLat, seniorLng);
+                // Queue emergency for processing to prevent conflicts
+                queueEmergencyForProcessing(seniorName, seniorPhone, locationAddress, timestamp, requestId, seniorLat, seniorLng);
                 
                 // Mark notification as read
                 document.getReference().update("isRead", true);
@@ -1886,21 +2069,24 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         Log.d(TAG, "🔍 [SHOW_DIALOG] GPS coordinates: " + seniorLat + ", " + seniorLng);
         Log.d(TAG, "🔍 [SHOW_DIALOG] isEmergencyDialogShowing: " + isEmergencyDialogShowing);
         
-        // Check if dialog is already showing to prevent duplicates
-        if (isEmergencyDialogShowing) {
-            Log.w(TAG, "⚠️ [SHOW_DIALOG] Emergency dialog already showing, ignoring duplicate call");
-            return;
+        // Synchronized check to prevent race conditions
+        synchronized (dialogLock) {
+            // Check if dialog is already showing to prevent duplicates
+            if (isEmergencyDialogShowing) {
+                Log.w(TAG, "⚠️ [SHOW_DIALOG] Emergency dialog already showing, ignoring duplicate call");
+                return;
+            }
+            
+            // Check if activity is still valid before showing dialog
+            if (isFinishing() || isDestroyed()) {
+                Log.w(TAG, "Cannot show emergency alert dialog - activity is not in valid state");
+                return;
+            }
+            
+            // Mark dialog as showing
+            isEmergencyDialogShowing = true;
+            Log.d(TAG, "🔍 [SHOW_DIALOG] Setting isEmergencyDialogShowing = true");
         }
-        
-        // Check if activity is still valid before showing dialog
-        if (isFinishing() || isDestroyed()) {
-            Log.w(TAG, "Cannot show emergency alert dialog - activity is not in valid state");
-            return;
-        }
-        
-        // Mark dialog as showing
-        isEmergencyDialogShowing = true;
-        Log.d(TAG, "🔍 [SHOW_DIALOG] Setting isEmergencyDialogShowing = true");
         
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle(getString(R.string.dialog_emergency_sos_alert));
@@ -1933,8 +2119,10 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             EmergencySOSBackgroundService.stopEmergencySound();
             Log.d(TAG, "🔇 [RESPOND_NOW] Emergency sound stopped");
             
-            // Reset dialog flag
-            isEmergencyDialogShowing = false;
+            // Reset dialog flag safely
+            synchronized (dialogLock) {
+                isEmergencyDialogShowing = false;
+            }
             
             // Clear all emergency notifications and dialogs
             clearAllEmergencyNotifications();
@@ -1967,7 +2155,10 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             EmergencySOSBackgroundService.stopEmergencySound();
             Log.d(TAG, "🔇 [DECLINE] Emergency sound stopped");
             
-            isEmergencyDialogShowing = false;
+            // Reset dialog flag safely
+            synchronized (dialogLock) {
+                isEmergencyDialogShowing = false;
+            }
             // Optionally notify that rescuer declined
         });
         
@@ -1978,7 +2169,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             Log.d(TAG, "✅ Emergency SOS alert dialog shown successfully");
         } catch (Exception e) {
             Log.e(TAG, "❌ Error showing emergency alert dialog: " + e.getMessage(), e);
-            isEmergencyDialogShowing = false;
+            synchronized (dialogLock) {
+                isEmergencyDialogShowing = false;
+            }
         }
     }
     
@@ -1987,21 +2180,24 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         Log.d(TAG, "🔍 [SHOW_DIALOG] RequestId: " + requestId);
         Log.d(TAG, "🔍 [SHOW_DIALOG] isEmergencyDialogShowing: " + isEmergencyDialogShowing);
         
-        // Check if dialog is already showing to prevent duplicates
-        if (isEmergencyDialogShowing) {
-            Log.w(TAG, "⚠️ [SHOW_DIALOG] Emergency dialog already showing, ignoring duplicate call");
-            return;
+        // Synchronized check to prevent race conditions
+        synchronized (dialogLock) {
+            // Check if dialog is already showing to prevent duplicates
+            if (isEmergencyDialogShowing) {
+                Log.w(TAG, "⚠️ [SHOW_DIALOG] Emergency dialog already showing, ignoring duplicate call");
+                return;
+            }
+            
+            // Check if activity is still valid before showing dialog
+            if (isFinishing() || isDestroyed()) {
+                Log.w(TAG, "Cannot show emergency alert dialog - activity is not in valid state");
+                return;
+            }
+            
+            // Mark dialog as showing
+            isEmergencyDialogShowing = true;
+            Log.d(TAG, "🔍 [SHOW_DIALOG] Setting isEmergencyDialogShowing = true");
         }
-        
-        // Check if activity is still valid before showing dialog
-        if (isFinishing() || isDestroyed()) {
-            Log.w(TAG, "Cannot show emergency alert dialog - activity is not in valid state");
-            return;
-        }
-        
-        // Mark dialog as showing
-        isEmergencyDialogShowing = true;
-        Log.d(TAG, "🔍 [SHOW_DIALOG] Setting isEmergencyDialogShowing = true");
         
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle(getString(R.string.dialog_emergency_sos_alert));
@@ -2036,8 +2232,10 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             EmergencySOSBackgroundService.stopEmergencySound();
             Log.d(TAG, "🔇 [RESPOND_NOW] Emergency sound stopped");
             
-            // Reset dialog flag
-            isEmergencyDialogShowing = false;
+            // Reset dialog flag safely
+            synchronized (dialogLock) {
+                isEmergencyDialogShowing = false;
+            }
             Log.d(TAG, "🔍 [RESPOND_NOW] Reset isEmergencyDialogShowing = false");
             
             // Clear all emergency notifications and dialogs
@@ -2064,8 +2262,10 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         
         // Call senior button
         builder.setNeutralButton(getString(R.string.button_call_senior), (dialog, which) -> {
-            // Reset dialog flag
-            isEmergencyDialogShowing = false;
+            // Reset dialog flag safely
+            synchronized (dialogLock) {
+                isEmergencyDialogShowing = false;
+            }
             Log.d(TAG, "🔍 [CALL_SENIOR] Reset isEmergencyDialogShowing = false");
             
             // Open phone dialer
@@ -2077,8 +2277,10 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         
         // Dismiss button
         builder.setNegativeButton(getString(R.string.button_dismiss), (dialog, which) -> {
-            // Reset dialog flag
-            isEmergencyDialogShowing = false;
+            // Reset dialog flag safely
+            synchronized (dialogLock) {
+                isEmergencyDialogShowing = false;
+            }
             Log.d(TAG, "🔍 [DISMISS] Reset isEmergencyDialogShowing = false");
             
             dialog.dismiss();
@@ -2094,7 +2296,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         
         // Add dismiss listener to reset flag if dialog is dismissed by other means
         dialog.setOnDismissListener(dialogInterface -> {
-            isEmergencyDialogShowing = false;
+            synchronized (dialogLock) {
+                isEmergencyDialogShowing = false;
+            }
             Log.d(TAG, "🔍 [DIALOG_DISMISSED] Reset isEmergencyDialogShowing = false");
         });
         
@@ -2845,6 +3049,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         finish();
     }
 
+
     private void loadUserData(String uid) {
         Log.d(TAG, "Loading user data for: " + uid + " in collection: " + userType);
 
@@ -3275,6 +3480,10 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
 
     private void clearStoredCredentials() {
         Log.d(TAG, "Clearing stored credentials...");
+        
+        // Stop ALL background services to prevent notifications to wrong user
+        BackgroundServiceManager.stopAllBackgroundServices(this);
+        
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.remove(KEY_IS_LOGGED_IN);
         editor.remove(KEY_USER_ID);

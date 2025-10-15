@@ -49,6 +49,29 @@ public class WebSocketNotificationService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "WebSocketNotificationService started");
         
+        // ALWAYS start as foreground service first to prevent crash
+        startForeground(SERVICE_ID, createServiceNotification());
+        
+        // Check if user has logged out - if so, don't restart
+        SharedPreferences prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+        boolean isLoggedOut = prefs.getBoolean("user_logged_out", false);
+        if (isLoggedOut) {
+            Log.w(TAG, "⚠️ User has logged out, stopping WebSocketNotificationService");
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+        
+        // Refresh user data from SharedPreferences on each start to ensure we have current user info
+        currentUserId = prefs.getString("user_id", null);
+        currentUserType = prefs.getString("user_type", null);
+        
+        // Check if user is still logged in
+        if (currentUserId == null || currentUserType == null) {
+            Log.w(TAG, "⚠️ No valid user session (userId: " + currentUserId + ", userType: " + currentUserType + "), stopping WebSocketNotificationService");
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+        
         if (intent != null) {
             String action = intent.getStringExtra("action");
             if ("start_monitoring".equals(action)) {
@@ -68,23 +91,13 @@ public class WebSocketNotificationService extends Service {
         }
         
         if (currentUserId == null) {
-            Log.d(TAG, "No user ID available, trying to get from SharedPreferences");
-            SharedPreferences prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
-            currentUserId = prefs.getString("user_id", null);
-            currentUserType = prefs.getString("user_type", null);
-            
-            if (currentUserId == null) {
-                Log.d(TAG, "Still no user ID available, stopping service");
-                stopSelf();
-                return;
-            }
+            Log.d(TAG, "No user ID available, stopping service");
+            stopSelf();
+            return;
         }
         
         Log.d(TAG, "Starting WebSocket monitoring for user: " + currentUserId);
         isMonitoring = true;
-        
-        // Start as foreground service
-        startForeground(SERVICE_ID, createServiceNotification());
         
         // Start polling Firestore every 2 seconds for immediate notifications
         executor.scheduleAtFixedRate(this::checkForNotifications, 0, 2, TimeUnit.SECONDS);
@@ -104,6 +117,20 @@ public class WebSocketNotificationService extends Service {
     
     private void checkForNotifications() {
         if (!isMonitoring || currentUserId == null) return;
+        
+        // Check if user has logged out before processing notifications
+        if (isUserLoggedOut()) {
+            Log.w(TAG, "🚫 User has logged out, stopping notification monitoring");
+            stopMonitoring();
+            return;
+        }
+        
+        // Verify user context is still valid
+        if (!isValidUserContext()) {
+            Log.w(TAG, "🚫 Invalid user context, stopping notification monitoring");
+            stopMonitoring();
+            return;
+        }
         
         Log.d(TAG, "Checking for notifications via Firestore polling");
         
@@ -144,7 +171,7 @@ public class WebSocketNotificationService extends Service {
     private void showNotification(String notificationId, String title, String message, String type) {
         NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         
-        Intent intent = new Intent(this, Rescuer_Dashboard.class);
+        Intent intent = getDashboardIntentForCurrentUser();
         intent.putExtra("notification_type", type);
         intent.putExtra("notification_id", notificationId);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -219,5 +246,90 @@ public class WebSocketNotificationService extends Service {
     @Override
     public IBinder onBind(Intent intent) {
         return null;
+    }
+    
+    /**
+     * Checks if the user has logged out
+     * @return true if user has logged out, false otherwise
+     */
+    private boolean isUserLoggedOut() {
+        // Check both SharedPreferences for logout status
+        SharedPreferences userPrefs = getSharedPreferences("user_prefs", MODE_PRIVATE);
+        SharedPreferences sagipPrefs = getSharedPreferences("SagipAppPrefs", MODE_PRIVATE);
+        
+        boolean userLoggedOut = userPrefs.getBoolean("user_logged_out", false);
+        boolean sagipLoggedOut = sagipPrefs.getBoolean("user_logged_out", false);
+        boolean isLoggedIn = sagipPrefs.getBoolean("isLoggedIn", false);
+        
+        boolean isLoggedOut = userLoggedOut || sagipLoggedOut || !isLoggedIn;
+        
+        Log.d(TAG, "User logout check - user_prefs: " + userLoggedOut + 
+                   ", sagip_prefs: " + sagipLoggedOut + 
+                   ", isLoggedIn: " + isLoggedIn + 
+                   ", result: " + isLoggedOut);
+        
+        return isLoggedOut;
+    }
+    
+    /**
+     * Validates that the user context is valid and consistent
+     * @return true if user context is valid, false otherwise
+     */
+    private boolean isValidUserContext() {
+        SharedPreferences userPrefs = getSharedPreferences("user_prefs", MODE_PRIVATE);
+        SharedPreferences sagipPrefs = getSharedPreferences("SagipAppPrefs", MODE_PRIVATE);
+        
+        String userId1 = userPrefs.getString("user_id", null);
+        String userType1 = userPrefs.getString("user_type", null);
+        String userId2 = sagipPrefs.getString("userId", null);
+        String userType2 = sagipPrefs.getString("userType", null);
+        
+        // Check if user data exists in both SharedPreferences
+        boolean hasUserData = (userId1 != null && userType1 != null) || (userId2 != null && userType2 != null);
+        
+        // Check if user data is consistent between both SharedPreferences
+        boolean isConsistent = (userId1 == null || userId1.equals(userId2)) && 
+                              (userType1 == null || userType1.equals(userType2));
+        
+        boolean isValid = hasUserData && isConsistent;
+        
+        Log.d(TAG, "User context validation - hasUserData: " + hasUserData + 
+                   ", isConsistent: " + isConsistent + 
+                   ", result: " + isValid);
+        
+        return isValid;
+    }
+
+    /**
+     * Gets the appropriate dashboard intent based on the current user type
+     * @return Intent for the current user's dashboard
+     */
+    private Intent getDashboardIntentForCurrentUser() {
+        SharedPreferences sharedPreferences = getSharedPreferences("SagipAppPrefs", MODE_PRIVATE);
+        String userType = sharedPreferences.getString("userType", null);
+        
+        Log.d(TAG, "Getting dashboard intent for user type: " + userType);
+        
+        // Handle null userType
+        if (userType == null) {
+            Log.w(TAG, "User type is null, defaulting to rescuer dashboard");
+            return new Intent(this, Rescuer_Dashboard.class);
+        }
+        
+        switch (userType) {
+            case "hospital":
+                return new Intent(this, Hospital_Dashboard.class);
+            case "rescuer":
+                return new Intent(this, Rescuer_Dashboard.class);
+            case "barangay":
+                return new Intent(this, Barangay_Dashboard.class);
+            case "seniors":
+            case "senior":
+                return new Intent(this, Senior_Dashboard.class);
+            default:
+                // Default to rescuer dashboard if user type is unknown
+                Log.w(TAG, "Unknown user type: " + userType + ", defaulting to rescuer dashboard");
+                return new Intent(this, Rescuer_Dashboard.class);
+        }
     }
 }

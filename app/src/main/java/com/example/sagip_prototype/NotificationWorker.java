@@ -52,7 +52,14 @@ public class NotificationWorker extends Worker {
     }
     
     private void checkForNotifications(String userId, String userType) {
-        Log.d(TAG, "Checking for notifications for user: " + userId);
+        Log.d(TAG, "Checking for notifications for user: " + userId + " (type: " + userType + ")");
+        
+        // Only process notifications for valid user types
+        if (userType == null || (!userType.equals("rescuer") && !userType.equals("hospital") && 
+            !userType.equals("barangay") && !userType.equals("seniors") && !userType.equals("senior"))) {
+            Log.w(TAG, "⚠️ Invalid user type: " + userType + ", skipping notification check");
+            return;
+        }
         
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         String collectionPath = "Sagip/users/" + userType + "/" + userId + "/notifications";
@@ -95,7 +102,7 @@ public class NotificationWorker extends Worker {
         // Create notification channel
         createNotificationChannel(context, notificationManager);
         
-        Intent intent = new Intent(context, Rescuer_Dashboard.class);
+        Intent intent = getDashboardIntentForCurrentUser(context);
         intent.putExtra("notification_type", type);
         intent.putExtra("notification_id", notificationId);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -151,6 +158,39 @@ public class NotificationWorker extends Worker {
             );
             channel.setDescription("Background notifications via WorkManager");
             notificationManager.createNotificationChannel(channel);
+        }
+    }
+    
+    /**
+     * Gets the appropriate dashboard intent based on the current user type
+     * @return Intent for the current user's dashboard
+     */
+    private Intent getDashboardIntentForCurrentUser(Context context) {
+        SharedPreferences sharedPreferences = context.getSharedPreferences("SagipAppPrefs", Context.MODE_PRIVATE);
+        String userType = sharedPreferences.getString("userType", null);
+        
+        Log.d(TAG, "Getting dashboard intent for user type: " + userType);
+        
+        // Handle null userType
+        if (userType == null) {
+            Log.w(TAG, "User type is null, defaulting to rescuer dashboard");
+            return new Intent(context, Rescuer_Dashboard.class);
+        }
+        
+        switch (userType) {
+            case "hospital":
+                return new Intent(context, Hospital_Dashboard.class);
+            case "rescuer":
+                return new Intent(context, Rescuer_Dashboard.class);
+            case "barangay":
+                return new Intent(context, Barangay_Dashboard.class);
+            case "seniors":
+            case "senior":
+                return new Intent(context, Senior_Dashboard.class);
+            default:
+                // Default to rescuer dashboard if user type is unknown
+                Log.w(TAG, "Unknown user type: " + userType + ", defaulting to rescuer dashboard");
+                return new Intent(context, Rescuer_Dashboard.class);
         }
     }
 }

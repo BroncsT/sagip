@@ -32,6 +32,18 @@ public class FCMNotificationService extends FirebaseMessagingService {
         Log.d(TAG, "Message from: " + remoteMessage.getFrom());
         Log.d(TAG, "Message type: " + (remoteMessage.getData().isEmpty() ? "notification" : "data"));
         
+        // Check if user has logged out before processing any notifications
+        if (isUserLoggedOut()) {
+            Log.w(TAG, "🚫 User has logged out, ignoring FCM message");
+            return;
+        }
+        
+        // Verify user context is valid
+        if (!isValidUserContext()) {
+            Log.w(TAG, "🚫 Invalid user context, ignoring FCM message");
+            return;
+        }
+        
         // Handle data payload (this is what we use for custom notifications)
         Map<String, String> data = remoteMessage.getData();
         if (data != null && !data.isEmpty()) {
@@ -64,6 +76,13 @@ public class FCMNotificationService extends FirebaseMessagingService {
         String type = data.get("type");
         
         if ("hospital_status_update".equals(type)) {
+            // Check if current user is a hospital - if so, don't show the notification
+            // to prevent hospitals from receiving their own status update notifications
+            if (isCurrentUserHospital()) {
+                Log.d(TAG, "🚫 Skipping hospital status update notification - current user is a hospital");
+                return;
+            }
+            
             String hospitalName = data.get("hospitalName");
             String hospitalStatus = data.get("hospitalStatus");
             String availableBeds = data.get("availableBeds");
@@ -114,7 +133,7 @@ public class FCMNotificationService extends FirebaseMessagingService {
         Log.d(TAG, "🏥 Showing hospital update notification: " + hospitalName);
         createNotificationChannel();
         
-        Intent intent = new Intent(this, Rescuer_Dashboard.class);
+        Intent intent = getDashboardIntentForCurrentUser();
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         intent.putExtra("notification_type", "hospital_update");
         intent.putExtra("hospital_name", hospitalName);
@@ -160,7 +179,7 @@ public class FCMNotificationService extends FirebaseMessagingService {
     private void showSimpleNotification(String title, String body) {
         createNotificationChannel();
         
-        Intent intent = new Intent(this, Rescuer_Dashboard.class);
+        Intent intent = getDashboardIntentForCurrentUser();
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         
         PendingIntent pendingIntent = PendingIntent.getActivity(
@@ -195,7 +214,7 @@ public class FCMNotificationService extends FirebaseMessagingService {
         Log.d(TAG, "🚨 Showing emergency notification: " + seniorName);
         createNotificationChannel();
         
-        Intent intent = new Intent(this, Rescuer_Dashboard.class);
+        Intent intent = getDashboardIntentForCurrentUser();
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         intent.putExtra("notification_type", "emergency");
         intent.putExtra("emergency_notification", true);
@@ -318,6 +337,103 @@ public class FCMNotificationService extends FirebaseMessagingService {
             // Fallback to system alarm sound if custom file doesn't exist
             Log.w(TAG, "Custom alarm sound not found, using system alarm sound. Error: " + e.getMessage());
             return RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+        }
+    }
+    
+    /**
+     * Checks if the current user is a hospital user
+     * @return true if current user is a hospital, false otherwise
+     */
+    private boolean isCurrentUserHospital() {
+        SharedPreferences sharedPreferences = getSharedPreferences("SagipAppPrefs", MODE_PRIVATE);
+        String userType = sharedPreferences.getString("userType", null);
+        boolean isHospital = "hospital".equals(userType);
+        Log.d(TAG, "Current user type: " + userType + ", isHospital: " + isHospital);
+        return isHospital;
+    }
+    
+    /**
+     * Checks if the user has logged out
+     * @return true if user has logged out, false otherwise
+     */
+    private boolean isUserLoggedOut() {
+        // Check both SharedPreferences for logout status
+        SharedPreferences userPrefs = getSharedPreferences("user_prefs", MODE_PRIVATE);
+        SharedPreferences sagipPrefs = getSharedPreferences("SagipAppPrefs", MODE_PRIVATE);
+        
+        boolean userLoggedOut = userPrefs.getBoolean("user_logged_out", false);
+        boolean sagipLoggedOut = sagipPrefs.getBoolean("user_logged_out", false);
+        boolean isLoggedIn = sagipPrefs.getBoolean("isLoggedIn", false);
+        
+        boolean isLoggedOut = userLoggedOut || sagipLoggedOut || !isLoggedIn;
+        
+        Log.d(TAG, "User logout check - user_prefs: " + userLoggedOut + 
+                   ", sagip_prefs: " + sagipLoggedOut + 
+                   ", isLoggedIn: " + isLoggedIn + 
+                   ", result: " + isLoggedOut);
+        
+        return isLoggedOut;
+    }
+    
+    /**
+     * Validates that the user context is valid and consistent
+     * @return true if user context is valid, false otherwise
+     */
+    private boolean isValidUserContext() {
+        SharedPreferences userPrefs = getSharedPreferences("user_prefs", MODE_PRIVATE);
+        SharedPreferences sagipPrefs = getSharedPreferences("SagipAppPrefs", MODE_PRIVATE);
+        
+        String userId1 = userPrefs.getString("user_id", null);
+        String userType1 = userPrefs.getString("user_type", null);
+        String userId2 = sagipPrefs.getString("userId", null);
+        String userType2 = sagipPrefs.getString("userType", null);
+        
+        // Check if user data exists in both SharedPreferences
+        boolean hasUserData = (userId1 != null && userType1 != null) || (userId2 != null && userType2 != null);
+        
+        // Check if user data is consistent between both SharedPreferences
+        boolean isConsistent = (userId1 == null || userId1.equals(userId2)) && 
+                              (userType1 == null || userType1.equals(userType2));
+        
+        boolean isValid = hasUserData && isConsistent;
+        
+        Log.d(TAG, "User context validation - hasUserData: " + hasUserData + 
+                   ", isConsistent: " + isConsistent + 
+                   ", result: " + isValid);
+        
+        return isValid;
+    }
+
+    /**
+     * Gets the appropriate dashboard intent based on the current user type
+     * @return Intent for the current user's dashboard
+     */
+    private Intent getDashboardIntentForCurrentUser() {
+        SharedPreferences sharedPreferences = getSharedPreferences("SagipAppPrefs", MODE_PRIVATE);
+        String userType = sharedPreferences.getString("userType", null);
+        
+        Log.d(TAG, "Getting dashboard intent for user type: " + userType);
+        
+        // Handle null userType
+        if (userType == null) {
+            Log.w(TAG, "User type is null, defaulting to rescuer dashboard");
+            return new Intent(this, Rescuer_Dashboard.class);
+        }
+        
+        switch (userType) {
+            case "hospital":
+                return new Intent(this, Hospital_Dashboard.class);
+            case "rescuer":
+                return new Intent(this, Rescuer_Dashboard.class);
+            case "barangay":
+                return new Intent(this, Barangay_Dashboard.class);
+            case "seniors":
+            case "senior":
+                return new Intent(this, Senior_Dashboard.class);
+            default:
+                // Default to rescuer dashboard if user type is unknown
+                Log.w(TAG, "Unknown user type: " + userType + ", defaulting to rescuer dashboard");
+                return new Intent(this, Rescuer_Dashboard.class);
         }
     }
 }

@@ -2,6 +2,7 @@ package com.example.sagip_prototype;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -148,6 +149,11 @@ public class Barangay_Profile extends BaseProfileActivity {
                 .setMessage("Are you sure you want to log out?")
                 .setPositiveButton("Yes", (dialog, which) -> {
                     // Proceed with logout
+                    Log.d("Barangay_Profile", "🚪 User logging out - stopping all background services");
+                    
+                    // Stop ALL background services to prevent notifications to wrong user
+                    BackgroundServiceManager.stopAllBackgroundServices(this);
+                    
                     // Clear stored credentials first
                     clearStoredCredentials();
                     

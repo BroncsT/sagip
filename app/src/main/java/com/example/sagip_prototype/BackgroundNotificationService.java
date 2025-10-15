@@ -56,6 +56,15 @@ public class BackgroundNotificationService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "BackgroundNotificationService started");
         
+        // Check if user has logged out - if so, don't restart
+        SharedPreferences prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+        boolean isLoggedOut = prefs.getBoolean("user_logged_out", false);
+        if (isLoggedOut) {
+            Log.w(TAG, "⚠️ User has logged out, stopping BackgroundNotificationService");
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+        
         // Create foreground service notification
         createForegroundNotification();
         
@@ -238,7 +247,7 @@ public class BackgroundNotificationService extends Service {
     private void showHospitalUpdateNotification(String hospitalName, String hospitalStatus, 
                                              int availableBeds, int availableDoctors) {
         
-        Intent intent = new Intent(this, Rescuer_Dashboard.class);
+        Intent intent = getDashboardIntentForCurrentUser();
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         
         PendingIntent pendingIntent = PendingIntent.getActivity(
@@ -281,7 +290,7 @@ public class BackgroundNotificationService extends Service {
     private void showEmergencyNotification(String seniorName, String emergencyType, 
                                         String location, String phoneNumber) {
         
-        Intent intent = new Intent(this, Rescuer_Dashboard.class);
+        Intent intent = getDashboardIntentForCurrentUser();
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         intent.putExtra("emergency_notification", true);
         intent.putExtra("senior_name", seniorName);
@@ -427,6 +436,30 @@ public class BackgroundNotificationService extends Service {
             // Fallback to system alarm sound if custom file doesn't exist
             Log.w(TAG, "Custom alarm sound not found, using system alarm sound. Error: " + e.getMessage());
             return RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+        }
+    }
+    
+    /**
+     * Gets the appropriate dashboard intent based on the current user type
+     * @return Intent for the current user's dashboard
+     */
+    private Intent getDashboardIntentForCurrentUser() {
+        Log.d(TAG, "Getting dashboard intent for user type: " + currentUserType);
+        
+        switch (currentUserType) {
+            case "hospital":
+                return new Intent(this, Hospital_Dashboard.class);
+            case "rescuer":
+                return new Intent(this, Rescuer_Dashboard.class);
+            case "barangay":
+                return new Intent(this, Barangay_Dashboard.class);
+            case "seniors":
+            case "senior":
+                return new Intent(this, Senior_Dashboard.class);
+            default:
+                // Default to rescuer dashboard if user type is unknown
+                Log.w(TAG, "Unknown user type: " + currentUserType + ", defaulting to rescuer dashboard");
+                return new Intent(this, Rescuer_Dashboard.class);
         }
     }
 }

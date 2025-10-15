@@ -60,17 +60,23 @@ public class NativeNotificationSender {
                         String rescuerId = document.getId();
                         String rescuerName = document.getString("name");
                         String fcmToken = document.getString("fcmToken");
+                        String status = document.getString("status");
                         
-                        Log.d(TAG, "Processing rescuer: " + rescuerName + " (ID: " + rescuerId + ")");
+                        Log.d(TAG, "Processing rescuer: " + rescuerName + " (ID: " + rescuerId + ", Status: " + status + ")");
                         
-                        // Send immediate local notification to all rescuers
-                        sendImmediateLocalNotificationToRescuer(rescuerId, hospitalName, hospitalStatus, availableBeds, availableDoctors);
-                        
-                        if (fcmToken != null && !fcmToken.isEmpty()) {
-                            // Also send FCM notification for background delivery
-                            sendFCMNotificationToRescuer(db, rescuerId, fcmToken, hospitalName, hospitalStatus, availableBeds, availableDoctors);
+                        // Only send notifications to active rescuers
+                        if (status != null && !status.equals("inactive") && !status.equals("offline")) {
+                            // Send immediate local notification to all rescuers
+                            sendImmediateLocalNotificationToRescuer(rescuerId, hospitalName, hospitalStatus, availableBeds, availableDoctors);
+                            
+                            if (fcmToken != null && !fcmToken.isEmpty()) {
+                                // Also send FCM notification for background delivery
+                                sendFCMNotificationToRescuer(db, rescuerId, fcmToken, hospitalName, hospitalStatus, availableBeds, availableDoctors);
+                            } else {
+                                Log.w(TAG, "No FCM token found for rescuer: " + rescuerName);
+                            }
                         } else {
-                            Log.w(TAG, "No FCM token found for rescuer: " + rescuerName);
+                            Log.d(TAG, "Skipping inactive/offline rescuer: " + rescuerName);
                         }
                     }
                 })
@@ -203,14 +209,20 @@ public class NativeNotificationSender {
                         String userId = document.getId();
                         String userName = document.getString("name");
                         String fcmToken = document.getString("fcmToken");
+                        String status = document.getString("status");
                         
-                        Log.d(TAG, "Processing " + userType + " for emergency: " + userName + " (ID: " + userId + ")");
+                        Log.d(TAG, "Processing " + userType + " for emergency: " + userName + " (ID: " + userId + ", Status: " + status + ")");
                         
-                        if (fcmToken != null && !fcmToken.isEmpty()) {
-                            // Send FCM emergency notification
-                            sendFCMEmergencyNotificationToUser(db, userType, userId, fcmToken, seniorName, emergencyType, location, phoneNumber);
+                        // Only send notifications to active users
+                        if (status != null && !status.equals("inactive") && !status.equals("offline")) {
+                            if (fcmToken != null && !fcmToken.isEmpty()) {
+                                // Send FCM emergency notification
+                                sendFCMEmergencyNotificationToUser(db, userType, userId, fcmToken, seniorName, emergencyType, location, phoneNumber);
+                            } else {
+                                Log.w(TAG, "No FCM token found for " + userType + ": " + userName);
+                            }
                         } else {
-                            Log.w(TAG, "No FCM token found for " + userType + ": " + userName);
+                            Log.d(TAG, "Skipping inactive/offline " + userType + ": " + userName);
                         }
                     }
                 })

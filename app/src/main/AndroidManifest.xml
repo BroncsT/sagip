@@ -319,10 +319,6 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".Selfie_verification"
-            android:exported="false"
-            android:configChanges="orientation|screenSize|keyboardHidden" />
     </application>
 
 </manifest>
