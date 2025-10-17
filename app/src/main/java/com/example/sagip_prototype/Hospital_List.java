@@ -85,16 +85,26 @@ public class Hospital_List extends AppCompatActivity implements HospitalAdapter.
                     Log.d(TAG, "Successfully loaded hospitals, count: " + queryDocumentSnapshots.size());
                     
                     List<Hospital> hospitals = new ArrayList<>();
+                    List<Hospital> emergencyHospitals = new ArrayList<>();
                     
                     for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
                         Hospital hospital = createHospitalFromDocument(document);
                         hospitals.add(hospital);
+                        
+                        // Only add hospitals with incoming emergencies
+                        if (hospital.getHasIncomingEmergency() != null && hospital.getHasIncomingEmergency()) {
+                            emergencyHospitals.add(hospital);
+                        }
                     }
                     
-                    if (hospitals.isEmpty()) {
-                        showNoHospitalsMessage();
+                    Log.d(TAG, "Hospitals with incoming emergencies: " + emergencyHospitals.size());
+                    
+                    if (emergencyHospitals.isEmpty()) {
+                        // Show blank page - no emergency cases
+                        showBlankPage();
                     } else {
-                        displayHospitals(hospitals);
+                        // Show only hospitals with incoming emergencies
+                        displayHospitals(emergencyHospitals);
                     }
                 })
                 .addOnFailureListener(e -> {
@@ -134,6 +144,32 @@ public class Hospital_List extends AppCompatActivity implements HospitalAdapter.
             hospital.setEmergencyReady((Boolean) emergencyReadyObj);
         }
         
+        // Set senior information for emergency cases
+        hospital.setSeniorName((String) document.get("seniorName"));
+        hospital.setSeniorPhone((String) document.get("seniorPhone"));
+        hospital.setSeniorAddress((String) document.get("seniorAddress"));
+        hospital.setRescuerName((String) document.get("rescuerName"));
+        hospital.setRescuerPhone((String) document.get("rescuerPhone"));
+        hospital.setEmergencyId((String) document.get("emergencyId"));
+        
+        // Handle emergency timestamp
+        Object emergencyTimestampObj = document.get("emergencyTimestamp");
+        if (emergencyTimestampObj instanceof Number) {
+            hospital.setEmergencyTimestamp(((Number) emergencyTimestampObj).longValue());
+        }
+        
+        // Handle estimated arrival minutes
+        Object estimatedArrivalObj = document.get("estimatedArrivalMinutes");
+        if (estimatedArrivalObj instanceof Number) {
+            hospital.setEstimatedArrivalMinutes(((Number) estimatedArrivalObj).doubleValue());
+        }
+        
+        // Handle has incoming emergency flag
+        Object hasIncomingEmergencyObj = document.get("hasIncomingEmergency");
+        if (hasIncomingEmergencyObj instanceof Boolean) {
+            hospital.setHasIncomingEmergency((Boolean) hasIncomingEmergencyObj);
+        }
+        
         return hospital;
     }
 
@@ -155,6 +191,14 @@ public class Hospital_List extends AppCompatActivity implements HospitalAdapter.
         hospitalsRecyclerView.setVisibility(View.GONE);
         noHospitalsLayout.setVisibility(View.VISIBLE);
         noHospitalsText.setText("No hospitals found");
+    }
+    
+    private void showBlankPage() {
+        Log.d(TAG, "No emergency cases, showing blank page");
+        
+        // Hide everything - completely blank page
+        hospitalsRecyclerView.setVisibility(View.GONE);
+        noHospitalsLayout.setVisibility(View.GONE);
     }
 
     @Override

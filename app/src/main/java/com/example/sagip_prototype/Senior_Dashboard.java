@@ -947,7 +947,23 @@ public class Senior_Dashboard extends AppCompatActivity {
                         String firstName = documentSnapshot.getString("firstName");
                         String middleName = documentSnapshot.getString("middleName");
                         String lastName = documentSnapshot.getString("lastName");
-                        String currentLocation = documentSnapshot.getString("currentLocation");
+                        // Get currentLocation with proper error handling
+                        String currentLocation = null;
+                        try {
+                            com.google.firebase.firestore.GeoPoint currentLocationGeoPoint = documentSnapshot.getGeoPoint("currentLocation");
+                            if (currentLocationGeoPoint != null) {
+                                currentLocation = currentLocationGeoPoint.getLatitude() + ", " + currentLocationGeoPoint.getLongitude();
+                            }
+                        } catch (Exception e) {
+                            Log.w(TAG, "currentLocation field is not a GeoPoint, trying as String: " + e.getMessage());
+                            // Fallback: try to get as String
+                            try {
+                                currentLocation = documentSnapshot.getString("currentLocation");
+                            } catch (Exception e2) {
+                                Log.w(TAG, "currentLocation field is neither GeoPoint nor String: " + e2.getMessage());
+                                currentLocation = null;
+                            }
+                        }
                         String barangay = documentSnapshot.getString("barangay");
 
                         if (documentSnapshot.getDouble("latitude") != null && documentSnapshot.getDouble("longitude") != null) {

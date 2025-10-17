@@ -1154,9 +1154,9 @@ public class Barangay_Dashboard extends AppCompatActivity {
     private void showEmergencyAlert(String seniorName, String seniorPhone, String locationAddress, 
                                   String barangay, String requestId, String emergencyType, 
                                   Double seniorLatitude, Double seniorLongitude, String currentLocation) {
-        // Check if activity is still valid before showing dialog
+        // Enhanced activity state check
         if (isFinishing() || isDestroyed()) {
-            Log.w("Barangay_Dashboard", "Cannot show emergency alert dialog - activity is not in valid state");
+            Log.w("Barangay_Dashboard", "Cannot show emergency alert dialog - activity is not in valid state (finishing: " + isFinishing() + ", destroyed: " + isDestroyed() + ")");
             return;
         }
         
@@ -1329,20 +1329,39 @@ public class Barangay_Dashboard extends AppCompatActivity {
             return;
         }
         
+        if (notificationId == null || notificationId.isEmpty()) {
+            Log.w("Barangay_Dashboard", "Invalid notification ID, cannot mark as read");
+            return;
+        }
+        
         String userId = mAuth.getCurrentUser().getUid();
         String notificationPath = "Sagip/users/barangay/" + userId + "/notifications/" + notificationId;
         
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("isRead", true);
-        updates.put("readTimestamp", System.currentTimeMillis());
-        
+        // First check if the document exists before trying to update it
         db.document(notificationPath)
-                .update(updates)
-                .addOnSuccessListener(aVoid -> {
-                    Log.d("Barangay_Dashboard", "✅ Notification marked as read: " + notificationId);
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        // Document exists, proceed with update
+                        Map<String, Object> updates = new HashMap<>();
+                        updates.put("isRead", true);
+                        updates.put("readTimestamp", System.currentTimeMillis());
+                        
+                        db.document(notificationPath)
+                                .update(updates)
+                                .addOnSuccessListener(aVoid -> {
+                                    Log.d("Barangay_Dashboard", "✅ Notification marked as read: " + notificationId);
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e("Barangay_Dashboard", "❌ Failed to mark notification as read: " + notificationId, e);
+                                });
+                    } else {
+                        Log.w("Barangay_Dashboard", "⚠️ Notification document does not exist: " + notificationId + " (path: " + notificationPath + ")");
+                        // Don't treat this as an error since the notification might have been processed already
+                    }
                 })
                 .addOnFailureListener(e -> {
-                    Log.e("Barangay_Dashboard", "❌ Failed to mark notification as read: " + notificationId, e);
+                    Log.e("Barangay_Dashboard", "❌ Failed to check notification existence: " + notificationId, e);
                 });
     }
     
@@ -1410,8 +1429,23 @@ public class Barangay_Dashboard extends AppCompatActivity {
                 seniorLongitude = document.getDouble("seniorLongitude");
             }
             
-            // Get currentLocation field
-            String currentLocation = document.getString("currentLocation");
+            // Get currentLocation field with proper error handling
+            String currentLocation = null;
+            try {
+                com.google.firebase.firestore.GeoPoint currentLocationGeoPoint = document.getGeoPoint("currentLocation");
+                if (currentLocationGeoPoint != null) {
+                    currentLocation = currentLocationGeoPoint.getLatitude() + ", " + currentLocationGeoPoint.getLongitude();
+                }
+            } catch (Exception e) {
+                Log.w("Barangay_Dashboard", "currentLocation field is not a GeoPoint, trying as String: " + e.getMessage());
+                // Fallback: try to get as String
+                try {
+                    currentLocation = document.getString("currentLocation");
+                } catch (Exception e2) {
+                    Log.w("Barangay_Dashboard", "currentLocation field is neither GeoPoint nor String: " + e2.getMessage());
+                    currentLocation = null;
+                }
+            }
             
             // Only process unread emergency notifications that haven't been shown yet
             String notificationId = document.getId();
@@ -1441,9 +1475,9 @@ public class Barangay_Dashboard extends AppCompatActivity {
     private void showEmergencyPopupAlert(String seniorName, String seniorPhone, String locationAddress,
                                        String barangay, String requestId, String emergencyType, Long timestamp,
                                        Double seniorLatitude, Double seniorLongitude, String currentLocation) {
-        // Check if activity is still valid before showing dialog
+        // Enhanced activity state check
         if (isFinishing() || isDestroyed()) {
-            Log.w("Barangay_Dashboard", "Cannot show emergency popup dialog - activity is not in valid state");
+            Log.w("Barangay_Dashboard", "Cannot show emergency popup dialog - activity is not in valid state (finishing: " + isFinishing() + ", destroyed: " + isDestroyed() + ")");
             return;
         }
         

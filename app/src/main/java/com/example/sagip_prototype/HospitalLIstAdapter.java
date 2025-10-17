@@ -88,8 +88,25 @@ public class HospitalLIstAdapter extends RecyclerView.Adapter<HospitalLIstAdapte
             String bedInfo = hospital.getAvailableBeds() + "/" + hospital.getTotalBeds() + " beds";
             hospitalBedsText.setText(bedInfo);
 
-            // Set specialization (not available in HospitalLIst, so hide it)
-            hospitalSpecializationText.setVisibility(View.GONE);
+            // Set specialization or senior information
+            if (hospital.getHasIncomingEmergency() != null && hospital.getHasIncomingEmergency()) {
+                // Show senior information for incoming emergency
+                String seniorInfo = "🚨 INCOMING EMERGENCY\n";
+                seniorInfo += "👴 Senior: " + (hospital.getSeniorName() != null ? hospital.getSeniorName() : "Unknown") + "\n";
+                seniorInfo += "📞 Senior Phone: " + (hospital.getSeniorPhone() != null ? hospital.getSeniorPhone() : "N/A") + "\n";
+                seniorInfo += "👨‍⚕️ Rescuer: " + (hospital.getRescuerName() != null ? hospital.getRescuerName() : "Unknown") + "\n";
+                if (hospital.getEstimatedArrivalMinutes() != null) {
+                    seniorInfo += "⏱️ ETA: " + String.format("%.1f", hospital.getEstimatedArrivalMinutes()) + " minutes";
+                }
+                
+                hospitalSpecializationText.setText(seniorInfo);
+                hospitalSpecializationText.setVisibility(View.VISIBLE);
+                hospitalSpecializationText.setTextColor(0xFFFF5722); // Red color for emergency
+                hospitalSpecializationText.setTextSize(12);
+            } else {
+                // Hide specialization text if no emergency
+                hospitalSpecializationText.setVisibility(View.GONE);
+            }
 
             // Set click listener on the LinearLayout (which has clickable="true")
             View clickableView = itemView.findViewById(R.id.hospitalCardContent);

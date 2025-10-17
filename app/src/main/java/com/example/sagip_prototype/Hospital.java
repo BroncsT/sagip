@@ -16,6 +16,17 @@ public class Hospital {
     private boolean isEmergencyReady;
     private double latitude;
     private double longitude;
+    
+    // Senior information fields for emergency cases
+    private String seniorName;
+    private String seniorPhone;
+    private String seniorAddress;
+    private String rescuerName;
+    private String rescuerPhone;
+    private String emergencyId;
+    private Long emergencyTimestamp;
+    private Double estimatedArrivalMinutes;
+    private Boolean hasIncomingEmergency;
 
     // Constructors
     public Hospital() {}
@@ -95,5 +106,78 @@ public class Hospital {
             }
         }
         return "Unknown";
+    }
+    
+    // Getter and setter methods for senior information
+    public String getSeniorName() {
+        return seniorName;
+    }
+    
+    public void setSeniorName(String seniorName) {
+        this.seniorName = seniorName;
+    }
+    
+    public String getSeniorPhone() {
+        return seniorPhone;
+    }
+    
+    public void setSeniorPhone(String seniorPhone) {
+        this.seniorPhone = seniorPhone;
+    }
+    
+    public String getSeniorAddress() {
+        return seniorAddress;
+    }
+    
+    public void setSeniorAddress(String seniorAddress) {
+        this.seniorAddress = seniorAddress;
+    }
+    
+    public String getRescuerName() {
+        return rescuerName;
+    }
+    
+    public void setRescuerName(String rescuerName) {
+        this.rescuerName = rescuerName;
+    }
+    
+    public String getRescuerPhone() {
+        return rescuerPhone;
+    }
+    
+    public void setRescuerPhone(String rescuerPhone) {
+        this.rescuerPhone = rescuerPhone;
+    }
+    
+    public String getEmergencyId() {
+        return emergencyId;
+    }
+    
+    public void setEmergencyId(String emergencyId) {
+        this.emergencyId = emergencyId;
+    }
+    
+    public Long getEmergencyTimestamp() {
+        return emergencyTimestamp;
+    }
+    
+    public void setEmergencyTimestamp(Long emergencyTimestamp) {
+        this.emergencyTimestamp = emergencyTimestamp;
+    }
+    
+    public Double getEstimatedArrivalMinutes() {
+        return estimatedArrivalMinutes;
+    }
+    
+    public void setEstimatedArrivalMinutes(Double estimatedArrivalMinutes) {
+        this.estimatedArrivalMinutes = estimatedArrivalMinutes;
+    }
+    
+    public Boolean getHasIncomingEmergency() {
+        return hasIncomingEmergency;
+    }
+    
+    public void setHasIncomingEmergency(Boolean hasIncomingEmergency) {
+        this.hasIncomingEmergency = hasIncomingEmergency;
     }
 }

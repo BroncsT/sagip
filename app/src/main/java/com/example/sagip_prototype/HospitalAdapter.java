@@ -71,35 +71,73 @@ public class HospitalAdapter extends RecyclerView.Adapter<HospitalAdapter.Hospit
         }
 
         public void bind(Hospital hospital, OnHospitalClickListener listener) {
-            // Set hospital name
-            hospitalNameText.setText(hospital.getHospitalName() != null ? hospital.getHospitalName() : "Unknown Hospital");
-
-            // Set address
-            hospitalAddressText.setText(hospital.getAddress() != null ? hospital.getAddress() : "Address not available");
-
-            // Set contact number
-            hospitalContactText.setText(hospital.getContactNumber() != null ? hospital.getContactNumber() : "Contact not available");
-
-            // Set status with color coding
-            String status = hospital.getStatusDisplay();
-            hospitalStatusText.setText(status);
-            if (status.equals("Open")) {
-                hospitalStatusText.setTextColor(itemView.getContext().getResources().getColor(R.color.success_green));
-            } else if (status.equals("Busy")) {
-                hospitalStatusText.setTextColor(itemView.getContext().getResources().getColor(R.color.emergency_red));
-            } else {
-                hospitalStatusText.setTextColor(itemView.getContext().getResources().getColor(R.color.gray));
-            }
-
-            // Set bed capacity
-            hospitalBedsText.setText(hospital.getBedStatus());
-
-            // Set specialization
-            if (hospital.getSpecialization() != null && !hospital.getSpecialization().isEmpty()) {
-                hospitalSpecializationText.setText(hospital.getSpecialization());
+            // Check if there's an incoming emergency
+            if (hospital.getHasIncomingEmergency() != null && hospital.getHasIncomingEmergency()) {
+                // EMERGENCY MODE: Show only senior information (no hospital name)
+                
+                // Hide all hospital details including hospital name
+                hospitalNameText.setVisibility(View.GONE);
+                hospitalAddressText.setVisibility(View.GONE);
+                hospitalContactText.setVisibility(View.GONE);
+                hospitalStatusText.setVisibility(View.GONE);
+                hospitalBedsText.setVisibility(View.GONE);
+                
+                // Show senior information for incoming emergency
+                String seniorInfo = "🚨 INCOMING EMERGENCY\n";
+                seniorInfo += "👴 Senior: " + (hospital.getSeniorName() != null ? hospital.getSeniorName() : "Unknown") + "\n";
+                seniorInfo += "📞 Senior Phone: " + (hospital.getSeniorPhone() != null ? hospital.getSeniorPhone() : "N/A") + "\n";
+                seniorInfo += "👨‍⚕️ Rescuer: " + (hospital.getRescuerName() != null ? hospital.getRescuerName() : "Unknown") + "\n";
+                if (hospital.getEstimatedArrivalMinutes() != null) {
+                    seniorInfo += "⏱️ ETA: " + String.format("%.1f", hospital.getEstimatedArrivalMinutes()) + " minutes";
+                }
+                
+                hospitalSpecializationText.setText(seniorInfo);
                 hospitalSpecializationText.setVisibility(View.VISIBLE);
+                hospitalSpecializationText.setTextColor(itemView.getContext().getResources().getColor(R.color.emergency_red));
+                hospitalSpecializationText.setTextSize(12);
+                
             } else {
-                hospitalSpecializationText.setVisibility(View.GONE);
+                // NORMAL MODE: Show all hospital details
+                
+                // Show all hospital details including hospital name
+                hospitalNameText.setVisibility(View.VISIBLE);
+                hospitalAddressText.setVisibility(View.VISIBLE);
+                hospitalContactText.setVisibility(View.VISIBLE);
+                hospitalStatusText.setVisibility(View.VISIBLE);
+                hospitalBedsText.setVisibility(View.VISIBLE);
+                
+                // Set hospital name
+                hospitalNameText.setText(hospital.getHospitalName() != null ? hospital.getHospitalName() : "Unknown Hospital");
+                
+                // Set address
+                hospitalAddressText.setText(hospital.getAddress() != null ? hospital.getAddress() : "Address not available");
+
+                // Set contact number
+                hospitalContactText.setText(hospital.getContactNumber() != null ? hospital.getContactNumber() : "Contact not available");
+
+                // Set status with color coding
+                String status = hospital.getStatusDisplay();
+                hospitalStatusText.setText(status);
+                if (status.equals("Open")) {
+                    hospitalStatusText.setTextColor(itemView.getContext().getResources().getColor(R.color.success_green));
+                } else if (status.equals("Busy")) {
+                    hospitalStatusText.setTextColor(itemView.getContext().getResources().getColor(R.color.emergency_red));
+                } else {
+                    hospitalStatusText.setTextColor(itemView.getContext().getResources().getColor(R.color.gray));
+                }
+
+                // Set bed capacity
+                hospitalBedsText.setText(hospital.getBedStatus());
+
+                // Set specialization
+                if (hospital.getSpecialization() != null && !hospital.getSpecialization().isEmpty()) {
+                    hospitalSpecializationText.setText(hospital.getSpecialization());
+                    hospitalSpecializationText.setVisibility(View.VISIBLE);
+                    hospitalSpecializationText.setTextColor(itemView.getContext().getResources().getColor(R.color.black));
+                    hospitalSpecializationText.setTextSize(14);
+                } else {
+                    hospitalSpecializationText.setVisibility(View.GONE);
+                }
             }
 
             // Set profile image

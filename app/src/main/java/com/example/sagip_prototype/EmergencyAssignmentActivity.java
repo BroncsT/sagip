@@ -761,6 +761,9 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         Log.d(TAG, "📍 Hospital name: " + hospitalName);
         Log.d(TAG, "📍 Button enabled: " + btnNavigateHospital.isEnabled());
         
+        // Send alert to hospital first
+        sendHospitalAlert();
+        
         if (hospitalLat != 0.0 && hospitalLng != 0.0) {
             try {
                 String uri = String.format(Locale.getDefault(), 
@@ -829,6 +832,227 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         } catch (Exception e) {
             Log.e(TAG, "❌ Error opening web navigation: " + e.getMessage());
             Toast.makeText(this, "Unable to open navigation. Please contact emergency services.", Toast.LENGTH_LONG).show();
+        }
+    }
+    
+    /**
+     * Send alert to the chosen hospital with emergency details, rescuer info, and senior info
+     */
+    private void sendHospitalAlert() {
+        Log.d(TAG, "🚨 Sending hospital alert to: " + hospitalName);
+        
+        if (hospitalName == null || hospitalName.isEmpty()) {
+            Log.w(TAG, "⚠️ Cannot send hospital alert - hospital name not available");
+            return;
+        }
+        
+        if (emergencyId == null || emergencyId.isEmpty()) {
+            Log.w(TAG, "⚠️ Cannot send hospital alert - emergency ID not available");
+            return;
+        }
+        
+        // Get rescuer details
+        getRescuerDetailsForHospitalAlert();
+    }
+    
+    /**
+     * Get rescuer details and send hospital alert
+     */
+    private void getRescuerDetailsForHospitalAlert() {
+        Log.d(TAG, "🔍 Getting rescuer details for hospital alert...");
+        
+        if (rescuerId == null) {
+            Log.w(TAG, "⚠️ Rescuer ID is null, using default values");
+            sendHospitalAlertWithDetails("Unknown Rescuer", "Not available", "Emergency Response Team");
+            return;
+        }
+        
+        // Get rescuer details from database
+        db.collection("Sagip")
+                .document("users")
+                .collection("rescuer")
+                .document(rescuerId)
+                .get()
+                .addOnSuccessListener(rescuerDoc -> {
+                    if (rescuerDoc.exists()) {
+                        String rescuerName = rescuerDoc.getString("rescuegroup");
+                        String rescuerPhone = rescuerDoc.getString("mobileNumber");
+                        String rescuerTeam = rescuerDoc.getString("rescuegroup");
+                        
+                        // Use fallback values if data is missing
+                        if (rescuerName == null || rescuerName.isEmpty()) {
+                            rescuerName = "Rescuer " + rescuerId.substring(0, Math.min(8, rescuerId.length()));
+                        }
+                        if (rescuerPhone == null || rescuerPhone.isEmpty()) {
+                            rescuerPhone = "Not available";
+                        }
+                        if (rescuerTeam == null || rescuerTeam.isEmpty()) {
+                            rescuerTeam = "Emergency Response Team";
+                        }
+                        
+                        Log.d(TAG, "✅ Rescuer details loaded: " + rescuerName + " | " + rescuerPhone + " | " + rescuerTeam);
+                        sendHospitalAlertWithDetails(rescuerName, rescuerPhone, rescuerTeam);
+                    } else {
+                        Log.w(TAG, "⚠️ Rescuer document not found, using default values");
+                        sendHospitalAlertWithDetails("Unknown Rescuer", "Not available", "Emergency Response Team");
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Error loading rescuer details: " + e.getMessage());
+                    sendHospitalAlertWithDetails("Unknown Rescuer", "Not available", "Emergency Response Team");
+                });
+    }
+    
+    /**
+     * Send hospital alert with complete details
+     */
+    private void sendHospitalAlertWithDetails(String rescuerName, String rescuerPhone, String rescuerTeam) {
+        Log.d(TAG, "📤 Sending hospital alert with details...");
+        Log.d(TAG, "🏥 Hospital: " + hospitalName);
+        Log.d(TAG, "👨‍⚕️ Rescuer: " + rescuerName + " (" + rescuerPhone + ")");
+        Log.d(TAG, "👴 Senior: " + seniorName + " (" + seniorPhone + ")");
+        Log.d(TAG, "🚨 Emergency ID: " + emergencyId);
+        
+        // Calculate estimated arrival time to hospital
+        double estimatedArrivalMinutes = 0.0;
+        if (rescuerLat != 0.0 && rescuerLng != 0.0 && hospitalLat != 0.0 && hospitalLng != 0.0) {
+            double distanceToHospital = calculateDistance(rescuerLat, rescuerLng, hospitalLat, hospitalLng);
+            estimatedArrivalMinutes = (distanceToHospital / 30.0) * 60; // Assuming 30 km/h average speed
+        }
+        
+        // Create hospital alert data
+        Map<String, Object> hospitalAlert = new HashMap<>();
+        hospitalAlert.put("type", "EMERGENCY_INCOMING");
+        hospitalAlert.put("title", "🚨 Emergency Patient Incoming");
+        hospitalAlert.put("message", "Emergency patient " + seniorName + " is being transported to your facility by " + rescuerName);
+        hospitalAlert.put("emergencyId", emergencyId);
+        hospitalAlert.put("timestamp", System.currentTimeMillis());
+        hospitalAlert.put("isRead", false);
+        hospitalAlert.put("isActive", true);
+        hospitalAlert.put("priority", "HIGH");
+        
+        // Senior details
+        hospitalAlert.put("seniorName", seniorName != null ? seniorName : "Unknown Senior");
+        hospitalAlert.put("seniorPhone", seniorPhone != null ? seniorPhone : "Not available");
+        hospitalAlert.put("seniorAddress", locationAddress != null ? locationAddress : "Address not available");
+        hospitalAlert.put("seniorLat", seniorLat);
+        hospitalAlert.put("seniorLng", seniorLng);
+        
+        // Rescuer details
+        hospitalAlert.put("rescuerId", rescuerId);
+        hospitalAlert.put("rescuerName", rescuerName);
+        hospitalAlert.put("rescuerPhone", rescuerPhone);
+        hospitalAlert.put("rescuerTeam", rescuerTeam);
+        hospitalAlert.put("rescuerLat", rescuerLat);
+        hospitalAlert.put("rescuerLng", rescuerLng);
+        
+        // Hospital details
+        hospitalAlert.put("hospitalName", hospitalName);
+        hospitalAlert.put("hospitalAddress", hospitalAddress != null ? hospitalAddress : "Address not available");
+        hospitalAlert.put("hospitalLat", hospitalLat);
+        hospitalAlert.put("hospitalLng", hospitalLng);
+        
+        // Emergency details
+        hospitalAlert.put("assignmentTime", assignmentTime);
+        hospitalAlert.put("estimatedArrivalMinutes", estimatedArrivalMinutes);
+        hospitalAlert.put("estimatedArrivalTime", System.currentTimeMillis() + (long)(estimatedArrivalMinutes * 60 * 1000));
+        
+        // Additional context
+        hospitalAlert.put("emergencyType", "Medical Emergency");
+        hospitalAlert.put("transportStatus", "In Transit");
+        hospitalAlert.put("requiresImmediateAttention", true);
+        
+        // Send alert to hospital
+        sendAlertToHospital(hospitalAlert);
+    }
+    
+    /**
+     * Send alert to the specific hospital
+     */
+    private void sendAlertToHospital(Map<String, Object> alertData) {
+        Log.d(TAG, "📤 Sending alert to hospital: " + hospitalName);
+        Log.d(TAG, "📋 Alert data: " + alertData.toString());
+        
+        // First, find the hospital document ID
+        db.collection("Sagip")
+                .document("users")
+                .collection("hospital")
+                .whereEqualTo("hospitalName", hospitalName)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    Log.d(TAG, "🔍 Hospital query result: " + querySnapshot.size() + " hospitals found");
+                    if (!querySnapshot.isEmpty()) {
+                        // Get the first matching hospital document
+                        DocumentSnapshot hospitalDoc = querySnapshot.getDocuments().get(0);
+                        String hospitalId = hospitalDoc.getId();
+                        
+                        Log.d(TAG, "🏥 Found hospital document ID: " + hospitalId);
+                        Log.d(TAG, "🏥 Hospital document data: " + hospitalDoc.getData());
+                        
+                        // Send alert to hospital's notifications collection
+                        db.collection("Sagip")
+                                .document("users")
+                                .collection("hospital")
+                                .document(hospitalId)
+                                .collection("notifications")
+                                .add(alertData)
+                                .addOnSuccessListener(documentReference -> {
+                                    Log.d(TAG, "✅ Hospital alert sent successfully!");
+                                    Log.d(TAG, "🏥 Hospital: " + hospitalName);
+                                    Log.d(TAG, "📱 Alert ID: " + documentReference.getId());
+                                    Log.d(TAG, "👴 Senior: " + seniorName);
+                                    Log.d(TAG, "👨‍⚕️ Rescuer: " + alertData.get("rescuerName"));
+                                    
+                                    // Show success message to rescuer
+                                    Toast.makeText(this, "Hospital " + hospitalName + " has been notified of incoming emergency", Toast.LENGTH_LONG).show();
+                                    
+                                    // Also send a push notification to hospital if they have FCM token
+                                    sendPushNotificationToHospital(hospitalDoc, alertData);
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e(TAG, "❌ Failed to send hospital alert: " + e.getMessage());
+                                    Toast.makeText(this, "Failed to notify hospital. Please contact them directly.", Toast.LENGTH_LONG).show();
+                                });
+                    } else {
+                        Log.w(TAG, "⚠️ Hospital not found in database: " + hospitalName);
+                        Toast.makeText(this, "Hospital not found in system. Please contact them directly.", Toast.LENGTH_LONG).show();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Error finding hospital: " + e.getMessage());
+                    Toast.makeText(this, "Error notifying hospital. Please contact them directly.", Toast.LENGTH_LONG).show();
+                });
+    }
+    
+    /**
+     * Send push notification to hospital's device
+     */
+    private void sendPushNotificationToHospital(DocumentSnapshot hospitalDoc, Map<String, Object> alertData) {
+        String fcmToken = hospitalDoc.getString("fcmToken");
+        if (fcmToken != null && !fcmToken.isEmpty()) {
+            Log.d(TAG, "📱 Sending push notification to hospital FCM token: " + fcmToken);
+            
+            // Create push notification payload
+            Map<String, Object> pushNotification = new HashMap<>();
+            pushNotification.put("title", "🚨 Emergency Patient Incoming");
+            pushNotification.put("body", "Patient " + seniorName + " is being transported by " + alertData.get("rescuerName"));
+            pushNotification.put("type", "EMERGENCY_INCOMING");
+            pushNotification.put("emergencyId", emergencyId);
+            pushNotification.put("hospitalName", hospitalName);
+            pushNotification.put("seniorName", seniorName);
+            pushNotification.put("rescuerName", alertData.get("rescuerName"));
+            pushNotification.put("rescuerPhone", alertData.get("rescuerPhone"));
+            pushNotification.put("estimatedArrivalMinutes", alertData.get("estimatedArrivalMinutes"));
+            pushNotification.put("timestamp", System.currentTimeMillis());
+            
+            // Log the push notification data (in real implementation, this would be sent via FCM)
+            Log.d(TAG, "📱 Push Notification Data: " + pushNotification.toString());
+            Log.d(TAG, "📱 FCM Token: " + fcmToken);
+            
+            // TODO: Implement actual FCM sending via Firebase Admin SDK on server side
+            // This would typically be done through a Cloud Function or your backend server
+        } else {
+            Log.w(TAG, "⚠️ Hospital FCM token not found: " + hospitalName);
         }
     }
     

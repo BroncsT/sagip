@@ -33,6 +33,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.GeoPoint;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.Timestamp;
 
 import java.io.IOException;
@@ -75,6 +76,8 @@ public class Hospital_Dashboard extends AppCompatActivity {
     // Status update requirement UI
     private TextView tvLastUpdated;
     private TextView tvCountdownTimer;
+    
+    
     private String userType = "hospital";
     private String userId;
     private SharedPreferences sharedPreferences;
@@ -120,6 +123,9 @@ public class Hospital_Dashboard extends AppCompatActivity {
         // Initialize Firebase components
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
+        
+        // Start listening for emergency notifications
+        startEmergencyNotificationListener();
 
         tvCurrentLocation = findViewById(R.id.tvCurrentLocation);
         tvHospitalName = findViewById(R.id.hospitalStaffName);
@@ -127,6 +133,7 @@ public class Hospital_Dashboard extends AppCompatActivity {
         tvDoctorsAvailable = findViewById(R.id.tvDoctorsAvailable);
         tvErStatus = findViewById(R.id.tvErStatus);
         btnEditStatus = findViewById(R.id.btnEditStatus);
+        
         
         // Initialize status update UI
         tvLastUpdated = findViewById(R.id.tvLastUpdated);
@@ -1541,5 +1548,281 @@ public class Hospital_Dashboard extends AppCompatActivity {
                 .putString(KEY_CACHED_HOSPITAL_NAME, hospitalName)
                 .apply();
         Log.d("Hospital_Dashboard", "Cached hospital name: " + hospitalName);
+    }
+    
+    /**
+     * Start listening for emergency notifications from rescuers
+     */
+    private void startEmergencyNotificationListener() {
+        Log.d("Hospital_Dashboard", "🚨 Starting emergency notification listener...");
+        
+        // Get current user
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) {
+            Log.w("Hospital_Dashboard", "No authenticated user, cannot start emergency listener");
+            return;
+        }
+        
+        String userId = currentUser.getUid();
+        Log.d("Hospital_Dashboard", "👤 Listening for emergency notifications for user: " + userId);
+        
+        // Listen for emergency notifications in the hospital's notifications collection
+        db.collection("Sagip")
+                .document("users")
+                .collection("hospital")
+                .document(userId)
+                .collection("notifications")
+                .whereEqualTo("type", "EMERGENCY_INCOMING")
+                .whereEqualTo("isActive", true)
+                .addSnapshotListener((querySnapshot, error) -> {
+                    if (error != null) {
+                        Log.e("Hospital_Dashboard", "❌ Error listening for emergency notifications", error);
+                        return;
+                    }
+                    
+                    if (querySnapshot != null && !querySnapshot.isEmpty()) {
+                        Log.d("Hospital_Dashboard", "🚨 Received " + querySnapshot.size() + " emergency notification(s)");
+                        
+                        for (DocumentSnapshot document : querySnapshot.getDocuments()) {
+                            try {
+                                handleEmergencyNotification(document);
+                            } catch (Exception e) {
+                                Log.e("Hospital_Dashboard", "❌ Error handling emergency notification", e);
+                            }
+                        }
+                    } else {
+                        Log.d("Hospital_Dashboard", "📭 No emergency notifications found");
+                    }
+                });
+    }
+    
+    /**
+     * Handle incoming emergency notification
+     */
+    private void handleEmergencyNotification(DocumentSnapshot document) {
+        try {
+            String notificationId = document.getId();
+            String type = document.getString("type");
+            String title = document.getString("title");
+            String message = document.getString("message");
+            String emergencyId = document.getString("emergencyId");
+            String seniorName = document.getString("seniorName");
+            String seniorPhone = document.getString("seniorPhone");
+            String rescuerName = document.getString("rescuerName");
+            String rescuerPhone = document.getString("rescuerPhone");
+            String hospitalName = document.getString("hospitalName");
+            Double estimatedArrivalMinutes = document.getDouble("estimatedArrivalMinutes");
+            Long timestamp = document.getLong("timestamp");
+            
+            Log.d("Hospital_Dashboard", "🚨 Emergency Alert Details:");
+            Log.d("Hospital_Dashboard", "   📋 ID: " + notificationId);
+            Log.d("Hospital_Dashboard", "   🏥 Hospital: " + hospitalName);
+            Log.d("Hospital_Dashboard", "   👴 Senior: " + seniorName + " (" + seniorPhone + ")");
+            Log.d("Hospital_Dashboard", "   👨‍⚕️ Rescuer: " + rescuerName + " (" + rescuerPhone + ")");
+            Log.d("Hospital_Dashboard", "   ⏱️ ETA: " + (estimatedArrivalMinutes != null ? estimatedArrivalMinutes + " minutes" : "Unknown"));
+            
+            // Show emergency alert dialog
+            showEmergencyAlertDialog(title, message, seniorName, seniorPhone, rescuerName, rescuerPhone, 
+                                   estimatedArrivalMinutes, emergencyId, notificationId);
+            
+        } catch (Exception e) {
+            Log.e("Hospital_Dashboard", "❌ Error parsing emergency notification", e);
+        }
+    }
+    
+    /**
+     * Show emergency alert dialog to hospital staff
+     */
+    private void showEmergencyAlertDialog(String title, String message, String seniorName, String seniorPhone,
+                                        String rescuerName, String rescuerPhone, Double estimatedArrivalMinutes,
+                                        String emergencyId, String notificationId) {
+        
+        // Create a detailed alert message
+        StringBuilder alertMessage = new StringBuilder();
+        alertMessage.append("🚨 EMERGENCY PATIENT INCOMING\n\n");
+        alertMessage.append("👴 Senior: ").append(seniorName != null ? seniorName : "Unknown").append("\n");
+        alertMessage.append("📞 Senior Phone: ").append(seniorPhone != null ? seniorPhone : "Not available").append("\n");
+        alertMessage.append("👨‍⚕️ Rescuer: ").append(rescuerName != null ? rescuerName : "Unknown").append("\n");
+        alertMessage.append("📞 Rescuer Phone: ").append(rescuerPhone != null ? rescuerPhone : "Not available").append("\n");
+        if (estimatedArrivalMinutes != null) {
+            alertMessage.append("⏱️ Estimated Arrival: ").append(String.format("%.1f", estimatedArrivalMinutes)).append(" minutes\n");
+        }
+        alertMessage.append("\n").append(message != null ? message : "Emergency patient being transported to your facility");
+        
+        // Create and show alert dialog
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(title != null ? title : "🚨 Emergency Alert")
+                .setMessage(alertMessage.toString())
+                .setPositiveButton("✅ Acknowledged", (dialog, which) -> {
+                    // Mark notification as read
+                    markNotificationAsRead(notificationId);
+                    Log.d("Hospital_Dashboard", "✅ Emergency alert acknowledged by hospital staff");
+                })
+                .setNegativeButton("📞 Call Rescuer", (dialog, which) -> {
+                    // Mark notification as read
+                    markNotificationAsRead(notificationId);
+                    // Call rescuer
+                    if (rescuerPhone != null && !rescuerPhone.isEmpty()) {
+                        callRescuer(rescuerPhone);
+                    }
+                    Log.d("Hospital_Dashboard", "📞 Hospital staff calling rescuer: " + rescuerPhone);
+                })
+                .setCancelable(false)
+                .show();
+                
+        // Play emergency sound
+        playEmergencyAlertSound();
+    }
+    
+    /**
+     * Mark notification as read and update hospital list with senior information
+     */
+    private void markNotificationAsRead(String notificationId) {
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) return;
+        
+        String userId = currentUser.getUid();
+        
+        // First, get the notification data before marking as read
+        db.collection("Sagip")
+                .document("users")
+                .collection("hospital")
+                .document(userId)
+                .collection("notifications")
+                .document(notificationId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        // Extract senior information from notification
+                        String seniorName = documentSnapshot.getString("seniorName");
+                        String seniorPhone = documentSnapshot.getString("seniorPhone");
+                        String seniorAddress = documentSnapshot.getString("seniorAddress");
+                        String rescuerName = documentSnapshot.getString("rescuerName");
+                        String rescuerPhone = documentSnapshot.getString("rescuerPhone");
+                        String emergencyId = documentSnapshot.getString("emergencyId");
+                        Double estimatedArrivalMinutes = documentSnapshot.getDouble("estimatedArrivalMinutes");
+                        Long timestamp = documentSnapshot.getLong("timestamp");
+                        
+                        Log.d("Hospital_Dashboard", "📋 Extracted senior info: " + seniorName + " (" + seniorPhone + ")");
+                        
+                        // Update hospital list with senior information
+                        updateHospitalListWithSeniorInfo(seniorName, seniorPhone, seniorAddress, 
+                                                       rescuerName, rescuerPhone, emergencyId, 
+                                                       estimatedArrivalMinutes, timestamp);
+                        
+                        // Mark notification as read
+                        markNotificationAsReadInternal(notificationId);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("Hospital_Dashboard", "❌ Failed to get notification data", e);
+                    // Still try to mark as read even if getting data failed
+                    markNotificationAsReadInternal(notificationId);
+                });
+    }
+    
+    /**
+     * Internal method to mark notification as read
+     */
+    private void markNotificationAsReadInternal(String notificationId) {
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) return;
+        
+        String userId = currentUser.getUid();
+        db.collection("Sagip")
+                .document("users")
+                .collection("hospital")
+                .document(userId)
+                .collection("notifications")
+                .document(notificationId)
+                .update("isRead", true, "isActive", false)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d("Hospital_Dashboard", "✅ Notification marked as read: " + notificationId);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("Hospital_Dashboard", "❌ Failed to mark notification as read", e);
+                });
+    }
+    
+    /**
+     * Update hospital list with senior information
+     */
+    private void updateHospitalListWithSeniorInfo(String seniorName, String seniorPhone, String seniorAddress,
+                                                String rescuerName, String rescuerPhone, String emergencyId,
+                                                Double estimatedArrivalMinutes, Long timestamp) {
+        Log.d("Hospital_Dashboard", "🔄 Updating hospital list with senior information...");
+        
+        // Get current hospital data
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) return;
+        
+        String userId = currentUser.getUid();
+        
+        // Update the hospital document with senior information
+        Map<String, Object> seniorInfo = new HashMap<>();
+        seniorInfo.put("seniorName", seniorName);
+        seniorInfo.put("seniorPhone", seniorPhone);
+        seniorInfo.put("seniorAddress", seniorAddress);
+        seniorInfo.put("rescuerName", rescuerName);
+        seniorInfo.put("rescuerPhone", rescuerPhone);
+        seniorInfo.put("emergencyId", emergencyId);
+        seniorInfo.put("estimatedArrivalMinutes", estimatedArrivalMinutes);
+        seniorInfo.put("emergencyTimestamp", timestamp);
+        seniorInfo.put("hasIncomingEmergency", true);
+        seniorInfo.put("lastEmergencyUpdate", System.currentTimeMillis());
+        
+        db.collection("Sagip")
+                .document("users")
+                .collection("hospital")
+                .document(userId)
+                .update(seniorInfo)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d("Hospital_Dashboard", "✅ Hospital list updated with senior information");
+                    Log.d("Hospital_Dashboard", "👴 Senior: " + seniorName + " (" + seniorPhone + ")");
+                    Log.d("Hospital_Dashboard", "👨‍⚕️ Rescuer: " + rescuerName + " (" + rescuerPhone + ")");
+                    Log.d("Hospital_Dashboard", "⏱️ ETA: " + (estimatedArrivalMinutes != null ? estimatedArrivalMinutes + " minutes" : "Unknown"));
+                    
+                    
+                    // Show success message
+                    Toast.makeText(this, "Senior information added to hospital list: " + seniorName, Toast.LENGTH_LONG).show();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("Hospital_Dashboard", "❌ Failed to update hospital list with senior info", e);
+                    Toast.makeText(this, "Failed to update hospital list", Toast.LENGTH_SHORT).show();
+                });
+    }
+    
+    /**
+     * Call rescuer
+     */
+    private void callRescuer(String phoneNumber) {
+        try {
+            Intent callIntent = new Intent(Intent.ACTION_CALL);
+            callIntent.setData(android.net.Uri.parse("tel:" + phoneNumber));
+            startActivity(callIntent);
+        } catch (Exception e) {
+            Log.e("Hospital_Dashboard", "❌ Error calling rescuer", e);
+            Toast.makeText(this, "Unable to make call", Toast.LENGTH_SHORT).show();
+        }
+    }
+    
+    /**
+     * Play emergency alert sound
+     */
+    private void playEmergencyAlertSound() {
+        try {
+            // Play emergency sound
+            android.media.RingtoneManager ringtoneManager = new android.media.RingtoneManager(this);
+            android.net.Uri emergencySound = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM);
+            
+            if (emergencySound != null) {
+                android.media.Ringtone ringtone = ringtoneManager.getRingtone(this, emergencySound);
+                if (ringtone != null) {
+                    ringtone.play();
+                }
+            }
+        } catch (Exception e) {
+            Log.e("Hospital_Dashboard", "❌ Error playing emergency sound", e);
+        }
     }
 }

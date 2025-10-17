@@ -764,11 +764,11 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
-
+        
         // Apply saved language preference
         String savedLanguage = LanguageSelectionActivity.getSavedLanguage(this);
         LanguageSelectionActivity.setAppLanguage(this, savedLanguage);
-
+        
         setContentView(R.layout.activity_rescuer_dashboard);
 
 		// Initialize Google Map fragment inside the container
@@ -813,21 +813,21 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         db = FirebaseFirestore.getInstance();
         brgyName = findViewById(R.id.barangayStaffName);
         currentLocationText = findViewById(R.id.currentLocationValue);
-
+        
         // Initialize route control panel
         routeControlPanel = findViewById(R.id.routeControlPanel);
         routeInfoText = findViewById(R.id.routeInfoText);
         btnClearRoute = findViewById(R.id.btnClearRoute);
-
+        
         // Set up clear route button
         btnClearRoute.setOnClickListener(v -> clearRoute());
-
+        
         // Initialize executor service for route requests
         executorService = Executors.newSingleThreadExecutor();
-
+        
         // Initialize emergency queue manager
         EmergencyQueueManager.getInstance(this).loadActiveEmergenciesFromDatabase();
-
+        
         // Handle emergency notification if app was opened from notification
         handleEmergencyNotificationIntent();
 
@@ -851,6 +851,10 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
 
         // Initialize FCM token for notifications
         initializeFCMToken();
+        
+        // Setup test SMS button (for debugging)
+        setupTestSMSButton();
+
         createNotificationChannel();
 
         // Clear any old emergency notifications on startup
@@ -1259,7 +1263,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             emergencyListener.remove();
             emergencyListener = null;
         }
-
+        
+        // Stop background notification service
+        // Stop all notification services when logging out
         stopAllNotificationServices();
 
         // Clear stored credentials
@@ -2063,6 +2069,12 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         Log.d(TAG, "🔍 [SHOW_DIALOG] GPS coordinates: " + seniorLat + ", " + seniorLng);
         Log.d(TAG, "🔍 [SHOW_DIALOG] isEmergencyDialogShowing: " + isEmergencyDialogShowing);
         
+        // Enhanced activity state check
+        if (isFinishing() || isDestroyed()) {
+            Log.w(TAG, "Cannot show emergency alert dialog - activity is not in valid state (finishing: " + isFinishing() + ", destroyed: " + isDestroyed() + ")");
+            return;
+        }
+        
         // Synchronized check to prevent race conditions
         synchronized (dialogLock) {
             // Check if dialog is already showing to prevent duplicates
@@ -2071,9 +2083,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 return;
             }
             
-            // Check if activity is still valid before showing dialog
+            // Double-check activity state after acquiring lock
             if (isFinishing() || isDestroyed()) {
-                Log.w(TAG, "Cannot show emergency alert dialog - activity is not in valid state");
+                Log.w(TAG, "Cannot show emergency alert dialog - activity state changed during lock acquisition");
                 return;
             }
             
@@ -2174,6 +2186,12 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         Log.d(TAG, "🔍 [SHOW_DIALOG] RequestId: " + requestId);
         Log.d(TAG, "🔍 [SHOW_DIALOG] isEmergencyDialogShowing: " + isEmergencyDialogShowing);
         
+        // Enhanced activity state check
+        if (isFinishing() || isDestroyed()) {
+            Log.w(TAG, "Cannot show emergency alert dialog - activity is not in valid state (finishing: " + isFinishing() + ", destroyed: " + isDestroyed() + ")");
+            return;
+        }
+        
         // Synchronized check to prevent race conditions
         synchronized (dialogLock) {
             // Check if dialog is already showing to prevent duplicates
@@ -2182,9 +2200,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 return;
             }
             
-            // Check if activity is still valid before showing dialog
+            // Double-check activity state after acquiring lock
             if (isFinishing() || isDestroyed()) {
-                Log.w(TAG, "Cannot show emergency alert dialog - activity is not in valid state");
+                Log.w(TAG, "Cannot show emergency alert dialog - activity state changed during lock acquisition");
                 return;
             }
             
@@ -2684,6 +2702,23 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             .show();
     }
 
+    /**
+     * Setup test SMS button for debugging
+     */
+    private void setupTestSMSButton() {
+        // Button testSMSButton = findViewById(R.id.btnTestSMS); // Button not in layout
+        // Test SMS button functionality commented out - button not present in layout
+        Log.d(TAG, "Test SMS button setup skipped - button not in layout");
+        
+        // Add debug emergency contacts button
+        // Button debugContactsButton = findViewById(R.id.btnDebugContacts); // Button not in layout
+        // Debug contacts and test emergency flow buttons commented out - buttons not in layout
+        Log.d(TAG, "Debug buttons setup skipped - buttons not in layout");
+    }
+
+    /**
+     * Test the complete emergency SMS flow
+     */
     private void testEmergencySMSFlow() {
         Log.d(TAG, "🚨 Testing complete emergency SMS flow...");
         
@@ -4053,10 +4088,26 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                                     intent.putExtra("senior_lng", seniorLng);
                                     Log.d(TAG, "📍 Using senior's current GPS location from database: " + seniorLat + ", " + seniorLng);
                                     
-                                    // Also get the address for display
-                                    String currentLocationAddress = documentSnapshot.getString("currentLocation");
-                                    if (currentLocationAddress != null && !currentLocationAddress.isEmpty()) {
-                                        Log.d(TAG, "📍 Senior's current address: " + currentLocationAddress);
+                                    // Also get the address for display with proper error handling
+                                    String currentLocationAddress = null;
+                                    try {
+                                        com.google.firebase.firestore.GeoPoint currentLocationGeoPoint = documentSnapshot.getGeoPoint("currentLocation");
+                                        if (currentLocationGeoPoint != null) {
+                                            currentLocationAddress = currentLocationGeoPoint.getLatitude() + ", " + currentLocationGeoPoint.getLongitude();
+                                            Log.d(TAG, "📍 Senior's current address: " + currentLocationAddress);
+                                        }
+                                    } catch (Exception e) {
+                                        Log.w(TAG, "currentLocation field is not a GeoPoint, trying as String: " + e.getMessage());
+                                        // Fallback: try to get as String
+                                        try {
+                                            currentLocationAddress = documentSnapshot.getString("currentLocation");
+                                            if (currentLocationAddress != null) {
+                                                Log.d(TAG, "📍 Senior's current address (String): " + currentLocationAddress);
+                                            }
+                                        } catch (Exception e2) {
+                                            Log.w(TAG, "currentLocation field is neither GeoPoint nor String: " + e2.getMessage());
+                                            currentLocationAddress = null;
+                                        }
                                     }
                                 } else {
                                     // Fallback to emergency location if current GPS location not available
@@ -4154,10 +4205,26 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                                 intent.putExtra("senior_lng", seniorLng);
                                 Log.d(TAG, "📍 Using senior's current GPS location from database (fallback): " + seniorLat + ", " + seniorLng);
                                 
-                                // Also get the address for display
-                                String currentLocationAddress = documentSnapshot.getString("currentLocation");
-                                if (currentLocationAddress != null && !currentLocationAddress.isEmpty()) {
-                                    Log.d(TAG, "📍 Senior's current address (fallback): " + currentLocationAddress);
+                                // Also get the address for display with proper error handling
+                                String currentLocationAddress = null;
+                                try {
+                                    com.google.firebase.firestore.GeoPoint currentLocationGeoPoint = documentSnapshot.getGeoPoint("currentLocation");
+                                    if (currentLocationGeoPoint != null) {
+                                        currentLocationAddress = currentLocationGeoPoint.getLatitude() + ", " + currentLocationGeoPoint.getLongitude();
+                                        Log.d(TAG, "📍 Senior's current address (fallback): " + currentLocationAddress);
+                                    }
+                                } catch (Exception e) {
+                                    Log.w(TAG, "currentLocation field is not a GeoPoint, trying as String: " + e.getMessage());
+                                    // Fallback: try to get as String
+                                    try {
+                                        currentLocationAddress = documentSnapshot.getString("currentLocation");
+                                        if (currentLocationAddress != null) {
+                                            Log.d(TAG, "📍 Senior's current address (fallback, String): " + currentLocationAddress);
+                                        }
+                                    } catch (Exception e2) {
+                                        Log.w(TAG, "currentLocation field is neither GeoPoint nor String: " + e2.getMessage());
+                                        currentLocationAddress = null;
+                                    }
                                 }
                             } else {
                                 // Fallback: Use default location
