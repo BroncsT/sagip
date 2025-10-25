@@ -126,6 +126,7 @@ public class Senior_Registration extends AppCompatActivity {
                 }
 
                 String uid = user.getUid();
+                String userEmail = user.getEmail(); // Get the email used for login
 
                 // ✅ Check if mobile number already exists
                 db.collection("Sagip")
@@ -148,8 +149,8 @@ public class Senior_Registration extends AppCompatActivity {
                                 usrData.put("birthday", birthday);
                                 usrData.put("barangay", selectedBarangay);
                                 usrData.put("mobileNumber", mobileNumber);
-                                if (!emailAddress.isEmpty()) {
-                                    usrData.put("email", emailAddress);
+                                if (userEmail != null && !userEmail.isEmpty()) {
+                                    usrData.put("email", userEmail);
                                 }
                                 usrData.put("status", "pending");
                                 usrData.put("user-type", userType);

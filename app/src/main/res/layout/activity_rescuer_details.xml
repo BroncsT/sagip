@@ -36,7 +36,7 @@
                     android:id="@+id/btnBack"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="← Back"
+                    android:text="@string/back_arrow_text"
                     android:textSize="14sp"
                     android:textColor="@color/white"
                     android:background="@drawable/button_background"
@@ -48,7 +48,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="🚑 Rescuer Assigned"
+                    android:text="@string/rescuer_assigned_title"
                     android:textColor="@color/black"
                     android:textSize="20sp"
                     android:textStyle="bold" />
@@ -57,7 +57,7 @@
                     android:id="@+id/tvStatus"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="En Route"
+                    android:text="@string/en_route_status"
                     android:textColor="@color/white"
                     android:textSize="12sp"
                     android:background="@drawable/button_background"
@@ -68,7 +68,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="A rescuer has been assigned to your emergency and is on the way."
+                android:text="@string/rescuer_assigned_message"
                 android:textColor="@color/gray"
                 android:textSize="14sp"
                 android:gravity="center" />
@@ -98,7 +98,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="👨‍⚕️ Rescuer Information"
+                android:text="@string/rescuer_information_title"
                 android:textColor="@color/black"
                 android:textSize="18sp"
                 android:textStyle="bold"
@@ -114,7 +114,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Name:"
+                    android:text="@string/name_label"
                     android:textColor="@color/gray"
                     android:textSize="14sp"
                     android:layout_marginEnd="8dp" />
@@ -124,7 +124,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Loading..."
+                    android:text="@string/loading_text_short"
                     android:textColor="@color/black"
                     android:textSize="16sp"
                     android:textStyle="bold" />
@@ -140,7 +140,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Team:"
+                    android:text="@string/team_label"
                     android:textColor="@color/gray"
                     android:textSize="14sp"
                     android:layout_marginEnd="8dp" />
@@ -150,7 +150,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Emergency Response Team"
+                    android:text="@string/emergency_response_team"
                     android:textColor="@color/black"
                     android:textSize="16sp" />
             </LinearLayout>
@@ -164,7 +164,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Phone:"
+                    android:text="@string/phone_label_colon"
                     android:textColor="@color/gray"
                     android:textSize="14sp"
                     android:layout_marginEnd="8dp" />
@@ -174,7 +174,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Not available"
+                    android:text="@string/not_available"
                     android:textColor="@color/black"
                     android:textSize="16sp" />
             </LinearLayout>
@@ -204,7 +204,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="⏱️ Estimated Time of Arrival"
+                android:text="@string/estimated_time_arrival"
                 android:textColor="@color/black"
                 android:textSize="18sp"
                 android:textStyle="bold"
@@ -227,7 +227,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="ETA"
+                        android:text="@string/eta_short"
                         android:textColor="@color/gray"
                         android:textSize="12sp" />
 
@@ -235,7 +235,7 @@
                         android:id="@+id/tvETA"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="-- min"
+                        android:text="@string/minutes_placeholder"
                         android:textColor="@color/secondary_blue"
                         android:textSize="24sp"
                         android:textStyle="bold"
@@ -252,7 +252,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Distance"
+                        android:text="@string/distance_label"
                         android:textColor="@color/gray"
                         android:textSize="12sp" />
 
@@ -260,7 +260,7 @@
                         android:id="@+id/tvDistance"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="-- km"
+                        android:text="@string/kilometers_placeholder"
                         android:textColor="@color/secondary_blue"
                         android:textSize="20sp"
                         android:textStyle="bold" />
@@ -272,7 +272,7 @@
                 android:id="@+id/tvETAStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Real-time traffic data"
+                android:text="@string/real_time_traffic"
                 android:textColor="@color/gray"
                 android:textSize="12sp"
                 android:gravity="center"
@@ -282,7 +282,7 @@
                 android:id="@+id/tvLastUpdate"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Last updated: Just now"
+                android:text="@string/last_updated_just_now"
                 android:textColor="@color/gray"
                 android:textSize="12sp"
                 android:gravity="center" />
@@ -307,7 +307,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="🧪 Debug Tools"
+            android:text="@string/debug_tools"
             android:textColor="@color/black"
             android:textSize="14sp"
             android:textStyle="bold"
@@ -323,7 +323,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Test ETA"
+                android:text="@string/test_eta_button"
                 android:textSize="12sp"
                 android:textColor="@color/white"
                 android:background="@drawable/button_background"
@@ -334,7 +334,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Check DB"
+                android:text="@string/check_db_button"
                 android:textSize="12sp"
                 android:textColor="@color/white"
                 android:background="@drawable/button_background"
@@ -346,7 +346,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Force ETA"
+                android:text="@string/force_eta_button"
                 android:textSize="12sp"
                 android:textColor="@color/white"
                 android:background="@drawable/button_background"
@@ -373,18 +373,18 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="📞 Call Rescuer"
+            android:text="@string/call_rescuer_button_text"
             android:textSize="14sp"
             android:textColor="@color/white"
             android:background="@drawable/button_background"
-            android:layout_marginEnd="8dp" />
+            android:layout_marginEnd="8dp" />   cc
 
         <Button
             android:id="@+id/btnRefreshETA"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="🔄 Refresh ETA"
+            android:text="@string/refresh_eta_button"
             android:textSize="14sp"
             android:textColor="@color/white"
             android:background="@drawable/button_background"

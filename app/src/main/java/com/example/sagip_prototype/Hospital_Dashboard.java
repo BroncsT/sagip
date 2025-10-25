@@ -683,7 +683,7 @@ public class Hospital_Dashboard extends AppCompatActivity {
                 .addSnapshotListener((documentSnapshot, e) -> {
                     if (e != null) {
                         Log.e("Hospital_Dashboard", "Error loading hospital status: " + e.getMessage(), e);
-                        Toast.makeText(Hospital_Dashboard.this, "Error loading status: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(Hospital_Dashboard.this, getString(R.string.error_loading_status, e.getMessage()), Toast.LENGTH_SHORT).show();
                         return;
                     }
 
@@ -1784,11 +1784,11 @@ public class Hospital_Dashboard extends AppCompatActivity {
                     
                     
                     // Show success message
-                    Toast.makeText(this, "Senior information added to hospital list: " + seniorName, Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, getString(R.string.senior_info_added_to_hospital, seniorName), Toast.LENGTH_LONG).show();
                 })
                 .addOnFailureListener(e -> {
                     Log.e("Hospital_Dashboard", "❌ Failed to update hospital list with senior info", e);
-                    Toast.makeText(this, "Failed to update hospital list", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, getString(R.string.failed_to_update_hospital_list), Toast.LENGTH_SHORT).show();
                 });
     }
     
@@ -1802,7 +1802,7 @@ public class Hospital_Dashboard extends AppCompatActivity {
             startActivity(callIntent);
         } catch (Exception e) {
             Log.e("Hospital_Dashboard", "❌ Error calling rescuer", e);
-            Toast.makeText(this, "Unable to make call", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.unable_to_make_call), Toast.LENGTH_SHORT).show();
         }
     }
     

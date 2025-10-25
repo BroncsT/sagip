@@ -1193,10 +1193,10 @@ public class Barangay_Dashboard extends AppCompatActivity {
                     Log.d("Barangay_Dashboard", "📞 Opening dialer for: " + seniorPhone);
                 } catch (Exception e) {
                     Log.e("Barangay_Dashboard", "❌ Error opening dialer: " + e.getMessage());
-                    Toast.makeText(this, "Unable to open dialer. Please call manually: " + seniorPhone, Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, getString(R.string.unable_to_open_dialer, seniorPhone), Toast.LENGTH_LONG).show();
                 }
             } else {
-                Toast.makeText(this, "Senior phone number not available", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.senior_phone_not_available), Toast.LENGTH_SHORT).show();
             }
         });
         
@@ -1213,7 +1213,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
                 // Fallback to locationAddress
                 openGoogleMapsNavigation(locationAddress);
             } else {
-                Toast.makeText(this, "Location information not available", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.location_info_not_available), Toast.LENGTH_SHORT).show();
             }
         });
         
@@ -1520,10 +1520,10 @@ public class Barangay_Dashboard extends AppCompatActivity {
                     Log.d("Barangay_Dashboard", "📞 Opening dialer for: " + seniorPhone);
                 } catch (Exception e) {
                     Log.e("Barangay_Dashboard", "❌ Error opening dialer: " + e.getMessage());
-                    Toast.makeText(this, "Unable to open dialer. Please call manually: " + seniorPhone, Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, getString(R.string.unable_to_open_dialer, seniorPhone), Toast.LENGTH_LONG).show();
                 }
             } else {
-                Toast.makeText(this, "Senior phone number not available", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.senior_phone_not_available), Toast.LENGTH_SHORT).show();
             }
         });
         
@@ -1540,7 +1540,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
                 // Fallback to locationAddress
                 openGoogleMapsNavigation(locationAddress);
             } else {
-                Toast.makeText(this, "Location information not available", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.location_info_not_available), Toast.LENGTH_SHORT).show();
             }
         });
         

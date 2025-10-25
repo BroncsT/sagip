@@ -99,6 +99,7 @@ public class IdCameraCapture extends AppCompatActivity {
 
         // Initialize views
         previewView = findViewById(R.id.previewView);
+        previewView.setScaleType(androidx.camera.view.PreviewView.ScaleType.FIT_CENTER);
         frameOverlay = findViewById(R.id.frameOverlay);
         captureButton = findViewById(R.id.captureButton);
         retakeButton = findViewById(R.id.retakeButton);
@@ -164,7 +165,8 @@ public class IdCameraCapture extends AppCompatActivity {
                 .requireLensFacing(CameraSelector.LENS_FACING_BACK)
                 .build();
 
-        Preview preview = new Preview.Builder().build();
+        Preview preview = new Preview.Builder()
+                .build();
         preview.setSurfaceProvider(previewView.getSurfaceProvider());
 
         imageCapture = new ImageCapture.Builder()
@@ -220,8 +222,7 @@ public class IdCameraCapture extends AppCompatActivity {
                     }
                 } catch (Exception ignore) {}
                 
-                // Crop the image to the rectangle frame area
-                capturedBitmap = cropToRectangleFrame(capturedBitmap);
+                // Capture full image without cropping
                 
                 // Show captured image immediately for faster user experience
                 showCapturedImage();
@@ -277,79 +278,6 @@ public class IdCameraCapture extends AppCompatActivity {
         additionalInstructionsTextView.setText(getString(R.string.id_capture_additional_instructions));
     }
 
-    private Bitmap cropToRectangleFrame(Bitmap originalBitmap) {
-        if (originalBitmap == null) return null;
-        
-        // Get the screen dimensions and calculate the rectangle frame area
-        // Check if we're in landscape mode
-        boolean isLandscape = getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE;
-        
-        // Convert dp to pixels
-        float density = getResources().getDisplayMetrics().density;
-        int leftMargin, topMargin, rightMargin, bottomMargin;
-        
-        if (isLandscape) {
-            // Landscape frame dimensions: left="60dp", top="80dp", right="60dp", bottom="100dp"
-            leftMargin = (int) (60 * density);
-            topMargin = (int) (80 * density);
-            rightMargin = (int) (60 * density);
-            bottomMargin = (int) (100 * density);
-        } else {
-            // Portrait frame dimensions: left="30dp", top="100dp", right="30dp", bottom="150dp"
-            leftMargin = (int) (30 * density);
-            topMargin = (int) (100 * density);
-            rightMargin = (int) (30 * density);
-            bottomMargin = (int) (150 * density);
-        }
-        
-        // Get the preview view dimensions
-        int previewWidth = previewView.getWidth();
-        int previewHeight = previewView.getHeight();
-        
-        if (previewWidth == 0 || previewHeight == 0) {
-            // Fallback to screen dimensions if preview view not ready
-            previewWidth = getResources().getDisplayMetrics().widthPixels;
-            previewHeight = getResources().getDisplayMetrics().heightPixels;
-        }
-        
-        // Calculate the rectangle coordinates
-        int rectLeft = leftMargin;
-        int rectTop = topMargin;
-        int rectRight = previewWidth - rightMargin;
-        int rectBottom = previewHeight - bottomMargin;
-        
-        // Ensure coordinates are within bounds
-        rectLeft = Math.max(0, rectLeft);
-        rectTop = Math.max(0, rectTop);
-        rectRight = Math.min(previewWidth, rectRight);
-        rectBottom = Math.min(previewHeight, rectBottom);
-        
-        // Calculate the crop area
-        int cropWidth = rectRight - rectLeft;
-        int cropHeight = rectBottom - rectTop;
-        
-        // Scale the crop coordinates to match the actual image dimensions
-        float scaleX = (float) originalBitmap.getWidth() / previewWidth;
-        float scaleY = (float) originalBitmap.getHeight() / previewHeight;
-        
-        int cropX = (int) (rectLeft * scaleX);
-        int cropY = (int) (rectTop * scaleY);
-        int cropW = (int) (cropWidth * scaleX);
-        int cropH = (int) (cropHeight * scaleY);
-        
-        // Ensure crop area is within image bounds
-        cropX = Math.max(0, cropX);
-        cropY = Math.max(0, cropY);
-        cropW = Math.min(cropW, originalBitmap.getWidth() - cropX);
-        cropH = Math.min(cropH, originalBitmap.getHeight() - cropY);
-        
-        // Crop the bitmap
-        if (cropW > 0 && cropH > 0) {
-            return Bitmap.createBitmap(originalBitmap, cropX, cropY, cropW, cropH);
-        }
-        
-        return originalBitmap; // Return original if cropping fails
-    }
 
     private void uploadImage() {
         if (auth.getCurrentUser() == null) {
@@ -366,8 +294,8 @@ public class IdCameraCapture extends AppCompatActivity {
         confirmButton.setEnabled(false);
         confirmButton.setText(getString(R.string.uploading));
 
-        // Resize bitmap to optimize storage
-        Bitmap resizedBitmap = resizeBitmap(capturedBitmap, 1200, 800);
+        // Use original image without resizing
+        Bitmap resizedBitmap = capturedBitmap;
 
         // Convert bitmap to byte array
         ByteArrayOutputStream baos = new ByteArrayOutputStream();

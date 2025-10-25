@@ -15,6 +15,8 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
@@ -42,10 +44,9 @@ public class Verification_Page extends AppCompatActivity {
     private static final int GALLERY_REQUEST_CODE_BACK = 1002;
     private static final int CAMERA_REQUEST_CODE_BACK = 1003;
     private static final int ID_CAMERA_CAPTURE_REQUEST = 2000;
-    private static final int ID_CROP_REQUEST = 3000;
 
     Button uploadIdPhotoButton, captureIdPhotoButton, nextButton;
-    TextView frontIdPhotoImageView, backIdPhotoImageView;
+    ImageView frontIdPhotoImageView, backIdPhotoImageView;
     TextView frontIdPlaceholderText, backIdPlaceholderText;
     AutoCompleteTextView idTypeDropdown;
 
@@ -57,8 +58,6 @@ public class Verification_Page extends AppCompatActivity {
     private String selectedIdType = "";
     private String frontImageUrl = "";
     private String backImageUrl = "";
-    private String frontCroppedImagePath = "";
-    private String backCroppedImagePath = "";
     private boolean isFrontImageSelected = false;
     private boolean isBackImageSelected = false;
     private boolean pendingIsFront = true;
@@ -175,9 +174,12 @@ public class Verification_Page extends AppCompatActivity {
         frontReference.getDownloadUrl().addOnSuccessListener(new OnSuccessListener<Uri>() {
             @Override
             public void onSuccess(Uri uri) {
-                // Display file name instead of image
-                String fileName = "Front ID Photo";
-                frontIdPhotoImageView.setText(fileName);
+                // Load and display the actual image
+                Glide.with(Verification_Page.this)
+                        .load(uri)
+                        .diskCacheStrategy(DiskCacheStrategy.ALL)
+                        .transform(new com.bumptech.glide.load.resource.bitmap.CenterCrop())
+                        .into(frontIdPhotoImageView);
                 frontImageUrl = uri.toString();
                 frontIdPlaceholderText.setVisibility(View.GONE);
                 isFrontImageSelected = true;
@@ -195,9 +197,12 @@ public class Verification_Page extends AppCompatActivity {
         backReference.getDownloadUrl().addOnSuccessListener(new OnSuccessListener<Uri>() {
             @Override
             public void onSuccess(Uri uri) {
-                // Display file name instead of image
-                String fileName = "Back ID Photo";
-                backIdPhotoImageView.setText(fileName);
+                // Load and display the actual image
+                Glide.with(Verification_Page.this)
+                        .load(uri)
+                        .diskCacheStrategy(DiskCacheStrategy.ALL)
+                        .transform(new com.bumptech.glide.load.resource.bitmap.CenterCrop())
+                        .into(backIdPhotoImageView);
                 backImageUrl = uri.toString();
                 backIdPlaceholderText.setVisibility(View.GONE);
                 isBackImageSelected = true;
@@ -255,62 +260,41 @@ public class Verification_Page extends AppCompatActivity {
                 boolean isFront = data.getBooleanExtra("isFrontSide", true);
                 
                 if (imageUrl != null) {
-                    // Start cropping process
-                    startImageCropping(imageUrl, isFront);
-                }
-            } else if (requestCode == ID_CROP_REQUEST) {
-                if (resultCode == RESULT_OK) {
-                    handleCropResult(data);
-                } else {
-                    // Cropping was cancelled due to poor image quality
-                    Toast.makeText(this, "Please retake the photo with better quality", Toast.LENGTH_SHORT).show();
+                    // Use the captured image directly
+                    handleDirectImageCapture(imageUrl, isFront);
                 }
             }
         }
     }
     
-    private void startImageCropping(String imagePath, boolean isFront) {
-        try {
-            Intent cropIntent = new Intent(this, IdCropActivity.class);
-            cropIntent.putExtra("sourceImagePath", imagePath);
-            cropIntent.putExtra("isFrontSide", isFront);
-            cropIntent.putExtra("idType", selectedIdType);
-            startActivityForResult(cropIntent, ID_CROP_REQUEST);
-        } catch (Exception e) {
-            Toast.makeText(this, "Error starting crop: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-        }
-    }
-    
-    private void handleCropResult(Intent data) {
-        String croppedImagePath = data.getStringExtra("croppedImagePath");
-        String croppedImageUri = data.getStringExtra("croppedImageUri");
-        boolean isFront = data.getBooleanExtra("isFrontSide", true);
-        
-        if (croppedImagePath != null) {
-            if (isFront) {
-                frontImageUrl = croppedImageUri;
-                frontCroppedImagePath = croppedImagePath;
-                // Display file name instead of image
-                String fileName = "Front ID Photo";
-                frontIdPhotoImageView.setText(fileName);
-                frontIdPlaceholderText.setVisibility(View.GONE);
-                isFrontImageSelected = true;
-                Toast.makeText(this, "Front ID photo cropped successfully", Toast.LENGTH_SHORT).show();
-            } else {
-                backImageUrl = croppedImageUri;
-                backCroppedImagePath = croppedImagePath;
-                // Display file name instead of image
-                String fileName = "Back ID Photo";
-                backIdPhotoImageView.setText(fileName);
-                backIdPlaceholderText.setVisibility(View.GONE);
-                isBackImageSelected = true;
-                Toast.makeText(this, "Back ID photo cropped successfully", Toast.LENGTH_SHORT).show();
-            }
-            checkNextButtonState();
+    private void handleDirectImageCapture(String imageUrl, boolean isFront) {
+        // Use the captured image directly
+        if (isFront) {
+            frontImageUrl = imageUrl;
+            // Load and display the actual image
+            Glide.with(this)
+                    .load(imageUrl)
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                    .transform(new com.bumptech.glide.load.resource.bitmap.CenterCrop())
+                    .into(frontIdPhotoImageView);
+            frontIdPlaceholderText.setVisibility(View.GONE);
+            isFrontImageSelected = true;
+            Toast.makeText(this, "Front ID photo captured successfully", Toast.LENGTH_SHORT).show();
         } else {
-            Toast.makeText(this, "Failed to crop image", Toast.LENGTH_SHORT).show();
+            backImageUrl = imageUrl;
+            // Load and display the actual image
+            Glide.with(this)
+                    .load(imageUrl)
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                    .transform(new com.bumptech.glide.load.resource.bitmap.CenterCrop())
+                    .into(backIdPhotoImageView);
+            backIdPlaceholderText.setVisibility(View.GONE);
+            isBackImageSelected = true;
+            Toast.makeText(this, "Back ID photo captured successfully", Toast.LENGTH_SHORT).show();
         }
+        checkNextButtonState();
     }
+
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
@@ -341,17 +325,23 @@ public class Verification_Page extends AppCompatActivity {
                     @Override
                     public void onSuccess(Uri uri) {
                         if (isFront) {
-                            // Display file name instead of image
-                            String fileName = "Front ID Photo";
-                            frontIdPhotoImageView.setText(fileName);
+                            // Load and display the actual image
+                            Glide.with(Verification_Page.this)
+                                    .load(uri)
+                                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                                    .transform(new com.bumptech.glide.load.resource.bitmap.CenterCrop())
+                                    .into(frontIdPhotoImageView);
                             frontImageUrl = uri.toString();
                             frontIdPlaceholderText.setVisibility(View.GONE);
                             isFrontImageSelected = true;
                             Toast.makeText(Verification_Page.this, "Front ID photo uploaded successfully", Toast.LENGTH_SHORT).show();
                         } else {
-                            // Display file name instead of image
-                            String fileName = "Back ID Photo";
-                            backIdPhotoImageView.setText(fileName);
+                            // Load and display the actual image
+                            Glide.with(Verification_Page.this)
+                                    .load(uri)
+                                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                                    .transform(new com.bumptech.glide.load.resource.bitmap.CenterCrop())
+                                    .into(backIdPhotoImageView);
                             backImageUrl = uri.toString();
                             backIdPlaceholderText.setVisibility(View.GONE);
                             isBackImageSelected = true;
@@ -393,17 +383,23 @@ public class Verification_Page extends AppCompatActivity {
                     @Override
                     public void onSuccess(Uri uri) {
                         if (isFront) {
-                            // Display file name instead of image
-                            String fileName = "Front ID Photo";
-                            frontIdPhotoImageView.setText(fileName);
+                            // Load and display the actual image
+                            Glide.with(Verification_Page.this)
+                                    .load(uri)
+                                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                                    .transform(new com.bumptech.glide.load.resource.bitmap.CenterCrop())
+                                    .into(frontIdPhotoImageView);
                             frontImageUrl = uri.toString();
                             frontIdPlaceholderText.setVisibility(View.GONE);
                             isFrontImageSelected = true;
                             Toast.makeText(Verification_Page.this, "Front ID photo captured and uploaded successfully", Toast.LENGTH_SHORT).show();
                         } else {
-                            // Display file name instead of image
-                            String fileName = "Back ID Photo";
-                            backIdPhotoImageView.setText(fileName);
+                            // Load and display the actual image
+                            Glide.with(Verification_Page.this)
+                                    .load(uri)
+                                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                                    .transform(new com.bumptech.glide.load.resource.bitmap.CenterCrop())
+                                    .into(backIdPhotoImageView);
                             backImageUrl = uri.toString();
                             backIdPlaceholderText.setVisibility(View.GONE);
                             isBackImageSelected = true;

@@ -102,6 +102,7 @@ public class Hospital_Registration extends AppCompatActivity {
                 }
 
                 String uid = user.getUid();
+                String userEmail = user.getEmail(); // Get the email used for login
 
                 // Change password first
                 user.updatePassword(password)
@@ -110,7 +111,7 @@ public class Hospital_Registration extends AppCompatActivity {
                         public void onComplete(@NonNull Task<Void> task) {
                             if (task.isSuccessful()) {
                                 // Password updated successfully, now save user data
-                                saveUserData(hospitalName, address, phoneNumber, erBeds, erDoctors, uid);
+                                saveUserData(hospitalName, address, phoneNumber, erBeds, erDoctors, uid, userEmail);
                             } else {
                                 Toast.makeText(Hospital_Registration.this, "Failed to update password: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
                             }
@@ -120,12 +121,15 @@ public class Hospital_Registration extends AppCompatActivity {
         });
     }
 
-    private void saveUserData(String hospitalName, String address, String phoneNumber, String erBeds, String erDoctors, String uid) {
+    private void saveUserData(String hospitalName, String address, String phoneNumber, String erBeds, String erDoctors, String uid, String userEmail) {
         // Prepare user data
         Map<String, Object> usrData = new HashMap<>();
         usrData.put("hospitalName", hospitalName);
         usrData.put("hospitalAddress", address); // Changed from "address" to "hospitalAddress" for consistency
         usrData.put("mobileNumber", phoneNumber);
+        if (userEmail != null && !userEmail.isEmpty()) {
+            usrData.put("email", userEmail);
+        }
         usrData.put("totalBeds", Integer.parseInt(erBeds)); // Changed to "totalBeds" for consistency
         usrData.put("emergencyRoomBeds", Integer.parseInt(erBeds)); // Keep both for backward compatibility
         usrData.put("totalDoctors", Integer.parseInt(erDoctors)); // Add "totalDoctors" for consistency

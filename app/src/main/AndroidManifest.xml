@@ -106,7 +106,8 @@
             android:exported="false" />
         <activity
             android:name=".Hospital_List"
-            android:exported="false" />
+            android:exported="false"
+            android:screenOrientation="portrait" />
         <activity
             android:name=".Hospital_Profile"
             android:exported="false" />
@@ -185,17 +186,13 @@
             android:configChanges="orientation|screenSize|keyboardHidden" />
         <activity
             android:name=".Verification_Page"
-            android:exported="false" />
+            android:exported="false"
+            android:screenOrientation="portrait" />
         <activity
             android:name=".IdCameraCapture"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="false"
             android:screenOrientation="unspecified" />
-        <activity
-            android:name=".IdCropActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:exported="false"
-            android:screenOrientation="portrait" />
         <activity
             android:name=".FaceVerification"
             android:exported="false"

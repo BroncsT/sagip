@@ -238,6 +238,7 @@ public class Rescuer_Registration extends BaseRescuerActivity {
         }
 
         String uid = user.getUid();
+        String userEmail = user.getEmail(); // Get the email used for login
 
         String groupname = rescueGroupName.getText().toString().trim();
         String headquarters = headquartersAddress.getText().toString().trim();
@@ -249,6 +250,9 @@ public class Rescuer_Registration extends BaseRescuerActivity {
         usrData.put("headquarters", headquarters);
         usrData.put("contactPerson", contact);
         usrData.put("mobileNumber", number);
+        if (userEmail != null && !userEmail.isEmpty()) {
+            usrData.put("email", userEmail);
+        }
         usrData.put("user-type", userType);
         usrData.put("status", "registered");
 

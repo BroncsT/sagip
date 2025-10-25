@@ -882,7 +882,6 @@
     <string name="user_profile_not_found_login_again">Hindi nahanap ang user profile. Mangyaring mag-login muli.</string>
     <string name="error_finding_user_profile">Error sa paghahanap ng user profile. Mangyaring mag-login muli.</string>
     <string name="help_on_way_title">🚑 Papunta na ang tulong!</string>
-    <string name="rescuer_assigned_message">Naka-assign na ang isang rescuer sa inyong emergency!</string>
     <string name="rescue_group_label">🏢 Rescue Group:</string>
     <string name="status_label_dialog">📊 Status:</string>
     <string name="assigned_status">✅ Naka-assign</string>
@@ -891,6 +890,65 @@
     <string name="view_details_button">📋 TINGNAN ANG DETALYE</string>
     <string name="call_rescuer_button">📞 TAWAGAN ANG RESCUER</string>
 
+    <!-- Hospital List Hardcoded Strings -->
+    <string name="no_hospitals_found">Walang nahanap na hospital</string>
+    <string name="failed_to_load_hospitals">Nabigo ang pag-load ng mga hospital</string>
+    <string name="hospital_details_format">Hospital: %1$s\nStatus: %2$s\nMga Kama: %3$s</string>
+    <string name="unknown_hospital">Hindi Kilalang Hospital</string>
+    <string name="contact_not_available">Hindi available ang contact</string>
+    <string name="incoming_emergency">🚨 MAY DARATING NA EMERGENCY</string>
+    <string name="senior_label_colon">Senior:</string>
+    <string name="senior_phone_label">Telepono ng Senior:</string>
+    <string name="rescuer_label_colon">Rescuer:</string>
+    <string name="eta_label">ETA:</string>
+    <string name="minutes_abbreviation">minuto</string>
+    <string name="unknown">Hindi Kilala</string>
+    <string name="not_available_short">N/A</string>
+    <string name="open_status">Bukas</string>
+    <string name="busy_status">Abala</string>
+    <string name="senior_emoji">👴</string>
+    <string name="phone_emoji">📞</string>
+    <string name="rescuer_emoji">👨‍⚕️</string>
+    <string name="eta_emoji">⏱️</string>
+    <string name="emergency_emoji">🚨</string>
+    <string name="senior_info_format">%1$s Senior: %2$s\n%3$s Telepono ng Senior: %4$s\n%5$s Rescuer: %6$s\n%7$s ETA: %8$s %9$s</string>
+
+    <!-- Layout Hardcoded Strings -->
+    <string name="back_arrow_text">← Bumalik</string>
+    <string name="rescuer_assigned_title">🚑 Naka-assign na ang Rescuer</string>
+    <string name="en_route_status">Papunta na</string>
+    <string name="rescuer_assigned_message">Naka-assign na ang isang rescuer sa inyong emergency at papunta na.</string>
+    <string name="rescuer_information_title">👨‍⚕️ Impormasyon ng Rescuer</string>
+    <string name="name_label">Pangalan:</string>
+    <string name="loading_text_short">Naglo-load...</string>
+    <string name="team_label">Team:</string>
+    <string name="emergency_response_team">Emergency Response Team</string>
+    <string name="phone_label_colon">Telepono:</string>
+    <string name="not_available">Hindi available</string>
+    <string name="estimated_time_arrival">⏱️ Tinatayang Oras ng Pagdating</string>
+    <string name="eta_short">ETA</string>
+    <string name="minutes_placeholder">-- min</string>
+    <string name="distance_label">Distansya</string>
+    <string name="kilometers_placeholder">-- km</string>
+    <string name="real_time_traffic">Real-time traffic data</string>
+    <string name="last_updated_just_now">Huling na-update: Ngayon lang</string>
+    <string name="debug_tools">🧪 Debug Tools</string>
+    <string name="test_eta_button">Test ETA</string>
+    <string name="check_db_button">Check DB</string>
+    <string name="force_eta_button">Force ETA</string>
+    <string name="call_rescuer_button_text">📞 Tawagan ang Rescuer</string>
+    <string name="refresh_eta_button">🔄 I-refresh ang ETA</string>
+
+    <!-- Hospital Dashboard Hardcoded Strings -->
+    <string name="error_loading_status">Error sa pag-load ng status: %1$s</string>
+    <string name="senior_info_added_to_hospital">Naidagdag ang impormasyon ng senior sa hospital list: %1$s</string>
+    <string name="failed_to_update_hospital_list">Nabigo ang pag-update ng hospital list</string>
+    <string name="unable_to_make_call">Hindi makatawag</string>
+
+    <!-- Barangay Dashboard Hardcoded Strings -->
+    <string name="unable_to_open_dialer">Hindi mabuksan ang dialer. Mangyaring tumawag manually: %1$s</string>
+    <string name="senior_phone_not_available">Hindi available ang numero ng telepono ng senior</string>
+    <string name="location_info_not_available">Hindi available ang impormasyon ng lokasyon</string>
 </resources>
 
 

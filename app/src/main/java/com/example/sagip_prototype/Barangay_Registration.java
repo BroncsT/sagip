@@ -118,6 +118,7 @@ public class Barangay_Registration extends AppCompatActivity {
                     return;
                 }
                 String uid = user.getUid();
+                String userEmail = user.getEmail(); // Get the email used for login
 
                 // Change password first
                 user.updatePassword(password)
@@ -126,7 +127,7 @@ public class Barangay_Registration extends AppCompatActivity {
                         public void onComplete(@NonNull Task<Void> task) {
                             if (task.isSuccessful()) {
                                 // Password updated successfully, now save user data
-                                saveUserData(barangayNameText, addressText, contactPersonText, phoneNumberText, uid);
+                                saveUserData(barangayNameText, addressText, contactPersonText, phoneNumberText, uid, userEmail);
                             } else {
                                 Toast.makeText(Barangay_Registration.this, "Failed to update password: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
                             }
@@ -136,12 +137,15 @@ public class Barangay_Registration extends AppCompatActivity {
         });
     }
 
-    private void saveUserData(String barangayNameText, String addressText, String contactPersonText, String phoneNumberText, String uid) {
+    private void saveUserData(String barangayNameText, String addressText, String contactPersonText, String phoneNumberText, String uid, String userEmail) {
         Map<String, Object> usrData = new HashMap<>();
         usrData.put("barangayName", barangayNameText);
         usrData.put("address", addressText);
         usrData.put("contactPerson", contactPersonText);
         usrData.put("mobileNumber", phoneNumberText);
+        if (userEmail != null && !userEmail.isEmpty()) {
+            usrData.put("email", userEmail);
+        }
         usrData.put("user-type", userType);
         usrData.put("status", "registered");
 

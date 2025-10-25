@@ -42,11 +42,15 @@
                     android:textColor="@android:color/black" />
                 <TextView
                     android:id="@+id/contactNameTextView"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:textSize="14sp"
                     android:textStyle="bold"
-                    android:textColor="@android:color/black" />
+                    android:textColor="@android:color/black"
+                    android:singleLine="true"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
             </LinearLayout>
 
             <LinearLayout
@@ -68,10 +72,14 @@
                     android:textColor="@android:color/darker_gray" />
                 <TextView
                     android:id="@+id/phoneNumberTextView"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:textSize="12sp"
-                    android:textColor="@android:color/darker_gray" />
+                    android:textColor="@android:color/darker_gray"
+                    android:singleLine="true"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
             </LinearLayout>
 
             <LinearLayout
@@ -93,10 +101,14 @@
                     android:textColor="@android:color/darker_gray" />
                 <TextView
                     android:id="@+id/addressTextView"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:textSize="12sp"
-                    android:textColor="@android:color/darker_gray" />
+                    android:textColor="@android:color/darker_gray"
+                    android:singleLine="true"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
             </LinearLayout>
 
             <LinearLayout
@@ -117,10 +129,14 @@
                     android:textColor="@android:color/darker_gray" />
                 <TextView
                     android:id="@+id/relationshipTextView"
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:textSize="12sp"
-                    android:textColor="@android:color/darker_gray" />
+                    android:textColor="@android:color/darker_gray"
+                    android:singleLine="true"
+                    android:ellipsize="end"
+                    android:maxLines="1" />
             </LinearLayout>
 
         </LinearLayout>

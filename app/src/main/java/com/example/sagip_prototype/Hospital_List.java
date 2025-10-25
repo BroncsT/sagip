@@ -110,7 +110,7 @@ public class Hospital_List extends AppCompatActivity implements HospitalAdapter.
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error loading hospitals: " + e.getMessage(), e);
                     showNoHospitalsMessage();
-                    Toast.makeText(this, "Failed to load hospitals", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, getString(R.string.failed_to_load_hospitals), Toast.LENGTH_SHORT).show();
                 });
     }
 
@@ -190,7 +190,7 @@ public class Hospital_List extends AppCompatActivity implements HospitalAdapter.
         // Show no hospitals message
         hospitalsRecyclerView.setVisibility(View.GONE);
         noHospitalsLayout.setVisibility(View.VISIBLE);
-        noHospitalsText.setText("No hospitals found");
+        noHospitalsText.setText(getString(R.string.no_hospitals_found));
     }
     
     private void showBlankPage() {
@@ -207,9 +207,10 @@ public class Hospital_List extends AppCompatActivity implements HospitalAdapter.
         
         // Show hospital details in a toast for now
         // In a real app, you might navigate to a hospital detail page
-        String message = "Hospital: " + hospital.getHospitalName() + 
-                        "\nStatus: " + hospital.getStatusDisplay() +
-                        "\nBeds: " + hospital.getBedStatus();
+        String message = getString(R.string.hospital_details_format, 
+                        hospital.getHospitalName() != null ? hospital.getHospitalName() : getString(R.string.unknown_hospital),
+                        hospital.getStatusDisplay(),
+                        hospital.getBedStatus());
         Toast.makeText(this, message, Toast.LENGTH_LONG).show();
     }
 

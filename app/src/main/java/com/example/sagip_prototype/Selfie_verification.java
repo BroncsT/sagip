@@ -56,7 +56,7 @@ public class Selfie_verification extends AppCompatActivity {
 
     Button takeSelfieButton, submitVerificationButton, manualCaptureButton;
     ImageView selfieImageView, facePlaceholderImageView, circularOverlay, circularBorder;
-    TextView instructionsTextView, selfieStepIndicator, selfiePlaceholderText, guidelinesTitle;
+    TextView instructionsTextView, selfieStepIndicator, selfiePlaceholderText, guidelinesTitle, selfieVerificationCompleteText;
     PreviewView previewView;
 
     StorageReference storageReference;
@@ -114,6 +114,7 @@ public class Selfie_verification extends AppCompatActivity {
         selfieStepIndicator = findViewById(R.id.selfieStepIndicator);
         selfiePlaceholderText = findViewById(R.id.selfiePlaceholderText);
         guidelinesTitle = findViewById(R.id.guidelinesTitle);
+        selfieVerificationCompleteText = findViewById(R.id.selfieVerificationCompleteText);
         previewView = findViewById(R.id.previewView);
         circularOverlay = findViewById(R.id.circularOverlay);
         circularBorder = findViewById(R.id.circularBorder);
@@ -159,6 +160,11 @@ public class Selfie_verification extends AppCompatActivity {
                 guidelinesTitle.setVisibility(View.GONE);
                 findViewById(R.id.guidelinesLayout).setVisibility(View.GONE);
                 selfieImageView.setVisibility(View.GONE);
+                
+                // Hide verification complete text and show step indicator
+                selfieVerificationCompleteText.setVisibility(View.GONE);
+                selfieStepIndicator.setVisibility(View.VISIBLE);
+                
                 startAutomaticSelfieCapture();
             }
         });
@@ -205,10 +211,17 @@ public class Selfie_verification extends AppCompatActivity {
         guidelinesTitle.setVisibility(View.GONE);
         findViewById(R.id.guidelinesLayout).setVisibility(View.GONE);
         
+        // Hide verification complete text initially
+        selfieVerificationCompleteText.setVisibility(View.GONE);
+        
         // Hide preview initially
         previewView.setVisibility(View.GONE);
         circularOverlay.setVisibility(View.GONE);
         circularBorder.setVisibility(View.GONE);
+        
+        // Ensure verify button is visible but disabled initially
+        submitVerificationButton.setVisibility(View.VISIBLE);
+        submitVerificationButton.setEnabled(false);
     }
 
     private void setupFaceDetector() {
@@ -429,7 +442,7 @@ public class Selfie_verification extends AppCompatActivity {
         selfieImageView.setVisibility(View.VISIBLE);
         selfieImageView.setImageBitmap(bitmap);
         
-        // Update UI
+        // Update UI first
         updateUIForSelfieSuccess();
         
         // Upload the image
@@ -478,6 +491,10 @@ public class Selfie_verification extends AppCompatActivity {
         facePlaceholderImageView.setVisibility(View.GONE);
         selfiePlaceholderText.setVisibility(View.GONE);
         
+        // Hide the step indicator and show the verification complete text
+        selfieStepIndicator.setVisibility(View.GONE);
+        selfieVerificationCompleteText.setVisibility(View.VISIBLE);
+        
         // Show guidelines
         guidelinesTitle.setVisibility(View.VISIBLE);
         findViewById(R.id.guidelinesLayout).setVisibility(View.VISIBLE);
@@ -485,13 +502,14 @@ public class Selfie_verification extends AppCompatActivity {
         // Update instructions
         instructionsTextView.setText(getString(R.string.perfect_selfie_captured_instructions));
         
-        // Update step indicator
-        selfieStepIndicator.setText(getString(R.string.step_2_verification_complete));
-        
         // Show retake option
         takeSelfieButton.setVisibility(View.VISIBLE);
         takeSelfieButton.setText(getString(R.string.retake_selfie_button));
         manualCaptureButton.setVisibility(View.GONE);
+        
+        // Ensure verify button is visible and enabled
+        submitVerificationButton.setVisibility(View.VISIBLE);
+        submitVerificationButton.setEnabled(true);
     }
 
     @Override

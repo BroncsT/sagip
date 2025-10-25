@@ -243,6 +243,11 @@ public class Rescuer_Profile extends BaseRescuerActivity {
             helpSupportText.setText(getString(R.string.help_support));
         }
 
+        TextView feedbackSupportText = findViewById(R.id.feedbackSupportText);
+        if (feedbackSupportText != null) {
+            feedbackSupportText.setText(getString(R.string.feedback_support));
+        }
+
         TextView logoutText = findViewById(R.id.logoutText);
         if (logoutText != null) {
             logoutText.setText(getString(R.string.logout));

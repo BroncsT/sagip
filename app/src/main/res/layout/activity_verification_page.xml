@@ -140,7 +140,7 @@
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/frontIdPhotoCardView"
                     android:layout_width="match_parent"
-                    android:layout_height="80dp"
+                    android:layout_height="120dp"
                     android:layout_marginTop="8dp"
                     android:outlineSpotShadowColor="@color/white"
                     app:cardCornerRadius="8dp"
@@ -151,17 +151,16 @@
                     app:strokeColor="#DDDDDD"
                     app:strokeWidth="1dp">
 
-                    <TextView
+                    <ImageView
                         android:id="@+id/frontIdPhotoImageView"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:background="#F5F5F5"
-                        android:contentDescription="Front ID Photo File Name"
-                        android:gravity="center"
-                        android:padding="16dp"
-                        android:textColor="#333333"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
+                        android:contentDescription="Front ID Photo"
+                        android:scaleType="centerCrop"
+                        android:adjustViewBounds="true"
+                        android:rotation="0"
+                        android:padding="8dp" />
 
                     <TextView
                         android:id="@+id/frontIdPlaceholderText"
@@ -220,7 +219,7 @@
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/backIdPhotoCardView"
                     android:layout_width="match_parent"
-                    android:layout_height="80dp"
+                    android:layout_height="120dp"
                     android:layout_marginTop="8dp"
                     android:outlineSpotShadowColor="@color/white"
                     app:cardCornerRadius="8dp"
@@ -231,17 +230,16 @@
                     app:strokeColor="#DDDDDD"
                     app:strokeWidth="1dp">
 
-                    <TextView
+                    <ImageView
                         android:id="@+id/backIdPhotoImageView"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:background="#F5F5F5"
-                        android:contentDescription="Back ID Photo File Name"
-                        android:gravity="center"
-                        android:padding="16dp"
-                        android:textColor="#333333"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
+                        android:contentDescription="Back ID Photo"
+                        android:scaleType="centerCrop"
+                        android:adjustViewBounds="true"
+                        android:rotation="0"
+                        android:padding="8dp" />
 
                     <TextView
                         android:id="@+id/backIdPlaceholderText"

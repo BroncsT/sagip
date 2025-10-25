@@ -83,12 +83,16 @@ public class HospitalAdapter extends RecyclerView.Adapter<HospitalAdapter.Hospit
                 hospitalBedsText.setVisibility(View.GONE);
                 
                 // Show senior information for incoming emergency
-                String seniorInfo = "🚨 INCOMING EMERGENCY\n";
-                seniorInfo += "👴 Senior: " + (hospital.getSeniorName() != null ? hospital.getSeniorName() : "Unknown") + "\n";
-                seniorInfo += "📞 Senior Phone: " + (hospital.getSeniorPhone() != null ? hospital.getSeniorPhone() : "N/A") + "\n";
-                seniorInfo += "👨‍⚕️ Rescuer: " + (hospital.getRescuerName() != null ? hospital.getRescuerName() : "Unknown") + "\n";
+                String seniorInfo = itemView.getContext().getString(R.string.incoming_emergency) + "\n";
+                seniorInfo += itemView.getContext().getString(R.string.senior_emoji) + " " + itemView.getContext().getString(R.string.senior_label_colon) + " " + 
+                             (hospital.getSeniorName() != null ? hospital.getSeniorName() : itemView.getContext().getString(R.string.unknown)) + "\n";
+                seniorInfo += itemView.getContext().getString(R.string.phone_emoji) + " " + itemView.getContext().getString(R.string.senior_phone_label) + " " + 
+                             (hospital.getSeniorPhone() != null ? hospital.getSeniorPhone() : itemView.getContext().getString(R.string.not_available_short)) + "\n";
+                seniorInfo += itemView.getContext().getString(R.string.rescuer_emoji) + " " + itemView.getContext().getString(R.string.rescuer_label_colon) + " " + 
+                             (hospital.getRescuerName() != null ? hospital.getRescuerName() : itemView.getContext().getString(R.string.unknown)) + "\n";
                 if (hospital.getEstimatedArrivalMinutes() != null) {
-                    seniorInfo += "⏱️ ETA: " + String.format("%.1f", hospital.getEstimatedArrivalMinutes()) + " minutes";
+                    seniorInfo += itemView.getContext().getString(R.string.eta_emoji) + " " + itemView.getContext().getString(R.string.eta_label) + " " + 
+                                 String.format("%.1f", hospital.getEstimatedArrivalMinutes()) + " " + itemView.getContext().getString(R.string.minutes_abbreviation);
                 }
                 
                 hospitalSpecializationText.setText(seniorInfo);
@@ -107,20 +111,20 @@ public class HospitalAdapter extends RecyclerView.Adapter<HospitalAdapter.Hospit
                 hospitalBedsText.setVisibility(View.VISIBLE);
                 
                 // Set hospital name
-                hospitalNameText.setText(hospital.getHospitalName() != null ? hospital.getHospitalName() : "Unknown Hospital");
+                hospitalNameText.setText(hospital.getHospitalName() != null ? hospital.getHospitalName() : itemView.getContext().getString(R.string.unknown_hospital));
                 
                 // Set address
-                hospitalAddressText.setText(hospital.getAddress() != null ? hospital.getAddress() : "Address not available");
+                hospitalAddressText.setText(hospital.getAddress() != null ? hospital.getAddress() : itemView.getContext().getString(R.string.address_not_available));
 
                 // Set contact number
-                hospitalContactText.setText(hospital.getContactNumber() != null ? hospital.getContactNumber() : "Contact not available");
+                hospitalContactText.setText(hospital.getContactNumber() != null ? hospital.getContactNumber() : itemView.getContext().getString(R.string.contact_not_available));
 
                 // Set status with color coding
                 String status = hospital.getStatusDisplay();
                 hospitalStatusText.setText(status);
-                if (status.equals("Open")) {
+                if (status.equals(itemView.getContext().getString(R.string.open_status))) {
                     hospitalStatusText.setTextColor(itemView.getContext().getResources().getColor(R.color.success_green));
-                } else if (status.equals("Busy")) {
+                } else if (status.equals(itemView.getContext().getString(R.string.busy_status))) {
                     hospitalStatusText.setTextColor(itemView.getContext().getResources().getColor(R.color.emergency_red));
                 } else {
                     hospitalStatusText.setTextColor(itemView.getContext().getResources().getColor(R.color.gray));

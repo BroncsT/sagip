@@ -59,11 +59,13 @@
     <ImageView
         android:id="@+id/capturedImageView"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:scaleType="center"
+        android:layout_height="0dp"
+        android:scaleType="fitCenter"
+        android:adjustViewBounds="true"
         android:background="@android:color/black"
         android:visibility="gone"
         app:layout_constraintTop_toBottomOf="@id/headerView"
+        app:layout_constraintBottom_toTopOf="@id/instructionsContainer"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
