@@ -327,6 +327,7 @@ public class EmergencySOSBackgroundService extends Service {
             String requestId = document.getString("requestId");
             Long timestamp = document.getLong("timestamp");
             Boolean isRead = document.getBoolean("isRead");
+            String notificationStatus = document.getString("notificationStatus");
             
             // Read GPS coordinates from notification data
             Double seniorLat = document.getDouble("seniorLat");
@@ -335,11 +336,13 @@ public class EmergencySOSBackgroundService extends Service {
             Log.d(TAG, "🔍 [HANDLE_NOTIFICATION] Document ID: " + document.getId());
             Log.d(TAG, "🔍 [HANDLE_NOTIFICATION] Type: " + type);
             Log.d(TAG, "🔍 [HANDLE_NOTIFICATION] IsRead: " + isRead);
+            Log.d(TAG, "🔍 [HANDLE_NOTIFICATION] NotificationStatus: " + notificationStatus);
             Log.d(TAG, "🔍 [HANDLE_NOTIFICATION] RequestId: " + requestId);
             Log.d(TAG, "🔍 [HANDLE_NOTIFICATION] SeniorName: " + seniorName);
             
-            // Only process unread emergency SOS notifications
+            // Process emergency SOS notifications
             if ("EMERGENCY_SOS".equals(type) && (isRead == null || !isRead)) {
+                // Only process unread emergency SOS notifications that are NOT assigned
                 Log.d(TAG, "🚨 Received emergency SOS notification: " + seniorName + " (Request ID: " + requestId + ")");
                 
                 // Show high-priority notification with alarm sound
@@ -682,6 +685,62 @@ public class EmergencySOSBackgroundService extends Service {
             }
         }
     };
+    
+    /**
+     * Show informational notification for emergencies already assigned to another rescuer
+     * This is low priority, no alarm sound, just to keep rescuers informed
+     */
+    private void showEmergencyAlreadyAssignedNotification(String seniorName, String assignedRescuerName, 
+                                                         String assignedRescuerTeam, String requestId, 
+                                                         String notificationId) {
+        Log.d(TAG, "ℹ️ [ASSIGNED_NOTIFICATION] Showing 'already assigned' notification");
+        Log.d(TAG, "ℹ️ [ASSIGNED_NOTIFICATION] Senior: " + seniorName);
+        Log.d(TAG, "ℹ️ [ASSIGNED_NOTIFICATION] Assigned to: " + assignedRescuerName + " from " + assignedRescuerTeam);
+        
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        
+        // Create intent for when notification is tapped
+        Intent notificationIntent = getDashboardIntentForCurrentUser();
+        notificationIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        notificationIntent.putExtra("emergency_already_assigned", true);
+        notificationIntent.putExtra("senior_name", seniorName);
+        notificationIntent.putExtra("assigned_rescuer_name", assignedRescuerName);
+        notificationIntent.putExtra("request_id", requestId);
+        
+        // Create pending intent with unique request code
+        int requestCode = (int) System.currentTimeMillis() % Integer.MAX_VALUE;
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this, 
+                requestCode, 
+                notificationIntent, 
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        
+        String bigText = "ℹ️ Emergency Already Assigned\n\n" +
+                        "👤 Senior: " + seniorName + "\n" +
+                        "✅ Assigned to: " + assignedRescuerName + "\n" +
+                        "🏢 Team: " + (assignedRescuerTeam != null ? assignedRescuerTeam : "Emergency Response") + "\n\n" +
+                        "This emergency is being handled by another rescuer.";
+        
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle("ℹ️ Emergency Already Assigned")
+                .setContentText(assignedRescuerName + " is handling the emergency for " + seniorName)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(bigText))
+                .setPriority(NotificationCompat.PRIORITY_LOW) // Low priority - just informational
+                .setCategory(NotificationCompat.CATEGORY_STATUS)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+                .setOngoing(false)
+                .setSilent(true); // NO sound for informational notification
+        
+        android.app.Notification notification = builder.build();
+        notificationManager.notify(requestCode, notification);
+        
+        Log.d(TAG, "ℹ️ [ASSIGNED_NOTIFICATION] Informational notification sent (no alarm)");
+        Log.d(TAG, "ℹ️ [ASSIGNED_NOTIFICATION] Notification ID: " + requestCode);
+    }
     
     private Uri getCustomAlarmSound() {
         try {

@@ -370,8 +370,6 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                     
                     String distanceText = distance.getString("text");
                     String durationText = duration.getString("text");
-                    
-                    // Show detailed route information dialog
                     showRouteInfoDialog(hospitalName, distanceText, durationText);
                 }
             }
@@ -681,6 +679,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     private ListenerRegistration emergencyListener;
     private long lastLoginTime; // Track when rescuer logged in
     private AlertDialog currentEmergencyDialog; // Track current emergency popup
+    private String currentEmergencyRequestId; // Track which emergency the dialog is showing
     
     // FIFO Emergency queue system for handling multiple simultaneous emergencies
     private Queue<EmergencyItem> emergencyQueue = new LinkedList<>(); // FIFO implementation
@@ -865,13 +864,6 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
 
         // Initialize emergency notification components
         initializeEmergencyNotificationComponents();
-
-        // Emergency sound testing can be done via logs and real SOS notifications
-        // You can call testEmergencySoundPlayback() method manually for testing
-        
-        // Note: Emergency sound testing removed - will test via actual SOS notifications
-
-        // Check for location permissions
         checkLocationPermission();
 
         // Check authentication state
@@ -1004,13 +996,6 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         
         // Send test notification to verify system is working (for debugging)
         if (userType != null && userType.equals("rescuer") && userId != null) {
-            // Uncomment the line below to send a test notification
-            // NativeNotificationSender.sendTestNotification(userId, userType);
-            
-            // Test alternative notification system (no FCM) - disabled for production
-            // AlternativeNotificationManager.getInstance(this).sendTestNotification();
-            // SimpleNotificationManager.getInstance(this).sendImmediateTestNotification();
-            // NativeNotificationSender.sendHospitalUpdateNotificationToRescuers("Test Hospital", "Open", 5, 3);
         }
         
         // Check for new hospital status update notifications when returning to app
@@ -2247,17 +2232,69 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
           .document(userId)
           .collection("emergencyNotifications")
           .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
-          .limit(1)
           .addSnapshotListener((querySnapshot, error) -> {
               if (error != null) {
                   Log.e(TAG, "Error listening to emergency SOS notifications: " + error.getMessage(), error);
                   return;
               }
               
-              if (querySnapshot != null && !querySnapshot.isEmpty()) {
-                  for (QueryDocumentSnapshot document : querySnapshot) {
-                      Log.d(TAG, "📱 [DASHBOARD_LISTENER] Processing notification in active app");
-                      handleEmergencySOSNotification(document);
+              if (querySnapshot != null) {
+                  // Track document changes to handle deletions
+                  for (DocumentChange dc : querySnapshot.getDocumentChanges()) {
+                      switch (dc.getType()) {
+                          case ADDED:
+                          case MODIFIED:
+                              Log.d(TAG, "📱 [DASHBOARD_LISTENER] Processing notification in active app");
+                              handleEmergencySOSNotification(dc.getDocument());
+                              break;
+                          case REMOVED:
+                              String removedRequestId = dc.getDocument().getString("requestId");
+                              Log.d(TAG, "🗑️ [DASHBOARD_LISTENER] Notification removed: " + dc.getDocument().getId() + " (RequestID: " + removedRequestId + ")");
+                              
+                              // Remove from emergency queue if present
+                              synchronized (emergencyQueue) {
+                                  emergencyQueue.removeIf(item -> {
+                                      boolean matches = item.helpRequestId != null && item.helpRequestId.equals(removedRequestId);
+                                      if (matches) {
+                                          Log.d(TAG, "🗑️ [DASHBOARD_LISTENER] Removed emergency from queue: " + removedRequestId);
+                                      }
+                                      return matches;
+                                  });
+                              }
+                              
+                              // Dismiss dialog if it's showing this specific emergency
+                              synchronized (dialogLock) {
+                                  if (removedRequestId != null && removedRequestId.equals(currentEmergencyRequestId)) {
+                                      Log.d(TAG, "🗑️ [DASHBOARD_LISTENER] RequestId matches current dialog: " + removedRequestId);
+                                      
+                                      // Dismiss dialog if it exists, regardless of isShowing() state
+                                      if (currentEmergencyDialog != null) {
+                                          try {
+                                              if (currentEmergencyDialog.isShowing()) {
+                                                  Log.d(TAG, "🗑️ [DASHBOARD_LISTENER] Dialog is showing, dismissing now");
+                                                  currentEmergencyDialog.dismiss();
+                                              } else {
+                                                  Log.d(TAG, "🗑️ [DASHBOARD_LISTENER] Dialog exists but isShowing()=false, dismissing anyway");
+                                                  currentEmergencyDialog.dismiss();
+                                              }
+                                          } catch (Exception e) {
+                                              Log.e(TAG, "🗑️ [DASHBOARD_LISTENER] Error dismissing dialog: " + e.getMessage());
+                                          }
+                                          currentEmergencyDialog = null;
+                                      }
+                                      
+                                      // Clear tracking
+                                      currentEmergencyRequestId = null;
+                                      isEmergencyDialogShowing = false;
+                                      
+                                      // Stop emergency sound
+                                      stopEmergencySound();
+                                      
+                                      Log.d(TAG, "✅ [DASHBOARD_LISTENER] Emergency dialog dismissed and tracking cleared");
+                                  }
+                              }
+                              break;
+                      }
                   }
               }
           });
@@ -2274,15 +2311,17 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             String requestId = document.getString("requestId");
             Long timestamp = document.getLong("timestamp");
             Boolean isRead = document.getBoolean("isRead");
+            String notificationStatus = document.getString("notificationStatus");
             
             // Read GPS coordinates from notification data
             Double seniorLat = document.getDouble("seniorLat");
             Double seniorLng = document.getDouble("seniorLng");
             
-            Log.d(TAG, "📱 [DASHBOARD_HANDLER] Processing notification - Type: " + type + ", IsRead: " + isRead);
+            Log.d(TAG, "📱 [DASHBOARD_HANDLER] Processing notification - Type: " + type + ", IsRead: " + isRead + ", Status: " + notificationStatus);
             
-            // Only process unread emergency SOS notifications
+            // Process emergency SOS notifications
             if ("EMERGENCY_SOS".equals(type) && (isRead == null || !isRead)) {
+                // Only process unread emergency SOS notifications that are NOT assigned
                 Log.d(TAG, "🚨 [DASHBOARD] Received emergency SOS notification: " + seniorName + " (Request ID: " + requestId + ")");
                 
                 // Mark as read IMMEDIATELY to prevent background service from also processing
@@ -2344,9 +2383,10 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 return;
             }
             
-            // Mark dialog as showing
+            // Mark dialog as showing and track which emergency
             isEmergencyDialogShowing = true;
-            Log.d(TAG, "🔍 [SHOW_DIALOG] Setting isEmergencyDialogShowing = true");
+            currentEmergencyRequestId = requestId;
+            Log.d(TAG, "🔍 [SHOW_DIALOG] Setting isEmergencyDialogShowing = true, requestId = " + requestId);
         }
         
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -2376,37 +2416,97 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             Log.d(TAG, "🔍 [RESPOND_NOW] Senior: " + seniorName);
             Log.d(TAG, "🔍 [RESPOND_NOW] GPS coordinates: " + seniorLat + ", " + seniorLng);
             
-            // Stop ALL emergency sounds AND dismiss notifications immediately when rescuer responds
-            stopEmergencySound(); // Stop dashboard sound
-            EmergencySOSBackgroundService.dismissAllEmergencyNotifications(); // Stop background service sound AND dismiss notifications
-            Log.d(TAG, "🔇 [RESPOND_NOW] All emergency sounds stopped and notifications dismissed");
-            
-            // Reset dialog flag safely
-            synchronized (dialogLock) {
-                isEmergencyDialogShowing = false;
-            }
-            
-            // Clear all emergency notifications and dialogs
-            clearAllEmergencyNotifications();
-            Log.d(TAG, "🔍 [RESPOND_NOW] Cleared all emergency notifications and dialogs");
-            
-            // Dismiss dialog immediately
-            dialog.dismiss();
-            Log.d(TAG, "🔍 [RESPOND_NOW] Dialog dismissed successfully");
-            
-            // Assign this rescuer to the emergency (this will send notification to senior)
+            // FIRST: Validate that the emergency is still available
             if (requestId != null) {
-                Log.d(TAG, "🔍 [RESPOND_NOW] Calling assignRescuerToEmergencyById with requestId: " + requestId);
-                assignRescuerToEmergencyById(requestId);
+                Log.d(TAG, "🔍 [RESPOND_NOW] Validating emergency is still available...");
+                db.collection("Sagip").document("emergencyRequests").collection("activeRequests")
+                    .document(requestId)
+                    .get()
+                    .addOnSuccessListener(requestDoc -> {
+                        if (!requestDoc.exists()) {
+                            Log.w(TAG, "⚠️ [RESPOND_NOW] Emergency no longer exists!");
+                            Toast.makeText(this, "Another rescuer has already responded to this emergency", Toast.LENGTH_LONG).show();
+                            stopEmergencySound();
+                            EmergencySOSBackgroundService.dismissAllEmergencyNotifications();
+                            synchronized (dialogLock) {
+                                isEmergencyDialogShowing = false;
+                                currentEmergencyRequestId = null;
+                            }
+                            dialog.dismiss();
+                            return;
+                        }
+                        
+                        String status = requestDoc.getString("status");
+                        String assignedTo = requestDoc.getString("assignedRescuerId");
+                        
+                        if ("assigned".equals(status) && assignedTo != null && !assignedTo.equals(userId)) {
+                            Log.w(TAG, "⚠️ [RESPOND_NOW] Emergency already assigned to another rescuer!");
+                            Toast.makeText(this, "Another rescuer has already responded to this emergency", Toast.LENGTH_LONG).show();
+                            stopEmergencySound();
+                            EmergencySOSBackgroundService.dismissAllEmergencyNotifications();
+                            synchronized (dialogLock) {
+                                isEmergencyDialogShowing = false;
+                                currentEmergencyRequestId = null;
+                            }
+                            dialog.dismiss();
+                            return;
+                        }
+                        
+                        // Emergency is still available, proceed with assignment
+                        Log.d(TAG, "✅ [RESPOND_NOW] Emergency is available, proceeding...");
+                        
+                        // Stop ALL emergency sounds AND dismiss notifications immediately when rescuer responds
+                        stopEmergencySound(); // Stop dashboard sound
+                        EmergencySOSBackgroundService.dismissAllEmergencyNotifications(); // Stop background service sound AND dismiss notifications
+                        Log.d(TAG, "🔇 [RESPOND_NOW] All emergency sounds stopped and notifications dismissed");
+                        
+                        // Reset dialog flag safely
+                        synchronized (dialogLock) {
+                            isEmergencyDialogShowing = false;
+                            currentEmergencyRequestId = null;
+                        }
+                        
+                        // Clear all emergency notifications and dialogs
+                        clearAllEmergencyNotifications();
+                        Log.d(TAG, "🔍 [RESPOND_NOW] Cleared all emergency notifications and dialogs");
+                        
+                        // Dismiss dialog immediately
+                        dialog.dismiss();
+                        Log.d(TAG, "🔍 [RESPOND_NOW] Dialog dismissed successfully");
+                        
+                        // Assign this rescuer to the emergency (this will send notification to senior)
+                        Log.d(TAG, "🔍 [RESPOND_NOW] Calling assignRescuerToEmergencyById with requestId: " + requestId);
+                        assignRescuerToEmergencyById(requestId);
+                        
+                        // Show confirmation to rescuer
+                        Toast.makeText(this, getString(R.string.toast_assigned_to_emergency), Toast.LENGTH_LONG).show();
+                        Log.d(TAG, "🔍 [RESPOND_NOW] Toast shown to rescuer");
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "❌ [RESPOND_NOW] Error validating emergency: " + e.getMessage());
+                        Toast.makeText(this, "Error checking emergency status. Please try again.", Toast.LENGTH_SHORT).show();
+                        synchronized (dialogLock) {
+                            isEmergencyDialogShowing = false;
+                            currentEmergencyRequestId = null;
+                        }
+                        dialog.dismiss();
+                    });
             } else {
                 Log.w(TAG, "⚠️ No request ID available, using fallback method");
+                
+                // Stop sounds and reset for fallback
+                stopEmergencySound();
+                EmergencySOSBackgroundService.dismissAllEmergencyNotifications();
+                synchronized (dialogLock) {
+                    isEmergencyDialogShowing = false;
+                    currentEmergencyRequestId = null;
+                }
+                dialog.dismiss();
+                
                 // For fallback, we still need to assign the rescuer
                 assignRescuerToEmergency(seniorName, locationAddress, System.currentTimeMillis());
+                Toast.makeText(this, getString(R.string.toast_assigned_to_emergency), Toast.LENGTH_LONG).show();
             }
-            
-            // Show confirmation to rescuer
-            Toast.makeText(this, getString(R.string.toast_assigned_to_emergency), Toast.LENGTH_LONG).show();
-            Log.d(TAG, "🔍 [RESPOND_NOW] Toast shown to rescuer");
         });
         
         // Decline button
@@ -2421,19 +2521,22 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             // Reset dialog flag safely
             synchronized (dialogLock) {
                 isEmergencyDialogShowing = false;
+                currentEmergencyRequestId = null;
             }
             // Optionally notify that rescuer declined
         });
         
         // Show the dialog
         try {
-            AlertDialog dialog = builder.create();
-            dialog.show();
+            currentEmergencyDialog = builder.create();
+            currentEmergencyDialog.show();
             Log.d(TAG, "✅ Emergency SOS alert dialog shown successfully");
         } catch (Exception e) {
             Log.e(TAG, "❌ Error showing emergency alert dialog: " + e.getMessage(), e);
             synchronized (dialogLock) {
                 isEmergencyDialogShowing = false;
+                currentEmergencyRequestId = null;
+                currentEmergencyDialog = null;
             }
         }
     }
@@ -2463,9 +2566,10 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 return;
             }
             
-            // Mark dialog as showing
+            // Mark dialog as showing and track which emergency
             isEmergencyDialogShowing = true;
-            Log.d(TAG, "🔍 [SHOW_DIALOG] Setting isEmergencyDialogShowing = true");
+            currentEmergencyRequestId = requestId;
+            Log.d(TAG, "🔍 [SHOW_DIALOG] Setting isEmergencyDialogShowing = true, requestId = " + requestId);
         }
         
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -2505,8 +2609,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             // Reset dialog flag safely
             synchronized (dialogLock) {
                 isEmergencyDialogShowing = false;
+                currentEmergencyRequestId = null;
             }
-            Log.d(TAG, "🔍 [RESPOND_NOW] Reset isEmergencyDialogShowing = false");
+            Log.d(TAG, "🔍 [RESPOND_NOW] Reset isEmergencyDialogShowing = false and cleared requestId");
             
             // Clear all emergency notifications and dialogs
             clearAllEmergencyNotifications();
@@ -2540,8 +2645,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             // Reset dialog flag safely
             synchronized (dialogLock) {
                 isEmergencyDialogShowing = false;
+                currentEmergencyRequestId = null;
             }
-            Log.d(TAG, "🔍 [CALL_SENIOR] Reset isEmergencyDialogShowing = false");
+            Log.d(TAG, "🔍 [CALL_SENIOR] Reset isEmergencyDialogShowing = false and cleared requestId");
             
             // Open phone dialer
             Intent callIntent = new Intent(Intent.ACTION_DIAL);
@@ -2560,8 +2666,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             // Reset dialog flag safely
             synchronized (dialogLock) {
                 isEmergencyDialogShowing = false;
+                currentEmergencyRequestId = null;
             }
-            Log.d(TAG, "🔍 [DISMISS] Reset isEmergencyDialogShowing = false");
+            Log.d(TAG, "🔍 [DISMISS] Reset isEmergencyDialogShowing = false and cleared requestId");
             
             dialog.dismiss();
         });
@@ -2578,8 +2685,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         dialog.setOnDismissListener(dialogInterface -> {
             synchronized (dialogLock) {
                 isEmergencyDialogShowing = false;
+                currentEmergencyRequestId = null;
             }
-            Log.d(TAG, "🔍 [DIALOG_DISMISSED] Reset isEmergencyDialogShowing = false");
+            Log.d(TAG, "🔍 [DIALOG_DISMISSED] Reset isEmergencyDialogShowing = false and cleared requestId");
         });
         
         dialog.show();
@@ -2589,6 +2697,81 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         
         // Set white background for better readability
         dialog.getWindow().getDecorView().setBackgroundColor(0xFFFFFFFF); // White background
+    }
+    
+    /**
+     * Show informational alert dialog when emergency is already assigned to another rescuer
+     */
+    private void showEmergencyAlreadyAssignedDialog(String seniorName, String seniorPhone, String locationAddress,
+                                                   String assignedRescuerName, String assignedRescuerTeam,
+                                                   Long assignedAt, String requestId) {
+        Log.d(TAG, "ℹ️ [ASSIGNED_DIALOG] Showing emergency already assigned dialog");
+        
+        // Check if activity is in valid state
+        if (isFinishing() || isDestroyed()) {
+            Log.w(TAG, "Cannot show assigned dialog - activity is not in valid state");
+            return;
+        }
+        
+        // Format timestamp
+        String timeStr = "Just now";
+        if (assignedAt != null) {
+            long timeDiff = System.currentTimeMillis() - assignedAt;
+            if (timeDiff < 60000) { // Less than 1 minute
+                timeStr = "Just now";
+            } else if (timeDiff < 3600000) { // Less than 1 hour
+                timeStr = (timeDiff / 60000) + " minutes ago";
+            } else {
+                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("HH:mm", Locale.getDefault());
+                timeStr = "at " + sdf.format(new java.util.Date(assignedAt));
+            }
+        }
+        
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("ℹ️ Emergency Already Assigned");
+        
+        String message = "This emergency has been assigned to another rescuer.\n\n" +
+                        "📋 Emergency Details:\n" +
+                        "👤 Senior: " + seniorName + "\n" +
+                        "📞 Phone: " + (seniorPhone != null ? seniorPhone : "Not available") + "\n" +
+                        "📍 Location: " + locationAddress + "\n\n" +
+                        "✅ Assigned To:\n" +
+                        "👨‍⚕️ Rescuer: " + assignedRescuerName + "\n" +
+                        "🏢 Team: " + (assignedRescuerTeam != null ? assignedRescuerTeam : "Emergency Response Team") + "\n" +
+                        "⏰ Assigned: " + timeStr + "\n\n" +
+                        "This emergency is being handled. You can focus on other emergencies.";
+        
+        builder.setMessage(message);
+        builder.setIcon(android.R.drawable.ic_dialog_info);
+        builder.setCancelable(true);
+        
+        // OK button
+        builder.setPositiveButton("OK, Got It", (dialog, which) -> {
+            Log.d(TAG, "ℹ️ [ASSIGNED_DIALOG] User acknowledged assigned emergency");
+            dialog.dismiss();
+        });
+        
+        // Optional: Call senior button (in case they need to coordinate)
+        builder.setNeutralButton("📞 Call Senior", (dialog, which) -> {
+            Log.d(TAG, "ℹ️ [ASSIGNED_DIALOG] User chose to call senior for coordination");
+            if (seniorPhone != null && !seniorPhone.isEmpty()) {
+                Intent callIntent = new Intent(Intent.ACTION_DIAL);
+                callIntent.setData(Uri.parse("tel:" + seniorPhone));
+                startActivity(callIntent);
+            } else {
+                Toast.makeText(this, "Senior phone number not available", Toast.LENGTH_SHORT).show();
+            }
+            dialog.dismiss();
+        });
+        
+        // Create and show the dialog
+        try {
+            AlertDialog dialog = builder.create();
+            dialog.show();
+            Log.d(TAG, "✅ [ASSIGNED_DIALOG] Emergency already assigned dialog shown successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "❌ [ASSIGNED_DIALOG] Error showing dialog: " + e.getMessage(), e);
+        }
     }
     
     private void showEmergencySOSSystemNotification(String seniorName, String locationAddress, String notificationId) {

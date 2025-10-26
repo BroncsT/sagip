@@ -153,9 +153,9 @@ public class EmergencyQueueManager {
                 // Update the database with the assignment
                 updateEmergencyInDatabase(request);
                 
-                // Remove emergency notification from rescuer's personal notification collection
-                Log.d(TAG, "🔍 [EMERGENCY_QUEUE_MANAGER] Removing emergency notification from rescuer collection...");
-                removeEmergencyNotificationFromRescuer(requestId, rescuerId);
+                // Update ALL other rescuers' notifications to show this emergency is now assigned
+                Log.d(TAG, "🔍 [EMERGENCY_QUEUE_MANAGER] Updating notifications for all rescuers...");
+                updateAllRescuerNotificationsForAssignment(requestId, rescuerId);
                 
                 // Send notification to senior about rescuer response
                 Log.d(TAG, "🔍 [EMERGENCY_QUEUE_MANAGER] About to call sendRescuerResponseNotificationToSenior...");
@@ -1499,6 +1499,7 @@ public class EmergencyQueueManager {
     /**
      * Remove emergency notification from rescuer's personal notification collection
      * This prevents duplicate notifications when a rescuer responds to an emergency
+     * @deprecated Use updateAllRescuerNotificationsForAssignment instead for Option 2 approach
      */
     private void removeEmergencyNotificationFromRescuer(String requestId, String rescuerId) {
         Log.d(TAG, "🗑️ [REMOVE_NOTIFICATION] Removing emergency notification from rescuer collection");
@@ -1534,5 +1535,84 @@ public class EmergencyQueueManager {
           .addOnFailureListener(e -> {
               Log.e(TAG, "❌ [REMOVE_NOTIFICATION] Error querying rescuer notifications: " + e.getMessage());
           });
+    }
+    
+    /**
+     * Update ALL rescuers' notifications when one rescuer accepts an emergency
+     * - Assigned rescuer: notification deleted
+     * - Other rescuers: notification updated to show "already assigned" (shows ONCE, then marked as read)
+     */
+    private void updateAllRescuerNotificationsForAssignment(String requestId, String assignedRescuerId) {
+        Log.d(TAG, "📢 [UPDATE_ALL_RESCUERS] ===== UPDATING ALL RESCUER NOTIFICATIONS =====");
+        Log.d(TAG, "📢 [UPDATE_ALL_RESCUERS] RequestId: " + requestId);
+        Log.d(TAG, "📢 [UPDATE_ALL_RESCUERS] Assigned Rescuer: " + assignedRescuerId);
+        
+        // First, get the assigned rescuer's information
+        getRescuerInfoFromDatabase(assignedRescuerId, new RescuerInfoCallback() {
+            @Override
+            public void onRescuerInfoReceived(String rescuerName, String rescuerPhone, String rescuerTeam) {
+                Log.d(TAG, "📢 [UPDATE_ALL_RESCUERS] Assigned rescuer info - Name: " + rescuerName + ", Team: " + rescuerTeam);
+                
+                // Query ALL rescuers to find their notifications for this emergency
+                db.collection("Sagip")
+                        .document("users")
+                        .collection("rescuer")
+                        .get()
+                        .addOnSuccessListener(rescuersSnapshot -> {
+                            int totalRescuers = rescuersSnapshot.size();
+                            Log.d(TAG, "📢 [UPDATE_ALL_RESCUERS] Found " + totalRescuers + " total rescuers");
+                            
+                            final int[] processedCount = {0};
+                            final int[] updatedCount = {0};
+                            
+                            for (QueryDocumentSnapshot rescuerDoc : rescuersSnapshot) {
+                                String currentRescuerId = rescuerDoc.getId();
+                                
+                                // Query this rescuer's emergency notifications for the specific requestId
+                                db.collection("Sagip")
+                                        .document("users")
+                                        .collection("rescuer")
+                                        .document(currentRescuerId)
+                                        .collection("emergencyNotifications")
+                                        .whereEqualTo("requestId", requestId)
+                                        .get()
+                                        .addOnSuccessListener(notificationsSnapshot -> {
+                                            processedCount[0]++;
+                                            
+                                            if (!notificationsSnapshot.isEmpty()) {
+                                                for (QueryDocumentSnapshot notificationDoc : notificationsSnapshot) {
+                                                    // Delete notification for ALL rescuers (both assigned and others)
+                                                    Log.d(TAG, "🗑️ [UPDATE_ALL_RESCUERS] Deleting notification for rescuer: " + currentRescuerId);
+                                                    notificationDoc.getReference().delete()
+                                                            .addOnSuccessListener(aVoid -> {
+                                                                updatedCount[0]++;
+                                                                Log.d(TAG, "✅ [UPDATE_ALL_RESCUERS] Deleted notification for rescuer: " + currentRescuerId);
+                                                            })
+                                                            .addOnFailureListener(e -> {
+                                                                Log.e(TAG, "❌ [UPDATE_ALL_RESCUERS] Failed to delete notification: " + e.getMessage());
+                                                            });
+                                                }
+                                            } else {
+                                                Log.d(TAG, "ℹ️ [UPDATE_ALL_RESCUERS] No notifications found for rescuer: " + currentRescuerId);
+                                            }
+                                            
+                                            // Log completion when all rescuers processed
+                                            if (processedCount[0] == totalRescuers) {
+                                                Log.d(TAG, "🎉 [UPDATE_ALL_RESCUERS] ===== COMPLETED =====");
+                                                Log.d(TAG, "📊 [UPDATE_ALL_RESCUERS] Processed: " + processedCount[0] + " rescuers");
+                                                Log.d(TAG, "📊 [UPDATE_ALL_RESCUERS] Updated: " + updatedCount[0] + " notifications");
+                                            }
+                                        })
+                                        .addOnFailureListener(e -> {
+                                            processedCount[0]++;
+                                            Log.e(TAG, "❌ [UPDATE_ALL_RESCUERS] Error querying notifications for rescuer " + currentRescuerId + ": " + e.getMessage());
+                                        });
+                            }
+                        })
+                        .addOnFailureListener(e -> {
+                            Log.e(TAG, "❌ [UPDATE_ALL_RESCUERS] Error querying all rescuers: " + e.getMessage());
+                        });
+            }
+        });
     }
 }
