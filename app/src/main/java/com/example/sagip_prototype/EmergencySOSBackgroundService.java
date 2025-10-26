@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.media.AudioAttributes;
 import android.media.MediaPlayer;
+import android.media.AudioManager;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
@@ -36,15 +37,28 @@ public class EmergencySOSBackgroundService extends Service {
     private FirebaseFirestore db;
     private FirebaseAuth mAuth;
     private String userId;
-    private boolean isListening = false;
+    
+    // Static listener management to prevent duplicates across service restarts
+    private static boolean isListening = false;
+    private static com.google.firebase.firestore.ListenerRegistration emergencyListener = null;
     
     // Static MediaPlayer to track current playing sound
     private static MediaPlayer currentMediaPlayer = null;
+    private static AudioManager audioManager = null;
+    
+    // Track notification IDs to dismiss them when user responds
+    private static java.util.Set<Integer> activeNotificationIds = new java.util.HashSet<>();
+    private static Context appContext = null;
     
     @Override
     public void onCreate() {
         super.onCreate();
         Log.d(TAG, "EmergencySOSBackgroundService created");
+        
+        // Store application context for static methods
+        if (appContext == null) {
+            appContext = getApplicationContext();
+        }
         
         db = FirebaseFirestore.getInstance();
         mAuth = FirebaseAuth.getInstance();
@@ -73,8 +87,22 @@ public class EmergencySOSBackgroundService extends Service {
         }
         
         // Refresh user data from SharedPreferences and Firebase Auth on each start
+        // Try multiple SharedPreferences keys to find user info
         String userType = prefs.getString("user_type", null);
+        if (userType == null) {
+            // Try SagipAppPrefs as alternative
+            SharedPreferences sagipPrefs = getSharedPreferences("SagipAppPrefs", Context.MODE_PRIVATE);
+            userType = sagipPrefs.getString("userType", null);
+            Log.d(TAG, "🔍 [START_SERVICE] Trying SagipAppPrefs, userType: " + userType);
+        }
+        
         String userIdFromPrefs = prefs.getString("user_id", null);
+        if (userIdFromPrefs == null) {
+            // Try SagipAppPrefs as alternative
+            SharedPreferences sagipPrefs = getSharedPreferences("SagipAppPrefs", Context.MODE_PRIVATE);
+            userIdFromPrefs = sagipPrefs.getString("userId", null);
+            Log.d(TAG, "🔍 [START_SERVICE] Trying SagipAppPrefs, userId: " + userIdFromPrefs);
+        }
         
         // Get current user from Firebase Auth
         if (mAuth.getCurrentUser() != null) {
@@ -82,6 +110,8 @@ public class EmergencySOSBackgroundService extends Service {
         } else {
             userId = userIdFromPrefs; // Fallback to SharedPreferences
         }
+        
+        Log.d(TAG, "🔍 [START_SERVICE] userType: " + userType + ", userId: " + userId);
         
         // Check if user is still logged in and is a rescuer
         if (userType == null || !userType.equals("rescuer") || userId == null) {
@@ -102,6 +132,14 @@ public class EmergencySOSBackgroundService extends Service {
     public void onDestroy() {
         super.onDestroy();
         Log.d(TAG, "EmergencySOSBackgroundService destroyed");
+        
+        // Only remove listener and reset flag if service is truly being destroyed
+        // (not just restarting)
+        if (emergencyListener != null) {
+            Log.d(TAG, "🛑 Removing Firestore listener on service destroy");
+            emergencyListener.remove();
+            emergencyListener = null;
+        }
         isListening = false;
         
         // Stop any playing emergency sound when service is destroyed
@@ -177,6 +215,13 @@ public class EmergencySOSBackgroundService extends Service {
         // Check if current user is a rescuer - if not, stop the service
         SharedPreferences prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
         String userType = prefs.getString("user_type", null);
+        if (userType == null) {
+            // Try SagipAppPrefs as alternative
+            SharedPreferences sagipPrefs = getSharedPreferences("SagipAppPrefs", Context.MODE_PRIVATE);
+            userType = sagipPrefs.getString("userType", null);
+        }
+        
+        Log.d(TAG, "🔍 [START_LISTENER] userType from prefs: " + userType);
         
         if (userType == null || !userType.equals("rescuer")) {
             Log.w(TAG, "⚠️ User is not a rescuer (userType: " + userType + "), stopping EmergencySOSBackgroundService");
@@ -184,11 +229,32 @@ public class EmergencySOSBackgroundService extends Service {
             return;
         }
         
+        // PREVENT DUPLICATE LISTENERS - Check if already listening
+        if (isListening && emergencyListener != null) {
+            Log.d(TAG, "✅ [DUPLICATE_PREVENTION] Already listening for emergency notifications, skipping listener creation");
+            Log.d(TAG, "✅ [DUPLICATE_PREVENTION] Existing listener is active, this prevents double notifications");
+            return;
+        }
+        
+        // If flag is set but listener is null, something went wrong - clean up
+        if (isListening && emergencyListener == null) {
+            Log.w(TAG, "⚠️ [DUPLICATE_PREVENTION] isListening flag was set but listener was null, resetting");
+            isListening = false;
+        }
+        
+        // Remove any existing listener before creating a new one
+        if (emergencyListener != null) {
+            Log.d(TAG, "🔄 [DUPLICATE_PREVENTION] Removing old listener before creating new one");
+            emergencyListener.remove();
+            emergencyListener = null;
+        }
+        
         Log.d(TAG, "🚨 Starting emergency SOS listener for rescuer: " + userId);
+        Log.d(TAG, "🚨 Listener path: Sagip/users/rescuer/" + userId + "/emergencyNotifications");
         isListening = true;
         
         // Listen for emergency SOS notifications in real-time
-        db.collection("Sagip")
+        emergencyListener = db.collection("Sagip")
           .document("users")
           .collection("rescuer")
           .document(userId)
@@ -204,6 +270,11 @@ public class EmergencySOSBackgroundService extends Service {
               // Check if user is still a rescuer before processing notifications
               SharedPreferences currentPrefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
               String currentUserType = currentPrefs.getString("user_type", null);
+              if (currentUserType == null) {
+                  // Try SagipAppPrefs as alternative
+                  SharedPreferences sagipPrefs = getSharedPreferences("SagipAppPrefs", Context.MODE_PRIVATE);
+                  currentUserType = sagipPrefs.getString("userType", null);
+              }
               boolean isLoggedOut = currentPrefs.getBoolean("user_logged_out", false);
               
               if (isLoggedOut || currentUserType == null || !currentUserType.equals("rescuer")) {
@@ -234,6 +305,11 @@ public class EmergencySOSBackgroundService extends Service {
             // Double-check user type before processing notification
             SharedPreferences currentPrefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
             String currentUserType = currentPrefs.getString("user_type", null);
+            if (currentUserType == null) {
+                // Try SagipAppPrefs as alternative
+                SharedPreferences sagipPrefs = getSharedPreferences("SagipAppPrefs", Context.MODE_PRIVATE);
+                currentUserType = sagipPrefs.getString("userType", null);
+            }
             boolean isLoggedOut = currentPrefs.getBoolean("user_logged_out", false);
             
             if (isLoggedOut || currentUserType == null || !currentUserType.equals("rescuer")) {
@@ -363,7 +439,7 @@ public class EmergencySOSBackgroundService extends Service {
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                .setAutoCancel(true) // Allow notification to be dismissed when clicked
+                .setAutoCancel(true) // Notification will be dismissed when clicked
                 .setContentIntent(pendingIntent)
                 .setSound(getCustomAlarmSound()) // AudioAttributes are set on the channel, not here
                 .setVibrate(new long[]{0, 1000, 500, 1000, 500, 1000})
@@ -371,11 +447,16 @@ public class EmergencySOSBackgroundService extends Service {
                 .setFullScreenIntent(pendingIntent, true) // Show as full screen on lock screen
                 .addAction(android.R.drawable.ic_menu_call, "📞 CALL", callPendingIntent)
                 .addAction(android.R.drawable.ic_menu_directions, "🗺️ NAVIGATE", navPendingIntent)
-                .setOngoing(false) // Allow notification to be dismissed
+                .setOngoing(false) // Allow notification to be dismissed (not persistent)
+                .setTimeoutAfter(60000) // Auto-dismiss after 60 seconds if not interacted with
                 .setDefaults(NotificationCompat.DEFAULT_ALL); // Add default notification behavior
         
         android.app.Notification notification = builder.build();
         notificationManager.notify(requestCode, notification);
+        
+        // Track this notification ID so it can be dismissed later
+        activeNotificationIds.add(requestCode);
+        
         Log.d(TAG, "🔔 Emergency SOS notification sent for: " + seniorName);
         Log.d(TAG, "🔊 Notification ID: " + requestCode);
         Log.d(TAG, "🔊 Notification sound URI: " + getCustomAlarmSound().toString());
@@ -408,30 +489,108 @@ public class EmergencySOSBackgroundService extends Service {
             // Stop any currently playing sound
             stopEmergencySound();
             
-            currentMediaPlayer = MediaPlayer.create(this, soundUri);
-            if (currentMediaPlayer != null) {
-                Log.d(TAG, "🔊 MediaPlayer created successfully");
-                currentMediaPlayer.setOnPreparedListener(mp -> {
-                    Log.d(TAG, "🔊 MediaPlayer prepared, starting playback");
-                    mp.start();
-                });
-                currentMediaPlayer.setOnErrorListener((mp, what, extra) -> {
-                    Log.e(TAG, "❌ MediaPlayer error: what=" + what + ", extra=" + extra);
-                    mp.release();
-                    currentMediaPlayer = null;
-                    return true;
-                });
-                currentMediaPlayer.setOnCompletionListener(mp -> {
-                    Log.d(TAG, "🔊 Sound playback completed");
-                    mp.release();
-                    currentMediaPlayer = null;
-                });
+            // Initialize AudioManager if not already done
+            if (audioManager == null) {
+                audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+            }
+            
+            // Check current ringer mode and log it
+            int ringerMode = audioManager.getRingerMode();
+            Log.d(TAG, "🔊 Current ringer mode: " + ringerMode + " (0=SILENT, 1=VIBRATE, 2=NORMAL)");
+            
+            // Ensure alarm volume is at maximum for emergency
+            int maxAlarmVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM);
+            int currentAlarmVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM);
+            Log.d(TAG, "🔊 Current alarm volume: " + currentAlarmVolume + "/" + maxAlarmVolume);
+            
+            audioManager.setStreamVolume(AudioManager.STREAM_ALARM, maxAlarmVolume, 0);
+            Log.d(TAG, "🔊 Set alarm volume to maximum: " + maxAlarmVolume);
+            
+            // Request audio focus for emergency sound
+            int result = audioManager.requestAudioFocus(
+                audioFocusChangeListener,
+                AudioManager.STREAM_ALARM,
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+            );
+            
+            Log.d(TAG, "🔊 Audio focus request result: " + result + " (1=GRANTED, 0=FAILED)");
+            
+            if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+                Log.d(TAG, "🔊 Audio focus granted for emergency sound");
+                
+                currentMediaPlayer = MediaPlayer.create(this, soundUri);
+                if (currentMediaPlayer != null) {
+                    Log.d(TAG, "🔊 MediaPlayer created successfully");
+                    
+                    // Set audio attributes for emergency sound
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                        AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_ALARM)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .setFlags(AudioAttributes.FLAG_AUDIBILITY_ENFORCED)
+                            .build();
+                        currentMediaPlayer.setAudioAttributes(audioAttributes);
+                        Log.d(TAG, "🔊 Audio attributes set for API " + Build.VERSION.SDK_INT);
+                    } else {
+                        currentMediaPlayer.setAudioStreamType(AudioManager.STREAM_ALARM);
+                        Log.d(TAG, "🔊 Audio stream type set to ALARM for API " + Build.VERSION.SDK_INT);
+                    }
+                    
+                    // Set volume to maximum for emergency
+                    currentMediaPlayer.setVolume(1.0f, 1.0f);
+                    Log.d(TAG, "🔊 MediaPlayer volume set to maximum");
+                    
+                    currentMediaPlayer.setOnPreparedListener(mp -> {
+                        Log.d(TAG, "🔊 MediaPlayer prepared, starting playback");
+                        mp.start();
+                        Log.d(TAG, "🔊 MediaPlayer started successfully");
+                    });
+                    
+                    currentMediaPlayer.setOnErrorListener((mp, what, extra) -> {
+                        Log.e(TAG, "❌ MediaPlayer error: what=" + what + ", extra=" + extra);
+                        mp.release();
+                        currentMediaPlayer = null;
+                        // Abandon audio focus on error
+                        if (audioManager != null) {
+                            audioManager.abandonAudioFocus(audioFocusChangeListener);
+                        }
+                        return true;
+                    });
+                    
+                    currentMediaPlayer.setOnCompletionListener(mp -> {
+                        Log.d(TAG, "🔊 Sound playback completed");
+                        mp.release();
+                        currentMediaPlayer = null;
+                        // Abandon audio focus when done
+                        if (audioManager != null) {
+                            audioManager.abandonAudioFocus(audioFocusChangeListener);
+                        }
+                    });
+                } else {
+                    Log.e(TAG, "❌ Failed to create MediaPlayer");
+                    // Abandon audio focus if MediaPlayer creation failed
+                    if (audioManager != null) {
+                        audioManager.abandonAudioFocus(audioFocusChangeListener);
+                    }
+                }
             } else {
-                Log.e(TAG, "❌ Failed to create MediaPlayer");
+                Log.w(TAG, "⚠️ Audio focus not granted for emergency sound");
             }
         } catch (Exception e) {
             Log.e(TAG, "❌ Error testing sound playback: " + e.getMessage(), e);
+            // Abandon audio focus on error
+            if (audioManager != null) {
+                audioManager.abandonAudioFocus(audioFocusChangeListener);
+            }
         }
+    }
+    
+    /**
+     * Public method to test emergency sound playback - can be called for debugging
+     */
+    public void testEmergencySound() {
+        Log.d(TAG, "🔊 Testing emergency sound from public method...");
+        testSoundPlayback();
     }
     
     /**
@@ -455,7 +614,74 @@ public class EmergencySOSBackgroundService extends Service {
         } else {
             Log.d(TAG, "🔇 No emergency sound currently playing");
         }
+        
+        // Abandon audio focus when stopping sound
+        if (audioManager != null) {
+            audioManager.abandonAudioFocus(audioFocusChangeListener);
+        }
     }
+    
+    /**
+     * Static method to dismiss all active emergency notifications
+     * This stops both the MediaPlayer sound AND the notification system sound
+     */
+    public static void dismissAllEmergencyNotifications() {
+        Log.d(TAG, "🔕 Dismissing all active emergency notifications...");
+        
+        // First stop the MediaPlayer sound
+        stopEmergencySound();
+        
+        // Then dismiss all tracked notifications
+        if (appContext != null && !activeNotificationIds.isEmpty()) {
+            NotificationManager notificationManager = (NotificationManager) appContext.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (notificationManager != null) {
+                for (Integer notificationId : activeNotificationIds) {
+                    notificationManager.cancel(notificationId);
+                    Log.d(TAG, "🔕 Dismissed notification ID: " + notificationId);
+                }
+                activeNotificationIds.clear();
+                Log.d(TAG, "🔕 All emergency notifications dismissed and cleared");
+            } else {
+                Log.e(TAG, "❌ NotificationManager is null, cannot dismiss notifications");
+            }
+        } else {
+            if (appContext == null) {
+                Log.w(TAG, "⚠️ App context is null, cannot dismiss notifications");
+            }
+            if (activeNotificationIds.isEmpty()) {
+                Log.d(TAG, "🔕 No active notifications to dismiss");
+            }
+        }
+    }
+    
+    /**
+     * Audio focus change listener for emergency sounds
+     */
+    private static final AudioManager.OnAudioFocusChangeListener audioFocusChangeListener = new AudioManager.OnAudioFocusChangeListener() {
+        @Override
+        public void onAudioFocusChange(int focusChange) {
+            Log.d(TAG, "🔊 Audio focus changed: " + focusChange);
+            switch (focusChange) {
+                case AudioManager.AUDIOFOCUS_GAIN:
+                    Log.d(TAG, "🔊 Audio focus gained - emergency sound can play");
+                    break;
+                case AudioManager.AUDIOFOCUS_LOSS:
+                    Log.w(TAG, "🔊 Audio focus lost - emergency sound interrupted");
+                    stopEmergencySound();
+                    break;
+                case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
+                    Log.w(TAG, "🔊 Audio focus lost temporarily - emergency sound paused");
+                    if (currentMediaPlayer != null && currentMediaPlayer.isPlaying()) {
+                        currentMediaPlayer.pause();
+                    }
+                    break;
+                case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
+                    Log.w(TAG, "🔊 Audio focus lost temporarily - emergency sound can duck");
+                    // For emergency sounds, we don't duck - we keep playing at full volume
+                    break;
+            }
+        }
+    };
     
     private Uri getCustomAlarmSound() {
         try {

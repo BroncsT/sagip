@@ -236,6 +236,91 @@ function getEmergencyEmoji(emergencyType) {
     }
 }
 
+// Function to send FCM notifications for emergency SOS alerts to rescuers
+exports.sendEmergencySOSNotification = functions.firestore
+    .document('Sagip/users/rescuer/{rescuerId}/emergencyNotifications/{notificationId}')
+    .onCreate(async (snap, context) => {
+        const notificationData = snap.data();
+        const rescuerId = context.params.rescuerId;
+        
+        console.log('Emergency SOS notification detected for rescuer:', rescuerId);
+        console.log('Notification data:', notificationData);
+        
+        // Get the rescuer's FCM token
+        const rescuerDoc = await admin.firestore()
+            .collection('Sagip/users/rescuer')
+            .doc(rescuerId)
+            .get();
+        
+        if (!rescuerDoc.exists) {
+            console.log('Rescuer document not found:', rescuerId);
+            return;
+        }
+        
+        const fcmToken = rescuerDoc.data().fcmToken;
+        if (!fcmToken) {
+            console.log('No FCM token found for rescuer:', rescuerId);
+            return;
+        }
+        
+        // Prepare the FCM message
+        const seniorName = notificationData.seniorName || 'A senior';
+        const locationAddress = notificationData.locationAddress || 'Unknown location';
+        const emergencyType = notificationData.emergencyType || 'medical';
+        
+        const emergencyEmoji = getEmergencyEmoji(emergencyType);
+        
+        const message = {
+            notification: {
+                title: '🚨 EMERGENCY SOS ALERT',
+                body: `${seniorName} needs ${emergencyEmoji} ${emergencyType} help at ${locationAddress}`
+            },
+            data: {
+                type: 'emergency_sos',
+                seniorName: seniorName,
+                seniorPhone: notificationData.seniorPhone || '',
+                locationAddress: locationAddress,
+                emergencyType: emergencyType,
+                requestId: notificationData.requestId || '',
+                timestamp: notificationData.timestamp ? notificationData.timestamp.toString() : Date.now().toString(),
+                seniorLat: notificationData.seniorLat ? notificationData.seniorLat.toString() : '0',
+                seniorLng: notificationData.seniorLng ? notificationData.seniorLng.toString() : '0'
+            },
+            android: {
+                priority: 'high',
+                notification: {
+                    sound: 'default',
+                    channelId: 'emergency_sos_channel',
+                    priority: 'max',
+                    vibrateTimingsMillis: [0, 1000, 500, 1000],
+                    lightSettings: {
+                        color: {
+                            red: 1.0,
+                            green: 0.0,
+                            blue: 0.0
+                        },
+                        lightOnDurationMillis: 1000,
+                        lightOffDurationMillis: 1000
+                    }
+                }
+            },
+            token: fcmToken
+        };
+        
+        try {
+            const response = await admin.messaging().send(message);
+            console.log(`Emergency SOS notification sent successfully to rescuer ${rescuerId}:`, response);
+        } catch (error) {
+            console.error(`Failed to send emergency SOS notification to rescuer ${rescuerId}:`, error);
+            
+            // If token is invalid, clean it up
+            if (error.code === 'messaging/invalid-registration-token' ||
+                error.code === 'messaging/registration-token-not-registered') {
+                await cleanupInvalidTokens([fcmToken]);
+            }
+        }
+    });
+
 // Helper function to clean up invalid FCM tokens
 async function cleanupInvalidTokens(invalidTokens) {
     const batch = admin.firestore().batch();

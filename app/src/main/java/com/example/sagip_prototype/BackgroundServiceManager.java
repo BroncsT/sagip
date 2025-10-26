@@ -92,8 +92,11 @@ public class BackgroundServiceManager {
         // Start emergency SOS background service
         startService(context, EmergencySOSBackgroundService.class);
         
-        // Start emergency notification service for real-time SOS alerts
-        startService(context, EmergencyNotificationService.class);
+        // DISABLED: EmergencyNotificationService causes DUPLICATE notifications
+        // EmergencySOSBackgroundService already handles all emergency notifications
+        // Keeping both services running creates double alerts for rescuers
+        Log.d(TAG, "✅ [DUPLICATE_FIX] EmergencyNotificationService DISABLED to prevent duplicate notifications");
+        // startService(context, EmergencyNotificationService.class); // COMMENTED OUT
         
         // Start hospital status notification service
         startService(context, HospitalStatusNotificationService.class);

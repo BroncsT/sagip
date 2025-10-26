@@ -1585,6 +1585,5 @@ public class Barangay_Dashboard extends AppCompatActivity {
         
         Log.d("Barangay_Dashboard", "🚨 Emergency popup dialog shown for: " + seniorName);
     }
-    
-    // End of Barangay_Dashboard class - Fixed duplicate onDestroy issue
+
 }

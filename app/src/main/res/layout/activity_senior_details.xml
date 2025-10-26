@@ -408,7 +408,7 @@
 <!--        app:layout_constraintTop_toBottomOf="@id/nameText"-->
 <!--        tools:text="Status: Approved" />-->
 
-<!--    &lt;!&ndash; Details Card &ndash;&gt;-->
+<!--    Details Card -->
 <!--    <com.google.android.material.card.MaterialCardView-->
 <!--        android:id="@+id/detailsCard"-->
 <!--        android:layout_width="0dp"-->

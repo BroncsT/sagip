@@ -185,7 +185,7 @@
     </androidx.cardview.widget.CardView>
 
 
-    <!--        &lt;!&ndash; Mobile Number Section &ndash;&gt;-->
+    <!--        Mobile Number Section -->
 <!--        <TextView-->
 <!--            android:layout_width="wrap_content"-->
 <!--            android:layout_height="match_parent"-->
@@ -213,7 +213,7 @@
 <!--                android:textSize="16sp" />-->
 <!--        </com.google.android.material.textfield.TextInputLayout>-->
 
-<!--        &lt;!&ndash; Email Section &ndash;&gt;-->
+<!--        Email Section -->
 <!--        <TextView-->
 <!--            android:layout_width="wrap_content"-->
 <!--            android:layout_height="wrap_content"-->
@@ -240,7 +240,7 @@
 <!--                android:textSize="16sp" />-->
 <!--        </com.google.android.material.textfield.TextInputLayout>-->
 
-<!--        &lt;!&ndash; Barangay Section &ndash;&gt;-->
+<!--        Barangay Section -->
 <!--        <TextView-->
 <!--            android:layout_width="wrap_content"-->
 <!--            android:layout_height="wrap_content"-->
@@ -264,7 +264,7 @@
 <!--        </com.google.android.material.textfield.TextInputLayout>-->
 
         <!-- Receive Updates Checkbox -->
-<!--    &lt;!&ndash; Submit Button &ndash;&gt;-->
+<!--    Submit Button -->
 <!--    <com.google.android.material.button.MaterialButton-->
 <!--        android:id="@+id/submitButton"-->
 <!--        android:layout_width="match_parent"-->

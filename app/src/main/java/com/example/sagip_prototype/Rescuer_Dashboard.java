@@ -15,6 +15,7 @@ import android.location.Geocoder;
 import android.location.Location;
 import android.media.AudioAttributes;
 import android.media.MediaPlayer;
+import android.media.AudioManager;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
@@ -92,6 +93,9 @@ import org.json.JSONObject;
 public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCallback {
 
     private static final String TAG = "RescuerDashboard";
+    
+    // MediaPlayer for emergency sound playback
+    private MediaPlayer currentEmergencySoundPlayer = null;
     
     // Emergency item class for FIFO queue management
     private static class EmergencyItem {
@@ -763,6 +767,27 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        // STOP ALL EMERGENCY SOUNDS AND DISMISS NOTIFICATIONS IMMEDIATELY
+        Intent intent = getIntent();
+        if (intent != null) {
+            boolean isFromNotification = intent.getBooleanExtra("emergency_sos_clicked", false) || 
+                                       intent.getBooleanExtra("from_emergency_notification", false);
+            if (isFromNotification) {
+                // Cancel ALL notifications immediately to stop the notification sound
+                NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                if (notificationManager != null) {
+                    notificationManager.cancelAll();
+                    Log.d(TAG, "🔕 [ON_CREATE] Canceled all notifications to stop sound");
+                }
+                
+                // Stop MediaPlayer sounds
+                stopEmergencySound();
+                EmergencySOSBackgroundService.dismissAllEmergencyNotifications();
+                Log.d(TAG, "🔇 [ON_CREATE] All emergency sounds stopped immediately in onCreate");
+            }
+        }
+        
         EdgeToEdge.enable(this);
         
         // Apply saved language preference
@@ -771,7 +796,6 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         
         setContentView(R.layout.activity_rescuer_dashboard);
 
-		// Initialize Google Map fragment inside the container
 		SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.rescuerMapContainer);
 		if (mapFragment == null) {
 			mapFragment = SupportMapFragment.newInstance();
@@ -781,7 +805,6 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
 				.commit();
 		}
 		mapFragment.getMapAsync(this);
-
 		// Initialize location services
 
 		// Optionally preload last known location to center map faster
@@ -805,7 +828,6 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
 
         // Initialize SharedPreferences
         sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
-
         // Set login time to current time
         lastLoginTime = System.currentTimeMillis();
 
@@ -828,6 +850,10 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         // Initialize emergency queue manager
         EmergencyQueueManager.getInstance(this).loadActiveEmergenciesFromDatabase();
         
+        // Cleanup old assigned emergencies to prevent duplicate SOS notifications
+        Log.d(TAG, "🧹 Starting automatic cleanup of old emergencies...");
+        EmergencyQueueManager.getInstance(this).cleanupOldAssignedEmergencies();
+        
         // Handle emergency notification if app was opened from notification
         handleEmergencyNotificationIntent();
 
@@ -840,8 +866,10 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         // Initialize emergency notification components
         initializeEmergencyNotificationComponents();
 
-        // Setup bottom navigation
-        setupBottomNavigation();
+        // Emergency sound testing can be done via logs and real SOS notifications
+        // You can call testEmergencySoundPlayback() method manually for testing
+        
+        // Note: Emergency sound testing removed - will test via actual SOS notifications
 
         // Check for location permissions
         checkLocationPermission();
@@ -874,6 +902,19 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         super.onNewIntent(intent);
         Log.d(TAG, "=== ON_NEW_INTENT CALLED ===");
         setIntent(intent);
+        
+        // Cancel ALL notifications immediately to stop the notification sound
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (notificationManager != null) {
+            notificationManager.cancelAll();
+            Log.d(TAG, "🔕 [ON_NEW_INTENT] Canceled all notifications to stop sound");
+        }
+        
+        // STOP ALL EMERGENCY SOUNDS IMMEDIATELY when notification is clicked
+        stopEmergencySound(); // Stop dashboard sound
+        EmergencySOSBackgroundService.dismissAllEmergencyNotifications(); // Stop background service sound AND dismiss notifications
+        Log.d(TAG, "🔇 [ON_NEW_INTENT] All emergency sounds stopped immediately");
+        
         handleNotificationClick();
     }
 
@@ -883,6 +924,26 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
 
         // Load cached display name immediately when returning to dashboard
         loadCachedDisplayName();
+
+        // Check if opened from notification and stop sounds immediately
+        Intent intent = getIntent();
+        if (intent != null) {
+            boolean isFromNotification = intent.getBooleanExtra("emergency_sos_clicked", false) || 
+                                       intent.getBooleanExtra("from_emergency_notification", false);
+            if (isFromNotification) {
+                // Cancel ALL notifications immediately to stop the notification sound
+                NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                if (notificationManager != null) {
+                    notificationManager.cancelAll();
+                    Log.d(TAG, "🔕 [ON_RESUME] Canceled all notifications to stop sound");
+                }
+                
+                // STOP ALL EMERGENCY SOUNDS IMMEDIATELY
+                stopEmergencySound();
+                EmergencySOSBackgroundService.dismissAllEmergencyNotifications();
+                Log.d(TAG, "🔇 [ON_RESUME] All emergency sounds stopped on resume from notification");
+            }
+        }
 
         // Handle notification click if this activity was opened from a notification
         handleNotificationClick();
@@ -1077,6 +1138,11 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 String locationAddress = intent.getStringExtra("location_address");
                 
                 Log.d(TAG, "🚨 App opened from emergency SOS notification in onCreate - Senior: " + seniorName);
+                
+                // STOP ALL EMERGENCY SOUNDS IMMEDIATELY when notification is clicked
+                stopEmergencySound(); // Stop dashboard sound
+                EmergencySOSBackgroundService.dismissAllEmergencyNotifications(); // Stop background service sound AND dismiss notifications
+                Log.d(TAG, "🔇 [NOTIFICATION_CLICK] All emergency sounds stopped immediately on notification click");
                 
                 // Show emergency alert dialog immediately after a short delay to ensure UI is ready
                 if (seniorName != null && locationAddress != null) {
@@ -1349,6 +1415,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         Log.d(TAG, "🚨 This system is INDEPENDENT from hospital notifications");
         Log.d(TAG, "🚨 Emergency alerts use Firestore real-time listeners");
         Log.d(TAG, "🚨 Hospital notifications use FCM (separate system)");
+        
+        // Start the background service for monitoring SOS when app is closed
+        startEmergencySOSBackgroundService();
     }
 
     private void startEmergencyListener() {
@@ -1631,6 +1700,177 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             }
         } catch (Exception e) {
             Log.e(TAG, "Error playing notification sound", e);
+        }
+    }
+    
+    /**
+     * Play emergency sound with proper audio configuration
+     */
+    private void playEmergencySound() {
+        Log.d(TAG, "🔊 Playing emergency sound...");
+        try {
+            // Stop any currently playing emergency sound
+            stopEmergencySound();
+            
+            // Initialize AudioManager
+            AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+            
+            // Check current ringer mode and log it
+            int ringerMode = audioManager.getRingerMode();
+            Log.d(TAG, "🔊 Current ringer mode: " + ringerMode + " (0=SILENT, 1=VIBRATE, 2=NORMAL)");
+            
+            // Ensure alarm volume is at maximum for emergency
+            int maxAlarmVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM);
+            int currentAlarmVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM);
+            Log.d(TAG, "🔊 Current alarm volume: " + currentAlarmVolume + "/" + maxAlarmVolume);
+            
+            // Set alarm volume to maximum
+            audioManager.setStreamVolume(AudioManager.STREAM_ALARM, maxAlarmVolume, 0);
+            Log.d(TAG, "🔊 Set alarm volume to maximum: " + maxAlarmVolume);
+            
+            // Get the alarm sound URI
+            Uri soundUri = getCustomAlarmSound();
+            Log.d(TAG, "🔊 Using alarm sound URI: " + soundUri.toString());
+            
+            // Create MediaPlayer with the alarm sound
+            currentEmergencySoundPlayer = MediaPlayer.create(this, soundUri);
+            if (currentEmergencySoundPlayer != null) {
+                Log.d(TAG, "🔊 MediaPlayer created successfully");
+                
+                // Set audio attributes for emergency sound
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .setFlags(AudioAttributes.FLAG_AUDIBILITY_ENFORCED)
+                        .build();
+                    currentEmergencySoundPlayer.setAudioAttributes(audioAttributes);
+                    Log.d(TAG, "🔊 Audio attributes set for API " + Build.VERSION.SDK_INT);
+                } else {
+                    currentEmergencySoundPlayer.setAudioStreamType(AudioManager.STREAM_ALARM);
+                    Log.d(TAG, "🔊 Audio stream type set to ALARM for API " + Build.VERSION.SDK_INT);
+                }
+                
+                // Set volume to maximum
+                currentEmergencySoundPlayer.setVolume(1.0f, 1.0f);
+                Log.d(TAG, "🔊 MediaPlayer volume set to maximum");
+                
+                currentEmergencySoundPlayer.setOnPreparedListener(mp -> {
+                    Log.d(TAG, "🔊 Emergency MediaPlayer prepared, starting playback");
+                    mp.start();
+                    Log.d(TAG, "🔊 Emergency sound started successfully");
+                });
+                
+                currentEmergencySoundPlayer.setOnErrorListener((mp, what, extra) -> {
+                    Log.e(TAG, "❌ Emergency MediaPlayer error: what=" + what + ", extra=" + extra);
+                    mp.release();
+                    currentEmergencySoundPlayer = null;
+                    return true;
+                });
+                
+                currentEmergencySoundPlayer.setOnCompletionListener(mp -> {
+                    Log.d(TAG, "🔊 Emergency sound playback completed");
+                    mp.release();
+                    currentEmergencySoundPlayer = null;
+                });
+            } else {
+                Log.e(TAG, "❌ Failed to create emergency MediaPlayer");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error playing emergency sound: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Stop emergency sound from playing
+     */
+    private void stopEmergencySound() {
+        Log.d(TAG, "🔇 Stopping emergency sound...");
+        if (currentEmergencySoundPlayer != null) {
+            try {
+                if (currentEmergencySoundPlayer.isPlaying()) {
+                    currentEmergencySoundPlayer.stop();
+                    Log.d(TAG, "🔇 Emergency sound stopped successfully");
+                }
+                currentEmergencySoundPlayer.release();
+                currentEmergencySoundPlayer = null;
+                Log.d(TAG, "🔇 MediaPlayer released and cleared");
+            } catch (Exception e) {
+                Log.e(TAG, "❌ Error stopping emergency sound: " + e.getMessage(), e);
+                currentEmergencySoundPlayer = null;
+            }
+        } else {
+            Log.d(TAG, "🔇 No emergency sound currently playing");
+        }
+    }
+    
+    /**
+     * Test emergency sound playback for debugging - call this method manually
+     */
+    public void testEmergencySoundPlayback() {
+        Log.d(TAG, "🔊 Testing emergency sound playback from Rescuer_Dashboard...");
+        try {
+            Uri soundUri = getCustomAlarmSound();
+            Log.d(TAG, "🔊 Testing with sound URI: " + soundUri.toString());
+            
+            // Initialize AudioManager
+            AudioManager audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+            
+            // Check current ringer mode and log it
+            int ringerMode = audioManager.getRingerMode();
+            Log.d(TAG, "🔊 Current ringer mode: " + ringerMode + " (0=SILENT, 1=VIBRATE, 2=NORMAL)");
+            
+            // Ensure alarm volume is at maximum for emergency
+            int maxAlarmVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM);
+            int currentAlarmVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM);
+            Log.d(TAG, "🔊 Current alarm volume: " + currentAlarmVolume + "/" + maxAlarmVolume);
+            
+            audioManager.setStreamVolume(AudioManager.STREAM_ALARM, maxAlarmVolume, 0);
+            Log.d(TAG, "🔊 Set alarm volume to maximum: " + maxAlarmVolume);
+            
+            MediaPlayer testPlayer = MediaPlayer.create(this, soundUri);
+            if (testPlayer != null) {
+                Log.d(TAG, "🔊 Test MediaPlayer created successfully");
+                
+                // Set audio attributes for emergency sound
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .setFlags(AudioAttributes.FLAG_AUDIBILITY_ENFORCED)
+                        .build();
+                    testPlayer.setAudioAttributes(audioAttributes);
+                    Log.d(TAG, "🔊 Audio attributes set for API " + Build.VERSION.SDK_INT);
+                } else {
+                    testPlayer.setAudioStreamType(AudioManager.STREAM_ALARM);
+                    Log.d(TAG, "🔊 Audio stream type set to ALARM for API " + Build.VERSION.SDK_INT);
+                }
+                
+                // Set volume to maximum
+                testPlayer.setVolume(1.0f, 1.0f);
+                Log.d(TAG, "🔊 MediaPlayer volume set to maximum");
+                
+                testPlayer.setOnPreparedListener(mp -> {
+                    Log.d(TAG, "🔊 Test MediaPlayer prepared, starting playback");
+                    mp.start();
+                    Log.d(TAG, "🔊 Test MediaPlayer started successfully");
+                });
+                
+                testPlayer.setOnErrorListener((mp, what, extra) -> {
+                    Log.e(TAG, "❌ Test MediaPlayer error: what=" + what + ", extra=" + extra);
+                    mp.release();
+                    return true;
+                });
+                
+                testPlayer.setOnCompletionListener(mp -> {
+                    Log.d(TAG, "🔊 Test sound playback completed");
+                    mp.release();
+                });
+            } else {
+                Log.e(TAG, "❌ Failed to create test MediaPlayer");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error testing emergency sound: " + e.getMessage(), e);
         }
     }
 
@@ -1996,8 +2236,11 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         }
         
         Log.d(TAG, "🚨 Starting emergency SOS listener for rescuer: " + userId);
+        Log.d(TAG, "✅ [IN-APP_ALERTS] Dashboard listener ENABLED for in-app alerts when app is open");
         
         // Listen for emergency SOS notifications in real-time
+        // This shows IN-APP ALERTS when the app is open
+        // The background service handles SYSTEM NOTIFICATIONS when app is closed
         db.collection("Sagip")
           .document("users")
           .collection("rescuer")
@@ -2013,6 +2256,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
               
               if (querySnapshot != null && !querySnapshot.isEmpty()) {
                   for (QueryDocumentSnapshot document : querySnapshot) {
+                      Log.d(TAG, "📱 [DASHBOARD_LISTENER] Processing notification in active app");
                       handleEmergencySOSNotification(document);
                   }
               }
@@ -2035,9 +2279,17 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             Double seniorLat = document.getDouble("seniorLat");
             Double seniorLng = document.getDouble("seniorLng");
             
+            Log.d(TAG, "📱 [DASHBOARD_HANDLER] Processing notification - Type: " + type + ", IsRead: " + isRead);
+            
             // Only process unread emergency SOS notifications
             if ("EMERGENCY_SOS".equals(type) && (isRead == null || !isRead)) {
-                Log.d(TAG, "🚨 Received emergency SOS notification: " + seniorName + " (Request ID: " + requestId + ")");
+                Log.d(TAG, "🚨 [DASHBOARD] Received emergency SOS notification: " + seniorName + " (Request ID: " + requestId + ")");
+                
+                // Mark as read IMMEDIATELY to prevent background service from also processing
+                document.getReference().update("isRead", true)
+                    .addOnSuccessListener(aVoid -> {
+                        Log.d(TAG, "✅ [DASHBOARD] Marked notification as read to prevent duplicate processing");
+                    });
                 
                 if (seniorLat != null && seniorLng != null) {
                     Log.d(TAG, "📍 GPS coordinates from notification: " + seniorLat + ", " + seniorLng);
@@ -2045,13 +2297,16 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                     Log.w(TAG, "⚠️ No GPS coordinates in notification data");
                 }
                 
+                // Play emergency sound when SOS is received (app is open, so play sound here)
+                playEmergencySound();
+                
                 // Queue emergency for processing to prevent conflicts
+                // This will show the IN-APP ALERT DIALOG
                 queueEmergencyForProcessing(seniorName, seniorPhone, locationAddress, timestamp, requestId, seniorLat, seniorLng);
                 
-                // Mark notification as read
-                document.getReference().update("isRead", true);
-                
-                // Note: System notification is now handled by EmergencySOSBackgroundService
+                Log.d(TAG, "✅ [DASHBOARD] In-app alert will be shown for: " + seniorName);
+            } else if ("EMERGENCY_SOS".equals(type) && isRead != null && isRead) {
+                Log.d(TAG, "🔇 [DASHBOARD] Notification already read, skipping (likely processed by background service)");
             }
             
         } catch (Exception e) {
@@ -2121,9 +2376,10 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             Log.d(TAG, "🔍 [RESPOND_NOW] Senior: " + seniorName);
             Log.d(TAG, "🔍 [RESPOND_NOW] GPS coordinates: " + seniorLat + ", " + seniorLng);
             
-            // Stop emergency sound immediately when rescuer responds
-            EmergencySOSBackgroundService.stopEmergencySound();
-            Log.d(TAG, "🔇 [RESPOND_NOW] Emergency sound stopped");
+            // Stop ALL emergency sounds AND dismiss notifications immediately when rescuer responds
+            stopEmergencySound(); // Stop dashboard sound
+            EmergencySOSBackgroundService.dismissAllEmergencyNotifications(); // Stop background service sound AND dismiss notifications
+            Log.d(TAG, "🔇 [RESPOND_NOW] All emergency sounds stopped and notifications dismissed");
             
             // Reset dialog flag safely
             synchronized (dialogLock) {
@@ -2157,9 +2413,10 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         builder.setNegativeButton(getString(R.string.button_decline), (dialog, which) -> {
             Log.d(TAG, "🚨 DECLINE BUTTON CLICKED");
             
-            // Stop emergency sound when rescuer declines
-            EmergencySOSBackgroundService.stopEmergencySound();
-            Log.d(TAG, "🔇 [DECLINE] Emergency sound stopped");
+            // Stop ALL emergency sounds AND dismiss notifications when rescuer declines
+            stopEmergencySound(); // Stop dashboard sound
+            EmergencySOSBackgroundService.dismissAllEmergencyNotifications(); // Stop background service sound AND dismiss notifications
+            Log.d(TAG, "🔇 [DECLINE] All emergency sounds stopped and notifications dismissed");
             
             // Reset dialog flag safely
             synchronized (dialogLock) {
@@ -2240,9 +2497,10 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             Log.d(TAG, "🔍 [RESPOND_NOW] Timestamp: " + timestamp);
             Log.d(TAG, "🔍 [RESPOND_NOW] Dialog dismissed: " + (dialog instanceof AlertDialog ? ((AlertDialog) dialog).isShowing() : "unknown"));
             
-            // Stop emergency sound immediately when rescuer responds
-            EmergencySOSBackgroundService.stopEmergencySound();
-            Log.d(TAG, "🔇 [RESPOND_NOW] Emergency sound stopped");
+            // Stop ALL emergency sounds AND dismiss notifications immediately when rescuer responds
+            stopEmergencySound(); // Stop dashboard sound
+            EmergencySOSBackgroundService.dismissAllEmergencyNotifications(); // Stop background service sound AND dismiss notifications
+            Log.d(TAG, "🔇 [RESPOND_NOW] All emergency sounds stopped and notifications dismissed");
             
             // Reset dialog flag safely
             synchronized (dialogLock) {
@@ -2274,6 +2532,11 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         
         // Call senior button
         builder.setNeutralButton(getString(R.string.button_call_senior), (dialog, which) -> {
+            // Stop ALL emergency sounds AND dismiss notifications when calling senior
+            stopEmergencySound(); // Stop dashboard sound
+            EmergencySOSBackgroundService.dismissAllEmergencyNotifications(); // Stop background service sound AND dismiss notifications
+            Log.d(TAG, "🔇 [CALL_SENIOR] All emergency sounds stopped and notifications dismissed before making call");
+            
             // Reset dialog flag safely
             synchronized (dialogLock) {
                 isEmergencyDialogShowing = false;
@@ -2289,6 +2552,11 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         
         // Dismiss button
         builder.setNegativeButton(getString(R.string.button_dismiss), (dialog, which) -> {
+            // Stop ALL emergency sounds AND dismiss notifications when dismissing
+            stopEmergencySound(); // Stop dashboard sound
+            EmergencySOSBackgroundService.dismissAllEmergencyNotifications(); // Stop background service sound AND dismiss notifications
+            Log.d(TAG, "🔇 [DISMISS] All emergency sounds stopped and notifications dismissed");
+            
             // Reset dialog flag safely
             synchronized (dialogLock) {
                 isEmergencyDialogShowing = false;

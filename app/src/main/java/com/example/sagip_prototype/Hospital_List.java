@@ -85,8 +85,7 @@ public class Hospital_List extends AppCompatActivity implements HospitalAdapter.
                     Log.d(TAG, "Successfully loaded hospitals, count: " + queryDocumentSnapshots.size());
                     
                     List<Hospital> hospitals = new ArrayList<>();
-                    List<Hospital> emergencyHospitals = new ArrayList<>();
-                    
+                    List<Hospital> emergencyHospitals = new ArrayList<>();                  
                     for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
                         Hospital hospital = createHospitalFromDocument(document);
                         hospitals.add(hospital);

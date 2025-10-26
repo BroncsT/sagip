@@ -167,6 +167,13 @@ public class EmergencyQueueManager {
                 Log.d(TAG, "📱 [EMERGENCY_QUEUE_MANAGER] Sending SMS notifications to emergency contacts...");
                 sendSMSToEmergencyContacts(request, rescuerId);
                 
+                // Remove the emergency from the local queue since it's now assigned
+                Log.d(TAG, "🗑️ [EMERGENCY_QUEUE_MANAGER] Removing emergency from local queue: " + requestId);
+                removeEmergencyRequest(requestId);
+                
+                // Move the emergency from activeRequests to assignedRequests in Firestore
+                moveEmergencyToAssignedCollection(request);
+                
                 found = true;
                 break;
             }
@@ -193,6 +200,62 @@ public class EmergencyQueueManager {
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "❌ Failed to update emergency assignment in database: " + e.getMessage());
+                });
+    }
+    
+    /**
+     * Move an assigned emergency from activeRequests to assignedRequests collection
+     * This keeps the active queue clean and prevents duplicate SOS notifications
+     */
+    private void moveEmergencyToAssignedCollection(EmergencyRequest request) {
+        Log.d(TAG, "📦 [MOVE_TO_ASSIGNED] Moving emergency to assignedRequests: " + request.requestId);
+        
+        // First, get the full document from activeRequests
+        db.collection("Sagip")
+                .document("emergencyRequests")
+                .collection("activeRequests")
+                .document(request.requestId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        Map<String, Object> emergencyData = documentSnapshot.getData();
+                        if (emergencyData != null) {
+                            // Add timestamp for when it was moved
+                            emergencyData.put("movedToAssignedAt", System.currentTimeMillis());
+                            
+                            // Save to assignedRequests collection
+                            db.collection("Sagip")
+                                    .document("emergencyRequests")
+                                    .collection("assignedRequests")
+                                    .document(request.requestId)
+                                    .set(emergencyData)
+                                    .addOnSuccessListener(aVoid -> {
+                                        Log.d(TAG, "✅ [MOVE_TO_ASSIGNED] Emergency saved to assignedRequests: " + request.requestId);
+                                        
+                                        // Now delete from activeRequests
+                                        db.collection("Sagip")
+                                                .document("emergencyRequests")
+                                                .collection("activeRequests")
+                                                .document(request.requestId)
+                                                .delete()
+                                                .addOnSuccessListener(aVoid2 -> {
+                                                    Log.d(TAG, "✅ [MOVE_TO_ASSIGNED] Emergency removed from activeRequests: " + request.requestId);
+                                                    Log.d(TAG, "✅ [MOVE_TO_ASSIGNED] Move operation completed successfully");
+                                                })
+                                                .addOnFailureListener(e -> {
+                                                    Log.e(TAG, "❌ [MOVE_TO_ASSIGNED] Failed to delete from activeRequests: " + e.getMessage());
+                                                });
+                                    })
+                                    .addOnFailureListener(e -> {
+                                        Log.e(TAG, "❌ [MOVE_TO_ASSIGNED] Failed to save to assignedRequests: " + e.getMessage());
+                                    });
+                        }
+                    } else {
+                        Log.w(TAG, "⚠️ [MOVE_TO_ASSIGNED] Emergency document not found: " + request.requestId);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ [MOVE_TO_ASSIGNED] Failed to get emergency document: " + e.getMessage());
                 });
     }
     
@@ -760,35 +823,83 @@ public class EmergencyQueueManager {
     }
     
     private void sendEmergencyNotificationToRescuer(String rescuerId, EmergencyRequest request) {
-        Map<String, Object> notificationData = new java.util.HashMap<>();
-        notificationData.put("type", "EMERGENCY_SOS");
-        notificationData.put("title", "🚨 EMERGENCY SOS - " + request.seniorName);
-        notificationData.put("message", "Senior needs immediate help!");
-        notificationData.put("seniorName", request.seniorName);
-        notificationData.put("seniorPhone", request.seniorPhone);
-        notificationData.put("locationAddress", request.locationAddress);
-        notificationData.put("timestamp", System.currentTimeMillis());
-        notificationData.put("isRead", false);
-        notificationData.put("requestId", request.requestId);
-        notificationData.put("priority", request.priority);
-        notificationData.put("emergencyType", request.emergencyType);
-        
-        // Add GPS coordinates for accurate navigation
-        if (request.location != null) {
-            notificationData.put("seniorLat", request.location.getLatitude());
-            notificationData.put("seniorLng", request.location.getLongitude());
-            Log.d(TAG, "📍 Added GPS coordinates to notification: " + request.location.getLatitude() + ", " + request.location.getLongitude());
-        } else {
-            Log.w(TAG, "⚠️ No GPS coordinates available for notification");
-        }
-        
+        // First, check if a notification for this requestId already exists for this rescuer
         db.collection("Sagip/users/rescuer/" + rescuerId + "/emergencyNotifications")
-                .add(notificationData)
-                .addOnSuccessListener(documentReference -> {
-                    Log.d(TAG, "📤 Emergency notification sent to rescuer: " + rescuerId);
+                .whereEqualTo("requestId", request.requestId)
+                .whereEqualTo("type", "EMERGENCY_SOS")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    if (!querySnapshot.isEmpty()) {
+                        Log.d(TAG, "⚠️ [DUPLICATE_PREVENTION] Notification already exists for rescuer " + rescuerId + ", requestId: " + request.requestId);
+                        Log.d(TAG, "✅ [DUPLICATE_PREVENTION] Skipping duplicate notification creation");
+                        return;
+                    }
+                    
+                    // No duplicate found, create new notification
+                    Log.d(TAG, "✅ [DUPLICATE_PREVENTION] No existing notification found, creating new one for requestId: " + request.requestId);
+                    
+                    Map<String, Object> notificationData = new java.util.HashMap<>();
+                    notificationData.put("type", "EMERGENCY_SOS");
+                    notificationData.put("title", "🚨 EMERGENCY SOS - " + request.seniorName);
+                    notificationData.put("message", "Senior needs immediate help!");
+                    notificationData.put("seniorName", request.seniorName);
+                    notificationData.put("seniorPhone", request.seniorPhone);
+                    notificationData.put("locationAddress", request.locationAddress);
+                    notificationData.put("timestamp", System.currentTimeMillis());
+                    notificationData.put("isRead", false);
+                    notificationData.put("requestId", request.requestId);
+                    notificationData.put("priority", request.priority);
+                    notificationData.put("emergencyType", request.emergencyType);
+                    
+                    // Add GPS coordinates for accurate navigation
+                    if (request.location != null) {
+                        notificationData.put("seniorLat", request.location.getLatitude());
+                        notificationData.put("seniorLng", request.location.getLongitude());
+                        Log.d(TAG, "📍 Added GPS coordinates to notification: " + request.location.getLatitude() + ", " + request.location.getLongitude());
+                    } else {
+                        Log.w(TAG, "⚠️ No GPS coordinates available for notification");
+                    }
+                    
+                    db.collection("Sagip/users/rescuer/" + rescuerId + "/emergencyNotifications")
+                            .add(notificationData)
+                            .addOnSuccessListener(documentReference -> {
+                                Log.d(TAG, "📤 Emergency notification sent to rescuer: " + rescuerId);
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "❌ Failed to send notification to rescuer " + rescuerId + ": " + e.getMessage());
+                            });
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "❌ Failed to send notification to rescuer " + rescuerId + ": " + e.getMessage());
+                    Log.e(TAG, "❌ [DUPLICATE_PREVENTION] Failed to check for existing notification: " + e.getMessage());
+                    Log.e(TAG, "⚠️ [DUPLICATE_PREVENTION] Proceeding with notification creation despite error");
+                    
+                    // If check fails, proceed with creation (better to have duplicate than miss emergency)
+                    Map<String, Object> notificationData = new java.util.HashMap<>();
+                    notificationData.put("type", "EMERGENCY_SOS");
+                    notificationData.put("title", "🚨 EMERGENCY SOS - " + request.seniorName);
+                    notificationData.put("message", "Senior needs immediate help!");
+                    notificationData.put("seniorName", request.seniorName);
+                    notificationData.put("seniorPhone", request.seniorPhone);
+                    notificationData.put("locationAddress", request.locationAddress);
+                    notificationData.put("timestamp", System.currentTimeMillis());
+                    notificationData.put("isRead", false);
+                    notificationData.put("requestId", request.requestId);
+                    notificationData.put("priority", request.priority);
+                    notificationData.put("emergencyType", request.emergencyType);
+                    
+                    if (request.location != null) {
+                        notificationData.put("seniorLat", request.location.getLatitude());
+                        notificationData.put("seniorLng", request.location.getLongitude());
+                    }
+                    
+                    db.collection("Sagip/users/rescuer/" + rescuerId + "/emergencyNotifications")
+                            .add(notificationData)
+                            .addOnSuccessListener(documentReference -> {
+                                Log.d(TAG, "📤 Emergency notification sent to rescuer: " + rescuerId);
+                            })
+                            .addOnFailureListener(e2 -> {
+                                Log.e(TAG, "❌ Failed to send notification to rescuer " + rescuerId + ": " + e2.getMessage());
+                            });
                 });
     }
     
@@ -827,6 +938,152 @@ public class EmergencyQueueManager {
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "❌ Failed to load active emergencies: " + e.getMessage());
+                });
+    }
+    
+    /**
+     * Cleanup old assigned emergencies from the activeRequests collection
+     * This should be called periodically or when the queue gets too large
+     */
+    public void cleanupOldAssignedEmergencies() {
+        Log.d(TAG, "🧹 [CLEANUP] Starting cleanup of old assigned emergencies");
+        
+        // Find all emergencies with status "assigned" in activeRequests
+        db.collection("Sagip")
+                .document("emergencyRequests")
+                .collection("activeRequests")
+                .whereEqualTo("status", "assigned")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    int count = querySnapshot.size();
+                    Log.d(TAG, "🧹 [CLEANUP] Found " + count + " assigned emergencies to move");
+                    
+                    if (count == 0) {
+                        Log.d(TAG, "✅ [CLEANUP] No assigned emergencies to clean up");
+                        return;
+                    }
+                    
+                    int[] moved = {0};
+                    for (QueryDocumentSnapshot document : querySnapshot) {
+                        String requestId = document.getId();
+                        Map<String, Object> emergencyData = document.getData();
+                        
+                        // Add timestamp for when it was moved
+                        emergencyData.put("movedToAssignedAt", System.currentTimeMillis());
+                        
+                        // Move to assignedRequests
+                        db.collection("Sagip")
+                                .document("emergencyRequests")
+                                .collection("assignedRequests")
+                                .document(requestId)
+                                .set(emergencyData)
+                                .addOnSuccessListener(aVoid -> {
+                                    // Delete from activeRequests
+                                    document.getReference().delete()
+                                            .addOnSuccessListener(aVoid2 -> {
+                                                moved[0]++;
+                                                Log.d(TAG, "✅ [CLEANUP] Moved emergency " + moved[0] + "/" + count + ": " + requestId);
+                                                
+                                                // Remove from local queue if present
+                                                removeEmergencyRequest(requestId);
+                                                
+                                                if (moved[0] == count) {
+                                                    Log.d(TAG, "🎉 [CLEANUP] Cleanup completed! Moved " + moved[0] + " emergencies");
+                                                    Log.d(TAG, "📊 [CLEANUP] Current local queue size: " + activeEmergencies.size());
+                                                }
+                                            })
+                                            .addOnFailureListener(e -> {
+                                                Log.e(TAG, "❌ [CLEANUP] Failed to delete " + requestId + " from activeRequests: " + e.getMessage());
+                                            });
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e(TAG, "❌ [CLEANUP] Failed to move " + requestId + " to assignedRequests: " + e.getMessage());
+                                });
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ [CLEANUP] Failed to query assigned emergencies: " + e.getMessage());
+                });
+    }
+    
+    /**
+     * Cleanup ALL old emergencies from activeRequests (both assigned and very old pending ones)
+     * Use this method carefully - it will move all non-recent emergencies
+     */
+    public void cleanupAllOldEmergencies(long olderThanMillis) {
+        Log.d(TAG, "🧹 [CLEANUP_ALL] Starting cleanup of all old emergencies");
+        long cutoffTime = System.currentTimeMillis() - olderThanMillis;
+        
+        db.collection("Sagip")
+                .document("emergencyRequests")
+                .collection("activeRequests")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    int totalCount = querySnapshot.size();
+                    Log.d(TAG, "🧹 [CLEANUP_ALL] Found " + totalCount + " total emergencies in activeRequests");
+                    
+                    int[] movedCount = {0};
+                    int[] skippedCount = {0};
+                    
+                    for (QueryDocumentSnapshot document : querySnapshot) {
+                        Map<String, Object> data = document.getData();
+                        String requestId = document.getId();
+                        String status = (String) data.get("status");
+                        Long timestamp = (Long) data.get("timestamp");
+                        
+                        // Move if: status is "assigned" OR timestamp is older than cutoff
+                        boolean shouldMove = "assigned".equals(status) || 
+                                           (timestamp != null && timestamp < cutoffTime);
+                        
+                        if (shouldMove) {
+                            // Add timestamp for when it was moved
+                            data.put("movedToAssignedAt", System.currentTimeMillis());
+                            data.put("cleanupReason", "assigned".equals(status) ? "status_assigned" : "old_timestamp");
+                            
+                            // Determine target collection based on status
+                            String targetCollection = "assigned".equals(status) ? "assignedRequests" : "expiredRequests";
+                            
+                            // Move to appropriate collection
+                            db.collection("Sagip")
+                                    .document("emergencyRequests")
+                                    .collection(targetCollection)
+                                    .document(requestId)
+                                    .set(data)
+                                    .addOnSuccessListener(aVoid -> {
+                                        // Delete from activeRequests
+                                        document.getReference().delete()
+                                                .addOnSuccessListener(aVoid2 -> {
+                                                    movedCount[0]++;
+                                                    Log.d(TAG, "✅ [CLEANUP_ALL] Moved " + movedCount[0] + "/" + totalCount + ": " + requestId + " to " + targetCollection);
+                                                    
+                                                    // Remove from local queue
+                                                    removeEmergencyRequest(requestId);
+                                                    
+                                                    if (movedCount[0] + skippedCount[0] == totalCount) {
+                                                        Log.d(TAG, "🎉 [CLEANUP_ALL] Cleanup completed!");
+                                                        Log.d(TAG, "📊 [CLEANUP_ALL] Moved: " + movedCount[0] + ", Kept active: " + skippedCount[0]);
+                                                        Log.d(TAG, "📊 [CLEANUP_ALL] Current local queue size: " + activeEmergencies.size());
+                                                    }
+                                                })
+                                                .addOnFailureListener(e -> {
+                                                    Log.e(TAG, "❌ [CLEANUP_ALL] Failed to delete " + requestId + ": " + e.getMessage());
+                                                });
+                                    })
+                                    .addOnFailureListener(e -> {
+                                        Log.e(TAG, "❌ [CLEANUP_ALL] Failed to move " + requestId + ": " + e.getMessage());
+                                    });
+                        } else {
+                            skippedCount[0]++;
+                            Log.d(TAG, "⏭️ [CLEANUP_ALL] Keeping active emergency: " + requestId + " (status: " + status + ")");
+                        }
+                    }
+                    
+                    if (totalCount == 0) {
+                        Log.d(TAG, "✅ [CLEANUP_ALL] No emergencies found in activeRequests");
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ [CLEANUP_ALL] Failed to query emergencies: " + e.getMessage());
                 });
     }
     
