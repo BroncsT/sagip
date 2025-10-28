@@ -8,7 +8,7 @@
     </item>
     
     <!-- Clean white rectangular frame for ID - optimized for landscape -->
-    <item android:left="60dp" android:top="80dp" android:right="60dp" android:bottom="100dp">
+    <item android:left="60dp" android:top="50dp" android:right="60dp" android:bottom="80dp">
         <shape android:shape="rectangle">
             <solid android:color="#00000000" />
             <stroke android:width="4dp" android:color="#FFFFFF" />
@@ -18,7 +18,7 @@
     
     <!-- Corner indicators for better alignment - landscape optimized -->
     <!-- Top Left corner -->
-    <item android:left="60dp" android:top="80dp" android:right="90dp" android:bottom="110dp">
+    <item android:left="60dp" android:top="50dp" android:right="540dp" android:bottom="180dp">
         <shape android:shape="rectangle">
             <solid android:color="#00000000" />
             <stroke android:width="6dp" android:color="#FFFFFF" />
@@ -26,7 +26,7 @@
     </item>
     
     <!-- Top Right corner -->
-    <item android:left="90dp" android:top="80dp" android:right="60dp" android:bottom="110dp">
+    <item android:left="540dp" android:top="50dp" android:right="60dp" android:bottom="180dp">
         <shape android:shape="rectangle">
             <solid android:color="#00000000" />
             <stroke android:width="6dp" android:color="#FFFFFF" />
@@ -34,7 +34,7 @@
     </item>
     
     <!-- Bottom Left corner -->
-    <item android:left="60dp" android:top="70dp" android:right="90dp" android:bottom="100dp">
+    <item android:left="60dp" android:top="160dp" android:right="540dp" android:bottom="80dp">
         <shape android:shape="rectangle">
             <solid android:color="#00000000" />
             <stroke android:width="6dp" android:color="#FFFFFF" />
@@ -42,7 +42,7 @@
     </item>
     
     <!-- Bottom Right corner -->
-    <item android:left="90dp" android:top="70dp" android:right="60dp" android:bottom="100dp">
+    <item android:left="540dp" android:top="160dp" android:right="60dp" android:bottom="80dp">
         <shape android:shape="rectangle">
             <solid android:color="#00000000" />
             <stroke android:width="6dp" android:color="#FFFFFF" />

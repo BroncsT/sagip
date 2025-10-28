@@ -50,6 +50,9 @@ public class BackgroundNotificationService extends Service {
         currentUserType = sharedPreferences.getString("userType", null);
         
         Log.d(TAG, "Current user: " + currentUserId + ", type: " + currentUserType);
+        
+        // CRITICAL: Start foreground IMMEDIATELY in onCreate() to prevent crash
+        createForegroundNotification();
     }
     
     @Override
@@ -65,8 +68,36 @@ public class BackgroundNotificationService extends Service {
             return START_NOT_STICKY;
         }
         
-        // Create foreground service notification
-        createForegroundNotification();
+        // Foreground notification already started in onCreate()
+        // Just update it if needed
+        try {
+            NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (notificationManager != null) {
+                createNotificationChannel();
+                
+                Intent notificationIntent = new Intent(this, MainActivity.class);
+                PendingIntent pendingIntent = PendingIntent.getActivity(
+                    this,
+                    0,
+                    notificationIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+                );
+                
+                Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+                        .setContentTitle("SAGIP Background Service")
+                        .setContentText("Monitoring for emergency notifications...")
+                        .setSmallIcon(R.drawable.baseline_notifications_active_24)
+                        .setContentIntent(pendingIntent)
+                        .setOngoing(true)
+                        .setPriority(NotificationCompat.PRIORITY_LOW)
+                        .setCategory(NotificationCompat.CATEGORY_SERVICE)
+                        .build();
+                
+                notificationManager.notify(FOREGROUND_NOTIFICATION_ID, notification);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Failed to update foreground notification: " + e.getMessage(), e);
+        }
         
         // Start monitoring for notifications if user is logged in
         if (currentUserId != null && currentUserType != null) {

@@ -53,8 +53,7 @@ public class RescuerDetailsActivity extends AppCompatActivity {
     // UI Elements
     private TextView tvRescuerName, tvRescuerTeam, tvRescuerPhone;
     private TextView tvETA, tvDistance, tvLastUpdate, tvStatus, tvETAStatus;
-    private Button btnCallRescuer, btnBack, btnRefreshETA;
-    private Button btnTestETA, btnCheckDatabase, btnForceETA;
+    private Button btnCallRescuer;
     private ProgressBar loadingIndicator;
     
 
@@ -151,9 +150,6 @@ public class RescuerDetailsActivity extends AppCompatActivity {
 
         initializeViews();
         
-        // Test UI update immediately
-        testUIUpdate();
-        
         loadEmergencyDetails();
         setupUpdateRunnable();
         
@@ -239,61 +235,10 @@ public class RescuerDetailsActivity extends AppCompatActivity {
         tvStatus = findViewById(R.id.tvStatus);
         tvETAStatus = findViewById(R.id.tvETAStatus);
         btnCallRescuer = findViewById(R.id.btnCallRescuer);
-        btnBack = findViewById(R.id.btnBack);
-        btnRefreshETA = findViewById(R.id.btnRefreshETA);
-        btnTestETA = findViewById(R.id.btnTestETA);
-        btnCheckDatabase = findViewById(R.id.btnCheckDatabase);
-        btnForceETA = findViewById(R.id.btnForceETA);
         loadingIndicator = findViewById(R.id.loadingIndicator);
-        
-        
-        // Debug UI element initialization
-        Log.d(TAG, "🔍 UI Elements initialized:");
-        Log.d(TAG, "   tvETA: " + (tvETA != null ? "✅ Found" : "❌ NULL"));
-        Log.d(TAG, "   tvDistance: " + (tvDistance != null ? "✅ Found" : "❌ NULL"));
-        Log.d(TAG, "   tvLastUpdate: " + (tvLastUpdate != null ? "✅ Found" : "❌ NULL"));
-        Log.d(TAG, "   tvETAStatus: " + (tvETAStatus != null ? "✅ Found" : "❌ NULL"));
 
         // Set up click listeners
-        btnBack.setOnClickListener(v -> finish());
         btnCallRescuer.setOnClickListener(v -> callRescuer());
-        btnRefreshETA.setOnClickListener(v -> {
-            Log.d(TAG, "🔄 Refresh ETA button clicked");
-            getCurrentLocationForETA();
-        });
-        
-        // Test buttons
-        btnTestETA.setOnClickListener(v -> {
-            Log.d(TAG, "🧪 Testing ETA calculation with sample data");
-            testETACalculation();
-        });
-        
-        btnCheckDatabase.setOnClickListener(v -> {
-            Log.d(TAG, "🔍 Checking database for rescuer location");
-            checkRescuerLocationInDatabase();
-        });
-        
-        btnForceETA.setOnClickListener(v -> {
-            Log.d(TAG, "🔄 Force ETA calculation with current data");
-            Log.d(TAG, "Current rescuer location: " + rescuerLat + ", " + rescuerLong);
-            Log.d(TAG, "Current senior location: " + seniorLat + ", " + seniorLong);
-            
-            // Force show some test data first
-            runOnUiThread(() -> {
-                tvETA.setText("15 min");
-                tvDistance.setText("2.5 km");
-                tvETAStatus.setText("Test data");
-                tvLastUpdate.setText("Last updated: " + getCurrentTime() + " (Test)");
-            });
-            
-            // Then try real calculation
-            if (rescuerLat != 0 && rescuerLong != 0 && seniorLat != 0 && seniorLong != 0) {
-                calculateETA();
-            } else {
-                calculateETAFromDatabase();
-            }
-        });
-        
     }
 
     private void loadEmergencyDetails() {
@@ -730,129 +675,6 @@ public class RescuerDetailsActivity extends AppCompatActivity {
               " for " + String.format("%.1f km", distance) + " distance");
     }
     
-    private void testETACalculation() {
-        Log.d(TAG, "🧪 Testing ETA calculation with sample data");
-        
-        // Use sample coordinates (Manila area)
-        double testRescuerLat = 14.5995; // Manila
-        double testRescuerLong = 120.9842;
-        double testSeniorLat = 14.6042; // Nearby location
-        double testSeniorLong = 120.9822;
-        
-        // Temporarily store original values
-        double originalRescuerLat = rescuerLat;
-        double originalRescuerLong = rescuerLong;
-        double originalSeniorLat = seniorLat;
-        double originalSeniorLong = seniorLong;
-        
-        // Set test values
-        rescuerLat = testRescuerLat;
-        rescuerLong = testRescuerLong;
-        seniorLat = testSeniorLat;
-        seniorLong = testSeniorLong;
-        
-        Log.d(TAG, "🧪 Test coordinates - Rescuer: " + rescuerLat + ", " + rescuerLong + " Senior: " + seniorLat + ", " + seniorLong);
-        
-        // Calculate ETA with test data using database method
-        calculateETAFromDatabase();
-        
-        // Restore original values after a delay
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            rescuerLat = originalRescuerLat;
-            rescuerLong = originalRescuerLong;
-            seniorLat = originalSeniorLat;
-            seniorLong = originalSeniorLong;
-            Log.d(TAG, "🧪 Restored original coordinates");
-        }, 5000);
-    }
-    
-    
-    private void testUIUpdate() {
-        Log.d(TAG, "🧪 Testing UI update with sample data");
-        
-        runOnUiThread(() -> {
-            if (tvETA != null) {
-                tvETA.setText("TEST ETA");
-                Log.d(TAG, "✅ Test ETA text set");
-            } else {
-                Log.e(TAG, "❌ tvETA is null in test!");
-            }
-            
-            if (tvDistance != null) {
-                tvDistance.setText("TEST DIST");
-                Log.d(TAG, "✅ Test distance text set");
-            } else {
-                Log.e(TAG, "❌ tvDistance is null in test!");
-            }
-            
-            if (tvETAStatus != null) {
-                tvETAStatus.setText("Testing UI");
-                Log.d(TAG, "✅ Test status text set");
-            } else {
-                Log.e(TAG, "❌ tvETAStatus is null in test!");
-            }
-            
-            if (tvLastUpdate != null) {
-                tvLastUpdate.setText("Last updated: " + getCurrentTime() + " (Test)");
-                Log.d(TAG, "✅ Test last update text set");
-            } else {
-                Log.e(TAG, "❌ tvLastUpdate is null in test!");
-            }
-        });
-    }
-    
-    private void checkRescuerLocationInDatabase() {
-        if (rescuerId == null) {
-            Log.w(TAG, "❌ No rescuer ID available for database check");
-            return;
-        }
-        
-        Log.d(TAG, "🔍 Checking rescuer location in database for ID: " + rescuerId);
-        
-        db.collection("Sagip")
-                .document("users")
-                .collection("rescuer")
-                .document(rescuerId)
-                .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    if (documentSnapshot.exists()) {
-                        Log.d(TAG, "✅ Rescuer document exists in database");
-                        
-                        // Check currentLocation field
-                        com.google.firebase.firestore.GeoPoint currentLocation = documentSnapshot.getGeoPoint("currentLocation");
-                        if (currentLocation != null) {
-                            Log.d(TAG, "✅ currentLocation found: " + currentLocation.getLatitude() + ", " + currentLocation.getLongitude());
-                        } else {
-                            Log.w(TAG, "❌ currentLocation field not found");
-                        }
-                        
-                        // Check location field
-                        com.google.firebase.firestore.GeoPoint location = documentSnapshot.getGeoPoint("location");
-                        if (location != null) {
-                            Log.d(TAG, "✅ location field found: " + location.getLatitude() + ", " + location.getLongitude());
-                        } else {
-                            Log.w(TAG, "❌ location field not found");
-                        }
-                        
-                        // Check lastLocationUpdate
-                        Long lastUpdate = documentSnapshot.getLong("lastLocationUpdate");
-                        if (lastUpdate != null) {
-                            Log.d(TAG, "✅ lastLocationUpdate: " + new java.util.Date(lastUpdate));
-                        } else {
-                            Log.w(TAG, "❌ lastLocationUpdate not found");
-                        }
-                        
-                        // Show all fields for debugging
-                        Log.d(TAG, "📋 All document fields: " + documentSnapshot.getData());
-                        
-                    } else {
-                        Log.w(TAG, "❌ Rescuer document not found in database");
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "❌ Error checking rescuer location in database: " + e.getMessage());
-                });
-    }
 
     private void setupUpdateRunnable() {
         updateRunnable = new Runnable() {

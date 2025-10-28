@@ -33,6 +33,14 @@ public class RescuerForegroundService extends Service {
         Log.d(TAG, "🚨 RescuerForegroundService created");
         
         createNotificationChannel();
+        
+        // CRITICAL: Start foreground IMMEDIATELY in onCreate() to prevent crash
+        try {
+            startForeground(FOREGROUND_NOTIFICATION_ID, createForegroundNotification());
+            Log.d(TAG, "✅ RescuerForegroundService started in foreground mode");
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Failed to start foreground service: " + e.getMessage(), e);
+        }
     }
     
     @Override
@@ -58,8 +66,16 @@ public class RescuerForegroundService extends Service {
             return START_NOT_STICKY;
         }
         
-        // Start as foreground service
-        startForeground(FOREGROUND_NOTIFICATION_ID, createForegroundNotification());
+        // Foreground notification already started in onCreate()
+        // Just update it if needed
+        try {
+            NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (notificationManager != null) {
+                notificationManager.notify(FOREGROUND_NOTIFICATION_ID, createForegroundNotification());
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Failed to update foreground notification: " + e.getMessage(), e);
+        }
         
         // Start rescuer notification monitoring
         RescuerNotificationManager.startMonitoring(this);

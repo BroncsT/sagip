@@ -23,7 +23,36 @@ This document describes the final implementation for handling emergency SOS noti
 
 ### Key Features
 
-#### 1. Real-time Notification Removal
+#### 1. Emergency Sound Stopping
+**File:** `Rescuer_Dashboard.java`
+- When rescuer clicks "Respond Now", ALL sounds are stopped immediately:
+  - Dashboard MediaPlayer sound (`stopEmergencySound()`)
+  - Background service MediaPlayer sound (`EmergencySOSBackgroundService.dismissAllEmergencyNotifications()`)
+  - System notification channel sounds (`cancelAllSystemNotifications()`)
+- This ensures complete silence when a rescuer accepts an emergency
+
+**New Method: `cancelAllSystemNotifications()`**
+```java
+private void cancelAllSystemNotifications() {
+    Log.d(TAG, "🔕 Canceling all system notifications to stop sounds...");
+    try {
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (notificationManager != null) {
+            // Cancel all notifications from this app
+            notificationManager.cancelAll();
+            Log.d(TAG, "✅ All system notifications canceled successfully");
+        }
+    } catch (Exception e) {
+        Log.e(TAG, "❌ Error canceling system notifications: " + e.getMessage(), e);
+    }
+}
+```
+This method cancels ALL system notifications, which stops:
+- Notification channel sounds configured at the system level
+- Any ongoing notification sounds that can't be stopped by MediaPlayer alone
+- Ensures immediate silence across all notification sources
+
+#### 2. Real-time Notification Removal
 **File:** `EmergencyQueueManager.java`
 - Method: `updateAllRescuerNotificationsForAssignment()`
 - When a rescuer accepts: queries ALL rescuers and deletes the emergency notification for all of them
@@ -58,7 +87,7 @@ private void updateAllRescuerNotificationsForAssignment(String requestId, String
 }
 ```
 
-#### 2. Real-time UI Updates via Firestore Listeners
+#### 3. Real-time UI Updates via Firestore Listeners
 **File:** `Rescuer_Dashboard.java`
 - Method: `startEmergencySOSListener()`
 - Uses `addSnapshotListener` with `DocumentChange` to detect:
@@ -99,7 +128,7 @@ db.collection("Sagip")
     });
 ```
 
-#### 3. Race Condition Protection
+#### 4. Race Condition Protection
 **File:** `Rescuer_Dashboard.java`
 - Method: `showEmergencySOSAlertWithLocation()` - "Respond Now" button handler
 - Validates emergency status in real-time before assignment
@@ -231,6 +260,90 @@ Sagip/
 2. **Real-time updates** - Still uses Firestore listeners for instant UI updates
 3. **Clean deletion** - Emergency moved to `assignedRequests` after acceptance
 
+## POP ALERT CONSISTENCY FIXES (October 28, 2025)
+
+### Issues Fixed
+
+1. **Background Service `.limit(1)` Problem**
+   - **Issue**: Background service only monitored the most recent notification, missing older unprocessed ones
+   - **Fix**: Removed `.limit(1)` from the listener query to process ALL unread notifications
+   - **File**: `EmergencySOSBackgroundService.java` line 258-264
+
+2. **Race Condition Between Dashboard and Background Service**
+   - **Issue**: Both dashboard and background service could process the same notification simultaneously
+   - **Fix**: Implemented atomic `update()` operations with dual fields (`isRead` + `processedBy`)
+   - **Details**: 
+     - Dashboard marks: `isRead=true`, `processedBy="dashboard"`
+     - Background marks: `isRead=true`, `processedBy="backgroundService"`
+     - Only the first update succeeds; the second fails gracefully
+   - **Files**: 
+     - `EmergencySOSBackgroundService.java` line 350-362
+     - `Rescuer_Dashboard.java` line 2357-2378
+
+3. **Dialog Dismissal Timing Issues**
+   - **Issue**: Dialog might not be created yet when REMOVED event fires, or might be already dismissed
+   - **Fix**: Added retry mechanism with 500ms delay to handle race conditions
+   - **Details**: If dialog is null when REMOVED event fires, wait 500ms and retry dismissal
+   - **File**: `Rescuer_Dashboard.java` line 2312-2334
+
+4. **Asynchronous Processing Order**
+   - **Issue**: Notifications were marked as read asynchronously AFTER processing started
+   - **Fix**: Changed to mark as read FIRST, then process only on success
+   - **Impact**: Prevents duplicate processing during the async update window
+
+### Changes Made
+
+#### `EmergencySOSBackgroundService.java`
+```java
+// BEFORE: Limited to 1 notification
+.limit(1)
+
+// AFTER: Process all notifications
+// (removed .limit(1))
+
+// BEFORE: Mark read after processing
+showEmergencySOSNotification(...);
+document.getReference().update("isRead", true);
+
+// AFTER: Mark read FIRST, process on success
+document.getReference().update("isRead", true, "processedBy", "backgroundService")
+    .addOnSuccessListener(aVoid -> {
+        showEmergencySOSNotification(...);
+    });
+```
+
+#### `Rescuer_Dashboard.java`
+```java
+// BEFORE: Mark read but process immediately
+document.getReference().update("isRead", true);
+playEmergencySound();
+queueEmergencyForProcessing(...);
+
+// AFTER: Mark read FIRST, process only on success
+document.getReference().update("isRead", true, "processedBy", "dashboard")
+    .addOnSuccessListener(aVoid -> {
+        playEmergencySound();
+        queueEmergencyForProcessing(...);
+    });
+
+// ADDED: Retry mechanism for dialog dismissal
+if (currentEmergencyDialog != null) {
+    // dismiss now
+} else {
+    // wait 500ms and retry
+    new Handler().postDelayed(() -> { /* retry dismissal */ }, 500);
+}
+```
+
+### Testing Recommendations
+
+Test these scenarios to verify the fixes:
+1. Multiple rapid SOS notifications (3+ in quick succession)
+2. SOS notification while app is in background vs foreground
+3. Rescuer accepts → verify other rescuers' dialogs dismiss within 500ms
+4. Notification deleted while dialog is being created
+5. Background service and dashboard both active simultaneously
+
 ## Testing Checklist
 
 - [x] Two rescuers in same area receive SOS simultaneously
@@ -239,7 +352,12 @@ Sagip/
 - [x] If Rescuer 2 clicks "Respond Now" after Rescuer 1 accepts, proper toast shown
 - [x] "Decline" button doesn't show "emergency not active" message
 - [x] Alarm sound stops when notification is removed
+- [x] Alarm sound stops when rescuer clicks "Respond Now"
+- [x] Both dashboard sound AND background service sound are stopped when responding
 - [x] No informational alerts shown to other rescuers
+- [ ] **NEW: Multiple rapid notifications all show pop alerts (no missed alerts)**
+- [ ] **NEW: No duplicate pop alerts from dashboard and background service**
+- [ ] **NEW: Dialog dismisses reliably even during timing edge cases**
 
 ## Files Modified
 

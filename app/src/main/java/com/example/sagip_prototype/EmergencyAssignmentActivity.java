@@ -50,8 +50,8 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
     
     
     // UI Components
-    private TextView tvSeniorName, tvSeniorPhone, tvLocation, tvRescuerName, tvRescuerLocation;
-    private TextView tvAssignmentTime, tvEstimatedArrival, tvDistance, tvStatus;
+    private TextView tvSeniorName, tvSeniorPhone, tvLocation;
+    private TextView tvEstimatedArrival, tvDistance, tvStatus;
     private TextView tvHospitalName, tvHospitalAddress, tvHospitalDistance;
     private Button btnCallSenior, btnNavigateToSenior, btnUpdateLocation, btnMarkDone, btnNavigateHospital;
     private GoogleMap mMap;
@@ -182,9 +182,6 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         tvSeniorName = findViewById(R.id.tv_senior_name);
         tvSeniorPhone = findViewById(R.id.tv_senior_phone);
         tvLocation = findViewById(R.id.tv_location);
-        tvRescuerName = findViewById(R.id.tv_rescuer_name);
-        tvRescuerLocation = findViewById(R.id.tv_rescuer_location);
-        tvAssignmentTime = findViewById(R.id.tv_assignment_time);
         tvEstimatedArrival = findViewById(R.id.tv_estimated_arrival);
         tvDistance = findViewById(R.id.tv_distance);
         tvStatus = findViewById(R.id.tv_status);
@@ -218,9 +215,12 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         
         tvLocation.setText(locationAddress != null ? locationAddress : "Location not available");
         
+        // Note: tvAssignmentTime no longer exists in the layout (removed in redesign)
+        // Log assignment time instead
         String timeStr = new SimpleDateFormat("MMM dd, yyyy HH:mm:ss", Locale.getDefault())
                 .format(new Date(assignmentTime));
-        tvAssignmentTime.setText(timeStr);
+        Log.d(TAG, "Assignment Time: " + timeStr);
+        
         tvStatus.setText("🚨 RESPONDING");
         
         // Setup button listeners
@@ -306,15 +306,14 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                     if (documentSnapshot.exists()) {
                         String rescuerName = documentSnapshot.getString("rescuegroup");
                         if (rescuerName != null && !rescuerName.isEmpty()) {
-                            tvRescuerName.setText(rescuerName);
+                            Log.d(TAG, "Rescuer Name: " + rescuerName);
                         } else {
-                            tvRescuerName.setText("Rescuer");
+                            Log.d(TAG, "Rescuer Name: Rescuer (default)");
                         }
                     }
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error loading rescuer info: " + e.getMessage());
-                    tvRescuerName.setText("Rescuer");
                 });
     }
     
@@ -1071,8 +1070,8 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                         rescuerLat = location.getLatitude();
                         rescuerLng = location.getLongitude();
                         
-                        // Update UI with rescuer location
-                        tvRescuerLocation.setText(String.format(Locale.getDefault(), 
+                        // Log rescuer location (tvRescuerLocation no longer exists in layout)
+                        Log.d(TAG, "Rescuer Location: " + String.format(Locale.getDefault(), 
                                 "%.6f, %.6f", rescuerLat, rescuerLng));
                         
                         // Calculate distance and arrival time
@@ -1092,7 +1091,7 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
             tvEstimatedArrival.setText("ETA: Calculating...");
             return;
         }
-        
+
         // Calculate distance using Haversine formula
         double distance = calculateDistance(rescuerLat, rescuerLng, seniorLat, seniorLng);
         tvDistance.setText(String.format(Locale.getDefault(), "Distance: %.2f km", distance));

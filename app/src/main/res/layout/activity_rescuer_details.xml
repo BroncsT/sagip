@@ -1,10 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/white"
+    android:fillViewport="true"
+    android:background="#F5F5F5">
+
+<androidx.constraintlayout.widget.ConstraintLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
     tools:context=".RescuerDetailsActivity">
 
     <!-- Header -->
@@ -13,8 +18,8 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_margin="16dp"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="8dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="4dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
@@ -23,34 +28,23 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="20dp">
+            android:background="@drawable/button_background"
+            android:padding="24dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:layout_marginBottom="12dp">
-
-                <Button
-                    android:id="@+id/btnBack"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/back_arrow_text"
-                    android:textSize="14sp"
-                    android:textColor="@color/white"
-                    android:background="@drawable/button_background"
-                    android:paddingHorizontal="12dp"
-                    android:paddingVertical="6dp"
-                    android:layout_marginEnd="12dp" />
+                android:layout_marginBottom="16dp">
 
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/rescuer_assigned_title"
-                    android:textColor="@color/black"
-                    android:textSize="20sp"
+                    android:textColor="@color/white"
+                    android:textSize="22sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -60,16 +54,17 @@
                     android:text="@string/en_route_status"
                     android:textColor="@color/white"
                     android:textSize="12sp"
-                    android:background="@drawable/button_background"
-                    android:paddingHorizontal="12dp"
-                    android:paddingVertical="6dp" />
+                    android:background="@drawable/rounded_background"
+                    android:backgroundTint="#40FFFFFF"
+                    android:paddingHorizontal="16dp"
+                    android:paddingVertical="8dp" />
             </LinearLayout>
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/rescuer_assigned_message"
-                android:textColor="@color/gray"
+                android:textColor="#E0FFFFFF"
                 android:textSize="14sp"
                 android:gravity="center" />
         </LinearLayout>
@@ -82,9 +77,9 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
         android:layout_marginEnd="16dp"
-        android:layout_marginTop="8dp"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="8dp"
+        android:layout_marginTop="12dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="4dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/headerCard">
@@ -93,89 +88,99 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="20dp">
+            android:background="@color/white"
+            android:padding="24dp">
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/rescuer_information_title"
-                android:textColor="@color/black"
+                android:textColor="#1A237E"
                 android:textSize="18sp"
                 android:textStyle="bold"
-                android:layout_marginBottom="16dp" />
+                android:layout_marginBottom="20dp" />
 
+            <!-- Name Row -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
+                android:orientation="vertical"
+                android:background="@drawable/rounded_background"
+                android:backgroundTint="#F5F5F5"
+                android:padding="16dp"
                 android:layout_marginBottom="12dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/name_label"
-                    android:textColor="@color/gray"
-                    android:textSize="14sp"
-                    android:layout_marginEnd="8dp" />
+                    android:textColor="#757575"
+                    android:textSize="12sp"
+                    android:textAllCaps="true"
+                    android:layout_marginBottom="4dp" />
 
                 <TextView
                     android:id="@+id/tvRescuerName"
-                    android:layout_width="0dp"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
                     android:text="@string/loading_text_short"
-                    android:textColor="@color/black"
+                    android:textColor="#212121"
                     android:textSize="16sp"
                     android:textStyle="bold" />
             </LinearLayout>
 
+            <!-- Team Row -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
+                android:orientation="vertical"
+                android:background="@drawable/rounded_background"
+                android:backgroundTint="#F5F5F5"
+                android:padding="16dp"
                 android:layout_marginBottom="12dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/team_label"
-                    android:textColor="@color/gray"
-                    android:textSize="14sp"
-                    android:layout_marginEnd="8dp" />
+                    android:textColor="#757575"
+                    android:textSize="12sp"
+                    android:textAllCaps="true"
+                    android:layout_marginBottom="4dp" />
 
                 <TextView
                     android:id="@+id/tvRescuerTeam"
-                    android:layout_width="0dp"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
                     android:text="@string/emergency_response_team"
-                    android:textColor="@color/black"
+                    android:textColor="#212121"
                     android:textSize="16sp" />
             </LinearLayout>
 
+            <!-- Phone Row -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:orientation="vertical"
+                android:background="@drawable/rounded_background"
+                android:backgroundTint="#F5F5F5"
+                android:padding="16dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/phone_label_colon"
-                    android:textColor="@color/gray"
-                    android:textSize="14sp"
-                    android:layout_marginEnd="8dp" />
+                    android:textColor="#757575"
+                    android:textSize="12sp"
+                    android:textAllCaps="true"
+                    android:layout_marginBottom="4dp" />
 
                 <TextView
                     android:id="@+id/tvRescuerPhone"
-                    android:layout_width="0dp"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
                     android:text="@string/not_available"
-                    android:textColor="@color/black"
+                    android:textColor="#212121"
                     android:textSize="16sp" />
             </LinearLayout>
         </LinearLayout>
@@ -188,9 +193,9 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
         android:layout_marginEnd="16dp"
-        android:layout_marginTop="8dp"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="8dp"
+        android:layout_marginTop="12dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="4dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/rescuerCard">
@@ -199,198 +204,143 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="20dp">
+            android:background="@color/white"
+            android:padding="24dp">
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/estimated_time_arrival"
-                android:textColor="@color/black"
+                android:textColor="#1A237E"
                 android:textSize="18sp"
                 android:textStyle="bold"
-                android:layout_marginBottom="16dp" />
+                android:layout_marginBottom="20dp" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:layout_marginBottom="12dp">
+                android:weightSum="2"
+                android:layout_marginBottom="16dp">
 
+                <!-- ETA Section -->
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:orientation="vertical"
-                    android:gravity="center">
+                    android:background="@drawable/rounded_background"
+                    android:backgroundTint="#E3F2FD"
+                    android:padding="20dp"
+                    android:gravity="center"
+                    android:layout_marginEnd="8dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/eta_short"
-                        android:textColor="@color/gray"
-                        android:textSize="12sp" />
+                        android:textColor="#1976D2"
+                        android:textSize="12sp"
+                        android:textAllCaps="true"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp" />
 
                     <TextView
                         android:id="@+id/tvETA"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/minutes_placeholder"
-                        android:textColor="@color/secondary_blue"
-                        android:textSize="24sp"
+                        android:textColor="#1565C0"
+                        android:textSize="32sp"
                         android:textStyle="bold"
                         android:gravity="center" />
                 </LinearLayout>
 
+                <!-- Distance Section -->
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:orientation="vertical"
-                    android:gravity="center">
+                    android:background="@drawable/rounded_background"
+                    android:backgroundTint="#E8F5E9"
+                    android:padding="20dp"
+                    android:gravity="center"
+                    android:layout_marginStart="8dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/distance_label"
-                        android:textColor="@color/gray"
-                        android:textSize="12sp" />
+                        android:textColor="#388E3C"
+                        android:textSize="12sp"
+                        android:textAllCaps="true"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp" />
 
                     <TextView
                         android:id="@+id/tvDistance"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/kilometers_placeholder"
-                        android:textColor="@color/secondary_blue"
-                        android:textSize="20sp"
-                        android:textStyle="bold" />
+                        android:textColor="#2E7D32"
+                        android:textSize="28sp"
+                        android:textStyle="bold"
+                        android:gravity="center" />
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- ETA Status Indicator -->
-            <TextView
-                android:id="@+id/tvETAStatus"
+            <!-- Status Info -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/real_time_traffic"
-                android:textColor="@color/gray"
-                android:textSize="12sp"
-                android:gravity="center"
-                android:layout_marginTop="8dp" />
+                android:orientation="vertical"
+                android:background="@drawable/rounded_background"
+                android:backgroundTint="#FFF8E1"
+                android:padding="12dp"
+                android:gravity="center">
 
-            <TextView
-                android:id="@+id/tvLastUpdate"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/last_updated_just_now"
-                android:textColor="@color/gray"
-                android:textSize="12sp"
-                android:gravity="center" />
+                <TextView
+                    android:id="@+id/tvETAStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/real_time_traffic"
+                    android:textColor="#F57C00"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:gravity="center" />
+
+                <TextView
+                    android:id="@+id/tvLastUpdate"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/last_updated_just_now"
+                    android:textColor="#757575"
+                    android:textSize="11sp"
+                    android:gravity="center"
+                    android:layout_marginTop="4dp" />
+            </LinearLayout>
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
-    <!-- Test Buttons (Debug) -->
-    <LinearLayout
-        android:id="@+id/testButtons"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="12dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginTop="8dp"
-        android:background="@drawable/rounded_background"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/etaCard">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/debug_tools"
-            android:textColor="@color/black"
-            android:textSize="14sp"
-            android:textStyle="bold"
-            android:layout_marginBottom="8dp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <Button
-                android:id="@+id/btnTestETA"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/test_eta_button"
-                android:textSize="12sp"
-                android:textColor="@color/white"
-                android:background="@drawable/button_background"
-                android:layout_marginEnd="4dp" />
-
-            <Button
-                android:id="@+id/btnCheckDatabase"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/check_db_button"
-                android:textSize="12sp"
-                android:textColor="@color/white"
-                android:background="@drawable/button_background"
-                android:layout_marginStart="4dp"
-                android:layout_marginEnd="4dp" />
-
-            <Button
-                android:id="@+id/btnForceETA"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/force_eta_button"
-                android:textSize="12sp"
-                android:textColor="@color/white"
-                android:background="@drawable/button_background"
-                android:layout_marginStart="4dp" />
-        </LinearLayout>
-    </LinearLayout>
-
     <!-- Action Buttons -->
-    <LinearLayout
-        android:id="@+id/actionButtons"
+    <Button
+        android:id="@+id/btnCallRescuer"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="16dp"
+        android:layout_height="56dp"
+        android:text="📞 @string/call_rescuer_button_text"
+        android:textSize="16sp"
+        android:textColor="@color/white"
+        android:textStyle="bold"
+        android:background="@drawable/button_background"
+        android:elevation="2dp"
         android:layout_marginStart="16dp"
         android:layout_marginEnd="16dp"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="24dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/testButtons">
-
-        <Button
-            android:id="@+id/btnCallRescuer"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/call_rescuer_button_text"
-            android:textSize="14sp"
-            android:textColor="@color/white"
-            android:background="@drawable/button_background"
-            android:layout_marginEnd="8dp" />   cc
-
-        <Button
-            android:id="@+id/btnRefreshETA"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/refresh_eta_button"
-            android:textSize="14sp"
-            android:textColor="@color/white"
-            android:background="@drawable/button_background"
-            android:layout_marginStart="8dp" />
-
-    </LinearLayout>
+        app:layout_constraintTop_toBottomOf="@id/etaCard" />
 
 
     <!-- Loading Indicator -->
@@ -405,3 +355,4 @@
         app:layout_constraintTop_toTopOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
+</ScrollView>

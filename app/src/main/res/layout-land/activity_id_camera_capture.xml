@@ -7,12 +7,12 @@
     android:layout_height="match_parent"
     android:background="@android:color/black">
 
-    <!-- Blue Header -->
+    <!-- Header -->
     <View
         android:id="@+id/headerView"
         android:layout_width="match_parent"
         android:layout_height="50dp"
-        android:background="#2196F3"
+        android:background="@color/emergency_red"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
@@ -44,10 +44,11 @@
     <!-- Frame Overlay - Optimized for landscape -->
     <ImageView
         android:id="@+id/frameOverlay"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="0dp"
         android:src="@drawable/id_frame_overlay_landscape"
         android:scaleType="fitXY"
+        android:visibility="gone"
         app:layout_constraintTop_toBottomOf="@id/headerView"
         app:layout_constraintBottom_toTopOf="@id/instructionsContainer"
         app:layout_constraintStart_toStartOf="parent"
@@ -67,17 +68,18 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Instructions Container -->
+    <!-- Instructions Container - Compact for landscape -->
     <LinearLayout
         android:id="@+id/instructionsContainer"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:background="@android:color/white"
-        android:padding="16dp"
-        app:layout_constraintBottom_toTopOf="@id/captureButton"
+        android:background="#E6FFFFFF"
+        android:paddingVertical="8dp"
+        android:paddingHorizontal="16dp"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintEnd_toStartOf="@id/captureButton">
 
         <!-- Instructions Text -->
         <TextView
@@ -86,9 +88,9 @@
             android:layout_height="wrap_content"
             android:text="@string/id_capture_instructions"
             android:textColor="@android:color/black"
-            android:textSize="14sp"
+            android:textSize="13sp"
             android:gravity="center"
-            android:layout_marginBottom="4dp" />
+            android:maxLines="2" />
 
         <!-- Additional Instructions -->
         <TextView
@@ -97,7 +99,7 @@
             android:layout_height="wrap_content"
             android:text="@string/id_capture_additional_instructions"
             android:textColor="@android:color/black"
-            android:textSize="12sp"
+            android:textSize="11sp"
             android:gravity="center"
             android:visibility="gone" />
 
@@ -106,29 +108,33 @@
     <!-- Circular Capture Button -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/captureButton"
-        android:layout_width="70dp"
-        android:layout_height="70dp"
-        android:background="@drawable/circular_capture_button"
+        android:layout_width="65dp"
+        android:layout_height="65dp"
+        android:backgroundTint="#7C4DFF"
         android:insetLeft="0dp"
         android:insetTop="0dp"
         android:insetRight="0dp"
         android:insetBottom="0dp"
-        app:icon="@drawable/ic_camera_white"
-        app:iconSize="28dp"
+        app:icon="@drawable/baseline_photo_camera_24"
+        app:iconTint="@android:color/white"
+        app:iconSize="30dp"
         app:iconPadding="0dp"
-        android:layout_marginBottom="20dp"
+        app:iconGravity="textStart"
+        android:layout_marginBottom="8dp"
+        android:layout_marginEnd="16dp"
+        app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.App.CornerSize50Percent"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Action Buttons (Retake/Confirm) -->
+    <!-- Action Buttons (Retake/Confirm) - Landscape optimized -->
     <LinearLayout
         android:id="@+id/actionButtonsLayout"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:visibility="gone"
-        android:layout_marginBottom="20dp"
+        android:padding="8dp"
+        android:background="#E6FFFFFF"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -136,23 +142,27 @@
         <!-- Retake Button -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/retakeButton"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
             android:text="@string/retake"
-            android:textSize="14sp"
-            android:paddingHorizontal="20dp"
-            android:paddingVertical="10dp"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_marginEnd="12dp" />
+            android:textSize="13sp"
+            android:textColor="@android:color/white"
+            android:backgroundTint="#FF5252"
+            android:paddingVertical="10dp" />
 
         <!-- Confirm Button -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/confirmButton"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
             android:text="@string/confirm"
-            android:textSize="14sp"
-            android:paddingHorizontal="20dp"
+            android:textSize="13sp"
+            android:textColor="@android:color/white"
+            android:backgroundTint="#4CAF50"
             android:paddingVertical="10dp" />
 
     </LinearLayout>

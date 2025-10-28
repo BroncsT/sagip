@@ -47,11 +47,30 @@ public class HospitalStatusReminderService extends Service {
         currentUserId = prefs.getString("user_id", null);
         
         executor = Executors.newSingleThreadScheduledExecutor();
+        
+        // CRITICAL: Start foreground IMMEDIATELY in onCreate() to prevent crash
+        try {
+            startForeground(SERVICE_ID, createServiceNotification());
+            Log.d(TAG, "✅ HospitalStatusReminderService started in foreground mode");
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Failed to start foreground service: " + e.getMessage(), e);
+        }
     }
     
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "HospitalStatusReminderService started");
+        
+        // Foreground notification already started in onCreate()
+        // Just update it if needed
+        try {
+            NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (notificationManager != null) {
+                notificationManager.notify(SERVICE_ID, createServiceNotification());
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Failed to update foreground notification: " + e.getMessage(), e);
+        }
         
         if (intent != null) {
             String action = intent.getStringExtra("action");
@@ -88,8 +107,16 @@ public class HospitalStatusReminderService extends Service {
         Log.d(TAG, "Starting hospital status reminder monitoring for user: " + currentUserId);
         isMonitoring = true;
         
-        // Start as foreground service
-        startForeground(SERVICE_ID, createServiceNotification());
+        // Foreground service already started in onCreate()
+        // Just update the notification to show monitoring status
+        try {
+            NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (notificationManager != null) {
+                notificationManager.notify(SERVICE_ID, createServiceNotification());
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Failed to update foreground notification: " + e.getMessage(), e);
+        }
         
         // Get hospital name and last update time
         getHospitalInfo();

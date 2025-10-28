@@ -677,6 +677,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
 
     // Emergency notification system variables
     private ListenerRegistration emergencyListener;
+    private ListenerRegistration emergencySOSListener; // Track emergency SOS listener
     private long lastLoginTime; // Track when rescuer logged in
     private AlertDialog currentEmergencyDialog; // Track current emergency popup
     private String currentEmergencyRequestId; // Track which emergency the dialog is showing
@@ -879,6 +880,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
 
         // Clear any old emergency notifications on startup
         clearOldEmergencyNotifications();
+        
+        // Setup bottom navigation
+        setupBottomNavigation();
     }
 
     private void clearOldEmergencyNotifications() {
@@ -895,17 +899,11 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         Log.d(TAG, "=== ON_NEW_INTENT CALLED ===");
         setIntent(intent);
         
-        // Cancel ALL notifications immediately to stop the notification sound
-        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        if (notificationManager != null) {
-            notificationManager.cancelAll();
-            Log.d(TAG, "🔕 [ON_NEW_INTENT] Canceled all notifications to stop sound");
-        }
-        
         // STOP ALL EMERGENCY SOUNDS IMMEDIATELY when notification is clicked
-        stopEmergencySound(); // Stop dashboard sound
+        stopEmergencySound(); // Stop dashboard sound (with volume muting + buffer clearing)
         EmergencySOSBackgroundService.dismissAllEmergencyNotifications(); // Stop background service sound AND dismiss notifications
-        Log.d(TAG, "🔇 [ON_NEW_INTENT] All emergency sounds stopped immediately");
+        cancelAllSystemNotifications(); // Cancel all system notifications to stop notification channel sounds
+        Log.d(TAG, "🔇 [ON_NEW_INTENT] All emergency sounds stopped immediately (dashboard + background + notifications)");
         
         handleNotificationClick();
     }
@@ -923,17 +921,11 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             boolean isFromNotification = intent.getBooleanExtra("emergency_sos_clicked", false) || 
                                        intent.getBooleanExtra("from_emergency_notification", false);
             if (isFromNotification) {
-                // Cancel ALL notifications immediately to stop the notification sound
-                NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-                if (notificationManager != null) {
-                    notificationManager.cancelAll();
-                    Log.d(TAG, "🔕 [ON_RESUME] Canceled all notifications to stop sound");
-                }
-                
-                // STOP ALL EMERGENCY SOUNDS IMMEDIATELY
-                stopEmergencySound();
-                EmergencySOSBackgroundService.dismissAllEmergencyNotifications();
-                Log.d(TAG, "🔇 [ON_RESUME] All emergency sounds stopped on resume from notification");
+                // STOP ALL EMERGENCY SOUNDS IMMEDIATELY when opened from notification
+                stopEmergencySound(); // Stop dashboard sound (with volume muting + buffer clearing)
+                EmergencySOSBackgroundService.dismissAllEmergencyNotifications(); // Stop background service sound AND dismiss notifications
+                cancelAllSystemNotifications(); // Cancel all system notifications to stop notification channel sounds
+                Log.d(TAG, "🔇 [ON_RESUME] All emergency sounds stopped on resume from notification (dashboard + background + notifications)");
             }
         }
 
@@ -958,10 +950,14 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         
         if (isLoggedOut || currentUserType == null || !currentUserType.equals("rescuer")) {
             Log.w(TAG, "⚠️ User has logged out or is not a rescuer, not starting emergency listener");
-            // Clean up any existing listener
+            // Clean up any existing listeners
             if (emergencyListener != null) {
                 emergencyListener.remove();
                 emergencyListener = null;
+            }
+            if (emergencySOSListener != null) {
+                emergencySOSListener.remove();
+                emergencySOSListener = null;
             }
         } else {
             // Start emergency listener when activity resumes (only if not already started)
@@ -971,10 +967,15 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             } else {
                 Log.d(TAG, "Emergency listener already active, skipping start");
             }
+            
+            // Start emergency SOS notification listener (only if not already started)
+            if (emergencySOSListener == null) {
+                Log.d(TAG, "Starting emergency SOS listener in onResume()");
+                startEmergencySOSListener();
+            } else {
+                Log.d(TAG, "Emergency SOS listener already active, skipping start");
+            }
         }
-        
-        // Start emergency SOS notification listener
-        startEmergencySOSListener();
         
         // Start background service for emergency SOS monitoring
         startEmergencySOSBackgroundService();
@@ -1046,6 +1047,13 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             emergencyListener = null;
         }
         
+        // Stop emergency SOS listener when app goes to background - EmergencySOSBackgroundService will handle it
+        if (emergencySOSListener != null) {
+            Log.d(TAG, "🚨 Stopping emergency SOS listener in activity - EmergencySOSBackgroundService will handle background notifications");
+            emergencySOSListener.remove();
+            emergencySOSListener = null;
+        }
+        
         // Foreground services will continue running to handle notifications when app is closed
         if (userType != null && userType.equals("rescuer") && userId != null) {
             Log.d(TAG, "App going to background - Foreground services will continue monitoring notifications");
@@ -1070,6 +1078,12 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         if (emergencyListener != null) {
             emergencyListener.remove();
             emergencyListener = null;
+        }
+        
+        // Remove emergency SOS listener
+        if (emergencySOSListener != null) {
+            emergencySOSListener.remove();
+            emergencySOSListener = null;
         }
 
         // Clear any pending emergency alerts
@@ -1768,24 +1782,61 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     
     /**
      * Stop emergency sound from playing
+     * Uses aggressive stopping to ensure sound stops immediately
      */
     private void stopEmergencySound() {
         Log.d(TAG, "🔇 Stopping emergency sound...");
         if (currentEmergencySoundPlayer != null) {
             try {
+                // Set volume to 0 immediately to mute any buffered audio
+                currentEmergencySoundPlayer.setVolume(0.0f, 0.0f);
+                Log.d(TAG, "🔇 Volume set to 0 (muted)");
+                
                 if (currentEmergencySoundPlayer.isPlaying()) {
                     currentEmergencySoundPlayer.stop();
                     Log.d(TAG, "🔇 Emergency sound stopped successfully");
                 }
+                
+                // Reset before releasing to clear any buffered audio
+                currentEmergencySoundPlayer.reset();
+                Log.d(TAG, "🔇 MediaPlayer reset (cleared buffers)");
+                
                 currentEmergencySoundPlayer.release();
                 currentEmergencySoundPlayer = null;
                 Log.d(TAG, "🔇 MediaPlayer released and cleared");
             } catch (Exception e) {
                 Log.e(TAG, "❌ Error stopping emergency sound: " + e.getMessage(), e);
+                try {
+                    if (currentEmergencySoundPlayer != null) {
+                        currentEmergencySoundPlayer.release();
+                    }
+                } catch (Exception e2) {
+                    Log.e(TAG, "❌ Error releasing MediaPlayer: " + e2.getMessage());
+                }
                 currentEmergencySoundPlayer = null;
             }
         } else {
             Log.d(TAG, "🔇 No emergency sound currently playing");
+        }
+    }
+    
+    /**
+     * Cancel all system notifications to stop notification channel sounds immediately
+     * This ensures that notification sounds stop when the rescuer responds
+     */
+    private void cancelAllSystemNotifications() {
+        Log.d(TAG, "🔕 Canceling all system notifications to stop sounds...");
+        try {
+            NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (notificationManager != null) {
+                // Cancel all notifications from this app
+                notificationManager.cancelAll();
+                Log.d(TAG, "✅ All system notifications canceled successfully");
+            } else {
+                Log.e(TAG, "❌ NotificationManager is null, cannot cancel notifications");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error canceling system notifications: " + e.getMessage(), e);
         }
     }
     
@@ -2220,13 +2271,20 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             return;
         }
         
+        // Clean up existing listener to prevent duplicates
+        if (emergencySOSListener != null) {
+            Log.d(TAG, "🧹 Cleaning up existing emergency SOS listener before creating new one");
+            emergencySOSListener.remove();
+            emergencySOSListener = null;
+        }
+        
         Log.d(TAG, "🚨 Starting emergency SOS listener for rescuer: " + userId);
         Log.d(TAG, "✅ [IN-APP_ALERTS] Dashboard listener ENABLED for in-app alerts when app is open");
         
         // Listen for emergency SOS notifications in real-time
         // This shows IN-APP ALERTS when the app is open
         // The background service handles SYSTEM NOTIFICATIONS when app is closed
-        db.collection("Sagip")
+        emergencySOSListener = db.collection("Sagip")
           .document("users")
           .collection("rescuer")
           .document(userId)
@@ -2281,6 +2339,28 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                                               Log.e(TAG, "🗑️ [DASHBOARD_LISTENER] Error dismissing dialog: " + e.getMessage());
                                           }
                                           currentEmergencyDialog = null;
+                                      } else {
+                                          // Dialog might not be created yet - wait a bit and try again
+                                          Log.d(TAG, "🗑️ [DASHBOARD_LISTENER] Dialog not created yet, will retry dismissal in 500ms");
+                                          new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                                              synchronized (dialogLock) {
+                                                  if (currentEmergencyDialog != null && removedRequestId.equals(currentEmergencyRequestId)) {
+                                                      try {
+                                                          Log.d(TAG, "🗑️ [DASHBOARD_LISTENER] Retry: Dismissing dialog after delay");
+                                                          currentEmergencyDialog.dismiss();
+                                                          currentEmergencyDialog = null;
+                                                      } catch (Exception e) {
+                                                          Log.e(TAG, "🗑️ [DASHBOARD_LISTENER] Retry: Error dismissing dialog: " + e.getMessage());
+                                                      }
+                                                  }
+                                                  // Clear tracking regardless
+                                                  if (removedRequestId.equals(currentEmergencyRequestId)) {
+                                                      currentEmergencyRequestId = null;
+                                                      isEmergencyDialogShowing = false;
+                                                      Log.d(TAG, "✅ [DASHBOARD_LISTENER] Retry: Tracking cleared");
+                                                  }
+                                              }
+                                          }, 500);
                                       }
                                       
                                       // Clear tracking
@@ -2324,26 +2404,32 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 // Only process unread emergency SOS notifications that are NOT assigned
                 Log.d(TAG, "🚨 [DASHBOARD] Received emergency SOS notification: " + seniorName + " (Request ID: " + requestId + ")");
                 
-                // Mark as read IMMEDIATELY to prevent background service from also processing
-                document.getReference().update("isRead", true)
-                    .addOnSuccessListener(aVoid -> {
-                        Log.d(TAG, "✅ [DASHBOARD] Marked notification as read to prevent duplicate processing");
-                    });
-                
                 if (seniorLat != null && seniorLng != null) {
                     Log.d(TAG, "📍 GPS coordinates from notification: " + seniorLat + ", " + seniorLng);
                 } else {
                     Log.w(TAG, "⚠️ No GPS coordinates in notification data");
                 }
                 
-                // Play emergency sound when SOS is received (app is open, so play sound here)
+                // Play emergency sound IMMEDIATELY (don't wait for database update)
                 playEmergencySound();
                 
-                // Queue emergency for processing to prevent conflicts
-                // This will show the IN-APP ALERT DIALOG
-                queueEmergencyForProcessing(seniorName, seniorPhone, locationAddress, timestamp, requestId, seniorLat, seniorLng);
-                
-                Log.d(TAG, "✅ [DASHBOARD] In-app alert will be shown for: " + seniorName);
+                // Mark as read to prevent race condition with background service
+                // Use atomic update to ensure only one process marks it as read
+                document.getReference().update("isRead", true, "processedBy", "dashboard")
+                    .addOnSuccessListener(aVoid -> {
+                        Log.d(TAG, "✅ [DASHBOARD] Marked notification as read and processing");
+                        
+                        // Queue emergency for processing to prevent conflicts
+                        // This will show the IN-APP ALERT DIALOG
+                        queueEmergencyForProcessing(seniorName, seniorPhone, locationAddress, timestamp, requestId, seniorLat, seniorLng);
+                        
+                        Log.d(TAG, "✅ [DASHBOARD] In-app alert will be shown for: " + seniorName);
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.w(TAG, "⚠️ [DASHBOARD] Failed to mark as read (might already be processed by background service): " + e.getMessage());
+                        // Stop sound if we failed to claim this notification
+                        stopEmergencySound();
+                    });
             } else if ("EMERGENCY_SOS".equals(type) && isRead != null && isRead) {
                 Log.d(TAG, "🔇 [DASHBOARD] Notification already read, skipping (likely processed by background service)");
             }
@@ -2366,6 +2452,8 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         // Enhanced activity state check
         if (isFinishing() || isDestroyed()) {
             Log.w(TAG, "Cannot show emergency alert dialog - activity is not in valid state (finishing: " + isFinishing() + ", destroyed: " + isDestroyed() + ")");
+            // Stop sound since we can't show the dialog
+            stopEmergencySound();
             return;
         }
         
@@ -2380,6 +2468,8 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             // Double-check activity state after acquiring lock
             if (isFinishing() || isDestroyed()) {
                 Log.w(TAG, "Cannot show emergency alert dialog - activity state changed during lock acquisition");
+                // Stop sound since we can't show the dialog
+                stopEmergencySound();
                 return;
             }
             
@@ -2428,6 +2518,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                             Toast.makeText(this, "Another rescuer has already responded to this emergency", Toast.LENGTH_LONG).show();
                             stopEmergencySound();
                             EmergencySOSBackgroundService.dismissAllEmergencyNotifications();
+                            cancelAllSystemNotifications();
                             synchronized (dialogLock) {
                                 isEmergencyDialogShowing = false;
                                 currentEmergencyRequestId = null;
@@ -2444,6 +2535,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                             Toast.makeText(this, "Another rescuer has already responded to this emergency", Toast.LENGTH_LONG).show();
                             stopEmergencySound();
                             EmergencySOSBackgroundService.dismissAllEmergencyNotifications();
+                            cancelAllSystemNotifications();
                             synchronized (dialogLock) {
                                 isEmergencyDialogShowing = false;
                                 currentEmergencyRequestId = null;
@@ -2458,6 +2550,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                         // Stop ALL emergency sounds AND dismiss notifications immediately when rescuer responds
                         stopEmergencySound(); // Stop dashboard sound
                         EmergencySOSBackgroundService.dismissAllEmergencyNotifications(); // Stop background service sound AND dismiss notifications
+                        cancelAllSystemNotifications(); // Cancel all system notifications to stop notification channel sounds
                         Log.d(TAG, "🔇 [RESPOND_NOW] All emergency sounds stopped and notifications dismissed");
                         
                         // Reset dialog flag safely
@@ -2497,6 +2590,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 // Stop sounds and reset for fallback
                 stopEmergencySound();
                 EmergencySOSBackgroundService.dismissAllEmergencyNotifications();
+                cancelAllSystemNotifications();
                 synchronized (dialogLock) {
                     isEmergencyDialogShowing = false;
                     currentEmergencyRequestId = null;
@@ -2516,6 +2610,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             // Stop ALL emergency sounds AND dismiss notifications when rescuer declines
             stopEmergencySound(); // Stop dashboard sound
             EmergencySOSBackgroundService.dismissAllEmergencyNotifications(); // Stop background service sound AND dismiss notifications
+            cancelAllSystemNotifications(); // Cancel all system notifications to stop notification channel sounds
             Log.d(TAG, "🔇 [DECLINE] All emergency sounds stopped and notifications dismissed");
             
             // Reset dialog flag safely
@@ -2549,6 +2644,8 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         // Enhanced activity state check
         if (isFinishing() || isDestroyed()) {
             Log.w(TAG, "Cannot show emergency alert dialog - activity is not in valid state (finishing: " + isFinishing() + ", destroyed: " + isDestroyed() + ")");
+            // Stop sound since we can't show the dialog
+            stopEmergencySound();
             return;
         }
         
@@ -2563,6 +2660,8 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             // Double-check activity state after acquiring lock
             if (isFinishing() || isDestroyed()) {
                 Log.w(TAG, "Cannot show emergency alert dialog - activity state changed during lock acquisition");
+                // Stop sound since we can't show the dialog
+                stopEmergencySound();
                 return;
             }
             
@@ -2604,6 +2703,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             // Stop ALL emergency sounds AND dismiss notifications immediately when rescuer responds
             stopEmergencySound(); // Stop dashboard sound
             EmergencySOSBackgroundService.dismissAllEmergencyNotifications(); // Stop background service sound AND dismiss notifications
+            cancelAllSystemNotifications(); // Cancel all system notifications to stop notification channel sounds
             Log.d(TAG, "🔇 [RESPOND_NOW] All emergency sounds stopped and notifications dismissed");
             
             // Reset dialog flag safely
@@ -2640,6 +2740,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             // Stop ALL emergency sounds AND dismiss notifications when calling senior
             stopEmergencySound(); // Stop dashboard sound
             EmergencySOSBackgroundService.dismissAllEmergencyNotifications(); // Stop background service sound AND dismiss notifications
+            cancelAllSystemNotifications(); // Cancel all system notifications to stop notification channel sounds
             Log.d(TAG, "🔇 [CALL_SENIOR] All emergency sounds stopped and notifications dismissed before making call");
             
             // Reset dialog flag safely
@@ -2661,6 +2762,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             // Stop ALL emergency sounds AND dismiss notifications when dismissing
             stopEmergencySound(); // Stop dashboard sound
             EmergencySOSBackgroundService.dismissAllEmergencyNotifications(); // Stop background service sound AND dismiss notifications
+            cancelAllSystemNotifications(); // Cancel all system notifications to stop notification channel sounds
             Log.d(TAG, "🔇 [DISMISS] All emergency sounds stopped and notifications dismissed");
             
             // Reset dialog flag safely

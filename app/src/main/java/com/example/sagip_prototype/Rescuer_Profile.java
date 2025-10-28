@@ -57,12 +57,12 @@ public class Rescuer_Profile extends BaseRescuerActivity {
 
         setupBottomNavigation();
 
+        // Edit Information opens blank screen for rescuer users
         UpdateProfile.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent gotoUpdate = new Intent(Rescuer_Profile.this, Rescuer_Registration.class);
+                Intent gotoUpdate = new Intent(Rescuer_Profile.this, BlankEditProfileActivity.class);
                 startActivity(gotoUpdate);
-
             }
         });
 

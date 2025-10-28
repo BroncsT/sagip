@@ -2,6 +2,7 @@ package com.example.sagip_prototype;
 
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.util.Log;
 
 /**
@@ -147,14 +148,22 @@ public class BackgroundServiceManager {
     
     /**
      * Helper method to start a service
+     * Uses startForegroundService() on Android O+ to comply with background execution limits
      */
     private static void startService(Context context, Class<?> serviceClass) {
         try {
             Intent serviceIntent = new Intent(context, serviceClass);
-            context.startService(serviceIntent);
-            Log.d(TAG, "Started service: " + serviceClass.getSimpleName());
+            
+            // Use startForegroundService() on Android O (API 26) and above
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent);
+                Log.d(TAG, "Started foreground service (API 26+): " + serviceClass.getSimpleName());
+            } else {
+                context.startService(serviceIntent);
+                Log.d(TAG, "Started service: " + serviceClass.getSimpleName());
+            }
         } catch (Exception e) {
-            Log.e(TAG, "Error starting service " + serviceClass.getSimpleName() + ": " + e.getMessage());
+            Log.e(TAG, "Error starting service " + serviceClass.getSimpleName() + ": " + e.getMessage(), e);
         }
     }
     

@@ -137,6 +137,9 @@
             android:configChanges="locale|orientation|screenSize|keyboardHidden"
             android:exported="false" />
         <activity
+            android:name=".BlankEditProfileActivity"
+            android:exported="false" />
+        <activity
             android:name=".Senior_Emergency_Contact"
             android:configChanges="locale|orientation|screenSize|keyboardHidden"
             android:exported="false" />
@@ -192,7 +195,7 @@
             android:name=".IdCameraCapture"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="false"
-            android:screenOrientation="unspecified" />
+            android:screenOrientation="landscape" />
         <activity
             android:name=".FaceVerification"
             android:exported="false"

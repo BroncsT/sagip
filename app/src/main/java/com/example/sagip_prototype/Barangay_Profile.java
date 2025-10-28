@@ -50,10 +50,11 @@ public class Barangay_Profile extends BaseProfileActivity {
         LinearLayout gotoLogut = findViewById(R.id.logoutLayout);
         LinearLayout deleteAccountLayout = findViewById(R.id.deleteAccountLayout);
 
+        // Edit Information opens blank screen for barangay users
         gotoUpdate.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent intent = new Intent(Barangay_Profile.this, Barangay_Registration.class);
+                Intent intent = new Intent(Barangay_Profile.this, BlankEditProfileActivity.class);
                 startActivity(intent);
             }
         });

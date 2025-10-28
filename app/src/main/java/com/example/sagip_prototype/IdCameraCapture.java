@@ -79,8 +79,8 @@ public class IdCameraCapture extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         
-        // Force portrait orientation
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        // Force landscape orientation for ID cards (horizontal display)
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         
         // Apply saved language preference
         String savedLanguage = LanguageSelectionActivity.getSavedLanguage(this);
@@ -99,7 +99,8 @@ public class IdCameraCapture extends AppCompatActivity {
 
         // Initialize views
         previewView = findViewById(R.id.previewView);
-        previewView.setScaleType(androidx.camera.view.PreviewView.ScaleType.FIT_CENTER);
+        previewView.setScaleType(androidx.camera.view.PreviewView.ScaleType.FILL_CENTER);
+        previewView.setImplementationMode(androidx.camera.view.PreviewView.ImplementationMode.COMPATIBLE);
         frameOverlay = findViewById(R.id.frameOverlay);
         captureButton = findViewById(R.id.captureButton);
         retakeButton = findViewById(R.id.retakeButton);
@@ -141,9 +142,9 @@ public class IdCameraCapture extends AppCompatActivity {
         actionButtonsLayout.setVisibility(View.GONE);
         capturedImageView.setVisibility(View.GONE);
         
-        // Show camera preview and frame overlay
+        // Show camera preview (no frame overlay)
         previewView.setVisibility(View.VISIBLE);
-        frameOverlay.setVisibility(View.VISIBLE);
+        frameOverlay.setVisibility(View.GONE);
         captureButton.setVisibility(View.VISIBLE);
     }
 
@@ -165,11 +166,17 @@ public class IdCameraCapture extends AppCompatActivity {
                 .requireLensFacing(CameraSelector.LENS_FACING_BACK)
                 .build();
 
+        // Set target rotation for landscape
+        int rotation = getWindowManager().getDefaultDisplay().getRotation();
+        
         Preview preview = new Preview.Builder()
+                .setTargetRotation(rotation)
                 .build();
         preview.setSurfaceProvider(previewView.getSurfaceProvider());
 
         imageCapture = new ImageCapture.Builder()
+                .setTargetRotation(rotation)
+                .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
                 .build();
 
         try {
@@ -244,9 +251,8 @@ public class IdCameraCapture extends AppCompatActivity {
 
 
     private void showCapturedImage() {
-        // Hide camera preview and frame overlay
+        // Hide camera preview (overlay already hidden)
         previewView.setVisibility(View.GONE);
-        frameOverlay.setVisibility(View.GONE);
         captureButton.setVisibility(View.GONE);
 
         // Show captured image and action buttons
@@ -262,7 +268,7 @@ public class IdCameraCapture extends AppCompatActivity {
     private void retakePhoto() {
         // Reset UI to camera mode
         previewView.setVisibility(View.VISIBLE);
-        frameOverlay.setVisibility(View.VISIBLE);
+        frameOverlay.setVisibility(View.GONE);
         captureButton.setVisibility(View.VISIBLE);
         captureButton.setEnabled(true);
 
