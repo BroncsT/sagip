@@ -678,8 +678,7 @@ public class BlankEditProfileActivity extends AppCompatActivity {
         
         // Sign out from Firebase
         mAuth.signOut();
-        
-        // Redirect to main activity (which will redirect to login)
+
         Intent loginIntent = new Intent(this, MainActivity.class);
         loginIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(loginIntent);

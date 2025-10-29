@@ -1,7 +1,9 @@
 # Emergency Sound Stop Fix
 
 ## Problem
-The emergency alarm sound was continuing to play even after the rescuer clicked "Respond Now" or tapped on the notification.
+The emergency alarm sound was continuing to play even after:
+- **Rescuers** clicked "Respond Now" or tapped on the notification
+- **Seniors** clicked on the alert when a rescuer accepted their SOS
 
 ## Root Causes
 The app had multiple issues causing sound to continue:
@@ -183,9 +185,21 @@ cancelAllSystemNotifications();
    - Comprehensive documentation of the sound stopping issue and fixes
    - Testing instructions and expected log messages
 
+5. **`Senior_Dashboard.java`** (UPDATED October 29, 2025)
+   - Added sound stopping when senior clicks on rescuer acceptance notification
+   - **Updated `handleRescuerResponseNotification()` method** (line 1069)
+     - Stops sound when notification is clicked
+   - **Updated `showRescuerAcceptedPopup()` method** (line 1276)
+     - Stops sound when "Dismiss" button is clicked (line 1327)
+   - **Updated `showRescuerDialogWithDetails()` method** (line 1203)
+     - Stops sound when "OK" button is clicked (line 1255)
+   - Added support for hospital details update notifications (line 1117)
+
 ## Testing Instructions
 
-### Test 1: Sound Stops When Responding
+### Rescuer Side Tests
+
+#### Test 1: Sound Stops When Responding
 1. Send an emergency SOS from a senior account
 2. Receive the emergency notification on rescuer device (alarm should play)
 3. Click "Respond Now"
@@ -211,11 +225,59 @@ cancelAllSystemNotifications();
 4. Click "Respond Now" from the dialog
 5. **Expected Result:** ALL sounds stop (MediaPlayer + notification channel sounds)
 
-### Test 5: Verify No Side Effects
+#### Test 5: Verify No Side Effects
 1. After responding to an emergency, check that:
    - Other app notifications still work normally
    - Future emergency notifications still have sound
    - No crashes or errors in logs
+
+### Senior Side Tests
+
+#### Test 6: Sound Stops When Senior Clicks Notification
+1. Send an emergency SOS from senior account
+2. Wait for a rescuer to accept the emergency
+3. Senior receives notification with alarm sound
+4. Click on the notification itself
+5. **Expected Result:** Alarm sound stops IMMEDIATELY when notification is tapped
+6. App opens and shows the rescuer accepted dialog with sound already stopped
+
+#### Test 7: Sound Stops When Senior Clicks "View Details"
+1. Send an emergency SOS from senior account
+2. Wait for a rescuer to accept the emergency
+3. Senior receives notification with alarm sound and popup dialog appears
+4. Click "View Details" button
+5. **Expected Result:** Alarm sound stops IMMEDIATELY
+6. App navigates to rescuer details page
+
+#### Test 8: Sound Stops When Senior Clicks "Call Rescuer"
+1. Send an emergency SOS from senior account
+2. Wait for a rescuer to accept the emergency
+3. Senior receives notification with alarm sound and popup dialog appears
+4. Click "Call Rescuer" button
+5. **Expected Result:** Alarm sound stops IMMEDIATELY
+6. Phone dialer opens with rescuer's phone number
+
+#### Test 9: Sound Stops When Senior Clicks "Dismiss"
+1. Send an emergency SOS from senior account
+2. Wait for a rescuer to accept the emergency
+3. Senior receives notification with alarm sound and popup dialog appears
+4. Click "Dismiss" button
+5. **Expected Result:** Alarm sound stops IMMEDIATELY
+6. Dialog dismisses
+
+#### Test 10: Sound Stops When Senior Clicks "OK" (Alternative Dialog)
+1. Open the alternative rescuer response dialog (if applicable)
+2. Click "OK" button
+3. **Expected Result:** Alarm sound stops IMMEDIATELY
+4. Dialog dismisses
+
+#### Test 11: Sound Stops for Hospital Details Update Notification
+1. Send an emergency SOS from senior account
+2. Wait for a rescuer to accept and send hospital details
+3. Senior receives hospital details update notification with sound
+4. Click on the notification
+5. **Expected Result:** Alarm sound stops IMMEDIATELY
+6. App opens senior dashboard
 
 ## Log Messages to Watch For
 When testing, look for these log messages (in order):
@@ -239,6 +301,8 @@ When testing, look for these log messages (in order):
 If you still see "playback completed" after clicking "Respond Now", the sound continued to play naturally (bug not fixed).
 
 ## Expected Behavior
+
+### Rescuer Side
 ✅ **Dashboard sound stops** - MediaPlayer muted, reset, and released  
 ✅ **Background service sound stops** - Background MediaPlayer muted, reset, and released  
 ✅ **Notification channel sound stops** - All notifications cancelled  
@@ -247,9 +311,39 @@ If you still see "playback completed" after clicking "Respond Now", the sound co
 ✅ **Immediate response** - Sound mutes instantly, stops within 100ms of clicking button  
 ✅ **No "playback completed"** - MediaPlayer doesn't finish naturally  
 
+### Senior Side
+✅ **Sound stops when notification clicked** - Emergency alarm stops immediately when senior taps notification  
+✅ **Sound stops when "View Details" clicked** - Alarm stops before navigating to rescuer details  
+✅ **Sound stops when "Call Rescuer" clicked** - Alarm stops before opening phone dialer  
+✅ **Sound stops when "Dismiss" clicked** - Alarm stops when dialog is dismissed  
+✅ **Sound stops when "OK" clicked** - Alarm stops when alternative dialog is dismissed  
+✅ **Sound stops for hospital updates** - Alarm stops when hospital details notification is clicked  
+✅ **Consistent behavior** - Sound stops for ALL interactions with rescuer acceptance alerts  
+
 ## Notes
 - The `cancelAll()` method from NotificationManager cancels ALL app notifications, not just emergency ones
 - This is intentional for emergency situations - we want complete silence
 - The foreground service notification is NOT affected as it has a different ID and mechanism
-- This fix applies to both "Respond Now" and "Decline" actions for consistency
+- This fix applies to both "Respond Now" and "Decline" actions for consistency (rescuer side)
+- This fix applies to ALL button clicks and notification taps on the senior side
+
+## Summary of Changes (October 29, 2025)
+
+### Senior Side Improvements
+Added comprehensive sound stopping functionality for seniors receiving rescuer acceptance notifications:
+
+1. **Notification Click** - Sound stops when senior taps the notification
+2. **"View Details" Button** - Sound stops when navigating to rescuer details (already implemented)
+3. **"Call Rescuer" Button** - Sound stops when opening phone dialer (already implemented)
+4. **"Dismiss" Button** - **NEW:** Sound stops when dismissing the popup
+5. **"OK" Button** - **NEW:** Sound stops when dismissing alternative dialog
+6. **Hospital Update Notifications** - **NEW:** Sound stops when clicking hospital details notifications
+
+### Technical Implementation
+- Added `EmergencySOSBackgroundService.stopEmergencySound()` calls to all senior-side dialog buttons
+- Enhanced `handleRescuerResponseNotification()` to stop sound when notification is clicked
+- Added support for hospital details update notification type
+
+### Result
+**Complete parity between rescuer and senior sides** - sound stops immediately regardless of how the user interacts with emergency notifications, providing a consistent and predictable user experience.
 

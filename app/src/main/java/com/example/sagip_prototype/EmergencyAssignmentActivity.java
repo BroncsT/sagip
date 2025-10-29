@@ -1192,6 +1192,9 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         btnMarkDone.setEnabled(false);
         btnMarkDone.setText("DONE");
         
+        // Clear rescuer's assignment status - they can now receive new alerts
+        clearRescuerAssignmentStatus();
+        
         // Update database
         updateEmergencyStatus("done");
         
@@ -1202,6 +1205,37 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         
         // Navigate to rescuer dashboard after completion
         navigateToRescuerDashboard();
+    }
+    
+    /**
+     * Clear rescuer's assignment status so they can receive new emergency alerts
+     */
+    private void clearRescuerAssignmentStatus() {
+        if (rescuerId == null || rescuerId.isEmpty()) {
+            Log.w(TAG, "⚠️ Cannot clear assignment status - rescuer ID is null");
+            return;
+        }
+        
+        Log.d(TAG, "✅ Clearing assignment status for rescuer: " + rescuerId);
+        Log.d(TAG, "✅ Rescuer will now be able to receive new emergency alerts");
+        
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("onAssignment", false);
+        updates.put("onAssignmentUpdatedAt", System.currentTimeMillis());
+        updates.put("lastCompletedAt", System.currentTimeMillis());
+        
+        db.collection("Sagip")
+                .document("users")
+                .collection("rescuer")
+                .document(rescuerId)
+                .update(updates)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "✅ Assignment status cleared successfully");
+                    Log.d(TAG, "✅ Rescuer " + rescuerId + " is now available for new emergencies");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Failed to clear assignment status: " + e.getMessage());
+                });
     }
     
     private void updateEmergencyStatus(String status) {

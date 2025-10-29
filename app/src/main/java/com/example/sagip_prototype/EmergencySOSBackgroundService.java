@@ -56,101 +56,109 @@ public class EmergencySOSBackgroundService extends Service {
         
         Log.d(TAG, "⚡ EmergencySOSBackgroundService onCreate() START");
         
-        // ABSOLUTE PRIORITY: Start foreground service IMMEDIATELY with minimal notification
-        // This MUST happen before ANYTHING else to prevent crash
-        // Android enforces a 5-second timeout from startForegroundService() to startForeground()
-        
-        Notification notification = null;
+        // CRITICAL FIX: Call startForeground() IMMEDIATELY with minimal notification
+        // Android O+ enforces a 5-second timeout from startForegroundService() to startForeground()
+        // We MUST call startForeground() before doing ANYTHING else, even creating notification channels
         
         try {
-            // Create channel inline for speed (Android O+)
+            // Create absolute minimal notification FIRST, without channel setup
+            Notification notification;
+            
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                // For Android O+, we need a channel, but we'll create it inline with minimal code
                 try {
-                    NotificationChannel channel = new NotificationChannel(
-                        CHANNEL_ID,
-                        "Emergency SOS Alerts",
-                        NotificationManager.IMPORTANCE_HIGH
-                    );
-                    channel.setDescription("Alerts for emergency situations");
                     NotificationManager nm = getSystemService(NotificationManager.class);
                     if (nm != null) {
-                        nm.createNotificationChannel(channel);
-                        Log.d(TAG, "✅ Notification channel created");
+                        // Check if channel already exists, if not create it quickly
+                        NotificationChannel existingChannel = nm.getNotificationChannel(CHANNEL_ID);
+                        if (existingChannel == null) {
+                            NotificationChannel channel = new NotificationChannel(
+                                CHANNEL_ID,
+                                "Emergency Service",
+                                NotificationManager.IMPORTANCE_LOW
+                            );
+                            nm.createNotificationChannel(channel);
+                        }
                     }
-                } catch (Exception channelError) {
-                    Log.e(TAG, "⚠️ Channel creation failed: " + channelError.getMessage());
-                }
-                
-                // Create notification with proper channel ID for Android O+
-                notification = new Notification.Builder(this, CHANNEL_ID)
-                    .setContentTitle("Emergency Service")
-                    .setContentText("Monitoring for alerts")
-                    .setSmallIcon(android.R.drawable.ic_dialog_alert)
-                    .build();
-            } else {
-                // For Android N and below
-                notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                    .setContentTitle("Emergency Service")
-                    .setContentText("Monitoring for alerts")
-                    .setSmallIcon(android.R.drawable.ic_dialog_alert)
-                    .setPriority(NotificationCompat.PRIORITY_LOW)
-                    .build();
-            }
-            
-            // START FOREGROUND IMMEDIATELY
-            if (notification != null) {
-                startForeground(FOREGROUND_SERVICE_ID, notification);
-                Log.d(TAG, "✅ startForeground() called successfully");
-            } else {
-                throw new Exception("Notification is null");
-            }
-            
-        } catch (Exception e) {
-            Log.e(TAG, "❌ CRITICAL ERROR in primary startForeground: " + e.getMessage(), e);
-            
-            // EMERGENCY FALLBACK: Try with absolute minimum notification
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    // Create emergency channel
+                } catch (Exception ignored) {
+                    // If channel creation fails, try with a basic channel
                     try {
                         NotificationManager nm = getSystemService(NotificationManager.class);
                         if (nm != null) {
-                            NotificationChannel emergencyChannel = new NotificationChannel(
-                                "emergency_fallback",
-                                "Emergency Fallback",
+                            NotificationChannel fallbackChannel = new NotificationChannel(
+                                "emergency_minimal",
+                                "Service",
                                 NotificationManager.IMPORTANCE_LOW
                             );
-                            nm.createNotificationChannel(emergencyChannel);
+                            nm.createNotificationChannel(fallbackChannel);
                         }
-                    } catch (Exception ignored) {}
-                    
-                    notification = new Notification.Builder(this, "emergency_fallback")
-                        .setContentTitle("Service")
-                        .setSmallIcon(android.R.drawable.ic_dialog_info)
-                        .build();
-                } else {
-                    notification = new Notification.Builder(this)
-                        .setContentTitle("Service")
-                        .setSmallIcon(android.R.drawable.ic_dialog_info)
-                        .build();
+                    } catch (Exception ignored2) {}
                 }
                 
-                startForeground(FOREGROUND_SERVICE_ID, notification);
-                Log.d(TAG, "✅ Fallback startForeground() called successfully");
-            } catch (Exception e2) {
-                Log.e(TAG, "❌ TOTAL FAILURE - Cannot start foreground: " + e2.getMessage(), e2);
-                // Last ditch effort
-                try {
-                    startForeground(FOREGROUND_SERVICE_ID, new Notification());
-                } catch (Exception e3) {
-                    Log.e(TAG, "❌ CATASTROPHIC FAILURE: " + e3.getMessage(), e3);
+                // Create notification - use whichever channel was created
+                notification = new Notification.Builder(this, CHANNEL_ID)
+                    .setContentTitle("Service")
+                    .setContentText("Running")
+                    .setSmallIcon(android.R.drawable.ic_dialog_info)
+                    .build();
+            } else {
+                // For Android N and below, no channel needed
+                notification = new Notification.Builder(this)
+                    .setContentTitle("Service")
+                    .setContentText("Running")
+                    .setSmallIcon(android.R.drawable.ic_dialog_info)
+                    .build();
+            }
+            
+            // CALL STARTFOREGROUND IMMEDIATELY - This is the most critical line
+            startForeground(FOREGROUND_SERVICE_ID, notification);
+            Log.d(TAG, "✅ startForeground() called successfully with minimal notification");
+            
+        } catch (Exception e) {
+            Log.e(TAG, "❌ CRITICAL ERROR calling startForeground: " + e.getMessage(), e);
+            
+            // ABSOLUTE LAST RESORT - try to call startForeground with anything
+            try {
+                // Try creating the most basic notification possible
+                Notification emergencyNotification;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+                    Notification.Builder builder = new Notification.Builder(this)
+                        .setContentTitle("Service")
+                        .setSmallIcon(android.R.drawable.ic_dialog_info);
+                    emergencyNotification = builder.build();
+                } else {
+                    emergencyNotification = new Notification();
+                    emergencyNotification.icon = android.R.drawable.ic_dialog_info;
                 }
+                
+                startForeground(FOREGROUND_SERVICE_ID, emergencyNotification);
+                Log.d(TAG, "✅ startForeground() called with emergency fallback notification");
+            } catch (Exception e2) {
+                Log.e(TAG, "❌ CATASTROPHIC FAILURE - Cannot start foreground service: " + e2.getMessage(), e2);
+                // At this point, the service will crash, but we've tried everything
             }
         }
         
         Log.d(TAG, "⚡ EmergencySOSBackgroundService foreground mode COMPLETE");
         
-        // Now do the rest of initialization
+        // NOW it's safe to do the rest of initialization
+        // Update the notification channel with proper settings
+        createNotificationChannel();
+        
+        // Update foreground notification to a better one
+        try {
+            NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (notificationManager != null) {
+                Notification betterNotification = createForegroundNotification();
+                if (betterNotification != null) {
+                    notificationManager.notify(FOREGROUND_SERVICE_ID, betterNotification);
+                    Log.d(TAG, "✅ Updated foreground notification with better version");
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "⚠️ Could not update foreground notification, but service is running: " + e.getMessage());
+        }
+        
         Log.d(TAG, "EmergencySOSBackgroundService created");
         
         // Store application context for static methods
@@ -158,8 +166,14 @@ public class EmergencySOSBackgroundService extends Service {
             appContext = getApplicationContext();
         }
         
-        db = FirebaseFirestore.getInstance();
-        mAuth = FirebaseAuth.getInstance();
+        // Initialize Firebase
+        try {
+            db = FirebaseFirestore.getInstance();
+            mAuth = FirebaseAuth.getInstance();
+            Log.d(TAG, "✅ Firebase initialized successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Firebase initialization failed: " + e.getMessage(), e);
+        }
         
         // Note: User data and emergency listener will be set up in onStartCommand()
         // to ensure we always have fresh user data when the service starts
@@ -169,16 +183,8 @@ public class EmergencySOSBackgroundService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "EmergencySOSBackgroundService started");
         
-        // Foreground notification already started in onCreate()
-        // Update it here if needed
-        try {
-            NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-            if (notificationManager != null) {
-                notificationManager.notify(FOREGROUND_SERVICE_ID, createForegroundNotification());
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "❌ Failed to update foreground notification: " + e.getMessage(), e);
-        }
+        // Foreground notification already started and updated in onCreate()
+        // No need to update it again here - it would be redundant
         
         // Check if user has logged out - if so, don't restart
         SharedPreferences prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
@@ -373,6 +379,11 @@ public class EmergencySOSBackgroundService extends Service {
             emergencyListener = null;
         }
         
+        // NOTE: We don't mark notifications as read in the background service
+        // The dashboard already handles this when the app is opened
+        // Background service only runs when app is closed, so old notifications
+        // should already be filtered by the dashboard
+        
         Log.d(TAG, "🚨 Starting emergency SOS listener for rescuer: " + userId);
         Log.d(TAG, "🚨 Listener path: Sagip/users/rescuer/" + userId + "/emergencyNotifications");
         isListening = true;
@@ -465,6 +476,8 @@ public class EmergencySOSBackgroundService extends Service {
             Log.d(TAG, "🔍 [HANDLE_NOTIFICATION] SeniorName: " + seniorName);
             
             // Process emergency SOS notifications
+            // Note: We rely on the isRead flag to prevent duplicate processing
+            // Old notifications should already be marked as read
             if ("EMERGENCY_SOS".equals(type) && (isRead == null || !isRead)) {
                 // Only process unread emergency SOS notifications that are NOT assigned
                 Log.d(TAG, "🚨 Received emergency SOS notification: " + seniorName + " (Request ID: " + requestId + ")");
@@ -498,6 +511,22 @@ public class EmergencySOSBackgroundService extends Service {
     private void showEmergencySOSNotification(String seniorName, String seniorPhone, String locationAddress, Long timestamp, String requestId, String notificationId, Double seniorLat, Double seniorLng) {
         Log.d(TAG, "🔔 Creating emergency SOS background notification for: " + seniorName + " (Request ID: " + requestId + ")");
         
+        // CRITICAL: Check notification permission on Android 13+ (API 33+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                Log.e(TAG, "❌ NOTIFICATION PERMISSION DENIED - Cannot show notifications!");
+                Log.e(TAG, "❌ User must grant notification permission in Settings → Apps → SAGIP → Permissions → Notifications");
+                Log.e(TAG, "❌ Playing sound anyway...");
+                // Still try to play sound even if notifications are blocked
+                testSoundPlayback();
+                return; // Exit early - can't show notification without permission
+            } else {
+                Log.d(TAG, "✅ Notification permission granted - proceeding with notification");
+            }
+        } else {
+            Log.d(TAG, "ℹ️ Android < 13 - notification permission not required");
+        }
+        
         // Test sound playback directly
         testSoundPlayback();
         
@@ -511,7 +540,10 @@ public class EmergencySOSBackgroundService extends Service {
         notificationIntent.putExtra("senior_phone", seniorPhone);
         notificationIntent.putExtra("location_address", locationAddress);
         notificationIntent.putExtra("request_id", requestId);
+        notificationIntent.putExtra("notification_id", notificationId); // CRITICAL FIX: Add notification ID for fetching fresh data
         notificationIntent.putExtra("from_emergency_notification", true);
+        
+        Log.d(TAG, "📋 [NOTIFICATION_FIX] Added notification_id to intent: " + notificationId);
         
         // Add GPS coordinates for accurate navigation
         if (seniorLat != null && seniorLng != null) {
@@ -566,14 +598,14 @@ public class EmergencySOSBackgroundService extends Service {
                         "⚠️ Please respond immediately!";
         
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.ic_dialog_alert)
-                .setContentTitle(String.format(getString(R.string.notification_emergency_sos_title), seniorName))
-                .setContentText(getString(R.string.notification_emergency_sos_text))
+                .setSmallIcon(R.drawable.ic_notification) // Use app's notification icon
+                .setContentTitle("🚨 EMERGENCY ALERT 🚨")
+                .setContentText(seniorName + " needs immediate help!")
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(bigText))
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                .setAutoCancel(true) // Notification will be dismissed when clicked
+                .setAutoCancel(false) // CRITICAL: Don't dismiss when tapped - keep it visible
                 .setContentIntent(pendingIntent)
                 .setSound(getCustomAlarmSound()) // AudioAttributes are set on the channel, not here
                 .setVibrate(new long[]{0, 1000, 500, 1000, 500, 1000})
@@ -581,8 +613,8 @@ public class EmergencySOSBackgroundService extends Service {
                 .setFullScreenIntent(pendingIntent, true) // Show as full screen on lock screen
                 .addAction(android.R.drawable.ic_menu_call, "📞 CALL", callPendingIntent)
                 .addAction(android.R.drawable.ic_menu_directions, "🗺️ NAVIGATE", navPendingIntent)
-                .setOngoing(false) // Allow notification to be dismissed (not persistent)
-                .setTimeoutAfter(60000) // Auto-dismiss after 60 seconds if not interacted with
+                .setOngoing(true) // CRITICAL: Make persistent - cannot be dismissed by swiping
+                // Removed setTimeoutAfter - notification stays until emergency is handled
                 .setDefaults(NotificationCompat.DEFAULT_ALL); // Add default notification behavior
         
         android.app.Notification notification = builder.build();

@@ -812,10 +812,27 @@ public class EmergencyQueueManager {
         db.collection("Sagip/users/rescuer")
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
+                    Log.d(TAG, "📋 Found " + querySnapshot.size() + " total rescuers to check for notification");
+                    int notifiedCount = 0;
+                    int skippedCount = 0;
+                    
                     for (QueryDocumentSnapshot document : querySnapshot) {
                         String rescuerId = document.getId();
+                        
+                        // Check if rescuer is currently on an assignment
+                        Boolean onAssignment = document.getBoolean("onAssignment");
+                        if (onAssignment != null && onAssignment) {
+                            Log.d(TAG, "🚫 SKIPPING rescuer " + rescuerId + " - currently on assignment");
+                            skippedCount++;
+                            continue; // Skip this rescuer - they're busy with another emergency
+                        }
+                        
+                        // Rescuer is available, send notification
                         sendEmergencyNotificationToRescuer(rescuerId, request);
+                        notifiedCount++;
                     }
+                    
+                    Log.d(TAG, "✅ Notification summary: " + notifiedCount + " rescuers notified, " + skippedCount + " rescuers skipped (on assignment)");
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "❌ Failed to query rescuers: " + e.getMessage());

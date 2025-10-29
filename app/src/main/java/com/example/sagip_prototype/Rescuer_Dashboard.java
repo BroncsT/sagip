@@ -877,6 +877,12 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         setupTestSMSButton();
 
         createNotificationChannel();
+        
+        // CRITICAL: Request notification permission for Android 13+ (API 33+)
+        checkAndRequestNotificationPermission();
+        
+        // Check if notification channel is enabled and prompt user if not
+        checkNotificationChannelEnabled();
 
         // Clear any old emergency notifications on startup
         clearOldEmergencyNotifications();
@@ -977,8 +983,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             }
         }
         
-        // Start background service for emergency SOS monitoring
-        startEmergencySOSBackgroundService();
+        // Don't start background service when dashboard is active
+        // Dashboard listener handles notifications when app is open
+        // Background service will auto-start when app goes to background
         
         // Disable RescuerNotificationManager to prevent duplicate notifications
         // RescuerNotificationManager.startMonitoring(this);
@@ -1040,24 +1047,22 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         super.onPause();
         stopLocationUpdates();
         
-        // Stop emergency listener when app goes to background - EmergencyNotificationService will handle it
+        // KEEP emergency SOS listener active even when navigating between screens
+        // This ensures continuous notification monitoring
+        Log.d(TAG, "🚨 Keeping emergency SOS listener active during navigation");
+        
+        // Stop old emergency listener when app goes to background
         if (emergencyListener != null) {
-            Log.d(TAG, "🚨 Stopping emergency listener in activity - EmergencyNotificationService will handle background notifications");
+            Log.d(TAG, "🚨 Stopping old emergency listener in activity");
             emergencyListener.remove();
             emergencyListener = null;
         }
         
-        // Stop emergency SOS listener when app goes to background - EmergencySOSBackgroundService will handle it
-        if (emergencySOSListener != null) {
-            Log.d(TAG, "🚨 Stopping emergency SOS listener in activity - EmergencySOSBackgroundService will handle background notifications");
-            emergencySOSListener.remove();
-            emergencySOSListener = null;
-        }
+        // Note: emergencySOSListener stays active
         
         // Foreground services will continue running to handle notifications when app is closed
         if (userType != null && userType.equals("rescuer") && userId != null) {
-            Log.d(TAG, "App going to background - Foreground services will continue monitoring notifications");
-            Log.d(TAG, "Active services: EmergencyNotificationService, RescuerForegroundService, WebSocketNotificationService, WorkManager, AlternativeNotificationManager");
+            Log.d(TAG, "App paused - Emergency SOS listener still active");
         }
         
         // Clear tracking status when app is paused (optional - you might want to keep tracking active)
@@ -1225,19 +1230,77 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 String seniorPhone = intent.getStringExtra("senior_phone");
                 String locationAddress = intent.getStringExtra("location_address");
                 String requestId = intent.getStringExtra("request_id");
+                String notificationId = intent.getStringExtra("notification_id");
                 Double seniorLat = intent.getDoubleExtra("senior_lat", 0.0);
                 Double seniorLng = intent.getDoubleExtra("senior_lng", 0.0);
                 
                 Log.d(TAG, "🚨 App opened from emergency SOS notification - Senior: " + seniorName);
                 Log.d(TAG, "📍 GPS coordinates from notification click: " + seniorLat + ", " + seniorLng);
+                Log.d(TAG, "📋 RequestId: " + requestId + ", NotificationId: " + notificationId);
                 
-                // Show emergency alert dialog immediately
-                if (seniorName != null && locationAddress != null) {
-                    if (seniorLat != 0.0 && seniorLng != 0.0) {
-                        showEmergencySOSAlertWithLocation(seniorName, seniorPhone, locationAddress, System.currentTimeMillis(), requestId, seniorLat, seniorLng);
-                    } else {
-                        showEmergencySOSAlert(seniorName, seniorPhone, locationAddress, System.currentTimeMillis(), requestId);
+                // CRITICAL FIX: Reset dialog state and dismiss any existing dialog before showing new one
+                synchronized (dialogLock) {
+                    Log.d(TAG, "🔧 [NOTIFICATION_CLICK_FIX] Current dialog state: isEmergencyDialogShowing=" + isEmergencyDialogShowing);
+                    if (currentEmergencyDialog != null && currentEmergencyDialog.isShowing()) {
+                        Log.d(TAG, "🔧 [NOTIFICATION_CLICK_FIX] Dismissing existing dialog");
+                        currentEmergencyDialog.dismiss();
                     }
+                    isEmergencyDialogShowing = false;
+                    currentEmergencyRequestId = null;
+                    currentEmergencyDialog = null;
+                    Log.d(TAG, "🔧 [NOTIFICATION_CLICK_FIX] Dialog state reset - ready to show new dialog");
+                }
+                
+                // If we have a notificationId, fetch fresh data from database
+                if (notificationId != null && userId != null) {
+                    Log.d(TAG, "🔧 [NOTIFICATION_CLICK_FIX] Fetching fresh notification data from database: " + notificationId);
+                    db.collection("Sagip")
+                        .document("users")
+                        .collection("rescuer")
+                        .document(userId)
+                        .collection("emergencyNotifications")
+                        .document(notificationId)
+                        .get()
+                        .addOnSuccessListener(documentSnapshot -> {
+                            if (documentSnapshot.exists()) {
+                                Log.d(TAG, "✅ [NOTIFICATION_CLICK_FIX] Fresh notification data retrieved");
+                                String freshSeniorName = documentSnapshot.getString("seniorName");
+                                String freshSeniorPhone = documentSnapshot.getString("seniorPhone");
+                                String freshLocationAddress = documentSnapshot.getString("locationAddress");
+                                String freshRequestId = documentSnapshot.getString("requestId");
+                                Double freshSeniorLat = documentSnapshot.getDouble("seniorLat");
+                                Double freshSeniorLng = documentSnapshot.getDouble("seniorLng");
+                                Long timestamp = documentSnapshot.getLong("timestamp");
+                                
+                                // Show dialog with fresh data
+                                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                                    if (!isFinishing() && !isDestroyed()) {
+                                        Log.d(TAG, "🔧 [NOTIFICATION_CLICK_FIX] Showing dialog with fresh data");
+                                        if (freshSeniorLat != null && freshSeniorLng != null && freshSeniorLat != 0.0 && freshSeniorLng != 0.0) {
+                                            showEmergencySOSAlertWithLocation(freshSeniorName, freshSeniorPhone, freshLocationAddress, 
+                                                                            timestamp != null ? timestamp : System.currentTimeMillis(), 
+                                                                            freshRequestId, freshSeniorLat, freshSeniorLng);
+                                        } else {
+                                            showEmergencySOSAlert(freshSeniorName, freshSeniorPhone, freshLocationAddress, 
+                                                                timestamp != null ? timestamp : System.currentTimeMillis(), freshRequestId);
+                                        }
+                                    }
+                                }, 300);
+                            } else {
+                                Log.w(TAG, "⚠️ [NOTIFICATION_CLICK_FIX] Notification document not found, using intent data");
+                                // Fallback to intent data
+                                showDialogFromIntentData(seniorName, seniorPhone, locationAddress, requestId, seniorLat, seniorLng);
+                            }
+                        })
+                        .addOnFailureListener(e -> {
+                            Log.e(TAG, "❌ [NOTIFICATION_CLICK_FIX] Error fetching notification: " + e.getMessage());
+                            // Fallback to intent data
+                            showDialogFromIntentData(seniorName, seniorPhone, locationAddress, requestId, seniorLat, seniorLng);
+                        });
+                } else {
+                    // No notificationId, use intent data directly
+                    Log.d(TAG, "🔧 [NOTIFICATION_CLICK_FIX] No notificationId, using intent data");
+                    showDialogFromIntentData(seniorName, seniorPhone, locationAddress, requestId, seniorLat, seniorLng);
                 }
                 
                 // Clear the intent extras to prevent repeated handling
@@ -1246,6 +1309,8 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 intent.removeExtra("senior_name");
                 intent.removeExtra("senior_phone");
                 intent.removeExtra("location_address");
+                intent.removeExtra("notification_id");
+                intent.removeExtra("request_id");
                 
             } else if (intent.getBooleanExtra("notification_clicked", false)) {
                 // Handle emergency notification
@@ -1266,6 +1331,29 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 intent.removeExtra("helpRequestId");
             }
         }
+    }
+    
+    /**
+     * Helper method to show dialog from intent data
+     * Used as fallback when notification document is not found in database
+     */
+    private void showDialogFromIntentData(String seniorName, String seniorPhone, String locationAddress, 
+                                         String requestId, Double seniorLat, Double seniorLng) {
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            if (!isFinishing() && !isDestroyed()) {
+                Log.d(TAG, "🔧 [NOTIFICATION_CLICK_FIX] Showing dialog from intent data");
+                if (seniorName != null && locationAddress != null) {
+                    if (seniorLat != null && seniorLng != null && seniorLat != 0.0 && seniorLng != 0.0) {
+                        showEmergencySOSAlertWithLocation(seniorName, seniorPhone, locationAddress, 
+                                                        System.currentTimeMillis(), requestId, seniorLat, seniorLng);
+                    } else {
+                        showEmergencySOSAlert(seniorName, seniorPhone, locationAddress, System.currentTimeMillis(), requestId);
+                    }
+                } else {
+                    Log.w(TAG, "⚠️ [NOTIFICATION_CLICK_FIX] Cannot show dialog - missing seniorName or locationAddress");
+                }
+            }
+        }, 300);
     }
     
     private void showHospitalStatusUpdateDialog(String hospitalName, String hospitalStatus, int availableBeds, int availableDoctors) {
@@ -1415,8 +1503,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         Log.d(TAG, "🚨 Emergency alerts use Firestore real-time listeners");
         Log.d(TAG, "🚨 Hospital notifications use FCM (separate system)");
         
-        // Start the background service for monitoring SOS when app is closed
-        startEmergencySOSBackgroundService();
+        // Don't start background service here - it causes crashes
+        // Background service will start when app goes to background
+        // Dashboard listener handles notifications when app is active
     }
 
     private void startEmergencyListener() {
@@ -1688,6 +1777,130 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     // Legacy method for backward compatibility
 
 
+    /**
+     * Check and request notification permission (required for Android 13+ / API 33+)
+     */
+    private void checkAndRequestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) { // Android 13+ (API 33+)
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                Log.d(TAG, "📱 Requesting notification permission for Android 13+");
+                
+                // Show explanation before requesting permission
+                if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.POST_NOTIFICATIONS)) {
+                    // User has denied permission before, show explanation
+                    new AlertDialog.Builder(this)
+                        .setTitle("Notification Permission Required")
+                        .setMessage("SAGIP needs notification permission to alert you about emergency SOS requests from seniors.\n\n" +
+                                  "Without this permission, you won't receive critical emergency alerts.")
+                        .setPositiveButton("Grant Permission", (dialog, which) -> {
+                            ActivityCompat.requestPermissions(this,
+                                new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                                NOTIFICATION_PERMISSION_REQUEST_CODE);
+                        })
+                        .setNegativeButton("Cancel", (dialog, which) -> {
+                            Log.w(TAG, "⚠️ User denied notification permission");
+                            Toast.makeText(this, "⚠️ You won't receive emergency alerts without notification permission", Toast.LENGTH_LONG).show();
+                        })
+                        .setCancelable(false)
+                        .show();
+                } else {
+                    // First time requesting, request directly
+                    ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                        NOTIFICATION_PERMISSION_REQUEST_CODE);
+                }
+            } else {
+                Log.d(TAG, "✅ Notification permission already granted");
+            }
+        } else {
+            Log.d(TAG, "ℹ️ Android version < 13, notification permission not required");
+        }
+    }
+    
+    /**
+     * Check if emergency notification channel is enabled and prompt user to enable if needed
+     */
+    private void checkNotificationChannelEnabled() {
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (notificationManager == null) {
+            return;
+        }
+        
+        // Check if notifications are enabled for the app
+        boolean notificationsEnabled = notificationManager.areNotificationsEnabled();
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Check specific channel for Android 8.0+
+            String channelId = "emergency_sos_channel";
+            NotificationChannel channel = notificationManager.getNotificationChannel(channelId);
+            
+            if (channel != null) {
+                int importance = channel.getImportance();
+                Log.d(TAG, "🔔 Emergency SOS channel importance: " + importance + " (0=NONE, 2=LOW, 3=DEFAULT, 4=HIGH, 5=MAX)");
+                
+                // Check if channel is disabled or set to low importance
+                if (importance == NotificationManager.IMPORTANCE_NONE || importance == NotificationManager.IMPORTANCE_LOW) {
+                    Log.w(TAG, "⚠️ Emergency notification channel is disabled or set to low importance");
+                    showNotificationSetupDialog();
+                } else if (!notificationsEnabled) {
+                    Log.w(TAG, "⚠️ All notifications are disabled for the app");
+                    showNotificationSetupDialog();
+                } else {
+                    Log.d(TAG, "✅ Emergency notification channel is properly enabled");
+                }
+            }
+        } else {
+            // For Android 7.1 and below, just check if notifications are enabled
+            if (!notificationsEnabled) {
+                Log.w(TAG, "⚠️ Notifications are disabled for the app");
+                showNotificationSetupDialog();
+            } else {
+                Log.d(TAG, "✅ Notifications are enabled");
+            }
+        }
+    }
+    
+    /**
+     * Show dialog prompting user to enable notifications
+     */
+    private void showNotificationSetupDialog() {
+        new AlertDialog.Builder(this)
+            .setTitle("🚨 Enable Emergency Notifications")
+            .setMessage("Emergency notifications are currently disabled or set to low priority.\n\n" +
+                      "To receive critical SOS alerts from seniors, you need to:\n\n" +
+                      "1. Enable 'Emergency SOS Alerts' channel\n" +
+                      "2. Set importance to 'High' or 'Urgent'\n" +
+                      "3. Enable sound and vibration\n\n" +
+                      "Would you like to open notification settings now?")
+            .setPositiveButton("Open Settings", (dialog, which) -> {
+                try {
+                    // Open notification settings for this app
+                    Intent intent = new Intent();
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        // Android 8.0+ - Open channel settings directly
+                        intent.setAction(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS);
+                        intent.putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getPackageName());
+                        intent.putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, "emergency_sos_channel");
+                    } else {
+                        // Older Android - Open app notification settings
+                        intent.setAction(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                        intent.setData(Uri.parse("package:" + getPackageName()));
+                    }
+                    startActivity(intent);
+                    Log.d(TAG, "📱 Opened notification settings");
+                } catch (Exception e) {
+                    Log.e(TAG, "❌ Error opening notification settings: " + e.getMessage());
+                    Toast.makeText(this, "Please enable notifications in Settings → Apps → SAGIP → Notifications", Toast.LENGTH_LONG).show();
+                }
+            })
+            .setNegativeButton("Later", (dialog, which) -> {
+                Toast.makeText(this, "⚠️ You won't receive emergency alerts until notifications are enabled", Toast.LENGTH_LONG).show();
+            })
+            .setCancelable(false)
+            .show();
+    }
+    
     private void playNotificationSound() {
         try {
             Uri notification = getCustomAlarmSound();
@@ -1837,6 +2050,113 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             }
         } catch (Exception e) {
             Log.e(TAG, "❌ Error canceling system notifications: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Show Android system notification for emergency
+     */
+    private void showEmergencySystemNotification(String seniorName, String seniorPhone, String locationAddress, String requestId) {
+        Log.d(TAG, "📱 Creating Android system notification for emergency: " + seniorName);
+        
+        // CRITICAL: Check notification permission on Android 13+ (API 33+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                Log.e(TAG, "❌ NOTIFICATION PERMISSION DENIED - Cannot show notifications!");
+                Log.e(TAG, "❌ User must grant notification permission in app settings");
+                Log.e(TAG, "❌ Sound and dialog will still work, but no notification drawer alert");
+                return; // Exit early - can't show notification without permission
+            } else {
+                Log.d(TAG, "✅ Notification permission granted - showing notification");
+            }
+        }
+        
+        try {
+            NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (notificationManager == null) {
+                Log.e(TAG, "❌ NotificationManager is null");
+                return;
+            }
+            
+            // Create notification channel for Android 8.0+
+            String channelId = "emergency_sos_channel";
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                NotificationChannel channel = new NotificationChannel(
+                    channelId,
+                    "Emergency SOS Alerts",
+                    NotificationManager.IMPORTANCE_HIGH
+                );
+                channel.setDescription("Critical emergency notifications from seniors");
+                channel.enableVibration(true);
+                channel.setVibrationPattern(new long[]{0, 1000, 500, 1000});
+                channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+                
+                // Use alarm sound for notification
+                Uri soundUri = getCustomAlarmSound();
+                AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build();
+                channel.setSound(soundUri, audioAttributes);
+                
+                notificationManager.createNotificationChannel(channel);
+                Log.d(TAG, "✅ Notification channel created");
+            }
+            
+            // Create intent to open app when notification is tapped
+            Intent intent = new Intent(this, Rescuer_Dashboard.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            // Add all emergency info so dialog can show when notification is tapped
+            intent.putExtra("emergency_sos_clicked", true);
+            intent.putExtra("from_emergency_notification", true);
+            intent.putExtra("senior_name", seniorName);
+            intent.putExtra("senior_phone", seniorPhone);
+            intent.putExtra("location_address", locationAddress);
+            intent.putExtra("request_id", requestId);
+            intent.putExtra("requestId", requestId); // Keep for backward compatibility
+            intent.putExtra("from_notification", true); // Keep for backward compatibility
+            
+            PendingIntent pendingIntent = PendingIntent.getActivity(
+                this,
+                requestId.hashCode(),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            );
+            
+            // Build notification
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
+                .setSmallIcon(R.drawable.ic_notification) // Make sure you have this icon
+                .setContentTitle("🚨 EMERGENCY ALERT 🚨")
+                .setContentText(seniorName + " needs immediate help!")
+                .setStyle(new NotificationCompat.BigTextStyle()
+                    .bigText("🚨 EMERGENCY ALERT\n\n" +
+                            "👤 Senior: " + seniorName + "\n" +
+                            "📞 Phone: " + (seniorPhone != null ? seniorPhone : "Not available") + "\n" +
+                            "📍 Location: " + (locationAddress != null ? locationAddress : "Unknown") + "\n\n" +
+                            "⚠️ TAP TO RESPOND IMMEDIATELY"))
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setAutoCancel(false) // Don't dismiss when tapped
+                .setOngoing(true) // Keep notification until emergency is handled
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setContentIntent(pendingIntent)
+                .setVibrate(new long[]{0, 1000, 500, 1000})
+                .setLights(0xFFFF0000, 1000, 500); // Red flashing light
+            
+            // Add alarm sound for pre-Oreo devices
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                Uri soundUri = getCustomAlarmSound();
+                builder.setSound(soundUri, AudioManager.STREAM_ALARM);
+            }
+            
+            // Show notification
+            int notificationId = requestId.hashCode();
+            notificationManager.notify(notificationId, builder.build());
+            
+            Log.d(TAG, "✅ Android system notification shown with ID: " + notificationId);
+            
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error showing system notification: " + e.getMessage(), e);
         }
     }
     
@@ -2400,6 +2720,8 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             Log.d(TAG, "📱 [DASHBOARD_HANDLER] Processing notification - Type: " + type + ", IsRead: " + isRead + ", Status: " + notificationStatus);
             
             // Process emergency SOS notifications
+            // Note: We rely on the isRead flag to prevent duplicate processing
+            // Old notifications should already be marked as read
             if ("EMERGENCY_SOS".equals(type) && (isRead == null || !isRead)) {
                 // Only process unread emergency SOS notifications that are NOT assigned
                 Log.d(TAG, "🚨 [DASHBOARD] Received emergency SOS notification: " + seniorName + " (Request ID: " + requestId + ")");
@@ -2412,6 +2734,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 
                 // Play emergency sound IMMEDIATELY (don't wait for database update)
                 playEmergencySound();
+                
+                // Show Android system notification IMMEDIATELY
+                showEmergencySystemNotification(seniorName, seniorPhone, locationAddress, requestId);
                 
                 // Mark as read to prevent race condition with background service
                 // Use atomic update to ensure only one process marks it as read
@@ -4049,13 +4374,26 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         } else if (requestCode == NOTIFICATION_PERMISSION_REQUEST_CODE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 // Notification permission granted
-                Log.d(TAG, "Notification permission granted");
-                Toast.makeText(this, "Notification permission granted", Toast.LENGTH_SHORT).show();
+                Log.d(TAG, "✅ Notification permission granted by user");
+                Toast.makeText(this, "✅ Notification permission granted - You'll now receive emergency alerts", Toast.LENGTH_SHORT).show();
             } else {
                 // Notification permission denied
-                Log.w(TAG, "Notification permission denied");
-                Toast.makeText(this, "Notification permission denied - you may not receive emergency alerts", 
-                        Toast.LENGTH_LONG).show();
+                Log.w(TAG, "❌ Notification permission denied by user");
+                Toast.makeText(this, "⚠️ Emergency alerts are disabled. You won't receive SOS notifications.", Toast.LENGTH_LONG).show();
+                
+                // Show settings button to allow user to enable it later
+                new AlertDialog.Builder(this)
+                    .setTitle("Notification Permission Denied")
+                    .setMessage("Emergency alerts are disabled. You can enable notifications in Settings.\n\n" +
+                              "Go to: Settings → Apps → SAGIP → Permissions → Notifications")
+                    .setPositiveButton("Open Settings", (dialog, which) -> {
+                        // Open app settings
+                        Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                        intent.setData(Uri.parse("package:" + getPackageName()));
+                        startActivity(intent);
+                    })
+                    .setNegativeButton("Later", null)
+                    .show();
             }
         } else if (requestCode == PermissionManager.SMS_PERMISSION_REQUEST_CODE) {
             boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
@@ -4400,6 +4738,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         Log.d(TAG, "🔍 [ASSIGN_BY_DETAILS] Looking for emergency to assign rescuer: " + rescuerId);
         Log.d(TAG, "🔍 [ASSIGN_BY_DETAILS] Searching for: " + seniorName + " at " + locationAddress + " at " + timestamp);
         
+        // Mark rescuer as on assignment - they will NOT receive new alerts until they complete this one
+        setRescuerOnAssignmentStatus(rescuerId, true);
+        
         // Find the emergency request by senior name and timestamp
         List<EmergencyQueueManager.EmergencyRequest> activeEmergencies = 
                 EmergencyQueueManager.getInstance(this).getActiveEmergencies();
@@ -4434,6 +4775,8 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         if (!found) {
             Log.w(TAG, "⚠️ [ASSIGN_BY_DETAILS] No matching emergency found for assignment");
             Toast.makeText(this, "⚠️ Emergency not found in queue", Toast.LENGTH_SHORT).show();
+            // Clear assignment status since no emergency was found
+            setRescuerOnAssignmentStatus(rescuerId, false);
         }
     }
     
@@ -4449,6 +4792,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         
         String rescuerId = currentUser.getUid();
         Log.d(TAG, "🔍 [ASSIGN_BY_ID] Assigning rescuer " + rescuerId + " to emergency: " + requestId);
+        
+        // Mark rescuer as on assignment - they will NOT receive new alerts until they complete this one
+        setRescuerOnAssignmentStatus(rescuerId, true);
         
         // First try to get the emergency from local EmergencyQueueManager
         EmergencyQueueManager.EmergencyRequest emergency = 
@@ -4471,6 +4817,36 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             Log.d(TAG, "⚠️ [ASSIGN_BY_ID] Emergency not found in local queue, loading from database...");
             loadEmergencyFromDatabaseAndAssign(requestId, rescuerId);
         }
+    }
+    
+    /**
+     * Update rescuer's assignment status in their profile
+     * When onAssignment = true, they will NOT receive new emergency alerts
+     * When onAssignment = false, they will receive alerts normally
+     */
+    private void setRescuerOnAssignmentStatus(String rescuerId, boolean onAssignment) {
+        Log.d(TAG, "📝 Updating rescuer assignment status: " + rescuerId + " | onAssignment: " + onAssignment);
+        
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("onAssignment", onAssignment);
+        updates.put("onAssignmentUpdatedAt", System.currentTimeMillis());
+        
+        db.collection("Sagip")
+                .document("users")
+                .collection("rescuer")
+                .document(rescuerId)
+                .update(updates)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "✅ Rescuer assignment status updated: onAssignment = " + onAssignment);
+                    if (onAssignment) {
+                        Log.d(TAG, "🚫 Rescuer " + rescuerId + " will NOT receive new alerts while on assignment");
+                    } else {
+                        Log.d(TAG, "✅ Rescuer " + rescuerId + " will now receive new alerts");
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Failed to update rescuer assignment status: " + e.getMessage());
+                });
     }
     
     private void loadEmergencyFromDatabaseAndAssign(String requestId, String rescuerId) {

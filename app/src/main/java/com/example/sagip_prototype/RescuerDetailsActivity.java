@@ -245,6 +245,7 @@ public class RescuerDetailsActivity extends AppCompatActivity {
         showLoading(true);
         
         // Load emergency details to get rescuer ID
+        // First try activeRequests
         db.collection("Sagip")
                 .document("emergencyRequests")
                 .collection("activeRequests")
@@ -252,53 +253,77 @@ public class RescuerDetailsActivity extends AppCompatActivity {
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists()) {
-                        // Use correct field name for rescuer ID
-                        rescuerId = documentSnapshot.getString("assignedRescuerId");
-                        
-                        // Check if we already have rescuer info from notification
-                        if (rescuerId == null || rescuerId.isEmpty()) {
-                            Log.d(TAG, "⚠️ No assigned rescuer ID found in emergency document");
-                        } else {
-                            Log.d(TAG, "✅ Found assigned rescuer ID: " + rescuerId);
-                        }
-                        
-                        // Get senior location from intent first, then fallback to emergency document
-                        double intentSeniorLat = getIntent().getDoubleExtra("seniorLat", 0.0);
-                        double intentSeniorLong = getIntent().getDoubleExtra("seniorLong", 0.0);
-                        
-                        if (intentSeniorLat != 0.0 && intentSeniorLong != 0.0) {
-                            seniorLat = intentSeniorLat;
-                            seniorLong = intentSeniorLong;
-                            Log.d(TAG, "📍 Using senior location from intent: " + seniorLat + ", " + seniorLong);
-                        } else {
-                            // Fallback to emergency document
-                            GeoPoint seniorLocation = documentSnapshot.getGeoPoint("location");
-                            Log.d(TAG, "🔍 Emergency document data: " + documentSnapshot.getData().toString());
-                            Log.d(TAG, "🔍 Looking for 'location' field in emergency document");
-                            
-                            if (seniorLocation != null) {
-                                seniorLat = seniorLocation.getLatitude();
-                                seniorLong = seniorLocation.getLongitude();
-                                Log.d(TAG, "📍 Senior location found in emergency document: " + seniorLat + ", " + seniorLong);
-                            } else {
-                                Log.w(TAG, "⚠️ No senior location found in emergency document");
-                                Log.w(TAG, "⚠️ Available fields in emergency document: " + documentSnapshot.getData().keySet().toString());
-                            }
-                        }
-                        
-                        if (rescuerId != null) {
-                            loadRescuerDetails();
-                        } else {
-                            showError("No rescuer assigned to this emergency");
-                        }
+                        Log.d(TAG, "📋 Emergency found in activeRequests");
+                        processEmergencyDocument(documentSnapshot);
                     } else {
-                        showError("Emergency not found");
+                        Log.d(TAG, "⚠️ Emergency not found in activeRequests, checking assignedRequests...");
+                        // Try assignedRequests collection
+                        db.collection("Sagip")
+                                .document("emergencyRequests")
+                                .collection("assignedRequests")
+                                .document(emergencyId)
+                                .get()
+                                .addOnSuccessListener(assignedDoc -> {
+                                    if (assignedDoc.exists()) {
+                                        Log.d(TAG, "📋 Emergency found in assignedRequests");
+                                        processEmergencyDocument(assignedDoc);
+                                    } else {
+                                        Log.e(TAG, "❌ Emergency not found in both activeRequests and assignedRequests");
+                                        showError("Emergency not found");
+                                    }
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e(TAG, "Error loading emergency from assignedRequests", e);
+                                    showError("Failed to load emergency details");
+                                });
                     }
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error loading emergency details", e);
+                    Log.e(TAG, "Error loading emergency details from activeRequests", e);
                     showError("Failed to load emergency details");
                 });
+    }
+    
+    private void processEmergencyDocument(DocumentSnapshot documentSnapshot) {
+        // Use correct field name for rescuer ID
+        rescuerId = documentSnapshot.getString("assignedRescuerId");
+        
+        // Check if we already have rescuer info from notification
+        if (rescuerId == null || rescuerId.isEmpty()) {
+            Log.d(TAG, "⚠️ No assigned rescuer ID found in emergency document");
+        } else {
+            Log.d(TAG, "✅ Found assigned rescuer ID: " + rescuerId);
+        }
+        
+        // Get senior location from intent first, then fallback to emergency document
+        double intentSeniorLat = getIntent().getDoubleExtra("seniorLat", 0.0);
+        double intentSeniorLong = getIntent().getDoubleExtra("seniorLong", 0.0);
+        
+        if (intentSeniorLat != 0.0 && intentSeniorLong != 0.0) {
+            seniorLat = intentSeniorLat;
+            seniorLong = intentSeniorLong;
+            Log.d(TAG, "📍 Using senior location from intent: " + seniorLat + ", " + seniorLong);
+        } else {
+            // Fallback to emergency document
+            GeoPoint seniorLocation = documentSnapshot.getGeoPoint("location");
+            Log.d(TAG, "🔍 Emergency document data: " + documentSnapshot.getData().toString());
+            Log.d(TAG, "🔍 Looking for 'location' field in emergency document");
+            
+            if (seniorLocation != null) {
+                seniorLat = seniorLocation.getLatitude();
+                seniorLong = seniorLocation.getLongitude();
+                Log.d(TAG, "📍 Senior location found in emergency document: " + seniorLat + ", " + seniorLong);
+            } else {
+                Log.w(TAG, "⚠️ No senior location found in emergency document");
+                Log.w(TAG, "⚠️ Available fields in emergency document: " + documentSnapshot.getData().keySet().toString());
+            }
+        }
+        
+        if (rescuerId != null) {
+            loadRescuerDetails();
+        } else {
+            showError("No rescuer assigned to this emergency");
+        }
     }
 
     private void loadRescuerDetails() {

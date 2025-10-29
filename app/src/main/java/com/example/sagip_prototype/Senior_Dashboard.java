@@ -1090,6 +1090,10 @@ public class Senior_Dashboard extends AppCompatActivity {
                 Log.d(TAG, "🏢 Rescue Team: " + rescuerTeam);
                 Log.d(TAG, "🏥 Hospital: " + hospitalName + " at " + hospitalAddress);
                 
+                // Stop the emergency alert sound when notification is clicked
+                EmergencySOSBackgroundService.stopEmergencySound();
+                Log.d(TAG, "🔇 Emergency alert sound stopped when senior clicked notification");
+                
                 // Show popup notification before navigating to rescuer details
                 showRescuerAcceptedPopup(rescuerName, rescuerPhone, rescuerTeam, requestId, assignedRescuerId, emergencyStatus, hospitalId, hospitalName, hospitalAddress, hospitalPhone);
                 
@@ -1110,6 +1114,15 @@ public class Senior_Dashboard extends AppCompatActivity {
                 intent.removeExtra("hospital_name");
                 intent.removeExtra("hospital_address");
                 intent.removeExtra("hospital_phone");
+            } else if ("hospital_details_update".equals(notificationType)) {
+                Log.d(TAG, "🏥 Received hospital details update notification");
+                
+                // Stop the emergency alert sound when notification is clicked
+                EmergencySOSBackgroundService.stopEmergencySound();
+                Log.d(TAG, "🔇 Emergency alert sound stopped when senior clicked hospital update notification");
+                
+                // Clear the intent extras to prevent repeated handling
+                intent.removeExtra("notification_type");
             } else {
                 Log.d(TAG, "🔍 No rescuer response notification found, notification type: " + notificationType);
             }
@@ -1247,6 +1260,10 @@ public class Senior_Dashboard extends AppCompatActivity {
         
         // OK button
         builder.setNegativeButton("OK", (dialog, which) -> {
+            // Stop the emergency alert sound when senior clicks "OK"
+            EmergencySOSBackgroundService.stopEmergencySound();
+            Log.d(TAG, "🔇 Emergency alert sound stopped when senior clicked 'OK'");
+            
             dialog.dismiss();
         });
         
@@ -1322,6 +1339,11 @@ public class Senior_Dashboard extends AppCompatActivity {
         // Dismiss button
         builder.setNegativeButton(getString(R.string.button_dismiss), (dialog, which) -> {
             Log.d(TAG, "❌ User dismissed rescuer accepted popup");
+            
+            // Stop the emergency alert sound when senior clicks "Dismiss"
+            EmergencySOSBackgroundService.stopEmergencySound();
+            Log.d(TAG, "🔇 Emergency alert sound stopped when senior clicked 'Dismiss'");
+            
             dialog.dismiss();
         });
         
