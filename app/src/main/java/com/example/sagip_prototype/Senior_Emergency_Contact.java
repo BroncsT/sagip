@@ -61,6 +61,10 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
+        
+        // Apply saved font size preference
+        FontSizeHelper.applyFontSize(this);
+        
         setContentView(R.layout.activity_senior_emergency_contact);
 
         recyclerView = findViewById(R.id.emergencyRecycler);

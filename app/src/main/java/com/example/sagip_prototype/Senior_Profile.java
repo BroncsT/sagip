@@ -11,6 +11,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -31,12 +33,19 @@ public class Senior_Profile extends BaseProfileActivity {
     FirebaseFirestore db;
     FirebaseStorage storage;
     private SharedPreferences sharedPreferences;
+    
+    // Activity result launcher for font size changes
+    private ActivityResultLauncher<Intent> fontSizeActivityLauncher;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
+        
+        // Apply saved font size preference
+        FontSizeHelper.applyFontSize(this);
+        
         setContentView(R.layout.activity_senior_profile);
 
         mAuth = FirebaseAuth.getInstance();
@@ -44,6 +53,16 @@ public class Senior_Profile extends BaseProfileActivity {
         storage = FirebaseStorage.getInstance();
         sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
         
+        // Initialize activity result launcher for font size
+        fontSizeActivityLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == FontSizeActivity.RESULT_FONT_SIZE_CHANGED) {
+                    // Font size changed - refresh smoothly
+                    applyFontSizeImmediately();
+                }
+            }
+        );
         
         // Add language selection functionality
         addLanguageSelectionToLayout();
@@ -53,6 +72,7 @@ public class Senior_Profile extends BaseProfileActivity {
         TextView tvnumber = findViewById(R.id.seniorProfileNumber);
         LinearLayout logOut = findViewById(R.id.logoutLayout);
         LinearLayout deleteAccountLayout = findViewById(R.id.deleteAccountLayout);
+        LinearLayout fontSizeLayout = findViewById(R.id.notificationSettingsLayout);
 
         logOut.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -73,6 +93,13 @@ public class Senior_Profile extends BaseProfileActivity {
             public void onClick(View v) {
                 Intent intent = new Intent(Senior_Profile.this, Senior_Update_Profile.class);
                 startActivity(intent);
+            }
+        });
+
+        fontSizeLayout.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                openFontSizeSettings();
             }
         });
 
@@ -139,6 +166,22 @@ public class Senior_Profile extends BaseProfileActivity {
             return false;
         });
 
+    }
+
+    private void openFontSizeSettings() {
+        Log.d(TAG, "🔤 Opening font size settings");
+        Intent intent = new Intent(Senior_Profile.this, FontSizeActivity.class);
+        fontSizeActivityLauncher.launch(intent);
+    }
+    
+    private void applyFontSizeImmediately() {
+        Log.d(TAG, "Font size changed - navigating to dashboard");
+        
+        // Navigate to Senior Dashboard to show the font size change
+        Intent intent = new Intent(Senior_Profile.this, Senior_Dashboard.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        startActivity(intent);
+        finish();
     }
 
     private void showLogoutConfirmationDialog() {

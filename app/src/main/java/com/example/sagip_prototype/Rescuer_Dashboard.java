@@ -2928,24 +2928,6 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             }
         });
         
-        // Decline button
-        builder.setNegativeButton(getString(R.string.button_decline), (dialog, which) -> {
-            Log.d(TAG, "🚨 DECLINE BUTTON CLICKED");
-            
-            // Stop ALL emergency sounds AND dismiss notifications when rescuer declines
-            stopEmergencySound(); // Stop dashboard sound
-            EmergencySOSBackgroundService.dismissAllEmergencyNotifications(); // Stop background service sound AND dismiss notifications
-            cancelAllSystemNotifications(); // Cancel all system notifications to stop notification channel sounds
-            Log.d(TAG, "🔇 [DECLINE] All emergency sounds stopped and notifications dismissed");
-            
-            // Reset dialog flag safely
-            synchronized (dialogLock) {
-                isEmergencyDialogShowing = false;
-                currentEmergencyRequestId = null;
-            }
-            // Optionally notify that rescuer declined
-        });
-        
         // Show the dialog
         try {
             currentEmergencyDialog = builder.create();
@@ -3058,46 +3040,6 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             // Show confirmation to rescuer
             Toast.makeText(this, getString(R.string.toast_assigned_to_emergency), Toast.LENGTH_LONG).show();
             Log.d(TAG, "🔍 [RESPOND_NOW] Toast shown to rescuer");
-        });
-        
-        // Call senior button
-        builder.setNeutralButton(getString(R.string.button_call_senior), (dialog, which) -> {
-            // Stop ALL emergency sounds AND dismiss notifications when calling senior
-            stopEmergencySound(); // Stop dashboard sound
-            EmergencySOSBackgroundService.dismissAllEmergencyNotifications(); // Stop background service sound AND dismiss notifications
-            cancelAllSystemNotifications(); // Cancel all system notifications to stop notification channel sounds
-            Log.d(TAG, "🔇 [CALL_SENIOR] All emergency sounds stopped and notifications dismissed before making call");
-            
-            // Reset dialog flag safely
-            synchronized (dialogLock) {
-                isEmergencyDialogShowing = false;
-                currentEmergencyRequestId = null;
-            }
-            Log.d(TAG, "🔍 [CALL_SENIOR] Reset isEmergencyDialogShowing = false and cleared requestId");
-            
-            // Open phone dialer
-            Intent callIntent = new Intent(Intent.ACTION_DIAL);
-            callIntent.setData(Uri.parse("tel:" + seniorPhone));
-            startActivity(callIntent);
-            dialog.dismiss();
-        });
-        
-        // Dismiss button
-        builder.setNegativeButton(getString(R.string.button_dismiss), (dialog, which) -> {
-            // Stop ALL emergency sounds AND dismiss notifications when dismissing
-            stopEmergencySound(); // Stop dashboard sound
-            EmergencySOSBackgroundService.dismissAllEmergencyNotifications(); // Stop background service sound AND dismiss notifications
-            cancelAllSystemNotifications(); // Cancel all system notifications to stop notification channel sounds
-            Log.d(TAG, "🔇 [DISMISS] All emergency sounds stopped and notifications dismissed");
-            
-            // Reset dialog flag safely
-            synchronized (dialogLock) {
-                isEmergencyDialogShowing = false;
-                currentEmergencyRequestId = null;
-            }
-            Log.d(TAG, "🔍 [DISMISS] Reset isEmergencyDialogShowing = false and cleared requestId");
-            
-            dialog.dismiss();
         });
         
         // Dismiss any existing emergency dialog before showing new one

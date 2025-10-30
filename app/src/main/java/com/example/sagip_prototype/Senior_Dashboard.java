@@ -102,6 +102,9 @@ public class Senior_Dashboard extends AppCompatActivity {
         LanguageSelectionActivity.setAppLanguage(this, savedLanguage);
         Log.d(TAG, "🌐 Language set to: " + savedLanguage);
         
+        // Apply saved font size preference
+        FontSizeHelper.applyFontSize(this);
+        
         setContentView(R.layout.activity_senior_dashboard);
 
         mAuth = FirebaseAuth.getInstance();
@@ -1428,7 +1431,14 @@ public class Senior_Dashboard extends AppCompatActivity {
         };
         
         IntentFilter filter = new IntentFilter("com.example.sagip_prototype.SHOW_RESCUER_ACCEPTED_POPUP");
-        registerReceiver(rescuerAcceptedReceiver, filter);
+        
+        // For Android 13+ (API 33+), specify RECEIVER_NOT_EXPORTED for security
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(rescuerAcceptedReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(rescuerAcceptedReceiver, filter);
+        }
+        
         Log.d(TAG, "📡 Registered rescuer accepted broadcast receiver");
     }
 

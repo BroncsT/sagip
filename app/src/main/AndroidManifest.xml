@@ -137,6 +137,10 @@
             android:configChanges="locale|orientation|screenSize|keyboardHidden"
             android:exported="false" />
         <activity
+            android:name=".FontSizeActivity"
+            android:configChanges="locale|orientation|screenSize|keyboardHidden"
+            android:exported="false" />
+        <activity
             android:name=".BlankEditProfileActivity"
             android:exported="false" />
         <activity

@@ -162,10 +162,22 @@
     <!-- Profile Settings -->
     <string name="account_settings">Account Settings</string>
     <string name="change_Info">Edit Information</string>
-    <string name="notification_settings">Notification Settings</string>
+    <string name="notification_settings">Font Size</string>
     <string name="more_options">More Options</string>
     <string name="help_support">Help &amp; Support</string>
     <string name="logout">Logout</string>
+
+    <!-- Font Size Settings -->
+    <string name="font_size_title">Font Size</string>
+    <string name="font_size_description">Choose a comfortable text size for reading. This setting only affects this app.</string>
+    <string name="select_font_size">Select Font Size:</string>
+    <string name="font_size_small">Small</string>
+    <string name="font_size_medium">Medium (Default)</string>
+    <string name="font_size_large">Large</string>
+    <string name="font_size_extra_large">Extra Large</string>
+    <string name="preview_label">Preview:</string>
+    <string name="preview_text">This is how your text will look in the app.</string>
+    <string name="font_size_updated">Font size updated</string>
 
     <!-- Registration -->
     <string name="back_arrow">Back</string>

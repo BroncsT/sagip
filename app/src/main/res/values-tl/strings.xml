@@ -154,10 +154,22 @@
     <!-- Profile Settings -->
     <string name="account_settings">Mga Setting ng Account</string>
     <string name="change_Info">Baguhin ang Impormasyon</string>
-    <string name="notification_settings">Mga Setting ng Notification</string>
+    <string name="notification_settings">Laki ng Font</string>
     <string name="more_options">Iba Pang Mga Opsyon</string>
     <string name="help_support">Tulong at Suporta</string>
     <string name="logout">Mag-logout</string>
+
+    <!-- Font Size Settings -->
+    <string name="font_size_title">Laki ng Font</string>
+    <string name="font_size_description">Pumili ng komportableng laki ng texto para sa pagbabasa. Ang setting na ito ay para lamang sa app na ito.</string>
+    <string name="select_font_size">Pumili ng Laki ng Font:</string>
+    <string name="font_size_small">Maliit</string>
+    <string name="font_size_medium">Katamtaman (Default)</string>
+    <string name="font_size_large">Malaki</string>
+    <string name="font_size_extra_large">Napaka-laki</string>
+    <string name="preview_label">Preview:</string>
+    <string name="preview_text">Ganito ang hitsura ng iyong texto sa app.</string>
+    <string name="font_size_updated">Na-update ang laki ng font</string>
     
     <!-- Registration -->
     <string name="back_arrow">Bumalik</string>
