@@ -1785,31 +1785,10 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                     != PackageManager.PERMISSION_GRANTED) {
                 Log.d(TAG, "📱 Requesting notification permission for Android 13+");
-                
-                // Show explanation before requesting permission
-                if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.POST_NOTIFICATIONS)) {
-                    // User has denied permission before, show explanation
-                    new AlertDialog.Builder(this)
-                        .setTitle("Notification Permission Required")
-                        .setMessage("SAGIP needs notification permission to alert you about emergency SOS requests from seniors.\n\n" +
-                                  "Without this permission, you won't receive critical emergency alerts.")
-                        .setPositiveButton("Grant Permission", (dialog, which) -> {
-                            ActivityCompat.requestPermissions(this,
-                                new String[]{Manifest.permission.POST_NOTIFICATIONS},
-                                NOTIFICATION_PERMISSION_REQUEST_CODE);
-                        })
-                        .setNegativeButton("Cancel", (dialog, which) -> {
-                            Log.w(TAG, "⚠️ User denied notification permission");
-                            Toast.makeText(this, "⚠️ You won't receive emergency alerts without notification permission", Toast.LENGTH_LONG).show();
-                        })
-                        .setCancelable(false)
-                        .show();
-                } else {
-                    // First time requesting, request directly
-                    ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.POST_NOTIFICATIONS},
-                        NOTIFICATION_PERMISSION_REQUEST_CODE);
-                }
+                // Request permission directly (automatic like Senior)
+                ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                    NOTIFICATION_PERMISSION_REQUEST_CODE);
             } else {
                 Log.d(TAG, "✅ Notification permission already granted");
             }
@@ -2598,26 +2577,46 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             emergencySOSListener = null;
         }
         
+        // Update login time to current time when starting listener
+        // This ensures only NEW emergencies (after this moment) will trigger alerts
+        lastLoginTime = System.currentTimeMillis();
+        
         Log.d(TAG, "🚨 Starting emergency SOS listener for rescuer: " + userId);
         Log.d(TAG, "✅ [IN-APP_ALERTS] Dashboard listener ENABLED for in-app alerts when app is open");
+        Log.d(TAG, "⏰ Listener start time (for filtering): " + lastLoginTime);
+        Log.d(TAG, "🔍 Listener path: Sagip/users/rescuer/" + userId + "/emergencyNotifications");
         
         // Listen for emergency SOS notifications in real-time
         // This shows IN-APP ALERTS when the app is open
         // The background service handles SYSTEM NOTIFICATIONS when app is closed
+        // CRITICAL: Only listen for notifications created AFTER listener start time (REALTIME ONLY)
+        // Note: Using whereGreaterThan to filter old notifications, but will catch all new ones
+        String listenerPath = "Sagip/users/rescuer/" + userId + "/emergencyNotifications";
+        Log.d(TAG, "📡 Setting up Firestore listener on: " + listenerPath);
+        
         emergencySOSListener = db.collection("Sagip")
           .document("users")
           .collection("rescuer")
           .document(userId)
           .collection("emergencyNotifications")
+          .whereGreaterThan("timestamp", lastLoginTime - 60000)  // Allow 1 minute buffer for timing issues
           .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
           .addSnapshotListener((querySnapshot, error) -> {
               if (error != null) {
-                  Log.e(TAG, "Error listening to emergency SOS notifications: " + error.getMessage(), error);
+                  Log.e(TAG, "❌ Error listening to emergency SOS notifications: " + error.getMessage(), error);
+                  if (error instanceof com.google.firebase.firestore.FirebaseFirestoreException) {
+                      Log.e(TAG, "❌ Error code: " + ((com.google.firebase.firestore.FirebaseFirestoreException) error).getCode());
+                  } else {
+                      Log.e(TAG, "❌ Error type: " + error.getClass().getSimpleName());
+                  }
+                  Log.e(TAG, "❌ Listener path: " + listenerPath);
                   return;
               }
               
+              Log.d(TAG, "📡 Listener triggered - snapshot size: " + (querySnapshot != null ? querySnapshot.size() : "null"));
+              
               if (querySnapshot != null) {
-                  // Track document changes to handle deletions
+                  // Track document changes to handle new notifications and deletions
                   for (DocumentChange dc : querySnapshot.getDocumentChanges()) {
                       switch (dc.getType()) {
                           case ADDED:
@@ -4317,25 +4316,11 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 // Notification permission granted
                 Log.d(TAG, "✅ Notification permission granted by user");
-                Toast.makeText(this, "✅ Notification permission granted - You'll now receive emergency alerts", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Notification permission granted!", Toast.LENGTH_SHORT).show();
             } else {
                 // Notification permission denied
                 Log.w(TAG, "❌ Notification permission denied by user");
-                Toast.makeText(this, "⚠️ Emergency alerts are disabled. You won't receive SOS notifications.", Toast.LENGTH_LONG).show();
-                
-                // Show settings button to allow user to enable it later
-                new AlertDialog.Builder(this)
-                    .setTitle("Notification Permission Denied")
-                    .setMessage("Emergency alerts are disabled. You can enable notifications in Settings.\n\n" +
-                              "Go to: Settings → Apps → SAGIP → Permissions → Notifications")
-                    .setPositiveButton("Open Settings", (dialog, which) -> {
-                        // Open app settings
-                        Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                        intent.setData(Uri.parse("package:" + getPackageName()));
-                        startActivity(intent);
-                    })
-                    .setNegativeButton("Later", null)
-                    .show();
+                Toast.makeText(this, "Notification permission denied. You may not receive emergency notifications.", Toast.LENGTH_LONG).show();
             }
         } else if (requestCode == PermissionManager.SMS_PERMISSION_REQUEST_CODE) {
             boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;

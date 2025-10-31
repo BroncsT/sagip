@@ -25,25 +25,26 @@
         app:layout_constraintTop_toTopOf="parent">
 
         <LinearLayout
+            android:id="@+id/titlehead"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
             android:background="@drawable/button_background"
+            android:orientation="vertical"
             android:padding="24dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
+                android:layout_marginBottom="16dp"
                 android:gravity="center_vertical"
-                android:layout_marginBottom="16dp">
+                android:orientation="horizontal">
 
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/rescuer_assigned_title"
-                    android:textColor="@color/white"
+                    android:textColor="@color/black"
                     android:textSize="22sp"
                     android:textStyle="bold" />
 
@@ -51,22 +52,22 @@
                     android:id="@+id/tvStatus"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/en_route_status"
-                    android:textColor="@color/white"
-                    android:textSize="12sp"
                     android:background="@drawable/rounded_background"
                     android:backgroundTint="#40FFFFFF"
                     android:paddingHorizontal="16dp"
-                    android:paddingVertical="8dp" />
+                    android:paddingVertical="8dp"
+                    android:text="@string/en_route_status"
+                    android:textColor="@color/white"
+                    android:textSize="12sp" />
             </LinearLayout>
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:gravity="center"
                 android:text="@string/rescuer_assigned_message"
-                android:textColor="#E0FFFFFF"
-                android:textSize="14sp"
-                android:gravity="center" />
+                android:textColor="#E0090909"
+                android:textSize="14sp" />
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 

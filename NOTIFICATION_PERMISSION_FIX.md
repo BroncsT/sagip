@@ -17,31 +17,22 @@ On Android 13+ (API 33+), apps **MUST request `POST_NOTIFICATIONS` permission at
 
 **File:** `Rescuer_Dashboard.java`
 
-#### 1. Permission Check Method (Line ~1780)
+#### 1. Permission Check Method (Line ~1783)
 ```java
 private void checkAndRequestNotificationPermission() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) { // Android 13+
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) {
-            // Show explanation dialog if user denied before
-            if (shouldShowRequestPermissionRationale()) {
-                new AlertDialog.Builder(this)
-                    .setTitle("Notification Permission Required")
-                    .setMessage("SAGIP needs notification permission to alert you...")
-                    .setPositiveButton("Grant Permission", ...)
-                    .show();
-            } else {
-                // Request permission directly
-                ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.POST_NOTIFICATIONS},
-                    NOTIFICATION_PERMISSION_REQUEST_CODE);
-            }
+            // Request permission directly (automatic like Senior)
+            ActivityCompat.requestPermissions(this,
+                new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                NOTIFICATION_PERMISSION_REQUEST_CODE);
         }
     }
 }
 ```
 
-#### 2. Enhanced Permission Result Handler (Line ~4268)
+#### 2. Permission Result Handler (Line ~4302)
 ```java
 @Override
 public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
@@ -49,14 +40,10 @@ public void onRequestPermissionsResult(int requestCode, @NonNull String[] permis
     else if (requestCode == NOTIFICATION_PERMISSION_REQUEST_CODE) {
         if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             // Permission granted - notifications will work!
-            Toast.makeText(this, "✅ You'll now receive emergency alerts", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Notification permission granted!", Toast.LENGTH_SHORT).show();
         } else {
-            // Permission denied - show settings dialog
-            new AlertDialog.Builder(this)
-                .setTitle("Notification Permission Denied")
-                .setMessage("You can enable notifications in Settings...")
-                .setPositiveButton("Open Settings", ...)
-                .show();
+            // Permission denied - simple toast message
+            Toast.makeText(this, "Notification permission denied. You may not receive emergency notifications.", Toast.LENGTH_LONG).show();
         }
     }
 }
@@ -263,4 +250,26 @@ Should show: Notifications ✅ Allowed
 **Next Step:** Uninstall app → Reinstall → Grant permission → Test notifications
 
 **Last Updated:** 2025-10-29
+
+---
+
+## UPDATE: Automatic Permission Request (Latest)
+
+### Unified Approach
+Both Senior and Rescuer apps now use **automatic permission request** without explanation dialogs:
+
+- **Senior:** Automatic request ✅
+- **Rescuer:** Now automatic request ✅ (updated to match Senior)
+
+### Changes Made
+- Removed explanation dialog before requesting permission
+- Simplified permission request to be automatic like Senior
+- Simplified permission denied message (removed settings dialog)
+
+### User Experience
+**First launch:** Android system permission dialog appears automatically  
+**Permission granted:** Simple success toast  
+**Permission denied:** Simple warning toast (no additional dialogs)
+
+**Update Date:** 2025-12-XX
 

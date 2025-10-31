@@ -50,20 +50,20 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:letterSpacing="0.05"
                             android:text="EMERGENCY ASSIGNMENT"
-                            android:textColor="@color/white"
+                            android:textColor="@color/black"
                             android:textSize="20sp"
-                            android:textStyle="bold"
-                            android:letterSpacing="0.05" />
+                            android:textStyle="bold" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Responding to emergency call"
-                            android:textColor="@color/white"
-                            android:textSize="14sp"
+                            android:layout_marginTop="2dp"
                             android:alpha="0.9"
-                            android:layout_marginTop="2dp" />
+                            android:text="Responding to emergency call"
+                            android:textColor="@color/black"
+                            android:textSize="14sp" />
 
                     </LinearLayout>
 

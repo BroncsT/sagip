@@ -4,11 +4,14 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.view.View;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -18,6 +21,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
@@ -239,6 +245,25 @@ public class RescuerDetailsActivity extends AppCompatActivity {
 
         // Set up click listeners
         btnCallRescuer.setOnClickListener(v -> callRescuer());
+        
+        // Set up window insets handling for titlehead
+        setupWindowInsets();
+    }
+    
+    private void setupWindowInsets() {
+        View titlehead = findViewById(R.id.titlehead);
+        if (titlehead != null) {
+            ViewCompat.setOnApplyWindowInsetsListener(titlehead, (v, insets) -> {
+                Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+                // Convert dp to pixels (16dp)
+                int extraPadding = (int) (16 * getResources().getDisplayMetrics().density);
+                v.setPadding(v.getPaddingLeft(), 
+                            systemBars.top + extraPadding,
+                            v.getPaddingRight(), 
+                            v.getPaddingBottom());
+                return insets;
+            });
+        }
     }
 
     private void loadEmergencyDetails() {

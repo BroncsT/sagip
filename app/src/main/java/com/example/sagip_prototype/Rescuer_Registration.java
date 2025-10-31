@@ -32,6 +32,8 @@ import java.util.concurrent.TimeUnit;
 import android.util.Log;
 
 public class Rescuer_Registration extends BaseRescuerActivity {
+    
+    private static final String TAG = "RescuerRegistration";
 
     FirebaseFirestore db;
     String userType = "rescuer";
@@ -142,7 +144,9 @@ public class Rescuer_Registration extends BaseRescuerActivity {
             @Override
             public void onVerificationFailed(@NonNull FirebaseException e) {
                 if (!isFinishing() && !isDestroyed()) {
-                    Toast.makeText(Rescuer_Registration.this, "Verification failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    Log.e(TAG, "Firebase verification failed: " + e.getMessage(), e);
+                    String errorMessage = "Verification failed. Please check your internet connection and try again.";
+                    Toast.makeText(Rescuer_Registration.this, errorMessage, Toast.LENGTH_LONG).show();
                 }
             }
 

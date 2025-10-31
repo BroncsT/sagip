@@ -349,7 +349,6 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
             }
         }});
 
-        // Pre-fill with current values
         nameEditText.setText(contact.getName());
         numberEditText.setText(contact.getNumber());
         addressEditText.setText(contact.getAddress());
@@ -412,13 +411,11 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
             Map<String, Object> contactMap = new HashMap<>();
 
             if (i == position) {
-                // Update this contact
                 contactMap.put("name", newName);
                 contactMap.put("number", newNumber);
                 contactMap.put("address", newAddress);
                 contactMap.put("relationship", newRelationship);
             } else {
-                // Keep existing contact data
                 contactMap.put("name", contact.getName());
                 contactMap.put("number", contact.getNumber());
                 contactMap.put("address", contact.getAddress());

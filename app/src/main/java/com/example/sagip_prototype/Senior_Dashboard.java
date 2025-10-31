@@ -397,8 +397,8 @@ public class Senior_Dashboard extends AppCompatActivity {
         );
         EmergencyQueueManager.getInstance(this).addEmergencyRequest(emergencyRequest);
         
-        // Show confirmation
-        showSOSConfirmationDialog(seniorName, phoneNumber, requestId);
+        // Show success toast (no popup needed - first dialog already confirmed)
+        Toast.makeText(this, "Emergency request sent! Help is on the way.", Toast.LENGTH_LONG).show();
     }
     
     /**
@@ -520,20 +520,6 @@ public class Senior_Dashboard extends AppCompatActivity {
         } else {
             Log.w(TAG, "⚠️ No location permission granted");
         }
-    }
-    
-    private void showSOSConfirmationDialog(String seniorName, String phoneNumber, String requestId) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle(getString(R.string.dialog_emergency_help_sent));
-        builder.setMessage(getString(R.string.dialog_emergency_help_sent_message));
-        
-        builder.setIcon(android.R.drawable.ic_dialog_alert);
-        builder.setPositiveButton(getString(R.string.button_ok), (dialog, which) -> {
-            dialog.dismiss();
-        });
-        
-        AlertDialog dialog = builder.create();
-        dialog.show();
     }
     
     private void sendEmergencyAlertToRescuers(String seniorName, String phoneNumber) {
@@ -1339,17 +1325,6 @@ public class Senior_Dashboard extends AppCompatActivity {
             });
         }
         
-        // Dismiss button
-        builder.setNegativeButton(getString(R.string.button_dismiss), (dialog, which) -> {
-            Log.d(TAG, "❌ User dismissed rescuer accepted popup");
-            
-            // Stop the emergency alert sound when senior clicks "Dismiss"
-            EmergencySOSBackgroundService.stopEmergencySound();
-            Log.d(TAG, "🔇 Emergency alert sound stopped when senior clicked 'Dismiss'");
-            
-            dialog.dismiss();
-        });
-        
         AlertDialog dialog = builder.create();
         dialog.setOnShowListener(dialogInterface -> {
             try {
@@ -1359,19 +1334,16 @@ public class Senior_Dashboard extends AppCompatActivity {
                     if (dialog.getButton(AlertDialog.BUTTON_NEUTRAL) != null) {
                         dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setTextColor(getResources().getColor(android.R.color.holo_blue_dark, null));
                     }
-                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.darker_gray, null));
                 } else {
                     dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark));
                     if (dialog.getButton(AlertDialog.BUTTON_NEUTRAL) != null) {
                         dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setTextColor(getResources().getColor(android.R.color.holo_blue_dark));
                     }
-                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.darker_gray));
                 }
                 dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextSize(16);
                 if (dialog.getButton(AlertDialog.BUTTON_NEUTRAL) != null) {
                     dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setTextSize(16);
                 }
-                dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextSize(16);
             } catch (Exception e) {
                 Log.e(TAG, "Error styling rescuer accepted popup buttons", e);
             }

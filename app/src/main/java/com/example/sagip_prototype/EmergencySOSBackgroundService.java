@@ -50,6 +50,9 @@ public class EmergencySOSBackgroundService extends Service {
     private static java.util.Set<Integer> activeNotificationIds = new java.util.HashSet<>();
     private static Context appContext = null;
     
+    // Track when listener starts to filter old notifications
+    private static long listenerStartTime = 0;
+    
     @Override
     public void onCreate() {
         super.onCreate();
@@ -379,22 +382,23 @@ public class EmergencySOSBackgroundService extends Service {
             emergencyListener = null;
         }
         
-        // NOTE: We don't mark notifications as read in the background service
-        // The dashboard already handles this when the app is opened
-        // Background service only runs when app is closed, so old notifications
-        // should already be filtered by the dashboard
+        // Set listener start time to filter out old notifications
+        // Only show emergencies that occur AFTER the service starts
+        listenerStartTime = System.currentTimeMillis();
         
         Log.d(TAG, "🚨 Starting emergency SOS listener for rescuer: " + userId);
         Log.d(TAG, "🚨 Listener path: Sagip/users/rescuer/" + userId + "/emergencyNotifications");
+        Log.d(TAG, "⏰ Listener start time (for filtering): " + listenerStartTime);
         isListening = true;
         
         // Listen for emergency SOS notifications in real-time
-        // REMOVED .limit(1) to process ALL unread notifications, not just the most recent
+        // CRITICAL: Only listen for notifications created AFTER service start time (REALTIME ONLY)
         emergencyListener = db.collection("Sagip")
           .document("users")
           .collection("rescuer")
           .document(userId)
           .collection("emergencyNotifications")
+          .whereGreaterThan("timestamp", listenerStartTime)  // Only get notifications created AFTER service start
           .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
           .addSnapshotListener((querySnapshot, error) -> {
               if (error != null) {
@@ -425,6 +429,7 @@ public class EmergencySOSBackgroundService extends Service {
               }
               
               if (querySnapshot != null && !querySnapshot.isEmpty()) {
+                  // Process all documents in snapshot (only new ones due to timestamp filter)
                   for (QueryDocumentSnapshot document : querySnapshot) {
                       Log.d(TAG, "🔍 [FIRESTORE_LISTENER] Processing document: " + document.getId());
                       handleEmergencySOSNotification(document);

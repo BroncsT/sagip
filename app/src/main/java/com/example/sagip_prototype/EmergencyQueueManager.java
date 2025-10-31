@@ -7,6 +7,7 @@ import android.util.Log;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestoreException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -820,14 +821,16 @@ public class EmergencyQueueManager {
                         String rescuerId = document.getId();
                         
                         // Check if rescuer is currently on an assignment
+                        // Only skip if explicitly set to true; treat null/false as available
                         Boolean onAssignment = document.getBoolean("onAssignment");
-                        if (onAssignment != null && onAssignment) {
+                        if (Boolean.TRUE.equals(onAssignment)) {
                             Log.d(TAG, "🚫 SKIPPING rescuer " + rescuerId + " - currently on assignment");
                             skippedCount++;
                             continue; // Skip this rescuer - they're busy with another emergency
                         }
                         
                         // Rescuer is available, send notification
+                        Log.d(TAG, "✅ Notifying rescuer " + rescuerId + " (onAssignment: " + onAssignment + ")");
                         sendEmergencyNotificationToRescuer(rescuerId, request);
                         notifiedCount++;
                     }
@@ -840,6 +843,13 @@ public class EmergencyQueueManager {
     }
     
     private void sendEmergencyNotificationToRescuer(String rescuerId, EmergencyRequest request) {
+        Log.d(TAG, "📤 [SEND_NOTIFICATION] Attempting to send notification to rescuer: " + rescuerId);
+        Log.d(TAG, "📤 [SEND_NOTIFICATION] Request ID: " + request.requestId);
+        Log.d(TAG, "📤 [SEND_NOTIFICATION] Senior: " + request.seniorName);
+        
+        String notificationPath = "Sagip/users/rescuer/" + rescuerId + "/emergencyNotifications";
+        Log.d(TAG, "📤 [SEND_NOTIFICATION] Notification path: " + notificationPath);
+        
         // First, check if a notification for this requestId already exists for this rescuer
         db.collection("Sagip/users/rescuer/" + rescuerId + "/emergencyNotifications")
                 .whereEqualTo("requestId", request.requestId)
@@ -854,6 +864,7 @@ public class EmergencyQueueManager {
                     
                     // No duplicate found, create new notification
                     Log.d(TAG, "✅ [DUPLICATE_PREVENTION] No existing notification found, creating new one for requestId: " + request.requestId);
+                    Log.d(TAG, "📤 [SEND_NOTIFICATION] Creating notification document...");
                     
                     Map<String, Object> notificationData = new java.util.HashMap<>();
                     notificationData.put("type", "EMERGENCY_SOS");
@@ -880,10 +891,17 @@ public class EmergencyQueueManager {
                     db.collection("Sagip/users/rescuer/" + rescuerId + "/emergencyNotifications")
                             .add(notificationData)
                             .addOnSuccessListener(documentReference -> {
-                                Log.d(TAG, "📤 Emergency notification sent to rescuer: " + rescuerId);
+                                Log.d(TAG, "✅ [SEND_NOTIFICATION] SUCCESS: Emergency notification sent to rescuer: " + rescuerId);
+                                Log.d(TAG, "✅ [SEND_NOTIFICATION] Notification document ID: " + documentReference.getId());
+                                Log.d(TAG, "✅ [SEND_NOTIFICATION] Notification path: " + notificationPath + "/" + documentReference.getId());
+                                Log.d(TAG, "✅ [SEND_NOTIFICATION] Request ID: " + request.requestId);
+                                Log.d(TAG, "✅ [SEND_NOTIFICATION] Senior: " + request.seniorName);
                             })
                             .addOnFailureListener(e -> {
-                                Log.e(TAG, "❌ Failed to send notification to rescuer " + rescuerId + ": " + e.getMessage());
+                                Log.e(TAG, "❌ [SEND_NOTIFICATION] FAILED to send notification to rescuer " + rescuerId + ": " + e.getMessage());
+                                Log.e(TAG, "❌ [SEND_NOTIFICATION] Error type: " + e.getClass().getSimpleName());
+                                Log.e(TAG, "❌ [SEND_NOTIFICATION] Notification path: " + notificationPath);
+                                Log.e(TAG, "❌ [SEND_NOTIFICATION] Request ID: " + request.requestId);
                             });
                 })
                 .addOnFailureListener(e -> {
@@ -1518,6 +1536,7 @@ public class EmergencyQueueManager {
      * This prevents duplicate notifications when a rescuer responds to an emergency
      * @deprecated Use updateAllRescuerNotificationsForAssignment instead for Option 2 approach
      */
+    @Deprecated
     private void removeEmergencyNotificationFromRescuer(String requestId, String rescuerId) {
         Log.d(TAG, "🗑️ [REMOVE_NOTIFICATION] Removing emergency notification from rescuer collection");
         Log.d(TAG, "🗑️ [REMOVE_NOTIFICATION] RequestId: " + requestId);
