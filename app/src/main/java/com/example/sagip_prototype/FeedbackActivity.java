@@ -13,6 +13,7 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -66,12 +67,11 @@ public class FeedbackActivity extends AppCompatActivity {
     private Spinner feedbackTypeSpinner;
     private EditText subjectEditText;
     private EditText messageEditText;
-    private Spinner prioritySpinner;
-    private CheckBox anonymousCheckBox;
     private CheckBox includeContactCheckBox;
     private EditText contactEmailEditText;
     private EditText contactPhoneEditText;
-    private ImageView attachmentImageView;
+    private View attachmentImageView;
+    private ImageView attachmentImage;
     private Button addAttachmentButton;
     private Button removeAttachmentButton;
     private Button submitButton;
@@ -82,11 +82,11 @@ public class FeedbackActivity extends AppCompatActivity {
 
     // Data
     private String selectedFeedbackType;
-    private String selectedPriority;
     private Uri attachmentUri;
     private String userType;
     private String userId;
     private String userName;
+    private String userEmail;
 
     // Activity result launchers
     private ActivityResultLauncher<Intent> galleryLauncher;
@@ -118,8 +118,6 @@ public class FeedbackActivity extends AppCompatActivity {
         feedbackTypeSpinner = findViewById(R.id.feedbackTypeSpinner);
         subjectEditText = findViewById(R.id.subjectEditText);
         messageEditText = findViewById(R.id.messageEditText);
-        prioritySpinner = findViewById(R.id.prioritySpinner);
-        anonymousCheckBox = findViewById(R.id.anonymousCheckBox);
         includeContactCheckBox = findViewById(R.id.includeContactCheckBox);
         contactEmailEditText = findViewById(R.id.contactEmailEditText);
         contactPhoneEditText = findViewById(R.id.contactPhoneEditText);
@@ -131,6 +129,11 @@ public class FeedbackActivity extends AppCompatActivity {
         characterCountText = findViewById(R.id.characterCountText);
         contactInfoLayout = findViewById(R.id.contactInfoLayout);
         myReportsFab = findViewById(R.id.myReportsFab);
+
+        // Get the actual ImageView inside the MaterialCardView
+        if (attachmentImageView != null) {
+            attachmentImage = (ImageView) ((ViewGroup) attachmentImageView).getChildAt(0);
+        }
 
         // Initially hide contact info and attachment
         contactInfoLayout.setVisibility(View.GONE);
@@ -151,20 +154,8 @@ public class FeedbackActivity extends AppCompatActivity {
         feedbackTypeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         feedbackTypeSpinner.setAdapter(feedbackTypeAdapter);
 
-        // Priority Spinner
-        String[] priorities = {
-                getString(R.string.feedback_priority_low),
-                getString(R.string.feedback_priority_medium),
-                getString(R.string.feedback_priority_high),
-                getString(R.string.feedback_priority_critical)
-        };
-        ArrayAdapter<String> priorityAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, priorities);
-        priorityAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        prioritySpinner.setAdapter(priorityAdapter);
-
-        // Set default selections
+        // Set default selection
         feedbackTypeSpinner.setSelection(0);
-        prioritySpinner.setSelection(1); // Medium priority by default
     }
 
     private void setupTextWatchers() {
@@ -211,6 +202,7 @@ public class FeedbackActivity extends AppCompatActivity {
             userId = currentUser.getUid();
             userType = sharedPreferences.getString("userType", "unknown");
             userName = sharedPreferences.getString("userName", "Unknown User");
+            userEmail = currentUser.getEmail();
         }
     }
 
@@ -224,18 +216,6 @@ public class FeedbackActivity extends AppCompatActivity {
             @Override
             public void onNothingSelected(AdapterView<?> parent) {
                 selectedFeedbackType = getString(R.string.feedback_type_general);
-            }
-        });
-
-        prioritySpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                selectedPriority = parent.getItemAtPosition(position).toString();
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
-                selectedPriority = getString(R.string.feedback_priority_medium);
             }
         });
 
@@ -272,11 +252,10 @@ public class FeedbackActivity extends AppCompatActivity {
 
 
     private void displayAttachment() {
-        if (attachmentUri != null) {
-            attachmentImageView.setImageURI(attachmentUri);
+        if (attachmentUri != null && attachmentImage != null) {
+            attachmentImage.setImageURI(attachmentUri);
             attachmentImageView.setVisibility(View.VISIBLE);
             removeAttachmentButton.setVisibility(View.VISIBLE);
-            addAttachmentButton.setText(getString(R.string.feedback_remove_attachment));
             Toast.makeText(this, getString(R.string.feedback_image_selected), Toast.LENGTH_SHORT).show();
         }
     }
@@ -347,19 +326,15 @@ public class FeedbackActivity extends AppCompatActivity {
         feedbackData.put("feedbackType", selectedFeedbackType);
         feedbackData.put("subject", subject);
         feedbackData.put("message", message);
-        feedbackData.put("priority", selectedPriority);
-        feedbackData.put("anonymous", anonymousCheckBox.isChecked());
         feedbackData.put("includeContact", includeContactCheckBox.isChecked());
         feedbackData.put("contactEmail", contactEmail);
         feedbackData.put("contactPhone", contactPhone);
         feedbackData.put("status", getString(R.string.feedback_status_pending));
         feedbackData.put("timestamp", new Date());
         feedbackData.put("userType", userType);
-        
-        if (!anonymousCheckBox.isChecked()) {
-            feedbackData.put("userId", userId);
-            feedbackData.put("userName", userName);
-        }
+        feedbackData.put("userId", userId);
+        feedbackData.put("userName", userName);
+        feedbackData.put("userEmail", userEmail);
 
         // Upload attachment if exists
         if (attachmentUri != null) {
@@ -442,8 +417,6 @@ public class FeedbackActivity extends AppCompatActivity {
         subjectEditText.setText("");
         messageEditText.setText("");
         feedbackTypeSpinner.setSelection(0);
-        prioritySpinner.setSelection(1);
-        anonymousCheckBox.setChecked(false);
         includeContactCheckBox.setChecked(false);
         contactEmailEditText.setText("");
         contactPhoneEditText.setText("");

@@ -506,6 +506,8 @@
                  <!-- OTP Page -->
      <string name="resend_otp_timer">I-resend ang OTP sa %1$d segundo</string>
      <string name="timer_finished">Tapos na ang timer</string>
+     <string name="didnt_receive_code">Hindi nakatanggap ng code?</string>
+     <string name="resend_otp">I-resend ang OTP</string>
 
      <!-- Hospital Status Edit -->
      <string name="please_fill_all_fields">Mangyaring punuin ang lahat ng fields</string>
@@ -698,9 +700,6 @@
     <string name="barangay_emergency_heads_up_time">⏰ %1$s</string>
     <string name="barangay_emergency_heads_up_priority">🔴 MATAAS NA PRIORIDAD - Kailangan ng agarang tugon</string>
     <string name="barangay_emergency_heads_up_action">I-tap para makita ang detalye ng emergency at tumugon agad</string>
-    <string name="barangay_emergency_action_call">TAWAGAN ANG SENIOR</string>
-    <string name="barangay_emergency_action_view">TINGNAN ANG DETALYE</string>
-    <string name="barangay_emergency_action_navigate">🗺️ MAG-NAVIGATE</string>
 
     <!-- Toast Messages -->
     <string name="toast_fill_all_fields">Punan ang lahat ng patlang</string>
@@ -961,7 +960,210 @@
     <string name="unable_to_open_dialer">Hindi mabuksan ang dialer. Mangyaring tumawag manually: %1$s</string>
     <string name="senior_phone_not_available">Hindi available ang numero ng telepono ng senior</string>
     <string name="location_info_not_available">Hindi available ang impormasyon ng lokasyon</string>
+    
+    <!-- Additional Hardcoded Strings Found - November 2025 -->
+    <!-- Map and Navigation -->
+    <string name="you_are_here">Nandito ka</string>
+    <string name="hospital_generic">Hospital</string>
+    <string name="no_hospitals_found_or_missing_locations">Walang nahanap na hospital o nawawalang lokasyon</string>
+    <string name="current_location_not_available_wait_for_update">Hindi available ang kasalukuyang lokasyon. Mangyaring maghintay ng location update.</string>
+    <string name="choose_how_to_navigate_hospital">Pumili kung paano ka mag-navigate sa hospital na ito:</string>
+    <string name="error_getting_route_information">Error sa pagkuha ng impormasyon ng ruta</string>
+    <string name="error_parsing_route_information">Error sa pag-parse ng impormasyon ng ruta</string>
+    <string name="error_getting_route">Error sa pagkuha ng ruta</string>
+    <string name="error_parsing_route_data">Error sa pag-parse ng data ng ruta</string>
+    <string name="no_active_route">Walang aktibong ruta</string>
+    <string name="route_to_hospital">🗺️ Ruta papunta sa %1$s</string>
+    <string name="show_route_on_map">🗺️ Ipakita ang Ruta sa Mapa</string>
+    <string name="open_google_maps">🚗 Buksan ang Google Maps</string>
+    <string name="center_on_hospital">📍 I-center sa Hospital</string>
+    <string name="route_info_only">ℹ️ Impormasyon ng Ruta Lamang</string>
+    <string name="getting_route_to">🗺️ Kinukuha ang ruta papunta sa %1$s</string>
+    <string name="centered_on">📍 Naka-center sa %1$s</string>
+    <string name="opening_google_maps_navigation_to">🚗 Binubuksan ang Google Maps navigation papunta sa %1$s</string>
+    <string name="opening_web_based_navigation_to">🌐 Binubuksan ang web-based navigation papunta sa %1$s</string>
+    <string name="route_information_title">📍 Impormasyon ng Ruta</string>
+    <string name="route_information_details">🏥 Hospital: %1$s\n\n🗺️ Distansya: %2$s\n⏱️ Tagal: %3$s\n\nGusto mo bang ipakita ang ruta sa mapa?</string>
+    <string name="show_route_button">Ipakita ang Ruta</string>
+    <string name="close_button">Isara</string>
+    <string name="route_will_be_displayed">🗺️ Ipapakita ang ruta sa mapa</string>
+    <string name="route_distance_duration">📍 Ruta: %1$s • ⏱️ %2$s</string>
+    <string name="route_cleared">🗺️ Na-clear ang ruta</string>
+    <string name="how_to_navigate_emergency">Paano mo gustong mag-navigate sa lokasyon ng emergency?</string>
+    
+    <!-- Emergency and Notifications -->
+    <string name="enable_emergency_notifications_title">🚨 I-enable ang Mga Emergency Notification</string>
+    <string name="enable_emergency_notifications_message">Ang mga emergency notification ay kasalukuyang naka-disable o nakatakda sa mababang prioridad.\n\nPara masiguro na mabilis kang makakatugon sa mga emergency, kailangan mong i-enable ang mga notification.\n\nKung walang mga notification:\n• Hindi mo maririnig ang mga emergency alert\n• Maaari mong ma-miss ang mga kritikal na SOS call\n• Mas mabagal ang response time</string>
+    <string name="enable_notifications_button">I-enable ang Mga Notification</string>
+    <string name="later_button">Mamaya</string>
+    <string name="please_enable_notifications_in_settings">Mangyaring i-enable ang mga notification sa Settings → Apps → SAGIP → Notifications</string>
+    <string name="wont_receive_emergency_alerts">⚠️ Hindi ka makakatanggap ng mga emergency alert hanggang ma-enable ang mga notification</string>
+    <string name="emergency_accepted_notification_cleared">🚑 Tinanggap ang emergency - na-clear ang notification</string>
+    <string name="emergency_already_assigned_title">ℹ️ May Naka-assign na sa Emergency</string>
+    <string name="another_rescuer_responded">May ibang rescuer na ang tumugon sa emergency na ito</string>
+    <string name="ok_button">OK</string>
+    <string name="error_checking_emergency_status">Error sa pagsuri ng emergency status. Mangyaring subukan muli.</string>
+    <string name="cannot_send_emergency_barangay_missing">Hindi mapadala ang emergency alert: Kulang ang impormasyon ng barangay. Mangyaring i-update ang iyong profile.</string>
+    <string name="emergency_request_sent_message">Naipadala ang emergency request! Papunta na ang tulong.</string>
+    <string name="multiple_emergencies_detected_title">🚨 MARAMING EMERGENCY ANG NAKITA</string>
+    <string name="emergency_queue_active">📋 Emergency Queue (%1$d aktibo)</string>
+    <string name="emergency_not_found_in_queue">⚠️ Hindi nahanap ang emergency sa queue</string>
+    <string name="emergency_not_found_in_database">⚠️ Hindi nahanap ang emergency sa database</string>
+    <string name="connection_error_title">Error sa Koneksyon</string>
+    
+    <!-- SMS and Permissions -->
+    <string name="sms_permission_required_title">📱 Kailangan ang SMS Permission</string>
+    <string name="sms_permission_required_message">Kailangan ng app na ito ng SMS permission para magpadala ng emergency notification sa mga emergency contact ng mga senior kapag tumugon ka sa mga SOS call.\n\nMahalaga ito para sa:\n• Pag-notify sa mga miyembro ng pamilya\n• Mas mabilis na emergency response\n• Mas magandang koordinasyon</string>
+    <string name="grant_permission_button">Bigyan ng Permission</string>
+    <string name="decline_button">Tanggihan</string>
+    <string name="sms_permission_declined">Tinanggihan ang SMS permission. Hindi mabibigyan ng abiso ang mga emergency contact.</string>
+    <string name="test_sms_functionality_title">🧪 I-test ang SMS Functionality</string>
+    <string name="test_sms_functionality_message">Nabigyan ng SMS permission. Gusto mo bang i-test ang pagpapadala ng SMS?\n\nMagpapadala ito ng test SMS para i-verify na gumagana ang system.</string>
+    <string name="test_sms_sent">Naipadala ang test SMS! Tingnan ang mga log para sa mga detalye.</string>
+    <string name="sms_permission_not_granted">Hindi nabigyan ng SMS permission. Mangyaring magbigay ng permission muna.</string>
+    <string name="no_user_logged_in">Walang naka-log in na user</string>
+    <string name="emergency_sms_flow_test_initiated">Nasimulan ang emergency SMS flow test - tingnan ang mga log para sa mga detalye</string>
+    <string name="test_notifications_disabled">Naka-disable ang mga test notification para sa production</string>
+    <string name="not_a_rescuer_user">❌ Hindi rescuer user</string>
+    <string name="test_notification_created">✅ Nalikha ang test notification!</string>
+    <string name="failed_to_create_test_notification">❌ Nabigo ang paglikha ng test notification</string>
+    <string name="notification_permission_granted">Nabigyan ng notification permission!</string>
+    <string name="notification_permission_denied_wont_receive">Tinanggihan ang notification permission. Maaari hindi ka makatanggap ng mga emergency notification.</string>
+    <string name="sms_permission_granted_contacts_notified">Nabigyan ng SMS permission! Mabibigyan ng abiso ang mga emergency contact.</string>
+    <string name="sms_permission_denied_contacts_not_notified">Tinanggihan ang SMS permission. Hindi mabibigyan ng abiso ang mga emergency contact.</string>
+    
+    <!-- Authentication and Login -->
+    <string name="email_verification_required_title">Kailangan ang Email Verification</string>
+    <string name="email_verification_required_message">Kailangan mong i-verify ang iyong email address bago ka maka-access sa iyong account. Naipadala na ang verification email sa %1$s. Mangyaring tingnan ang iyong email at i-click ang verification link, pagkatapos ay subukang mag-login muli.</string>
+    <string name="error_checking_user_status">Error sa pagsuri ng user status</string>
+    <string name="senior_account_pending_approval_title">Naghihintay ng Pag-apruba ang Senior Citizen Account</string>
+    <string name="senior_account_pending_approval_message">Ang iyong Senior Citizen account ay nakarehist ro na ngunit naghihintay ng administrator approval. Hindi ka maaaring mag-access ng app hanggang ma-approve ang iyong account. Mangyaring makipag-ugnayan sa isang administrator o subukan muli mamaya.</string>
+    <string name="error_checking_registration_status">Error sa pagsuri ng registration status</string>
+    <string name="otp_verification_failed_title">Nabigo ang OTP Verification</string>
+    <string name="error_copied_to_clipboard">Kinopya ang error sa clipboard</string>
+    <string name="error_finding_user_profile_login_again">Error sa paghanap ng user profile. Mangyaring mag-login muli.</string>
+    <string name="user_not_authenticated_short">Hindi naka-authenticate ang user</string>
+    <string name="verification_process">Proseso ng Verification</string>
+    <string name="step_2_of_4">Hakbang 2 ng 4</string>
+    <string name="account_registration">Pagpaparehistro ng Account</string>
+    <string name="enter_verification_code">Ilagay ang Verification Code</string>
+    
+    <!-- Profile and Logout -->
+    <string name="logout_confirmation_message">Sigurado ka bang gusto mong mag-log out?</string>
+    <string name="logout_confirmation_message_alt">Sigurado ka bang gusto mong mag-logout?</string>
+    
+    <!-- Email Change -->
+    <string name="verify_email_change_title">I-verify ang Pagbabago ng Email</string>
+    <string name="verify_email_change_message">Ang pagbabago ng iyong email ay nangangailangan ng verification. Ma-log out ka at kailangan mong i-verify ang iyong bagong email bago ka muling maka-log in. Magpatuloy?</string>
+    <string name="email_updated_title">Na-update ang Email</string>
+    <string name="email_updated_message">Na-update na ang iyong email sa %1$s. Naipadala na ang verification email. Mangyaring i-verify ang iyong email para magamit ito sa pag-login.\n\nMa-log out ka na ngayon.</string>
+    
+    <!-- Navigation Details -->
+    <string name="arrived_at_destination_title">🏁 Nakarating na sa Destinasyon</string>
+    <string name="arrived_at_destination_message">Nakarating ka na sa emergency location. Gamitin ang \'Mark as Arrived\' button sa ibaba para kumpirmahin ang iyong pagdating.</string>
+    <string name="mark_as_arrived_title">Markahan bilang Nakarating</string>
+    <string name="mark_as_arrived_question">Nakarating ka na ba sa emergency location?</string>
+    <string name="route_options_title">🗺️ Mga Opsyon ng Ruta</string>
+    <string name="choose_preferred_route">Pumili ng gusto mong ruta papunta sa emergency location:</string>
+    
+    <!-- Phone Update -->
+    <string name="phone_number_change_confirmation">Binabago mo ang iyong numero ng telepono mula %1$s papunta %2$s</string>
+    
+    <!-- Emergency Alerts -->
+    <string name="emergency_alert_barangay_title">🚨 EMERGENCY ALERT - %1$s</string>
+    
+    <!-- SOS Navigation -->
+    <string name="error_opening_sos_navigation">Error sa pagbukas ng SOS navigation: %1$s</string>
+    <string name="sos_navigation_from_current_location">🚨 SOS Navigation mula sa iyong kasalukuyang lokasyon</string>
+    
+    <!-- Missing strings from code replacements - November 2025 - Tagalog -->
+    <string name="failed_to_load_reports">Hindi ma-load ang mga report</string>
+    <string name="barangay_emergency_message_urgent">🚨 URGENT: Kailangan ng senior ng agarang tulong!</string>
+    <string name="not_provided">Hindi ibinigay</string>
+    <string name="location_label_colon">📍 Lokasyon:</string>
+    <string name="full_address_label_colon">🏠 Buong Address:</string>
+    <string name="barangay_label_colon">🏘️ Barangay:</string>
+    <string name="type_label_colon">🚨 Uri:</string>
+    <string name="emergency">Emergency</string>
+    <string name="please_respond_immediately">⚠️ Mangyaring tumugon kaagad!</string>
+    <string name="unknown_time">Hindi alam ang oras</string>
+    <string name="time_label_colon">⏰ Oras:</string>
+    <string name="please_fill_all_required_fields">Pakipunan ang lahat ng kinakailangang field</string>
+    <string name="failed_to_update_password_format">Hindi na-update ang password: %1$s</string>
+    <string name="starting_registration_process">Sinisimulan ang proseso ng rehistrasyon...</string>
+    <string name="data_saved_successfully">Na-save na ang data sa Firestore!</string>
+    <string name="user_type_not_found">Hindi nahanap ang uri ng user</string>
+    <string name="unknown_user_type">Hindi kilalang uri ng user</string>
+    <string name="error_loading_data_format">Error sa pag-load ng data: %1$s</string>
+    <string name="no_changes_to_save">Walang pagbabago na i-save</string>
+    <string name="error_saving_data">Error sa pag-save ng data</string>
+    <string name="failed_to_update_email_auth">Hindi na-update ang email sa authentication system. Ang email ay ma-update lang sa contact info.</string>
+    <string name="hospital_navigation_clicked">Pinindot ang hospital navigation button!</string>
+    <string name="test_hospital_data_loaded">Na-load ang test hospital data para sa debugging</string>
+    <string name="opening_navigation_to_format">Binubuksan ang navigation papunta sa %1$s</string>
+    <string name="hospital_location_not_available">Hindi available ang lokasyon ng hospital. Mangyaring makipag-ugnayan sa emergency services.</string>
+    <string name="opening_test_location">Binubuksan ang test location para sa debugging</string>
+    <string name="google_maps_not_available">Hindi available ang Google Maps</string>
+    <string name="no_hospital_location_data">Walang available na data ng lokasyon ng hospital</string>
+    <string name="opening_web_navigation_to_format">Binubuksan ang web navigation papunta sa %1$s</string>
+    <string name="unable_to_open_navigation_contact_services">Hindi mabuksan ang navigation. Mangyaring makipag-ugnayan sa emergency services.</string>
+    <string name="hospital_notified_format">Ang hospital na %1$s ay naabisuhan ng paparating na emergency</string>
+    <string name="failed_to_notify_hospital">Hindi naabisuhan ang hospital. Mangyaring makipag-ugnayan sa kanila direkta.</string>
+    <string name="hospital_not_found_in_system">Hindi nahanap ang hospital sa system. Mangyaring makipag-ugnayan sa kanila direkta.</string>
+    <string name="error_notifying_hospital">Error sa pag-abiso sa hospital. Mangyaring makipag-ugnayan sa kanila direkta.</string>
+    <string name="please_enter_valid_numbers_beds_doctors">Mangyaring maglagay ng valid na numero para sa mga kama at doktor</string>
+    <string name="failed_to_load_hospital_data_format">Hindi ma-load ang data ng hospital: %1$s</string>
+    <string name="available_beds_cannot_exceed_total_format">Ang available na kama (%1$d) ay hindi maaaring lumampas sa kabuuang nakarehistrong kama (%2$d)</string>
+    <string name="available_doctors_cannot_exceed_total_format">Ang available na doktor (%1$d) ay hindi maaaring lumampas sa kabuuang nakarehistrong doktor (%2$d)</string>
+    <string name="please_enter_otp">Mangyaring ilagay ang OTP</string>
+    <string name="resending_otp">Muling ipinapadala ang OTP...</string>
+    <string name="verification_failed_format">Nabigo ang verification: %1$s</string>
+    <string name="new_otp_sent_successfully">Matagumpay na naipadala ang bagong OTP</string>
+    <string name="error_checking_user_type_format">Error sa pagsuri ng uri ng user: %1$s</string>
+    <string name="error_no_emergency_id">Error: Walang ibinigay na emergency ID</string>
+    <string name="rescuer_phone_not_available">Hindi available ang numero ng telepono ng rescuer</string>
+    <string name="call_permission_denied">Tinanggihan ang call permission</string>
+    <string name="route_to_emergency_displayed">🗺️ Ipinakita ang ruta patungo sa emergency location</string>
+    <string name="location_not_available">Hindi available ang lokasyon</string>
+    <string name="turn_by_turn_navigation_started">🗺️ Nagsimula na ang turn-by-turn navigation! Ipinakita ang ruta sa mapa.</string>
+    <string name="navigation_stopped">Huminto ang navigation</string>
+    <string name="arrived_at_emergency_location">🏁 NAKARATING! Nasa emergency location ka na!</string>
+    <string name="no_phone_number_available">Walang available na numero ng telepono</string>
+    <string name="opening_web_based_navigation">🌐 Binubuksan ang web-based navigation</string>
+    <string name="mark_as_arrived_message">Nakarating ka na ba sa emergency location?</string>
+    <string name="error_updating_status">Error sa pag-update ng status</string>
+    <string name="marked_as_arrived">✅ Markado bilang nakarating na!</string>
+    <string name="automatically_marked_as_arrived">✅ Awtomatikong markado bilang nakarating na!</string>
+    <string name="route_options_message">Pumili ng gusto mong ruta papunta sa emergency location:</string>
+    <string name="fastest_route_selected">🚀 Pinili ang pinakamabilis na ruta</string>
+    <string name="shortest_route_selected">📏 Pinili ang pinakamaikling ruta</string>
+    <string name="route_avoiding_highways_selected">🚫 Pinili ang rutang umiiwas sa mga highway</string>
+    <string name="route_refreshed">🔄 Na-refresh ang ruta</string>
+    <string name="map_orientation_reset">Na-reset ang orientation ng mapa</string>
+    <string name="fill_all_required_fields">Punan ang lahat ng kinakailangang field</string>
+    <string name="verification_automatically_completed">Awtomatikong nakumpleto ang verification</string>
+    <string name="verification_code_sent">Naipadala ang verification code</string>
+    <string name="phone_verified">Na-verify ang telepono</string>
+    <string name="phone_verification_failed_format">Nabigo ang phone verification: %1$s</string>
+    <string name="id_is_accepted">Tinanggap ang ID</string>
+    <string name="language_changed_to_format">Binago ang wika sa: %1$s</string>
+    <string name="failed_to_load_contacts_format">Hindi ma-load ang mga contact: %1$s</string>
+    <string name="contact_deleted_successfully">Matagumpay na natanggal ang contact</string>
+    <string name="failed_to_delete_contact_format">Hindi matanggal ang contact: %1$s</string>
+    <string name="contact_updated_successfully">Matagumpay na na-update ang contact</string>
+    <string name="failed_to_update_contact_format">Hindi ma-update ang contact: %1$s</string>
+    <string name="phone_number_already_exists">Ang numero ng telepono ay umiiral na sa emergency contacts</string>
+    <string name="front_id_photo_captured">Matagumpay na nakuha ang front ID photo</string>
+    <string name="back_id_photo_captured">Matagumpay na nakuha ang back ID photo</string>
+    <string name="camera_permission_required_for_id">Kailangan ang camera permission para makuha ang ID photo</string>
+    <string name="front_id_photo_uploaded">Matagumpay na na-upload ang front ID photo</string>
+    <string name="back_id_photo_uploaded">Matagumpay na na-upload ang back ID photo</string>
+    <string name="image_upload_failed_format">Nabigo ang Pag-upload ng Image: %1$s</string>
+    <string name="barangay_emergency_action_call">📞 TAWAGAN ANG SENIOR</string>
+    <string name="barangay_emergency_action_navigate">🗺️ MAG-NAVIGATE</string>
+    <string name="barangay_emergency_action_view">👁️ TINGNAN ANG DETALYE</string>
 </resources>
+
 
 
 

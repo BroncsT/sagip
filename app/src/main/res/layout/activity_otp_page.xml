@@ -23,27 +23,29 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="5dp"
+            android:padding="@dimen/spacing_tiny"
             android:gravity="center_horizontal">
 
             <TextView
+                android:id="@+id/stepNumberText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="sans-serif-medium"
                 android:text="Step 1 of 4"
                 android:textColor="@color/black"
                 android:textStyle="bold"
-                android:textSize="18sp" />
+                android:textSize="@dimen/text_size_xlarge" />
 
             <TextView
+                android:id="@+id/stepTitleText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="sans-serif-medium"
-                android:layout_marginTop="5dp"
+                android:layout_marginTop="@dimen/spacing_tiny"
                 android:text="Verify your number"
                 android:textColor="@color/backgroundRed"
                 android:textStyle="bold"
-                android:textSize="18sp" />
+                android:textSize="@dimen/text_size_xlarge" />
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
@@ -52,7 +54,7 @@
         android:id="@+id/headerCard"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
+        android:layout_marginTop="@dimen/padding_large"
         app:cardCornerRadius="6dp"
         app:cardElevation="3dp"
         app:layout_constraintTop_toBottomOf="@id/stepView"
@@ -63,7 +65,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp"
+            android:padding="@dimen/padding_medium"
             android:gravity="center_horizontal">
 
         <LinearLayout
@@ -74,8 +76,8 @@
 
             <ImageView
                 android:id="@+id/minus_button"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="@dimen/icon_size_medium"
+                android:layout_height="@dimen/icon_size_medium"
                 android:src="@drawable/app_logo"/>
 
             <TextView
@@ -85,7 +87,7 @@
                 android:textStyle="bold"
                 android:text="@string/app_name"
                 android:textColor="#212529"
-                android:textSize="20sp" />
+                android:textSize="@dimen/text_size_xlarge" />
 
         </LinearLayout>
 
@@ -93,22 +95,22 @@
                 android:id="@+id/instructionText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
+                android:layout_marginTop="@dimen/spacing_small"
                 android:fontFamily="sans-serif"
                 android:text="@string/instruction_text_otp"
                 android:textAlignment="center"
                 android:textColor="#495057"
-                android:textSize="16sp" />
+                android:textSize="@dimen/text_size_large" />
 
             <TextView
                 android:id="@+id/mobilenumber"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="@dimen/padding_small"
                 android:fontFamily="sans-serif-medium"
                 android:text="@string/mobile_number"
                 android:textColor="@color/blue"
-                android:textSize="22sp" />
+                android:textSize="@dimen/text_size_xxlarge" />
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
@@ -116,11 +118,11 @@
         android:id="@+id/textCode"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Enter the verification code"
+        android:text="@string/enter_verification_code"
         android:textColor="@color/black"
-        android:textSize="16sp"
-        android:layout_marginBottom="12dp"
-        android:layout_marginTop="15dp"
+        android:textSize="@dimen/text_size_large"
+        android:layout_marginBottom="@dimen/spacing_medium"
+        android:layout_marginTop="@dimen/spacing_medium"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical1v2"
         app:layout_constraintEnd_toEndOf="@id/guidelineVertical2v2"
         app:layout_constraintTop_toBottomOf="@id/headerCard"/>
@@ -130,7 +132,7 @@
         android:id="@+id/otpCard"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
+        android:layout_marginTop="@dimen/spacing_small"
         app:cardCornerRadius="6dp"
         app:cardElevation="3dp"
         app:layout_constraintTop_toBottomOf="@id/textCode"
@@ -141,7 +143,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="@dimen/padding_medium">
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/otpInputLayout"
@@ -163,8 +165,8 @@
                     android:gravity="center"
                     android:inputType="number"
                     android:maxLength="6"
-                    android:padding="16dp"
-                    android:textSize="18sp" />
+                    android:padding="@dimen/padding_medium"
+                    android:textSize="@dimen/text_size_xlarge" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <!-- OTP Timer and Resend -->
@@ -172,18 +174,18 @@
                 android:id="@+id/timerTextView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="5dp"
+                android:layout_marginTop="@dimen/spacing_tiny"
                 android:gravity="center"
                 android:textAlignment="center"
                 android:text="Resend OTP in 01:00"
                 android:textColor="@color/secondaryRed"
-                android:textSize="14sp" />
+                android:textSize="@dimen/text_size_medium" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginTop="15dp"
+                android:layout_marginTop="@dimen/spacing_medium"
                 android:gravity="center_vertical">
 
                 <TextView
@@ -191,18 +193,18 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Didn't receive the code?"
+                    android:text="@string/didnt_receive_code"
                     android:textColor="#555555"
-                    android:textSize="14sp" />
+                    android:textSize="@dimen/text_size_medium" />
 
                 <TextView
                     android:id="@+id/resendOtpTextView"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:padding="8dp"
-                    android:text="Resend OTP"
+                    android:padding="@dimen/padding_small"
+                    android:text="@string/resend_otp"
                     android:textColor="@color/blue"
-                    android:textSize="14sp"
+                    android:textSize="@dimen/text_size_medium"
                     android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>
@@ -213,11 +215,11 @@
         android:id="@+id/verifyButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:paddingVertical="16dp"
+        android:layout_marginTop="@dimen/spacing_large"
+        android:paddingVertical="@dimen/padding_medium"
         android:text="@string/verify_button"
         android:textAllCaps="false"
-        android:textSize="16sp"
+        android:textSize="@dimen/text_size_large"
         android:textColor="@color/white"
         android:fontFamily="sans-serif-medium"
         app:cornerRadius="8dp"
@@ -231,13 +233,13 @@
         android:id="@+id/securityNote"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
-        android:drawablePadding="8dp"
+        android:layout_marginTop="@dimen/padding_large"
+        android:drawablePadding="@dimen/padding_small"
         android:fontFamily="sans-serif"
         android:gravity="center_vertical"
         android:text="@string/security_note"
         android:textColor="#6C757D"
-        android:textSize="12sp"
+        android:textSize="@dimen/text_size_small"
         app:drawableStartCompat="@drawable/ic_security"
         app:layout_constraintTop_toBottomOf="@id/verifyButton"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical1v2"

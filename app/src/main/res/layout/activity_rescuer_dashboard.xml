@@ -22,14 +22,14 @@
         app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1v2">
 
         <ImageView
-            android:layout_width="60dp"
-            android:layout_height="60dp"
+            android:layout_width="@dimen/profile_image_small"
+            android:layout_height="@dimen/profile_image_small"
             android:src="@drawable/ic_brgy"
             android:background="@drawable/circle_background"
             android:adjustViewBounds="true"
-            android:padding="10dp"
-            app:layout_constraintHeight_max="56dp"
-            app:layout_constraintWidth_max="56dp"
+            android:padding="@dimen/spacing_small"
+            app:layout_constraintHeight_max="@dimen/profile_image_small"
+            app:layout_constraintWidth_max="@dimen/profile_image_small"
             app:layout_constraintStart_toStartOf="@id/guidelineVertical1v2"
             app:layout_constraintBottom_toBottomOf="@id/guidelineHorizontal2"
             app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1"/>
@@ -46,7 +46,7 @@
                 android:layout_height="wrap_content"
                 android:text="Welcome back,"
                 android:textColor="@color/gray"
-                android:textSize="16sp"/>
+                android:textSize="@dimen/text_size_large"/>
 
             <TextView
                 android:id="@+id/barangayStaffName"
@@ -54,7 +54,7 @@
                 android:layout_height="wrap_content"
                 android:hint="Rescuer"
                 android:textColor="@color/black"
-                android:textSize="24sp"
+                android:textSize="@dimen/text_size_xxlarge"
                 android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>
@@ -71,10 +71,10 @@
         app:layout_constraintTop_toBottomOf="@id/greet">
 
         <ImageView
-            android:layout_width="30dp"
-            android:layout_height="30dp"
+            android:layout_width="@dimen/icon_size_medium"
+            android:layout_height="@dimen/icon_size_medium"
             android:src="@drawable/baseline_location_pin_24"
-            android:layout_marginEnd="12dp"
+            android:layout_marginEnd="@dimen/spacing_medium"
             app:tint="@color/backgroundRed" />
 
         <LinearLayout
@@ -88,7 +88,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/current_location"
                 android:textColor="@color/black"
-                android:textSize="16sp" />
+                android:textSize="@dimen/text_size_large" />
 
             <TextView
                 android:id="@+id/currentLocationValue"
@@ -96,9 +96,9 @@
                 android:layout_height="wrap_content"
                 android:text="Getting location..."
                 android:textColor="@color/info_blue"
-                android:textSize="20sp"
+                android:textSize="@dimen/text_size_xlarge"
                 android:textStyle="bold"
-                android:layout_marginTop="2dp" />
+                android:layout_marginTop="@dimen/spacing_tiny" />
 
         </LinearLayout>
     </LinearLayout>
@@ -191,8 +191,50 @@
                 android:id="@+id/rescuerMapContainer"
                 android:name="com.google.android.gms.maps.SupportMapFragment"
                 android:layout_width="match_parent"
-                android:layout_height="500dp"
-                android:layout_marginBottom="20dp" />
+                android:layout_height="@dimen/map_height_large"
+                android:layout_marginBottom="@dimen/margin_medium" />
+
+            <!-- Active SOS Alerts List -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/rounded_background"
+                android:padding="16dp"
+                android:layout_marginBottom="20dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🚨 Active SOS Alerts"
+                    android:textSize="@dimen/text_size_large"
+                    android:textStyle="bold"
+                    android:textColor="@color/primary_blue"
+                    android:layout_marginBottom="@dimen/padding_small"/>
+
+                <!-- Emergency List RecyclerView -->
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/sosEmergencyRecyclerView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:nestedScrollingEnabled="false"
+                    android:maxHeight="400dp"
+                    android:clipToPadding="false"
+                    android:paddingBottom="8dp"/>
+
+                <!-- No Emergencies Message -->
+                <TextView
+                    android:id="@+id/noSOSEmergenciesText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="No active SOS alerts at the moment"
+                    android:textSize="@dimen/text_size_medium"
+                    android:textColor="@color/gray"
+                    android:gravity="center"
+                    android:padding="16dp"
+                    android:visibility="gone"/>
+
+            </LinearLayout>
 
             <!-- Emergency Status Section -->
             <LinearLayout
@@ -207,16 +249,16 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/emergency_status"
-                    android:textSize="16sp"
+                    android:textSize="@dimen/text_size_large"
                     android:textStyle="bold"
                     android:textColor="@color/white"
-                    android:layout_marginBottom="8dp"/>
+                    android:layout_marginBottom="@dimen/padding_small"/>
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/ready_to_respond"
-                    android:textSize="14sp"
+                    android:textSize="@dimen/text_size_medium"
                     android:textColor="@color/white"
                     android:alpha="0.9"/>
 
@@ -224,10 +266,10 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/status_details"
-                    android:textSize="12sp"
+                    android:textSize="@dimen/text_size_small"
                     android:textColor="@color/white"
                     android:alpha="0.8"
-                    android:layout_marginTop="8dp"/>
+                    android:layout_marginTop="@dimen/padding_small"/>
 
             </LinearLayout>
 
@@ -252,18 +294,18 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/how_it_works"
-                    android:textSize="16sp"
+                    android:textSize="@dimen/text_size_large"
                     android:textStyle="bold"
                     android:textColor="@color/dark_blue"
-                    android:layout_marginBottom="12dp"/>
+                    android:layout_marginBottom="@dimen/spacing_medium"/>
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/rescuer_instructions"
-                    android:textSize="14sp"
+                    android:textSize="@dimen/text_size_medium"
                     android:textColor="@color/gray"
-                    android:lineSpacingExtra="4dp"/>
+                    android:lineSpacingExtra="@dimen/spacing_tiny"/>
 
             </LinearLayout>
 

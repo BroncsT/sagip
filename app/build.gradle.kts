@@ -7,6 +7,10 @@ plugins {
 android {
     namespace = "com.example.sagip_prototype"
     compileSdk = 35
+    
+    buildFeatures {
+        buildConfig = true
+    }
 
     defaultConfig {
         applicationId = "com.example.sagip_prototype"
@@ -71,6 +75,7 @@ dependencies {
     implementation(libs.firebase.messaging)
     implementation("com.google.firebase:firebase-appcheck:17.1.2")
     implementation("com.google.firebase:firebase-appcheck-playintegrity:17.1.2")
+    debugImplementation("com.google.firebase:firebase-appcheck-debug:17.1.2")
     implementation (libs.picasso)
     implementation(libs.material.v190)
     

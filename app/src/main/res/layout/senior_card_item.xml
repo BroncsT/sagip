@@ -4,9 +4,9 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginStart="8dp"
-    android:layout_marginEnd="8dp"
-    android:layout_marginBottom="12dp"
+    android:layout_marginStart="@dimen/padding_small"
+    android:layout_marginEnd="@dimen/padding_small"
+    android:layout_marginBottom="@dimen/spacing_medium"
     android:clickable="true"
     android:focusable="true"
     android:foreground="?android:attr/selectableItemBackground"
@@ -18,18 +18,18 @@
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="20dp">
+        android:padding="@dimen/padding_large">
 
         <!-- Profile Image with enhanced styling -->
         <ImageView
             android:id="@+id/seniorImgView"
-            android:layout_width="70dp"
-            android:layout_height="70dp"
-            android:layout_marginStart="4dp"
+            android:layout_width="@dimen/profile_image_medium"
+            android:layout_height="@dimen/profile_image_medium"
+            android:layout_marginStart="@dimen/spacing_tiny"
             android:adjustViewBounds="true"
             android:background="@drawable/profile_image_background"
             android:cropToPadding="true"
-            android:padding="3dp"
+            android:padding="@dimen/spacing_tiny"
             android:scaleType="centerCrop"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
@@ -40,7 +40,7 @@
             android:id="@+id/textContainer"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="20dp"
+            android:layout_marginStart="@dimen/margin_medium"
             android:orientation="vertical"
             app:layout_constraintBottom_toBottomOf="@id/seniorImgView"
             app:layout_constraintEnd_toStartOf="@id/actionContainer"
@@ -55,7 +55,7 @@
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:textColor="@color/black"
-                android:textSize="20sp"
+                android:textSize="@dimen/text_size_xlarge"
                 android:textStyle="bold"
                 android:fontFamily="sans-serif-medium"
                 tools:hint="Juan Dela Cruz" />
@@ -65,9 +65,9 @@
                 android:id="@+id/seniorAge"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="@dimen/spacing_small"
                 android:textColor="@color/gray"
-                android:textSize="15sp"
+                android:textSize="@dimen/text_size_medium"
                 android:fontFamily="sans-serif"
                 tools:hint="Age: 65 years old" />
 
@@ -76,11 +76,11 @@
                 android:id="@+id/seniorAddress"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
+                android:layout_marginTop="@dimen/spacing_tiny"
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:textColor="@color/gray"
-                android:textSize="14sp"
+                android:textSize="@dimen/text_size_medium"
                 android:fontFamily="sans-serif"
                 tools:hint="+63 961 011 3560" />
 
@@ -106,14 +106,14 @@
                 android:clickable="true"
                 android:focusable="true"
                 android:gravity="center"
-                android:minWidth="100dp"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp"
+                android:minWidth="@dimen/button_padding_horizontal"
+                android:paddingStart="@dimen/padding_medium"
+                android:paddingEnd="@dimen/padding_medium"
+                android:paddingTop="@dimen/padding_small"
+                android:paddingBottom="@dimen/padding_small"
                 android:text="View Profile"
                 android:textColor="@color/white"
-                android:textSize="13sp"
+                android:textSize="@dimen/text_size_medium"
                 android:textStyle="bold"
                 android:fontFamily="sans-serif-medium" />
 

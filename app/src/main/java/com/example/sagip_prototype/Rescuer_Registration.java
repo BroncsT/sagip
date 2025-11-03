@@ -84,7 +84,7 @@ public class Rescuer_Registration extends BaseRescuerActivity {
             String confirmPassword = confirmNewPassword.getText().toString().trim();
             
             if (groupname.isEmpty() || headquarters.isEmpty() || contact.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
-                Toast.makeText(Rescuer_Registration.this, "Fill all required fields", Toast.LENGTH_SHORT).show();
+                Toast.makeText(Rescuer_Registration.this, getString(R.string.fill_all_required_fields), Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -104,7 +104,7 @@ public class Rescuer_Registration extends BaseRescuerActivity {
 
             FirebaseUser user = mAuth.getCurrentUser();
             if (user == null) {
-                Toast.makeText(Rescuer_Registration.this, "User not authenticated", Toast.LENGTH_SHORT).show();
+                Toast.makeText(Rescuer_Registration.this, getString(R.string.user_not_authenticated), Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -122,7 +122,7 @@ public class Rescuer_Registration extends BaseRescuerActivity {
                                 saveUserDataToFirestore();
                             }
                         } else {
-                            Toast.makeText(Rescuer_Registration.this, "Failed to update password: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                            Toast.makeText(Rescuer_Registration.this, String.format(getString(R.string.failed_to_update_password_format), task.getException().getMessage()), Toast.LENGTH_SHORT).show();
                         }
                     }
                 });
@@ -136,7 +136,7 @@ public class Rescuer_Registration extends BaseRescuerActivity {
             @Override
             public void onVerificationCompleted(@NonNull PhoneAuthCredential credential) {
                 if (!isFinishing() && !isDestroyed()) {
-                    Toast.makeText(Rescuer_Registration.this, "Verification automatically completed", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(Rescuer_Registration.this, getString(R.string.verification_automatically_completed), Toast.LENGTH_SHORT).show();
                     linkPhoneWithCurrentUser(credential);
                 }
             }
@@ -156,7 +156,7 @@ public class Rescuer_Registration extends BaseRescuerActivity {
                 mResendToken = token;
 
                 if (!isFinishing() && !isDestroyed()) {
-                    Toast.makeText(Rescuer_Registration.this, "Verification code sent", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(Rescuer_Registration.this, getString(R.string.verification_code_sent), Toast.LENGTH_SHORT).show();
                     showVerificationCodeInputDialog();
                 }
             }
@@ -164,13 +164,15 @@ public class Rescuer_Registration extends BaseRescuerActivity {
     }
 
     private void verifyPhoneNumber(String phoneNumber) {
-        if (!phoneNumber.startsWith("+")) {
-            phoneNumber = "+63" + phoneNumber;
+        // Remove leading 0 if present and format as +63XXXXXXXXXX
+        String formattedNumber = phoneNumber.startsWith("0") ? phoneNumber.substring(1) : phoneNumber;
+        if (!formattedNumber.startsWith("+")) {
+            formattedNumber = "+63" + formattedNumber;
         }
 
         PhoneAuthOptions options =
                 PhoneAuthOptions.newBuilder(mAuth)
-                        .setPhoneNumber(phoneNumber)
+                        .setPhoneNumber(formattedNumber)
                         .setTimeout(60L, TimeUnit.SECONDS)
                         .setActivity(this)
                         .setCallbacks(mCallbacks)
@@ -220,10 +222,10 @@ public class Rescuer_Registration extends BaseRescuerActivity {
                     .addOnCompleteListener(this, task -> {
                         if (!isFinishing() && !isDestroyed()) {
                             if (task.isSuccessful()) {
-                                Toast.makeText(Rescuer_Registration.this, "Phone verified", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(Rescuer_Registration.this, getString(R.string.phone_verified), Toast.LENGTH_SHORT).show();
                                 saveUserDataToFirestore();
                             } else {
-                                Toast.makeText(Rescuer_Registration.this, "Phone verification failed: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                                Toast.makeText(Rescuer_Registration.this, String.format(getString(R.string.phone_verification_failed_format), task.getException().getMessage()), Toast.LENGTH_SHORT).show();
                             }
                         }
                     });
@@ -260,7 +262,7 @@ public class Rescuer_Registration extends BaseRescuerActivity {
         usrData.put("user-type", userType);
         usrData.put("status", "registered");
 
-        Toast.makeText(Rescuer_Registration.this, "Starting registration process...", Toast.LENGTH_SHORT).show();
+        Toast.makeText(Rescuer_Registration.this, getString(R.string.starting_registration_process), Toast.LENGTH_SHORT).show();
 
         // Step 1: Save to Firestore with admin-provided email first
         db.collection("Sagip")
@@ -271,7 +273,7 @@ public class Rescuer_Registration extends BaseRescuerActivity {
                 .addOnCompleteListener(task -> {
                     if (!isFinishing() && !isDestroyed()) {
                         if (task.isSuccessful()) {
-                            Toast.makeText(Rescuer_Registration.this, "Data saved to Firestore successfully!", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(Rescuer_Registration.this, getString(R.string.data_saved_successfully), Toast.LENGTH_SHORT).show();
                             
                             // Step 2: Admin-provided email is stored in Firestore only
                             // Firebase Auth email remains as phone number (already verified)

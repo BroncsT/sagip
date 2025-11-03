@@ -107,7 +107,7 @@ public class RescuerDetailsActivity extends AppCompatActivity {
         emergencyId = getIntent().getStringExtra("emergencyId");
         if (emergencyId == null) {
             Log.e(TAG, "No emergency ID provided");
-            Toast.makeText(this, "Error: No emergency ID provided", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.error_no_emergency_id), Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
@@ -826,7 +826,7 @@ public class RescuerDetailsActivity extends AppCompatActivity {
                 ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CALL_PHONE}, 1);
             }
         } else {
-            Toast.makeText(this, "Rescuer phone number not available", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.rescuer_phone_not_available), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -926,7 +926,7 @@ public class RescuerDetailsActivity extends AppCompatActivity {
                 callRescuer();
             }
         } else {
-            Toast.makeText(this, "Call permission denied", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.call_permission_denied), Toast.LENGTH_SHORT).show();
         }
     }
     

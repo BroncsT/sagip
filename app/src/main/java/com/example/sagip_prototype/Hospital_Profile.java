@@ -100,8 +100,8 @@ public class Hospital_Profile extends BaseProfileActivity {
 
     private void showLogoutConfirmationDialog() {
         new AlertDialog.Builder(this)
-                .setTitle("Logout")
-                .setMessage("Are you sure you want to logout?")
+                .setTitle(getString(R.string.logout))
+                .setMessage(getString(R.string.logout_confirmation_message_alt))
                 .setPositiveButton("Yes", (dialog, which) -> {
                     // User confirmed logout
                     Log.d("Hospital_Profile", "🚪 User logging out - stopping all background services");

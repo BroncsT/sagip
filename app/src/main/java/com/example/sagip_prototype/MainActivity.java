@@ -31,6 +31,7 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.PhoneAuthOptions;
 import com.google.firebase.appcheck.FirebaseAppCheck;
 import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory;
+import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory;
 import com.google.firebase.auth.PhoneAuthProvider;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
@@ -94,12 +95,36 @@ public class MainActivity extends AppCompatActivity {
         // Initialize Firebase App Check
         try {
             FirebaseAppCheck firebaseAppCheck = FirebaseAppCheck.getInstance();
-            firebaseAppCheck.installAppCheckProviderFactory(
-                PlayIntegrityAppCheckProviderFactory.getInstance()
-            );
-            Log.d(TAG, "Firebase App Check initialized successfully");
+            
+            // Use debug provider for debug builds, production provider for release builds
+            if (BuildConfig.DEBUG) {
+                firebaseAppCheck.installAppCheckProviderFactory(
+                    DebugAppCheckProviderFactory.getInstance()
+                );
+                Log.d(TAG, "Firebase App Check initialized with DEBUG provider");
+            } else {
+                // For release builds, use Play Integrity
+                // Note: This requires:
+                // 1. SHA-256 fingerprint added to Firebase Console
+                // 2. App Check API enabled in Google Cloud Console
+                // 3. App registered in Firebase App Check
+                try {
+                    firebaseAppCheck.installAppCheckProviderFactory(
+                        PlayIntegrityAppCheckProviderFactory.getInstance()
+                    );
+                    Log.d(TAG, "Firebase App Check initialized with Play Integrity provider");
+                } catch (Exception playIntegrityError) {
+                    Log.e(TAG, "Failed to initialize Play Integrity provider: " + playIntegrityError.getMessage());
+                    Log.w(TAG, "This usually means SHA-256 fingerprint is missing or App Check API is not enabled");
+                    Log.w(TAG, "See FIREBASE_APP_CHECK_SETUP.md for instructions");
+                }
+            }
         } catch (Exception e) {
-            Log.w(TAG, "Failed to initialize Firebase App Check: " + e.getMessage());
+            Log.e(TAG, "Failed to initialize Firebase App Check: " + e.getMessage());
+            Log.e(TAG, "This may cause OTP verification to fail. Please check:");
+            Log.e(TAG, "1. Firebase App Check API is enabled in Google Cloud Console");
+            Log.e(TAG, "2. SHA-256 fingerprint is added to Firebase Console");
+            Log.e(TAG, "3. See FIREBASE_APP_CHECK_SETUP.md for complete setup guide");
         }
 
         // Check if this is a logout action
@@ -764,8 +789,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void showEmailVerificationRequiredDialog(FirebaseUser user) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Email Verification Required");
-        builder.setMessage("Your email address needs to be verified before you can access your account. A verification email has been sent to " + user.getEmail() + ". Please check your email and click the verification link, then try logging in again.");
+        builder.setTitle(getString(R.string.email_verification_required_title));
+        builder.setMessage(String.format(getString(R.string.email_verification_required_message), user.getEmail()));
         builder.setIcon(android.R.drawable.ic_dialog_info);
 
         builder.setPositiveButton("Send Verification Email", new DialogInterface.OnClickListener() {
@@ -945,7 +970,7 @@ public class MainActivity extends AppCompatActivity {
                             }
                         } else {
                             Log.e(TAG, "Error checking user", task.getException());
-                            Toast.makeText(MainActivity.this, "Error checking user status", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(MainActivity.this, getString(R.string.error_checking_user_status), Toast.LENGTH_SHORT).show();
                         }
                     }
                 });
@@ -1164,7 +1189,7 @@ public class MainActivity extends AppCompatActivity {
                             }
                         } else {
                             Log.e(TAG, "Error checking user", task.getException());
-                            Toast.makeText(MainActivity.this, "Error checking registration status", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(MainActivity.this, getString(R.string.error_checking_registration_status), Toast.LENGTH_SHORT).show();
                         }
                     }
                 });
@@ -1172,8 +1197,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void showPendingApprovalMessage() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Senior Citizen Account Pending Approval")
-                .setMessage("Your Senior Citizen account is registered but pending administrator approval. You cannot access the app until your account is approved. Please contact an administrator or try again later.")
+        builder.setTitle(getString(R.string.senior_account_pending_approval_title))
+                .setMessage(getString(R.string.senior_account_pending_approval_message))
                 .setPositiveButton("OK", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
@@ -1203,7 +1228,47 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onVerificationFailed(com.google.firebase.FirebaseException e) {
                         Log.e(TAG, "OTP verification failed: " + e.getMessage());
-                        Toast.makeText(MainActivity.this, "Failed to send OTP: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        Log.e(TAG, "Error class: " + e.getClass().getSimpleName());
+                        Log.e(TAG, "Error cause: " + (e.getCause() != null ? e.getCause().getMessage() : "null"));
+                        
+                        String errorMessage = "Failed to send OTP";
+                        String detailedError = e.getMessage();
+                        
+                        // Check for specific error types
+                        if (detailedError != null) {
+                            if (detailedError.contains("missing a valid app identifier") || 
+                                detailedError.contains("Play Integrity") || 
+                                detailedError.contains("reCAPTCHA")) {
+                                errorMessage = "App verification failed. This may be due to:\n" +
+                                              "1. Missing SHA-256 fingerprint in Firebase Console\n" +
+                                              "2. Google Play Services issues\n" +
+                                              "3. Device compatibility\n\n" +
+                                              "Please contact support or try:\n" +
+                                              "- Update Google Play Services\n" +
+                                              "- Clear app data and try again";
+                                Log.e(TAG, "Play Integrity/App Check verification failed - device may need SHA-256 fingerprint added to Firebase Console");
+                            } else if (detailedError.contains("invalid phone number")) {
+                                errorMessage = "Invalid phone number format. Please enter a valid Philippine mobile number (09XXXXXXXXX)";
+                            } else if (detailedError.contains("network")) {
+                                errorMessage = "Network error. Please check your internet connection and try again";
+                            } else if (detailedError.contains("quota")) {
+                                errorMessage = "Too many requests. Please wait a few minutes and try again";
+                            }
+                        }
+                        
+                        // Show user-friendly error dialog instead of just Toast
+                        new AlertDialog.Builder(MainActivity.this)
+                                .setTitle("OTP Verification Failed")
+                                .setMessage(errorMessage + "\n\nTechnical details: " + detailedError)
+                                .setPositiveButton("OK", null)
+                                .setNeutralButton("Copy Error", (dialog, which) -> {
+                                    android.content.ClipboardManager clipboard = (android.content.ClipboardManager) 
+                                            getSystemService(Context.CLIPBOARD_SERVICE);
+                                    android.content.ClipData clip = android.content.ClipData.newPlainText("Error", detailedError);
+                                    clipboard.setPrimaryClip(clip);
+                                    Toast.makeText(MainActivity.this, getString(R.string.error_copied_to_clipboard), Toast.LENGTH_SHORT).show();
+                                })
+                                .show();
                     }
 
                     @Override
@@ -1434,7 +1499,7 @@ public class MainActivity extends AppCompatActivity {
         }
         
         // If all alternative searches fail, show error
-        Toast.makeText(MainActivity.this, "Error finding user profile. Please login again.", Toast.LENGTH_SHORT).show();
+        Toast.makeText(MainActivity.this, getString(R.string.error_finding_user_profile_login_again), Toast.LENGTH_SHORT).show();
         auth.signOut();
         clearStoredCredentials();
     }
@@ -1483,7 +1548,7 @@ public class MainActivity extends AppCompatActivity {
         }
         
         // If all UID searches fail, show error
-        Toast.makeText(MainActivity.this, "Error finding user profile. Please login again.", Toast.LENGTH_SHORT).show();
+        Toast.makeText(MainActivity.this, getString(R.string.error_finding_user_profile_login_again), Toast.LENGTH_SHORT).show();
         auth.signOut();
         clearStoredCredentials();
     }

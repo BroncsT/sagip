@@ -35,6 +35,10 @@ import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.GeoPoint;
 
+import com.example.sagip_prototype.ai.EmergencyRoomAI;
+import com.example.sagip_prototype.models.Emergency;
+import com.example.sagip_prototype.models.Hospital;
+
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -63,7 +67,14 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
     private String hospitalName, hospitalAddress;
     private long assignmentTime;
     private String emergencyId;
+    private String emergencyType;
+    private String emergencySeverity;
     
+    // AI System
+    private EmergencyRoomAI emergencyRoomAI;
+    private Emergency currentEmergency;
+    private double aiConfidenceScore;
+    private List<Hospital> alternativeHospitals;
     
     // Firebase
     private FirebaseFirestore db;
@@ -91,6 +102,10 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         db = FirebaseFirestore.getInstance();
         mAuth = FirebaseAuth.getInstance();
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+        
+        // Initialize AI System
+        emergencyRoomAI = new EmergencyRoomAI(db);
+        Log.d(TAG, "🤖 AI System initialized");
         
         // Get data from intent
         getIntentData();
@@ -151,12 +166,23 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
             emergencyId = intent.getStringExtra("emergency_id");
             Log.w(TAG, "request_id not found, using emergency_id: " + emergencyId);
         }
+        
+        // Get emergency type and severity for AI system
+        emergencyType = intent.getStringExtra("emergency_type");
+        emergencySeverity = intent.getStringExtra("severity");
+        if (emergencyType == null) emergencyType = "general";
+        if (emergencySeverity == null) emergencySeverity = "medium";
+        
         rescuerId = mAuth.getCurrentUser().getUid();
         
         Log.d(TAG, "Emergency assignment data: " + seniorName + " at " + locationAddress);
         Log.d(TAG, "Senior phone number: " + seniorPhone);
         Log.d(TAG, "Senior coordinates: " + seniorLat + ", " + seniorLng);
         Log.d(TAG, "Using emergencyId (request_id): " + emergencyId);
+        Log.d(TAG, "Emergency type: " + emergencyType + ", Severity: " + emergencySeverity);
+        
+        // Create Emergency object for AI system
+        createEmergencyObject();
         
         // Debug: Check all intent extras
         Bundle extras = intent.getExtras();
@@ -239,7 +265,7 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         if (btnNavigateHospital != null) {
             btnNavigateHospital.setOnClickListener(v -> {
                 Log.d(TAG, "🏥 Hospital navigation button clicked!");
-                Toast.makeText(this, "Hospital navigation button clicked!", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.hospital_navigation_clicked), Toast.LENGTH_SHORT).show();
                 navigateToHospital();
             });
             Log.d(TAG, "✅ Hospital navigation button listener set successfully");
@@ -317,38 +343,180 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                 });
     }
     
+    private void createEmergencyObject() {
+        currentEmergency = new Emergency();
+        currentEmergency.emergencyId = emergencyId;
+        currentEmergency.seniorName = seniorName;
+        currentEmergency.seniorPhone = seniorPhone;
+        currentEmergency.location = new GeoPoint(seniorLat, seniorLng);
+        currentEmergency.locationAddress = locationAddress;
+        currentEmergency.emergencyType = emergencyType;
+        currentEmergency.severity = emergencySeverity;
+        currentEmergency.timestamp = assignmentTime;
+        currentEmergency.rescuerId = rescuerId;
+        currentEmergency.status = "responded";
+        
+        Log.d(TAG, "🤖 Emergency object created for AI system");
+        Log.d(TAG, "   Type: " + emergencyType + ", Severity: " + emergencySeverity);
+    }
+    
     private void loadNearestHospital() {
-        Log.d(TAG, "🏥 Loading nearest hospital information...");
+        Log.d(TAG, "🏥 Loading nearest hospital using AI system...");
         Log.d(TAG, "📍 Senior location for hospital search: " + seniorLat + ", " + seniorLng);
         
-        // Query hospitals from database
-        db.collection("Sagip")
-                .document("users")
-                .collection("hospital")
-                .get()
-                .addOnSuccessListener(querySnapshot -> {
-                    Log.d(TAG, "📊 Hospital query result: " + querySnapshot.size() + " hospitals found");
-                    
-                    // Debug: Log all hospital documents
-                    for (DocumentSnapshot doc : querySnapshot) {
-                        Log.d(TAG, "🏥 Hospital document: " + doc.getId() + " | Data: " + doc.getData());
-                    }
-                    
-                    if (!querySnapshot.isEmpty()) {
-                        // Find the nearest hospital based on senior's location
-                        findNearestHospital(querySnapshot);
+        // Validate emergency object
+        if (currentEmergency == null || currentEmergency.location == null) {
+            Log.e(TAG, "❌ Emergency object not initialized properly");
+            setDefaultHospitalInfo();
+            return;
+        }
+        
+        // Get rescuer location first, then call AI
+        getCurrentLocationForAI();
+    }
+    
+    private void getCurrentLocationForAI() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "⚠️ Location permission not granted, using senior location as rescuer location");
+            rescuerLat = seniorLat;
+            rescuerLng = seniorLng;
+            callAIHospitalSelection();
+            return;
+        }
+        
+        fusedLocationClient.getLastLocation()
+                .addOnSuccessListener(location -> {
+                    if (location != null) {
+                        rescuerLat = location.getLatitude();
+                        rescuerLng = location.getLongitude();
+                        Log.d(TAG, "📍 Rescuer location: " + rescuerLat + ", " + rescuerLng);
                     } else {
-                        Log.w(TAG, "⚠️ No hospitals found in database");
-                        setDefaultHospitalInfo();
+                        Log.w(TAG, "⚠️ Rescuer location null, using senior location");
+                        rescuerLat = seniorLat;
+                        rescuerLng = seniorLng;
                     }
+                    callAIHospitalSelection();
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "❌ Error loading hospitals: " + e.getMessage());
-                    Log.e(TAG, "❌ Error details: " + e.toString());
-                    setDefaultHospitalInfo();
+                    Log.e(TAG, "❌ Failed to get rescuer location: " + e.getMessage());
+                    rescuerLat = seniorLat;
+                    rescuerLng = seniorLng;
+                    callAIHospitalSelection();
                 });
     }
     
+    private void callAIHospitalSelection() {
+        Log.d(TAG, "🤖 Calling AI system for hospital selection...");
+        Log.d(TAG, "   Emergency: " + emergencyType + " (" + emergencySeverity + ")");
+        Log.d(TAG, "   Senior: " + seniorLat + ", " + seniorLng);
+        Log.d(TAG, "   Rescuer: " + rescuerLat + ", " + rescuerLng);
+        
+        emergencyRoomAI.selectOptimalHospital(
+            currentEmergency,
+            rescuerLat,
+            rescuerLng,
+            new EmergencyRoomAI.HospitalSelectionCallback() {
+                @Override
+                public void onResult(EmergencyRoomAI.AIRecommendationResult result) {
+                    runOnUiThread(() -> handleAIResult(result));
+                }
+            }
+        );
+    }
+    
+    private void handleAIResult(EmergencyRoomAI.AIRecommendationResult result) {
+        if (result.recommendedHospital == null) {
+            Log.w(TAG, "⚠️ AI returned no hospital recommendation: " + result.message);
+            setDefaultHospitalInfo();
+            return;
+        }
+        
+        Hospital hospital = result.recommendedHospital;
+        aiConfidenceScore = result.confidenceScore;
+        alternativeHospitals = result.alternativeHospitals;
+        
+        Log.d(TAG, "🤖 AI RECOMMENDATION:");
+        Log.d(TAG, "   Hospital: " + hospital.name);
+        Log.d(TAG, "   Distance: " + String.format("%.2f km", hospital.distanceFromSenior));
+        Log.d(TAG, "   TOPSIS Score: " + String.format("%.2f%%", hospital.topsisScore * 100));
+        Log.d(TAG, "   ML Score: " + String.format("%.2f%%", hospital.mlScore * 100));
+        Log.d(TAG, "   Final Score: " + String.format("%.2f%%", hospital.finalScore * 100));
+        Log.d(TAG, "   Confidence: " + String.format("%.1f%%", aiConfidenceScore * 100));
+        Log.d(TAG, "   ER Status: " + hospital.operationalStatus);
+        
+        if (result.isLowConfidence()) {
+            Log.w(TAG, "⚠️ LOW CONFIDENCE - Manual verification recommended");
+        }
+        
+        if (alternativeHospitals != null && !alternativeHospitals.isEmpty()) {
+            Log.d(TAG, "📋 Alternative hospitals (" + alternativeHospitals.size() + "):");
+            for (int i = 0; i < alternativeHospitals.size(); i++) {
+                Hospital alt = alternativeHospitals.get(i);
+                Log.d(TAG, "   " + (i+1) + ". " + alt.name + " (" + String.format("%.2f km", alt.distanceFromSenior) + ")");
+            }
+        }
+        
+        // Display hospital info
+        displayAIHospitalInfo(hospital, result);
+    }
+    
+    private void displayAIHospitalInfo(Hospital hospital, EmergencyRoomAI.AIRecommendationResult result) {
+        hospitalName = hospital.name;
+        hospitalAddress = hospital.address;
+        hospitalLat = hospital.location.getLatitude();
+        hospitalLng = hospital.location.getLongitude();
+        
+        if (hospitalName != null) {
+            // Add AI confidence indicator to hospital name
+            String confidenceIndicator = "";
+            if (result.isHighConfidence()) {
+                confidenceIndicator = " ✓ (AI: High)";
+            } else if (result.isMediumConfidence()) {
+                confidenceIndicator = " ⚠ (AI: Medium)";
+            } else {
+                confidenceIndicator = " ⚠️ (AI: Low - Verify)";
+            }
+            
+            tvHospitalName.setText(hospitalName + confidenceIndicator);
+            Log.d(TAG, "✅ Hospital name set: " + hospitalName + confidenceIndicator);
+        }
+        
+        if (hospitalAddress != null) {
+            tvHospitalAddress.setText(hospitalAddress);
+            Log.d(TAG, "✅ Hospital address set: " + hospitalAddress);
+        }
+        
+        // Display distance with AI scores
+        String distanceText = String.format("%.2f km away\nTOPSIS: %.0f%% | ML: %.0f%% | Final: %.0f%%",
+            hospital.distanceFromSenior,
+            hospital.topsisScore * 100,
+            hospital.mlScore * 100,
+            hospital.finalScore * 100);
+        tvHospitalDistance.setText(distanceText);
+        Log.d(TAG, "✅ Hospital distance set: " + distanceText);
+        
+        // Update map with hospital marker
+        if (mMap != null && hospitalLat != 0.0 && hospitalLng != 0.0) {
+            LatLng hospitalLocation = new LatLng(hospitalLat, hospitalLng);
+            mMap.addMarker(new MarkerOptions()
+                    .position(hospitalLocation)
+                    .title(hospitalName)
+                    .snippet("AI Selected - Confidence: " + String.format("%.0f%%", aiConfidenceScore * 100)));
+            Log.d(TAG, "✅ Hospital marker added to map");
+        }
+        
+        // Show alternatives in a toast (could be enhanced with a dialog)
+        if (alternativeHospitals != null && !alternativeHospitals.isEmpty()) {
+            StringBuilder altText = new StringBuilder("Alternatives: ");
+            for (int i = 0; i < Math.min(2, alternativeHospitals.size()); i++) {
+                if (i > 0) altText.append(", ");
+                altText.append(alternativeHospitals.get(i).name);
+            }
+            Toast.makeText(this, altText.toString(), Toast.LENGTH_LONG).show();
+        }
+    }
+    
+    // OLD METHODS BELOW - KEPT FOR FALLBACK
     private void findNearestHospital(com.google.firebase.firestore.QuerySnapshot querySnapshot) {
         Log.d(TAG, "🤖 Using AI to determine optimal hospital...");
         Log.d(TAG, "📊 Senior location: " + seniorLat + ", " + seniorLng);
@@ -731,7 +899,7 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         btnNavigateHospital.setEnabled(true);
         
         Log.d(TAG, "✅ Test hospital data set: " + hospitalName + " at " + hospitalLat + ", " + hospitalLng);
-        Toast.makeText(this, "Test hospital data loaded for debugging", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, getString(R.string.test_hospital_data_loaded), Toast.LENGTH_SHORT).show();
     }
     
     private void addHospitalMarker() {
@@ -774,7 +942,7 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                 if (navIntent.resolveActivity(getPackageManager()) != null) {
                     startActivity(navIntent);
                     Log.d(TAG, "✅ Opened Google Maps navigation to hospital");
-                    Toast.makeText(this, "Opening navigation to " + hospitalName, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, String.format(getString(R.string.opening_navigation_to_format), hospitalName), Toast.LENGTH_SHORT).show();
                 } else {
                     // Fallback to web navigation
                     openWebNavigation();
@@ -788,7 +956,7 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
             openWebNavigation();
         } else {
             Log.w(TAG, "❌ No hospital location data available for navigation");
-            Toast.makeText(this, "Hospital location not available. Please contact emergency services.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, getString(R.string.hospital_location_not_available), Toast.LENGTH_LONG).show();
             
             // For debugging: try to open a test location
             Log.d(TAG, "🔧 Opening test location for debugging...");
@@ -798,9 +966,9 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                 testNavIntent.setPackage("com.google.android.apps.maps");
                 if (testNavIntent.resolveActivity(getPackageManager()) != null) {
                     startActivity(testNavIntent);
-                    Toast.makeText(this, "Opening test location for debugging", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, getString(R.string.opening_test_location), Toast.LENGTH_SHORT).show();
                 } else {
-                    Toast.makeText(this, "Google Maps not available", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, getString(R.string.google_maps_not_available), Toast.LENGTH_SHORT).show();
                 }
             } catch (Exception e) {
                 Log.e(TAG, "❌ Error opening test location: " + e.getMessage());
@@ -820,17 +988,17 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                 url = "https://www.google.com/maps/dir/?api=1&destination=" + 
                         Uri.encode(hospitalAddress) + "&travelmode=driving";
             } else {
-                Toast.makeText(this, "No hospital location data available", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.no_hospital_location_data), Toast.LENGTH_SHORT).show();
                 return;
             }
             
             Intent webNavIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
             startActivity(webNavIntent);
             Log.d(TAG, "✅ Opened web navigation to hospital");
-            Toast.makeText(this, "Opening web navigation to " + hospitalName, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, String.format(getString(R.string.opening_web_navigation_to_format), hospitalName), Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
             Log.e(TAG, "❌ Error opening web navigation: " + e.getMessage());
-            Toast.makeText(this, "Unable to open navigation. Please contact emergency services.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, getString(R.string.unable_to_open_navigation_contact_services), Toast.LENGTH_LONG).show();
         }
     }
     
@@ -1003,23 +1171,23 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                                     Log.d(TAG, "👨‍⚕️ Rescuer: " + alertData.get("rescuerName"));
                                     
                                     // Show success message to rescuer
-                                    Toast.makeText(this, "Hospital " + hospitalName + " has been notified of incoming emergency", Toast.LENGTH_LONG).show();
+                                    Toast.makeText(this, String.format(getString(R.string.hospital_notified_format), hospitalName), Toast.LENGTH_LONG).show();
                                     
                                     // Also send a push notification to hospital if they have FCM token
                                     sendPushNotificationToHospital(hospitalDoc, alertData);
                                 })
                                 .addOnFailureListener(e -> {
                                     Log.e(TAG, "❌ Failed to send hospital alert: " + e.getMessage());
-                                    Toast.makeText(this, "Failed to notify hospital. Please contact them directly.", Toast.LENGTH_LONG).show();
+                                    Toast.makeText(this, getString(R.string.failed_to_notify_hospital), Toast.LENGTH_LONG).show();
                                 });
                     } else {
                         Log.w(TAG, "⚠️ Hospital not found in database: " + hospitalName);
-                        Toast.makeText(this, "Hospital not found in system. Please contact them directly.", Toast.LENGTH_LONG).show();
+                        Toast.makeText(this, getString(R.string.hospital_not_found_in_system), Toast.LENGTH_LONG).show();
                     }
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "❌ Error finding hospital: " + e.getMessage());
-                    Toast.makeText(this, "Error notifying hospital. Please contact them directly.", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, getString(R.string.error_notifying_hospital), Toast.LENGTH_LONG).show();
                 });
     }
     
@@ -1158,7 +1326,7 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
             callIntent.setData(Uri.parse("tel:" + seniorPhone));
             startActivity(callIntent);
         } else {
-            Toast.makeText(this, "Senior phone number not available", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.senior_phone_not_available), Toast.LENGTH_SHORT).show();
         }
     }
     

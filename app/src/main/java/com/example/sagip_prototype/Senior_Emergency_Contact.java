@@ -87,7 +87,7 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
         String previousLanguage = sharedPreferences.getString("last_language", null);
         if (previousLanguage != null && !previousLanguage.equals(newLanguage)) {
             Log.d("Senior_Emergency_Contact", "Language changed from " + previousLanguage + " to " + newLanguage);
-            Toast.makeText(this, "Language changed to: " + newLanguage, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, String.format(getString(R.string.language_changed_to_format), newLanguage), Toast.LENGTH_SHORT).show();
         }
         
         // Store current language for next session
@@ -164,7 +164,7 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
         Log.d("Senior_Emergency_Contact", "Active delete dialog: " + (activeDeleteDialog != null ? "exists" : "null"));
         
         // Show a toast to confirm the method is being called
-        Toast.makeText(this, "Language change detected!", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, getString(R.string.toast_language_change_detected), Toast.LENGTH_SHORT).show();
         
         // Refresh active update dialog if it exists
         if (activeUpdateDialog != null && activeUpdateDialog.isShowing()) {
@@ -244,7 +244,7 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
                     }
                 })
                 .addOnFailureListener(e -> {
-                    Toast.makeText(this, "Failed to load contacts: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, String.format(getString(R.string.failed_to_load_contacts_format), e.getMessage()), Toast.LENGTH_SHORT).show();
                     Log.e("Senior_Emergency_Contact", "Failed to load emergency contacts", e);
                 });
     }
@@ -310,10 +310,10 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
                     // Update cache after successful deletion
                     cacheEmergencyContacts(emergencyContacts);
                     
-                    Toast.makeText(this, "Contact deleted successfully", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, getString(R.string.contact_deleted_successfully), Toast.LENGTH_SHORT).show();
                 })
                 .addOnFailureListener(e -> {
-                    Toast.makeText(this, "Failed to delete contact: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, String.format(getString(R.string.failed_to_delete_contact_format), e.getMessage()), Toast.LENGTH_SHORT).show();
                 });
     }
 
@@ -438,10 +438,10 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
                     // Update cache after successful update
                     cacheEmergencyContacts(emergencyContacts);
                     
-                    Toast.makeText(this, "Contact updated successfully", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, getString(R.string.contact_updated_successfully), Toast.LENGTH_SHORT).show();
                 })
                 .addOnFailureListener(e -> {
-                    Toast.makeText(this, "Failed to update contact: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, String.format(getString(R.string.failed_to_update_contact_format), e.getMessage()), Toast.LENGTH_SHORT).show();
                 });
     }
 
@@ -469,7 +469,7 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
         }
 
         if (isDuplicate) {
-            Toast.makeText(this, "Phone number already exists in emergency contacts", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.phone_number_already_exists), Toast.LENGTH_SHORT).show();
         } else {
             updateContactInFirestore(position, oldContact, newName, newNumber, newAddress, newRelationship);
         }
@@ -582,7 +582,7 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
             currentLanguage = newLanguage;
             
             // Show toast to confirm language change detection
-            Toast.makeText(this, "Language changed to: " + newLanguage, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, String.format(getString(R.string.language_changed_to_format), newLanguage), Toast.LENGTH_SHORT).show();
             
             // Refresh all UI elements
             refreshAllUIElements();

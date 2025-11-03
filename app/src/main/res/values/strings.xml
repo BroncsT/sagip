@@ -525,6 +525,8 @@
     <!-- OTP Page -->
     <string name="resend_otp_timer">Resend OTP in %1$d seconds</string>
     <string name="timer_finished">Timer finished</string>
+    <string name="didnt_receive_code">Didn\'t receive the code?</string>
+    <string name="resend_otp">Resend OTP</string>
 
     <!-- Hospital Status Edit -->
     <string name="please_fill_all_fields">Please fill in all fields</string>
@@ -730,9 +732,6 @@
     <string name="barangay_emergency_heads_up_time">⏰ %1$s</string>
     <string name="barangay_emergency_heads_up_priority">🔴 HIGH PRIORITY - Immediate response required</string>
     <string name="barangay_emergency_heads_up_action">Tap to view emergency details and respond immediately</string>
-    <string name="barangay_emergency_action_call">CALL SENIOR</string>
-    <string name="barangay_emergency_action_view">VIEW DETAILS</string>
-    <string name="barangay_emergency_action_navigate">🗺️ NAVIGATE</string>
 
     <!-- Toast Messages -->
     <string name="toast_fill_all_fields">Fill all fields</string>
@@ -1021,4 +1020,206 @@
     <string name="unable_to_open_dialer">Unable to open dialer. Please call manually: %1$s</string>
     <string name="senior_phone_not_available">Senior phone number not available</string>
     <string name="location_info_not_available">Location information not available</string>
+    
+    <!-- Additional Hardcoded Strings Found - November 2025 -->
+    <!-- Map and Navigation -->
+    <string name="you_are_here">You are here</string>
+    <string name="hospital_generic">Hospital</string>
+    <string name="no_hospitals_found_or_missing_locations">No hospitals found or missing locations</string>
+    <string name="current_location_not_available_wait_for_update">Current location not available. Please wait for location update.</string>
+    <string name="choose_how_to_navigate_hospital">Choose how you want to navigate to this hospital:</string>
+    <string name="error_getting_route_information">Error getting route information</string>
+    <string name="error_parsing_route_information">Error parsing route information</string>
+    <string name="error_getting_route">Error getting route</string>
+    <string name="error_parsing_route_data">Error parsing route data</string>
+    <string name="no_active_route">No active route</string>
+    <string name="route_to_hospital">🗺️ Route to %1$s</string>
+    <string name="show_route_on_map">🗺️ Show Route on Map</string>
+    <string name="open_google_maps">🚗 Open Google Maps</string>
+    <string name="center_on_hospital">📍 Center on Hospital</string>
+    <string name="route_info_only">ℹ️ Route Info Only</string>
+    <string name="getting_route_to">🗺️ Getting route to %1$s</string>
+    <string name="centered_on">📍 Centered on %1$s</string>
+    <string name="opening_google_maps_navigation_to">🚗 Opening Google Maps navigation to %1$s</string>
+    <string name="opening_web_based_navigation_to">🌐 Opening web-based navigation to %1$s</string>
+    <string name="route_information_title">📍 Route Information</string>
+    <string name="route_information_details">🏥 Hospital: %1$s\n\n🗺️ Distance: %2$s\n⏱️ Duration: %3$s\n\nWould you like to show the route on the map?</string>
+    <string name="show_route_button">Show Route</string>
+    <string name="close_button">Close</string>
+    <string name="route_will_be_displayed">🗺️ Route will be displayed on map</string>
+    <string name="route_distance_duration">📍 Route: %1$s • ⏱️ %2$s</string>
+    <string name="route_cleared">🗺️ Route cleared</string>
+    <string name="how_to_navigate_emergency">How would you like to navigate to the emergency location?</string>
+    
+    <!-- Emergency and Notifications -->
+    <string name="enable_emergency_notifications_title">🚨 Enable Emergency Notifications</string>
+    <string name="enable_emergency_notifications_message">Emergency notifications are currently disabled or set to low priority.\n\nTo ensure you can respond quickly to emergencies, you need to enable notifications.\n\nWithout notifications:\n• You won\'t hear emergency alerts\n• You might miss critical SOS calls\n• Response time will be slower</string>
+    <string name="enable_notifications_button">Enable Notifications</string>
+    <string name="later_button">Later</string>
+    <string name="please_enable_notifications_in_settings">Please enable notifications in Settings → Apps → SAGIP → Notifications</string>
+    <string name="wont_receive_emergency_alerts">⚠️ You won\'t receive emergency alerts until notifications are enabled</string>
+    <string name="emergency_accepted_notification_cleared">🚑 Emergency accepted - notification cleared</string>
+    <string name="emergency_already_assigned_title">ℹ️ Emergency Already Assigned</string>
+    <string name="another_rescuer_responded">Another rescuer has already responded to this emergency</string>
+    <string name="ok_button">OK</string>
+    <string name="error_checking_emergency_status">Error checking emergency status. Please try again.</string>
+    <string name="cannot_send_emergency_barangay_missing">Cannot send emergency alert: Barangay information is missing. Please update your profile.</string>
+    <string name="emergency_request_sent_message">Emergency request sent! Help is on the way.</string>
+    <string name="multiple_emergencies_detected_title">🚨 MULTIPLE EMERGENCIES DETECTED</string>
+    <string name="emergency_queue_active">📋 Emergency Queue (%1$d active)</string>
+    <string name="emergency_not_found_in_queue">⚠️ Emergency not found in queue</string>
+    <string name="emergency_not_found_in_database">⚠️ Emergency not found in database</string>
+    <string name="connection_error_title">Connection Error</string>
+    
+    <!-- SMS and Permissions -->
+    <string name="sms_permission_required_title">📱 SMS Permission Required</string>
+    <string name="sms_permission_required_message">This app needs SMS permission to send emergency notifications to seniors\' emergency contacts when you respond to SOS calls.\n\nThis is important for:\n• Notifying family members\n• Faster emergency response\n• Better coordination</string>
+    <string name="grant_permission_button">Grant Permission</string>
+    <string name="decline_button">Decline</string>
+    <string name="sms_permission_declined">SMS permission declined. Emergency contacts will not be notified.</string>
+    <string name="test_sms_functionality_title">🧪 Test SMS Functionality</string>
+    <string name="test_sms_functionality_message">SMS permission is granted. Would you like to test SMS sending?\n\nThis will send a test SMS to verify the system is working correctly.</string>
+    <string name="test_sms_sent">Test SMS sent! Check the logs for details.</string>
+    <string name="sms_permission_not_granted">SMS permission not granted. Please grant permission first.</string>
+    <string name="no_user_logged_in">No user logged in</string>
+    <string name="emergency_sms_flow_test_initiated">Emergency SMS flow test initiated - check logs for details</string>
+    <string name="test_notifications_disabled">Test notifications disabled for production</string>
+    <string name="not_a_rescuer_user">❌ Not a rescuer user</string>
+    <string name="test_notification_created">✅ Test notification created!</string>
+    <string name="failed_to_create_test_notification">❌ Failed to create test notification</string>
+    <string name="notification_permission_granted">Notification permission granted!</string>
+    <string name="notification_permission_denied_wont_receive">Notification permission denied. You may not receive emergency notifications.</string>
+    <string name="sms_permission_granted_contacts_notified">SMS permission granted! Emergency contacts will be notified.</string>
+    <string name="sms_permission_denied_contacts_not_notified">SMS permission denied. Emergency contacts will not be notified.</string>
+    
+    <!-- Authentication and Login -->
+    <string name="email_verification_required_title">Email Verification Required</string>
+    <string name="email_verification_required_message">Your email address needs to be verified before you can access your account. A verification email has been sent to %1$s. Please check your email and click the verification link, then try logging in again.</string>
+    <string name="error_checking_user_status">Error checking user status</string>
+    <string name="senior_account_pending_approval_title">Senior Citizen Account Pending Approval</string>
+    <string name="senior_account_pending_approval_message">Your Senior Citizen account is registered but pending administrator approval. You cannot access the app until your account is approved. Please contact an administrator or try again later.</string>
+    <string name="error_checking_registration_status">Error checking registration status</string>
+    <string name="otp_verification_failed_title">OTP Verification Failed</string>
+    <string name="error_copied_to_clipboard">Error copied to clipboard</string>
+    <string name="error_finding_user_profile_login_again">Error finding user profile. Please login again.</string>
+    <string name="user_not_authenticated_short">User not authenticated</string>
+    <string name="verification_process">Verification Process</string>
+    <string name="step_2_of_4">Step 2 of 4</string>
+    <string name="account_registration">Account Registration</string>
+    <string name="enter_verification_code">Enter Verification Code</string>
+    
+    <!-- Profile and Logout -->
+    <string name="logout_confirmation_message">Are you sure you want to log out?</string>
+    <string name="logout_confirmation_message_alt">Are you sure you want to logout?</string>
+    
+    <!-- Email Change -->
+    <string name="verify_email_change_title">Verify Email Change</string>
+    <string name="verify_email_change_message">Changing your email requires verification. You will be logged out and need to verify your new email before logging in again. Continue?</string>
+    <string name="email_updated_title">Email Updated</string>
+    <string name="email_updated_message">Your email has been updated to %1$s. A verification email has been sent. Please verify your email to use it for login.\n\nYou will be logged out now.</string>
+    
+    <!-- Navigation Details -->
+    <string name="arrived_at_destination_title">🏁 Arrived at Destination</string>
+    <string name="arrived_at_destination_message">You have arrived at the emergency location. Use the \'Mark as Arrived\' button below to confirm your arrival.</string>
+    <string name="mark_as_arrived_title">Mark as Arrived</string>
+    <string name="mark_as_arrived_question">Have you arrived at the emergency location?</string>
+    <string name="route_options_title">🗺️ Route Options</string>
+    <string name="choose_preferred_route">Choose your preferred route to the emergency location:</string>
+    
+    <!-- Phone Update -->
+    <string name="phone_number_change_confirmation">You are changing your phone number from %1$s to %2$s</string>
+    
+    <!-- Emergency Alerts -->
+    <string name="emergency_alert_barangay_title">🚨 EMERGENCY ALERT - %1$s</string>
+    
+    <!-- SOS Navigation -->
+    <string name="error_opening_sos_navigation">Error opening SOS navigation: %1$s</string>
+    <string name="sos_navigation_from_current_location">🚨 SOS Navigation from your current location</string>
+    
+    <!-- Missing strings from code replacements - November 2025 -->
+    <string name="failed_to_load_reports">Failed to load reports</string>
+    <string name="barangay_emergency_message_urgent">🚨 URGENT: Senior needs immediate assistance!</string>
+    <string name="not_provided">Not provided</string>
+    <string name="location_label_colon">📍 Location:</string>
+    <string name="full_address_label_colon">🏠 Full Address:</string>
+    <string name="barangay_label_colon">🏘️ Barangay:</string>
+    <string name="type_label_colon">🚨 Type:</string>
+    <string name="emergency">Emergency</string>
+    <string name="please_respond_immediately">⚠️ Please respond immediately!</string>
+    <string name="unknown_time">Unknown time</string>
+    <string name="time_label_colon">⏰ Time:</string>
+    <string name="please_fill_all_required_fields">Please fill in all required fields</string>
+    <string name="failed_to_update_password_format">Failed to update password: %1$s</string>
+    <string name="starting_registration_process">Starting registration process...</string>
+    <string name="data_saved_successfully">Data saved to Firestore successfully!</string>
+    <string name="user_type_not_found">User type not found</string>
+    <string name="unknown_user_type">Unknown user type</string>
+    <string name="error_loading_data_format">Error loading data: %1$s</string>
+    <string name="no_changes_to_save">No changes to save</string>
+    <string name="error_saving_data">Error saving data</string>
+    <string name="failed_to_update_email_auth">Failed to update email in authentication system. Email will only be updated in contact info.</string>
+    <string name="hospital_navigation_clicked">Hospital navigation button clicked!</string>
+    <string name="test_hospital_data_loaded">Test hospital data loaded for debugging</string>
+    <string name="opening_navigation_to_format">Opening navigation to %1$s</string>
+    <string name="hospital_location_not_available">Hospital location not available. Please contact emergency services.</string>
+    <string name="opening_test_location">Opening test location for debugging</string>
+    <string name="google_maps_not_available">Google Maps not available</string>
+    <string name="no_hospital_location_data">No hospital location data available</string>
+    <string name="opening_web_navigation_to_format">Opening web navigation to %1$s</string>
+    <string name="unable_to_open_navigation_contact_services">Unable to open navigation. Please contact emergency services.</string>
+    <string name="hospital_notified_format">Hospital %1$s has been notified of incoming emergency</string>
+    <string name="failed_to_notify_hospital">Failed to notify hospital. Please contact them directly.</string>
+    <string name="hospital_not_found_in_system">Hospital not found in system. Please contact them directly.</string>
+    <string name="error_notifying_hospital">Error notifying hospital. Please contact them directly.</string>
+    <string name="please_enter_valid_numbers_beds_doctors">Please enter valid numbers for beds and doctors</string>
+    <string name="failed_to_load_hospital_data_format">Failed to load hospital data: %1$s</string>
+    <string name="available_beds_cannot_exceed_total_format">Available beds (%1$d) cannot exceed registered total beds (%2$d)</string>
+    <string name="available_doctors_cannot_exceed_total_format">Available doctors (%1$d) cannot exceed registered total doctors (%2$d)</string>
+    <string name="please_enter_otp">Please enter OTP</string>
+    <string name="resending_otp">Resending OTP...</string>
+    <string name="verification_failed_format">Verification failed: %1$s</string>
+    <string name="new_otp_sent_successfully">New OTP sent successfully</string>
+    <string name="error_checking_user_type_format">Error checking user type: %1$s</string>
+    <string name="error_no_emergency_id">Error: No emergency ID provided</string>
+    <string name="rescuer_phone_not_available">Rescuer phone number not available</string>
+    <string name="call_permission_denied">Call permission denied</string>
+    <string name="route_to_emergency_displayed">🗺️ Route to emergency location displayed</string>
+    <string name="location_not_available">Location not available</string>
+    <string name="turn_by_turn_navigation_started">🗺️ Turn-by-turn navigation started! Route displayed on map.</string>
+    <string name="navigation_stopped">Navigation stopped</string>
+    <string name="arrived_at_emergency_location">🏁 ARRIVED! You are at the emergency location!</string>
+    <string name="no_phone_number_available">No phone number available</string>
+    <string name="opening_web_based_navigation">🌐 Opening web-based navigation</string>
+    <string name="mark_as_arrived_message">Have you arrived at the emergency location?</string>
+    <string name="error_updating_status">Error updating status</string>
+    <string name="marked_as_arrived">✅ Marked as arrived!</string>
+    <string name="automatically_marked_as_arrived">✅ Automatically marked as arrived!</string>
+    <string name="route_options_message">Choose your preferred route to the emergency location:</string>
+    <string name="fastest_route_selected">🚀 Fastest route selected</string>
+    <string name="shortest_route_selected">📏 Shortest route selected</string>
+    <string name="route_avoiding_highways_selected">🚫 Route avoiding highways selected</string>
+    <string name="route_refreshed">🔄 Route refreshed</string>
+    <string name="map_orientation_reset">Map orientation reset</string>
+    <string name="fill_all_required_fields">Fill all required fields</string>
+    <string name="verification_automatically_completed">Verification automatically completed</string>
+    <string name="verification_code_sent">Verification code sent</string>
+    <string name="phone_verified">Phone verified</string>
+    <string name="phone_verification_failed_format">Phone verification failed: %1$s</string>
+    <string name="id_is_accepted">ID is accepted</string>
+    <string name="language_changed_to_format">Language changed to: %1$s</string>
+    <string name="failed_to_load_contacts_format">Failed to load contacts: %1$s</string>
+    <string name="contact_deleted_successfully">Contact deleted successfully</string>
+    <string name="failed_to_delete_contact_format">Failed to delete contact: %1$s</string>
+    <string name="contact_updated_successfully">Contact updated successfully</string>
+    <string name="failed_to_update_contact_format">Failed to update contact: %1$s</string>
+    <string name="phone_number_already_exists">Phone number already exists in emergency contacts</string>
+    <string name="front_id_photo_captured">Front ID photo captured successfully</string>
+    <string name="back_id_photo_captured">Back ID photo captured successfully</string>
+    <string name="camera_permission_required_for_id">Camera permission is required to capture ID photo</string>
+    <string name="front_id_photo_uploaded">Front ID photo uploaded successfully</string>
+    <string name="back_id_photo_uploaded">Back ID photo uploaded successfully</string>
+    <string name="image_upload_failed_format">Image Upload Failed: %1$s</string>
+    <string name="barangay_emergency_action_call">📞 CALL SENIOR</string>
+    <string name="barangay_emergency_action_navigate">🗺️ NAVIGATE</string>
+    <string name="barangay_emergency_action_view">👁️ VIEW DETAILS</string>
 </resources>

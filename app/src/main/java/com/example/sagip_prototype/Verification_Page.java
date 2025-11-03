@@ -279,7 +279,7 @@ public class Verification_Page extends AppCompatActivity {
                     .into(frontIdPhotoImageView);
             frontIdPlaceholderText.setVisibility(View.GONE);
             isFrontImageSelected = true;
-            Toast.makeText(this, "Front ID photo captured successfully", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.front_id_photo_captured), Toast.LENGTH_SHORT).show();
         } else {
             backImageUrl = imageUrl;
             // Load and display the actual image
@@ -290,7 +290,7 @@ public class Verification_Page extends AppCompatActivity {
                     .into(backIdPhotoImageView);
             backIdPlaceholderText.setVisibility(View.GONE);
             isBackImageSelected = true;
-            Toast.makeText(this, "Back ID photo captured successfully", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.back_id_photo_captured), Toast.LENGTH_SHORT).show();
         }
         checkNextButtonState();
     }
@@ -304,14 +304,14 @@ public class Verification_Page extends AppCompatActivity {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 openCamera(pendingIsFront);
             } else {
-                Toast.makeText(this, "Camera permission is required to capture ID photo", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, getString(R.string.camera_permission_required_for_id), Toast.LENGTH_LONG).show();
             }
         }
     }
 
     private void uploadImage(Uri selectedImage, boolean isFront) {
         if (auth.getCurrentUser() == null) {
-            Toast.makeText(this, "User not authenticated", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.user_not_authenticated), Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -334,7 +334,7 @@ public class Verification_Page extends AppCompatActivity {
                             frontImageUrl = uri.toString();
                             frontIdPlaceholderText.setVisibility(View.GONE);
                             isFrontImageSelected = true;
-                            Toast.makeText(Verification_Page.this, "Front ID photo uploaded successfully", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(Verification_Page.this, getString(R.string.front_id_photo_uploaded), Toast.LENGTH_SHORT).show();
                         } else {
                             // Load and display the actual image
                             Glide.with(Verification_Page.this)
@@ -345,7 +345,7 @@ public class Verification_Page extends AppCompatActivity {
                             backImageUrl = uri.toString();
                             backIdPlaceholderText.setVisibility(View.GONE);
                             isBackImageSelected = true;
-                            Toast.makeText(Verification_Page.this, "Back ID photo uploaded successfully", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(Verification_Page.this, getString(R.string.back_id_photo_uploaded), Toast.LENGTH_SHORT).show();
                         }
                         checkNextButtonState();
                     }
@@ -354,14 +354,14 @@ public class Verification_Page extends AppCompatActivity {
         }).addOnFailureListener(new OnFailureListener() {
             @Override
             public void onFailure(@NonNull Exception e) {
-                Toast.makeText(Verification_Page.this, "Image Upload Failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                Toast.makeText(Verification_Page.this, String.format(getString(R.string.image_upload_failed_format), e.getMessage()), Toast.LENGTH_SHORT).show();
             }
         });
     }
 
     private void uploadBitmap(Bitmap bitmap, boolean isFront) {
         if (auth.getCurrentUser() == null) {
-            Toast.makeText(this, "User not authenticated", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.user_not_authenticated), Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -412,7 +412,7 @@ public class Verification_Page extends AppCompatActivity {
         }).addOnFailureListener(new OnFailureListener() {
             @Override
             public void onFailure(@NonNull Exception e) {
-                Toast.makeText(Verification_Page.this, "Image Upload Failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                Toast.makeText(Verification_Page.this, String.format(getString(R.string.image_upload_failed_format), e.getMessage()), Toast.LENGTH_SHORT).show();
             }
         });
     }

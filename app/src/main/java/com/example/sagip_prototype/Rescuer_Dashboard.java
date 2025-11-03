@@ -259,7 +259,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                     }
                     if (!hasHospitals) {
                         Log.w(TAG, "No hospitals found to display on map");
-                        android.widget.Toast.makeText(this, "No hospitals found or missing locations", android.widget.Toast.LENGTH_LONG).show();
+                        android.widget.Toast.makeText(this, getString(R.string.no_hospitals_found_or_missing_locations), android.widget.Toast.LENGTH_LONG).show();
                     }
                 })
                 .addOnFailureListener(e -> Log.e(TAG, "Failed to load hospitals", e));
@@ -267,7 +267,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
 
     private void showRouteToHospital(Marker hospitalMarker) {
         if (currentLat == 0.0 || currentLong == 0.0) {
-            Toast.makeText(this, "Current location not available. Please wait for location update.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.current_location_not_available_wait_for_update), Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -286,27 +286,27 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
 
     private void showRouteOptionsDialog(Marker hospitalMarker, LatLng hospitalLocation, LatLng currentLocation) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("🗺️ Route to " + hospitalMarker.getTitle());
-        builder.setMessage("Choose how you want to navigate to this hospital:");
+        builder.setTitle(String.format(getString(R.string.route_to_hospital), hospitalMarker.getTitle()));
+        builder.setMessage(getString(R.string.choose_how_to_navigate_hospital));
         
-        builder.setPositiveButton("🗺️ Show Route on Map", (dialog, which) -> {
+        builder.setPositiveButton(getString(R.string.show_route_on_map), (dialog, which) -> {
             // Get directions using Google Directions API
             String directionsUrl = buildDirectionsUrl(currentLocation, hospitalLocation);
             executeDirectionsRequest(directionsUrl);
-            Toast.makeText(this, "🗺️ Getting route to " + hospitalMarker.getTitle(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, String.format(getString(R.string.getting_route_to), hospitalMarker.getTitle()), Toast.LENGTH_SHORT).show();
         });
         
-        builder.setNeutralButton("🚗 Open Google Maps", (dialog, which) -> {
+        builder.setNeutralButton(getString(R.string.open_google_maps), (dialog, which) -> {
             openGoogleMapsNavigation(hospitalLocation, hospitalMarker.getTitle());
         });
         
-        builder.setNegativeButton("📍 Center on Hospital", (dialog, which) -> {
+        builder.setNegativeButton(getString(R.string.center_on_hospital), (dialog, which) -> {
             rescuerMap.animateCamera(CameraUpdateFactory.newLatLngZoom(hospitalLocation, 16f));
-            Toast.makeText(this, "📍 Centered on " + hospitalMarker.getTitle(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, String.format(getString(R.string.centered_on), hospitalMarker.getTitle()), Toast.LENGTH_SHORT).show();
         });
         
         // Add a fourth option for route info only
-        builder.setNeutralButton("ℹ️ Route Info Only", (dialog, which) -> {
+        builder.setNeutralButton(getString(R.string.route_info_only), (dialog, which) -> {
             getRouteInfoOnly(currentLocation, hospitalLocation, hospitalMarker.getTitle());
         });
         
@@ -336,7 +336,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             
         } catch (Exception e) {
             Log.e(TAG, "Error opening Google Maps navigation", e);
-            Toast.makeText(this, "Error opening navigation", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.error_opening_navigation), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -350,7 +350,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Error getting route info", e);
-                runOnUiThread(() -> Toast.makeText(this, "Error getting route information", Toast.LENGTH_SHORT).show());
+                runOnUiThread(() -> Toast.makeText(this, getString(R.string.error_getting_route_information), Toast.LENGTH_SHORT).show());
             }
         });
     }
@@ -376,25 +376,23 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             
         } catch (JSONException e) {
             Log.e(TAG, "Error parsing route info", e);
-            Toast.makeText(this, "Error parsing route information", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.error_parsing_route_information), Toast.LENGTH_SHORT).show();
         }
     }
 
     private void showRouteInfoDialog(String hospitalName, String distance, String duration) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("📍 Route Information");
-        builder.setMessage("🏥 Hospital: " + hospitalName + "\n\n" +
-                          "📏 Distance: " + distance + "\n" +
-                          "⏱️ Estimated Time: " + duration + "\n\n" +
-                          "Would you like to show the route on the map?");
+        builder.setTitle(getString(R.string.route_information_title));
+        builder.setMessage(String.format(getString(R.string.route_information_details), 
+                          hospitalName, distance, duration));
         
-        builder.setPositiveButton("🗺️ Show Route", (dialog, which) -> {
+        builder.setPositiveButton(getString(R.string.show_route_button), (dialog, which) -> {
             // This will trigger the route display
             // We need to store the hospital location for this
-            Toast.makeText(this, "🗺️ Route will be displayed on map", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.route_will_be_displayed), Toast.LENGTH_SHORT).show();
         });
         
-        builder.setNegativeButton("Close", (dialog, which) -> dialog.dismiss());
+        builder.setNegativeButton(getString(R.string.close_button), (dialog, which) -> dialog.dismiss());
         
         AlertDialog dialog = builder.create();
         dialog.show();
@@ -417,7 +415,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Error in executeDirectionsRequest", e);
-                runOnUiThread(() -> Toast.makeText(this, "Error getting route", Toast.LENGTH_SHORT).show());
+                runOnUiThread(() -> Toast.makeText(this, getString(R.string.error_getting_route), Toast.LENGTH_SHORT).show());
             }
         });
     }
@@ -495,13 +493,13 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                         routeInfoText.setText("📍 " + distanceText + " • ⏱️ " + durationText);
                     }
                     
-                    Toast.makeText(this, "📍 Route: " + distanceText + " • ⏱️ " + durationText, Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, String.format(getString(R.string.route_distance_duration), distanceText, durationText), Toast.LENGTH_LONG).show();
                 }
             }
             
         } catch (JSONException e) {
             Log.e(TAG, "Error parsing directions response", e);
-            Toast.makeText(this, "Error parsing route data", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.error_parsing_route_data), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -608,11 +606,6 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         if (routeControlPanel != null) {
             routeControlPanel.setVisibility(View.GONE);
         }
-        if (routeInfoText != null) {
-            routeInfoText.setText("No active route");
-        }
-        
-        Toast.makeText(this, "🗺️ Route cleared", Toast.LENGTH_SHORT).show();
     }
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1001;
     private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 1002;
@@ -681,6 +674,13 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     private long lastLoginTime; // Track when rescuer logged in
     private AlertDialog currentEmergencyDialog; // Track current emergency popup
     private String currentEmergencyRequestId; // Track which emergency the dialog is showing
+    
+    // SOS Emergency List
+    private androidx.recyclerview.widget.RecyclerView sosEmergencyRecyclerView;
+    private SOSEmergencyAdapter sosEmergencyAdapter;
+    private TextView noSOSEmergenciesText;
+    private android.os.Handler emergencyListUpdateHandler;
+    private Runnable emergencyListUpdateRunnable;
     
     // FIFO Emergency queue system for handling multiple simultaneous emergencies
     private Queue<EmergencyItem> emergencyQueue = new LinkedList<>(); // FIFO implementation
@@ -843,6 +843,12 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         
         // Set up clear route button
         btnClearRoute.setOnClickListener(v -> clearRoute());
+        
+        // Initialize SOS Emergency List
+        sosEmergencyRecyclerView = findViewById(R.id.sosEmergencyRecyclerView);
+        noSOSEmergenciesText = findViewById(R.id.noSOSEmergenciesText);
+        setupSOSEmergencyList();
+        startEmergencyListUpdates();
         
         // Initialize executor service for route requests
         executorService = Executors.newSingleThreadExecutor();
@@ -1090,6 +1096,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             emergencySOSListener.remove();
             emergencySOSListener = null;
         }
+        
+        // Stop emergency list updates
+        stopEmergencyListUpdates();
 
         // Clear any pending emergency alerts
         clearPendingEmergencyAlerts();
@@ -1497,6 +1506,122 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
           });
     }
 
+    /**
+     * Set up the SOS Emergency List RecyclerView
+     */
+    private void setupSOSEmergencyList() {
+        Log.d(TAG, "📋 Setting up SOS Emergency List");
+        
+        // Initialize adapter with empty list
+        sosEmergencyAdapter = new SOSEmergencyAdapter(new ArrayList<>(), new SOSEmergencyAdapter.OnEmergencyClickListener() {
+            @Override
+            public void onEmergencyClick(EmergencyQueueManager.EmergencyRequest emergency) {
+                // Show emergency details dialog
+                if (emergency.requestId != null) {
+                    showEmergencySOSAlertWithLocation(
+                        emergency.seniorName,
+                        emergency.seniorPhone,
+                        emergency.locationAddress,
+                        emergency.timestamp,
+                        emergency.requestId,
+                        emergency.location != null ? emergency.location.getLatitude() : null,
+                        emergency.location != null ? emergency.location.getLongitude() : null
+                    );
+                }
+            }
+
+            @Override
+            public void onRespondClick(EmergencyQueueManager.EmergencyRequest emergency) {
+                // Respond to emergency
+                if (emergency.requestId != null) {
+                    Log.d(TAG, "🚑 Respond button clicked for: " + emergency.seniorName);
+                    assignRescuerToEmergencyById(emergency.requestId);
+                }
+            }
+
+            @Override
+            public void onNavigateClick(EmergencyQueueManager.EmergencyRequest emergency) {
+                // Navigate to emergency location
+                if (emergency.requestId != null) {
+                    Log.d(TAG, "🗺️ Navigate button clicked for: " + emergency.seniorName);
+                    // Get emergency and launch navigation
+                    EmergencyQueueManager.EmergencyRequest fullEmergency = 
+                        EmergencyQueueManager.getInstance(Rescuer_Dashboard.this).getEmergencyById(emergency.requestId);
+                    if (fullEmergency != null) {
+                        Intent intent = new Intent(Rescuer_Dashboard.this, RescuerNavigationActivity.class);
+                        intent.putExtra("helpRequestId", fullEmergency.requestId);
+                        intent.putExtra("seniorName", fullEmergency.seniorName);
+                        intent.putExtra("seniorPhone", fullEmergency.seniorPhone);
+                        if (fullEmergency.location != null) {
+                            intent.putExtra("latitude", fullEmergency.location.getLatitude());
+                            intent.putExtra("longitude", fullEmergency.location.getLongitude());
+                        }
+                        intent.putExtra("locationAddress", fullEmergency.locationAddress);
+                        startActivity(intent);
+                    }
+                }
+            }
+        });
+        
+        // Set up RecyclerView
+        sosEmergencyRecyclerView.setLayoutManager(new androidx.recyclerview.widget.LinearLayoutManager(this));
+        sosEmergencyRecyclerView.setAdapter(sosEmergencyAdapter);
+        
+        // Initial update
+        updateSOSEmergencyList();
+    }
+   
+    private void startEmergencyListUpdates() {
+        emergencyListUpdateHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+        emergencyListUpdateRunnable = new Runnable() {
+            @Override
+            public void run() {
+                updateSOSEmergencyList();
+                // Schedule next update in 5 seconds
+                emergencyListUpdateHandler.postDelayed(this, 5000);
+            }
+        };
+        // Start updates immediately and then every 5 seconds
+        emergencyListUpdateHandler.post(emergencyListUpdateRunnable);
+    }
+    
+    /**
+     * Stop periodic updates for the emergency list
+     */
+    private void stopEmergencyListUpdates() {
+        if (emergencyListUpdateHandler != null && emergencyListUpdateRunnable != null) {
+            emergencyListUpdateHandler.removeCallbacks(emergencyListUpdateRunnable);
+            emergencyListUpdateHandler = null;
+            emergencyListUpdateRunnable = null;
+        }
+    }
+    
+    /**
+     * Update the SOS Emergency List with current active emergencies
+     */
+    private void updateSOSEmergencyList() {
+        List<EmergencyQueueManager.EmergencyRequest> activeEmergencies = 
+            EmergencyQueueManager.getInstance(this).getPendingEmergencies(); // Get only pending (unassigned) emergencies
+        
+        Log.d(TAG, "📋 Updating SOS Emergency List - Found " + activeEmergencies.size() + " pending emergencies");
+        
+        // Update adapter
+        if (sosEmergencyAdapter != null) {
+            sosEmergencyAdapter.updateEmergencyList(activeEmergencies);
+        }
+        
+        // Show/hide empty message
+        if (noSOSEmergenciesText != null && sosEmergencyRecyclerView != null) {
+            if (activeEmergencies.isEmpty()) {
+                noSOSEmergenciesText.setVisibility(android.view.View.VISIBLE);
+                sosEmergencyRecyclerView.setVisibility(android.view.View.GONE);
+            } else {
+                noSOSEmergenciesText.setVisibility(android.view.View.GONE);
+                sosEmergencyRecyclerView.setVisibility(android.view.View.VISIBLE);
+            }
+        }
+    }
+    
     private void initializeEmergencyNotificationComponents() {
         Log.d(TAG, "🚨 Emergency notification components initialized");
         Log.d(TAG, "🚨 This system is INDEPENDENT from hospital notifications");
@@ -1870,11 +1995,11 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                     Log.d(TAG, "📱 Opened notification settings");
                 } catch (Exception e) {
                     Log.e(TAG, "❌ Error opening notification settings: " + e.getMessage());
-                    Toast.makeText(this, "Please enable notifications in Settings → Apps → SAGIP → Notifications", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, getString(R.string.please_enable_notifications_in_settings), Toast.LENGTH_LONG).show();
                 }
             })
-            .setNegativeButton("Later", (dialog, which) -> {
-                Toast.makeText(this, "⚠️ You won't receive emergency alerts until notifications are enabled", Toast.LENGTH_LONG).show();
+            .setNegativeButton(getString(R.string.later_button), (dialog, which) -> {
+                Toast.makeText(this, getString(R.string.wont_receive_emergency_alerts), Toast.LENGTH_LONG).show();
             })
             .setCancelable(false)
             .show();
@@ -2478,7 +2603,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             notificationManager.cancel(helpRequestId.hashCode() - 1);
             
             // Show a brief toast to confirm notification was cleared
-            Toast.makeText(this, "🚑 Emergency accepted - notification cleared", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.emergency_accepted_notification_cleared), Toast.LENGTH_SHORT).show();
         } else {
             Log.e(TAG, "❌ NotificationManager is null, cannot clear notification");
         }
@@ -2783,10 +2908,27 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         
         // Synchronized check to prevent race conditions
         synchronized (dialogLock) {
-            // Check if dialog is already showing to prevent duplicates
-            if (isEmergencyDialogShowing) {
-                Log.w(TAG, "⚠️ [SHOW_DIALOG] Emergency dialog already showing, ignoring duplicate call");
+            // Check if dialog is already showing for the SAME requestId (prevent duplicates)
+            // BUT allow different requestIds to show - multiple SOS alerts from different seniors should all be shown
+            if (isEmergencyDialogShowing && requestId != null && requestId.equals(currentEmergencyRequestId)) {
+                Log.w(TAG, "⚠️ [SHOW_DIALOG] Emergency dialog already showing for this requestId: " + requestId + ", ignoring duplicate call");
                 return;
+            }
+            
+            // If a different requestId wants to show while dialog is showing, allow it
+            // This handles the case where 2 seniors send SOS - both should be shown sequentially via queue
+            if (isEmergencyDialogShowing && requestId != null && !requestId.equals(currentEmergencyRequestId)) {
+                Log.d(TAG, "🔄 [SHOW_DIALOG] Different emergency (requestId: " + requestId + ") wants to show while dialog is showing (requestId: " + currentEmergencyRequestId + ")");
+                Log.d(TAG, "🔄 [SHOW_DIALOG] Dismissing current dialog to show new emergency");
+                // Dismiss current dialog to show new one
+                if (currentEmergencyDialog != null) {
+                    try {
+                        currentEmergencyDialog.dismiss();
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error dismissing current dialog: " + e.getMessage());
+                    }
+                    currentEmergencyDialog = null;
+                }
             }
             
             // Double-check activity state after acquiring lock
@@ -2839,7 +2981,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                     .addOnSuccessListener(requestDoc -> {
                         if (!requestDoc.exists()) {
                             Log.w(TAG, "⚠️ [RESPOND_NOW] Emergency no longer exists!");
-                            Toast.makeText(this, "Another rescuer has already responded to this emergency", Toast.LENGTH_LONG).show();
+                            Toast.makeText(this, getString(R.string.another_rescuer_responded), Toast.LENGTH_LONG).show();
                             stopEmergencySound();
                             EmergencySOSBackgroundService.dismissAllEmergencyNotifications();
                             cancelAllSystemNotifications();
@@ -2856,7 +2998,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                         
                         if ("assigned".equals(status) && assignedTo != null && !assignedTo.equals(userId)) {
                             Log.w(TAG, "⚠️ [RESPOND_NOW] Emergency already assigned to another rescuer!");
-                            Toast.makeText(this, "Another rescuer has already responded to this emergency", Toast.LENGTH_LONG).show();
+                            Toast.makeText(this, getString(R.string.another_rescuer_responded), Toast.LENGTH_LONG).show();
                             stopEmergencySound();
                             EmergencySOSBackgroundService.dismissAllEmergencyNotifications();
                             cancelAllSystemNotifications();
@@ -2895,13 +3037,16 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                         Log.d(TAG, "🔍 [RESPOND_NOW] Calling assignRescuerToEmergencyById with requestId: " + requestId);
                         assignRescuerToEmergencyById(requestId);
                         
+                        // Update emergency list to reflect the change
+                        updateSOSEmergencyList();
+                        
                         // Show confirmation to rescuer
                         Toast.makeText(this, getString(R.string.toast_assigned_to_emergency), Toast.LENGTH_LONG).show();
                         Log.d(TAG, "🔍 [RESPOND_NOW] Toast shown to rescuer");
                     })
                     .addOnFailureListener(e -> {
                         Log.e(TAG, "❌ [RESPOND_NOW] Error validating emergency: " + e.getMessage());
-                        Toast.makeText(this, "Error checking emergency status. Please try again.", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, getString(R.string.error_checking_emergency_status), Toast.LENGTH_SHORT).show();
                         synchronized (dialogLock) {
                             isEmergencyDialogShowing = false;
                             currentEmergencyRequestId = null;
@@ -2957,10 +3102,27 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         
         // Synchronized check to prevent race conditions
         synchronized (dialogLock) {
-            // Check if dialog is already showing to prevent duplicates
-            if (isEmergencyDialogShowing) {
-                Log.w(TAG, "⚠️ [SHOW_DIALOG] Emergency dialog already showing, ignoring duplicate call");
+            // Check if dialog is already showing for the SAME requestId (prevent duplicates)
+            // BUT allow different requestIds to show - multiple SOS alerts from different seniors should all be shown
+            if (isEmergencyDialogShowing && requestId != null && requestId.equals(currentEmergencyRequestId)) {
+                Log.w(TAG, "⚠️ [SHOW_DIALOG] Emergency dialog already showing for this requestId: " + requestId + ", ignoring duplicate call");
                 return;
+            }
+            
+            // If a different requestId wants to show while dialog is showing, allow it
+            // This handles the case where 2 seniors send SOS - both should be shown sequentially via queue
+            if (isEmergencyDialogShowing && requestId != null && !requestId.equals(currentEmergencyRequestId)) {
+                Log.d(TAG, "🔄 [SHOW_DIALOG] Different emergency (requestId: " + requestId + ") wants to show while dialog is showing (requestId: " + currentEmergencyRequestId + ")");
+                Log.d(TAG, "🔄 [SHOW_DIALOG] Dismissing current dialog to show new emergency");
+                // Dismiss current dialog to show new one
+                if (currentEmergencyDialog != null) {
+                    try {
+                        currentEmergencyDialog.dismiss();
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error dismissing current dialog: " + e.getMessage());
+                    }
+                    currentEmergencyDialog = null;
+                }
             }
             
             // Double-check activity state after acquiring lock
@@ -3096,7 +3258,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         }
         
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("ℹ️ Emergency Already Assigned");
+        builder.setTitle(getString(R.string.emergency_already_assigned_title));
         
         String message = "This emergency has been assigned to another rescuer.\n\n" +
                         "📋 Emergency Details:\n" +
@@ -3127,7 +3289,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 callIntent.setData(Uri.parse("tel:" + seniorPhone));
                 startActivity(callIntent);
             } else {
-                Toast.makeText(this, "Senior phone number not available", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.senior_phone_not_available), Toast.LENGTH_SHORT).show();
             }
             dialog.dismiss();
         });
@@ -3477,13 +3639,13 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 .setMessage("This app needs SMS permission to send emergency notifications to seniors' emergency contacts when you respond to SOS calls.\n\n" +
                            "This helps ensure that family members are immediately informed when you're responding to an emergency.\n\n" +
                            "Would you like to grant SMS permission?")
-                .setPositiveButton("Grant Permission", (dialog, which) -> {
+                .setPositiveButton(getString(R.string.grant_permission_button), (dialog, which) -> {
                     Log.d(TAG, "📱 User agreed to grant SMS permission, requesting...");
                     PermissionManager.requestSMSPermission(this);
                 })
                 .setNegativeButton("Not Now", (dialog, which) -> {
                     Log.d(TAG, "📱 User declined SMS permission");
-                    Toast.makeText(this, "SMS permission declined. Emergency contacts will not be notified.", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, getString(R.string.sms_permission_declined), Toast.LENGTH_LONG).show();
                 })
                 .setCancelable(false)
                 .show();
@@ -3512,7 +3674,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 EmergencyContactSMSService smsService = EmergencyContactSMSService.getInstance(this);
                 smsService.sendTestSMS("+639123456789", "🧪 Test SMS from SAGIP Emergency System - SMS functionality is working!");
                 
-                Toast.makeText(this, "Test SMS sent! Check the logs for details.", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, getString(R.string.test_sms_sent), Toast.LENGTH_LONG).show();
             })
             .setNegativeButton("Skip Test", (dialog, which) -> {
                 Log.d(TAG, "🧪 User skipped SMS test");
@@ -3544,7 +3706,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         // Check SMS permission first
         if (!PermissionManager.hasSMSPermission(this)) {
             Log.e(TAG, "❌ SMS permission not granted for emergency flow test");
-            Toast.makeText(this, "SMS permission not granted. Please grant permission first.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, getString(R.string.sms_permission_not_granted), Toast.LENGTH_LONG).show();
             return;
         }
         
@@ -3552,7 +3714,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser == null) {
             Log.e(TAG, "❌ No user logged in for emergency flow test");
-            Toast.makeText(this, "No user logged in", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.no_user_logged_in), Toast.LENGTH_SHORT).show();
             return;
         }
         
@@ -3571,7 +3733,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             "Medical Emergency" // emergencyType
         );
         
-        Toast.makeText(this, "Emergency SMS flow test initiated - check logs for details", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, getString(R.string.emergency_sms_flow_test_initiated), Toast.LENGTH_LONG).show();
     }
 
     private void createNotificationChannel() {
@@ -3804,7 +3966,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
 
     private void showRetryDialog(String message) {
         new AlertDialog.Builder(this)
-                .setTitle("Connection Error")
+                .setTitle(getString(R.string.connection_error_title))
                 .setMessage(message)
                 .setPositiveButton("Retry", (dialog, which) -> {
                     // Retry the status check
@@ -4071,7 +4233,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
      */
     public void testHospitalStatusNotification() {
         Log.d(TAG, "Test hospital status notification - DISABLED FOR PRODUCTION");
-        Toast.makeText(this, "Test notifications disabled for production", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, getString(R.string.test_notifications_disabled), Toast.LENGTH_SHORT).show();
         
         // Uncomment below for testing:
         // NativeNotificationSender.sendHospitalUpdateNotificationToRescuers("Test Hospital", "Open", 5, 3);
@@ -4195,7 +4357,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
      */
     private void createTestHospitalStatusNotification() {
         if (userId == null || !"rescuer".equals(userType)) {
-            Toast.makeText(this, "❌ Not a rescuer user", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.not_a_rescuer_user), Toast.LENGTH_SHORT).show();
             return;
         }
         
@@ -4221,11 +4383,11 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             .add(notificationData)
             .addOnSuccessListener(documentReference -> {
                 Log.d(TAG, "✅ Test notification created: " + documentReference.getId());
-                Toast.makeText(this, "✅ Test notification created!", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.test_notification_created), Toast.LENGTH_SHORT).show();
             })
             .addOnFailureListener(e -> {
                 Log.e(TAG, "❌ Failed to create test notification", e);
-                Toast.makeText(this, "❌ Failed to create test notification", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.failed_to_create_test_notification), Toast.LENGTH_SHORT).show();
             });
     }
 
@@ -4316,11 +4478,11 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 // Notification permission granted
                 Log.d(TAG, "✅ Notification permission granted by user");
-                Toast.makeText(this, "Notification permission granted!", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.notification_permission_granted), Toast.LENGTH_SHORT).show();
             } else {
                 // Notification permission denied
                 Log.w(TAG, "❌ Notification permission denied by user");
-                Toast.makeText(this, "Notification permission denied. You may not receive emergency notifications.", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, getString(R.string.notification_permission_denied_wont_receive), Toast.LENGTH_LONG).show();
             }
         } else if (requestCode == PermissionManager.SMS_PERMISSION_REQUEST_CODE) {
             boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
@@ -4328,10 +4490,10 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             
             if (granted) {
                 Log.d(TAG, "📱 [PERMISSION_RESULT] SMS permission granted!");
-                Toast.makeText(this, "SMS permission granted! Emergency contacts will be notified.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.sms_permission_granted_contacts_notified), Toast.LENGTH_SHORT).show();
             } else {
                 Log.w(TAG, "⚠️ [PERMISSION_RESULT] SMS permission denied");
-                Toast.makeText(this, "SMS permission denied. Emergency contacts will not be notified.", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, getString(R.string.sms_permission_denied_contacts_not_notified), Toast.LENGTH_LONG).show();
             }
         }
     }
@@ -4520,7 +4682,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             
         } catch (Exception e) {
             Log.e("Rescuer_Dashboard", "Error starting RescuerNavigationActivity", e);
-            Toast.makeText(this, "Error opening SOS navigation: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, String.format(getString(R.string.error_opening_sos_navigation), e.getMessage()), Toast.LENGTH_LONG).show();
         }
     }
     
@@ -4535,7 +4697,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                         
                         // Now start SOS navigation with current location
                         openSOSNavigation();
-                        Toast.makeText(this, "🚨 SOS Navigation from your current location", Toast.LENGTH_LONG).show();
+                        Toast.makeText(this, getString(R.string.sos_navigation_from_current_location), Toast.LENGTH_LONG).show();
                     } else {
                         Toast.makeText(this, getString(R.string.text_could_not_get_location), Toast.LENGTH_SHORT).show();
                     }
@@ -4570,7 +4732,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     // Multiple Emergency Handling Methods
     private void showMultipleEmergenciesAlert(List<EmergencyQueueManager.EmergencyRequest> emergencies) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("🚨 MULTIPLE EMERGENCIES DETECTED");
+        builder.setTitle(getString(R.string.multiple_emergencies_detected_title));
         
         StringBuilder message = new StringBuilder();
         message.append("🚨 ").append(emergencies.size()).append(" active emergencies detected!\n\n");
@@ -4620,7 +4782,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     
     private void showEmergencyListDialog(List<EmergencyQueueManager.EmergencyRequest> emergencies) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("📋 Emergency Queue (" + emergencies.size() + " active)");
+        builder.setTitle(String.format(getString(R.string.emergency_queue_active), emergencies.size()));
         
         // Create list items
         String[] items = new String[emergencies.size()];
@@ -4701,7 +4863,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         
         if (!found) {
             Log.w(TAG, "⚠️ [ASSIGN_BY_DETAILS] No matching emergency found for assignment");
-            Toast.makeText(this, "⚠️ Emergency not found in queue", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.emergency_not_found_in_queue), Toast.LENGTH_SHORT).show();
             // Clear assignment status since no emergency was found
             setRescuerOnAssignmentStatus(rescuerId, false);
         }
@@ -4792,13 +4954,16 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                     EmergencyQueueManager.getInstance(Rescuer_Dashboard.this).assignRescuer(requestId, rescuerId);
                     Log.d(TAG, "🔍 [LOAD_FROM_DB] assignRescuer called successfully from database callback");
                     
+                    // Update emergency list to reflect the change
+                    updateSOSEmergencyList();
+                    
                     // Show popup confirmation to rescuer
                     showRescuerAssignmentPopup(emergency.seniorName, emergency.locationAddress, rescuerId, requestId);
                     
                     Log.d(TAG, "👤 [LOAD_FROM_DB] Rescuer " + rescuerId + " assigned to emergency from database: " + requestId);
                 } else {
                     Log.w(TAG, "⚠️ [LOAD_FROM_DB] Emergency not found in database with ID: " + requestId);
-                    Toast.makeText(Rescuer_Dashboard.this, "⚠️ Emergency not found in database", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(Rescuer_Dashboard.this, getString(R.string.emergency_not_found_in_database), Toast.LENGTH_SHORT).show();
                 }
             }
         });

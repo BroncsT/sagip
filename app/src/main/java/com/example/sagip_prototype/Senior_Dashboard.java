@@ -363,7 +363,7 @@ public class Senior_Dashboard extends AppCompatActivity {
         String barangayForEmergency = validateAndFixBarangay();
         if (barangayForEmergency == null || barangayForEmergency.isEmpty()) {
             Log.e(TAG, "❌ Cannot proceed with emergency - no valid barangay information");
-            Toast.makeText(this, "Cannot send emergency alert: Barangay information is missing. Please update your profile.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, getString(R.string.cannot_send_emergency_barangay_missing), Toast.LENGTH_LONG).show();
             return;
         }
         
@@ -398,7 +398,7 @@ public class Senior_Dashboard extends AppCompatActivity {
         EmergencyQueueManager.getInstance(this).addEmergencyRequest(emergencyRequest);
         
         // Show success toast (no popup needed - first dialog already confirmed)
-        Toast.makeText(this, "Emergency request sent! Help is on the way.", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, getString(R.string.emergency_request_sent_message), Toast.LENGTH_LONG).show();
     }
     
     /**
@@ -1394,6 +1394,10 @@ public class Senior_Dashboard extends AppCompatActivity {
                     String hospitalAddress = intent.getStringExtra("hospital_address");
                     String hospitalPhone = intent.getStringExtra("hospital_phone");
                     
+                    // Stop the emergency alert sound when popup is shown
+                    EmergencySOSBackgroundService.stopEmergencySound();
+                    Log.d(TAG, "🔇 Emergency alert sound stopped when rescuer accepted popup is shown");
+                    
                     // Show the popup immediately
                     showRescuerAcceptedPopup(rescuerName, rescuerPhone, rescuerTeam, requestId, 
                                           assignedRescuerId, emergencyStatus, hospitalId, 
@@ -1638,10 +1642,10 @@ public class Senior_Dashboard extends AppCompatActivity {
         if (requestCode == 1001) { // POST_NOTIFICATIONS permission
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 Log.d(TAG, "✅ POST_NOTIFICATIONS permission granted");
-                Toast.makeText(this, "Notification permission granted!", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.notification_permission_granted), Toast.LENGTH_SHORT).show();
             } else {
                 Log.w(TAG, "❌ POST_NOTIFICATIONS permission denied");
-                Toast.makeText(this, "Notification permission denied. You may not receive emergency notifications.", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, getString(R.string.notification_permission_denied_wont_receive), Toast.LENGTH_LONG).show();
             }
         }
     }

@@ -1167,24 +1167,24 @@ public class Barangay_Dashboard extends AppCompatActivity {
         }
         
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("🚨 EMERGENCY ALERT - " + barangay);
+        builder.setTitle(String.format(getString(R.string.emergency_alert_barangay_title), barangay));
         
-        String message = "🚨 URGENT: Senior needs immediate assistance!\n\n" +
-                        "👤 Senior: " + seniorName + "\n" +
-                        "📞 Phone: " + (seniorPhone != null ? seniorPhone : "Not provided") + "\n" +
-                        "📍 Location: " + (locationAddress != null ? locationAddress : "Not provided") + "\n" +
+        String message = getString(R.string.barangay_emergency_message_urgent) + "\n\n" +
+                        getString(R.string.senior_label_colon) + " " + seniorName + "\n" +
+                        getString(R.string.phone_label_colon) + " " + (seniorPhone != null ? seniorPhone : getString(R.string.not_provided)) + "\n" +
+                        getString(R.string.location_label_colon) + " " + (locationAddress != null ? locationAddress : getString(R.string.not_provided)) + "\n" +
                         (currentLocation != null && !currentLocation.isEmpty() ? 
-                            "🏠 Full Address: " + currentLocation + "\n" : "") +
-                        "🏘️ Barangay: " + barangay + "\n" +
-                        "🚨 Type: " + (emergencyType != null ? emergencyType : "Emergency") + "\n\n" +
-                        "⚠️ Please respond immediately!";
+                            getString(R.string.full_address_label_colon) + " " + currentLocation + "\n" : "") +
+                        getString(R.string.barangay_label_colon) + " " + barangay + "\n" +
+                        getString(R.string.type_label_colon) + " " + (emergencyType != null ? emergencyType : getString(R.string.emergency)) + "\n\n" +
+                        getString(R.string.please_respond_immediately);
         
         builder.setMessage(message);
         builder.setIcon(android.R.drawable.ic_dialog_alert);
         builder.setCancelable(false);
         
         // Call Senior button
-        builder.setPositiveButton("📞 CALL SENIOR", (dialog, which) -> {
+        builder.setPositiveButton(getString(R.string.barangay_emergency_action_call), (dialog, which) -> {
             if (seniorPhone != null && !seniorPhone.isEmpty()) {
                 try {
                     Intent callIntent = new Intent(Intent.ACTION_DIAL);
@@ -1201,7 +1201,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
         });
         
         // Navigate button
-        builder.setNeutralButton("🗺️ NAVIGATE", (dialog, which) -> {
+        builder.setNeutralButton(getString(R.string.barangay_emergency_action_navigate), (dialog, which) -> {
             if (seniorLatitude != null && seniorLongitude != null) {
                 // Use coordinates for more accurate navigation
                 String addressForFallback = (currentLocation != null && !currentLocation.isEmpty()) ? currentLocation : locationAddress;
@@ -1218,7 +1218,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
         });
         
         // View Details button
-        builder.setNegativeButton("👁️ VIEW DETAILS", (dialog, which) -> {
+        builder.setNegativeButton(getString(R.string.barangay_emergency_action_view), (dialog, which) -> {
             // Navigate to senior list or emergency details
             Intent detailsIntent = new Intent(this, Barangay_List.class);
             startActivity(detailsIntent);
@@ -1488,30 +1488,30 @@ public class Barangay_Dashboard extends AppCompatActivity {
         }
         
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("🚨 EMERGENCY ALERT - " + barangay);
+        builder.setTitle(String.format(getString(R.string.emergency_alert_barangay_title), barangay));
         
-        String timeStr = "Unknown time";
+        String timeStr = getString(R.string.unknown_time);
         if (timestamp != null) {
             java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("MMM dd, yyyy HH:mm:ss", Locale.getDefault());
             timeStr = sdf.format(new java.util.Date(timestamp));
         }
         
-        String message = "🚨 URGENT: Senior needs immediate assistance!\n\n" +
-                        "👤 Senior: " + seniorName + "\n" +
-                        "📞 Phone: " + (seniorPhone != null ? seniorPhone : "Not provided") + "\n" +
-                        "📍 Location: " + (locationAddress != null ? locationAddress : "Not provided") + "\n" +
+        String message = getString(R.string.barangay_emergency_message_urgent) + "\n\n" +
+                        getString(R.string.senior_label_colon) + " " + seniorName + "\n" +
+                        getString(R.string.phone_label_colon) + " " + (seniorPhone != null ? seniorPhone : getString(R.string.not_provided)) + "\n" +
+                        getString(R.string.location_label_colon) + " " + (locationAddress != null ? locationAddress : getString(R.string.not_provided)) + "\n" +
                         (currentLocation != null && !currentLocation.isEmpty() ? 
-                            "🏠 Full Address: " + currentLocation + "\n" : "") +
-                        "🏘️ Barangay: " + barangay + "\n" +
-                        "⏰ Time: " + timeStr + "\n\n" +
-                        "⚠️ Please respond immediately!";
+                            getString(R.string.full_address_label_colon) + " " + currentLocation + "\n" : "") +
+                        getString(R.string.barangay_label_colon) + " " + barangay + "\n" +
+                        getString(R.string.time_label_colon) + " " + timeStr + "\n\n" +
+                        getString(R.string.please_respond_immediately);
         
         builder.setMessage(message);
         builder.setIcon(android.R.drawable.ic_dialog_alert);
         builder.setCancelable(false);
         
         // Call Senior button
-        builder.setPositiveButton("📞 CALL SENIOR", (dialog, which) -> {
+        builder.setPositiveButton(getString(R.string.barangay_emergency_action_call), (dialog, which) -> {
             if (seniorPhone != null && !seniorPhone.isEmpty()) {
                 try {
                     Intent callIntent = new Intent(Intent.ACTION_DIAL);
@@ -1528,7 +1528,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
         });
         
         // Navigate button
-        builder.setNeutralButton("🗺️ NAVIGATE", (dialog, which) -> {
+        builder.setNeutralButton(getString(R.string.barangay_emergency_action_navigate), (dialog, which) -> {
             if (seniorLatitude != null && seniorLongitude != null) {
                 // Use coordinates for more accurate navigation
                 String addressForFallback = (currentLocation != null && !currentLocation.isEmpty()) ? currentLocation : locationAddress;
@@ -1545,7 +1545,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
         });
         
         // View Details button
-        builder.setNegativeButton("👁️ VIEW DETAILS", (dialog, which) -> {
+        builder.setNegativeButton(getString(R.string.barangay_emergency_action_view), (dialog, which) -> {
             // Navigate to senior list or emergency details
             Intent detailsIntent = new Intent(this, Barangay_List.class);
             startActivity(detailsIntent);

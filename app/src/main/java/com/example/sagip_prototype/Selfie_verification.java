@@ -451,7 +451,7 @@ public class Selfie_verification extends AppCompatActivity {
 
     private void uploadSelfieFromBitmap(Bitmap bitmap) {
         if (auth.getCurrentUser() == null) {
-            Toast.makeText(this, "User not authenticated", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.user_not_authenticated), Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -528,7 +528,7 @@ public class Selfie_verification extends AppCompatActivity {
 
     private void saveVerificationData() {
         if (auth.getCurrentUser() == null) {
-            Toast.makeText(this, "User not authenticated", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.user_not_authenticated), Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -561,7 +561,7 @@ public class Selfie_verification extends AppCompatActivity {
                         // Show simple success message
                         instructionsTextView.setText("✅ ID is accepted\n\nYour verification has been submitted successfully.");
                         
-                        Toast.makeText(Selfie_verification.this, "ID is accepted", Toast.LENGTH_LONG).show();
+                        Toast.makeText(Selfie_verification.this, getString(R.string.id_is_accepted), Toast.LENGTH_LONG).show();
                         
                         // Delay before redirecting to show success message
                         new android.os.Handler().postDelayed(new Runnable() {

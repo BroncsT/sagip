@@ -72,8 +72,10 @@ public class OTP_PAGE extends AppCompatActivity {
         verificationId = getIntent().getStringExtra("VERIFICATION_ID");
         mobileNumber = getIntent().getStringExtra("MOBILE_NUMBER");
         isNewUser = getIntent().getBooleanExtra("IS_NEW_USER", false);
+        boolean isPhoneUpdate = getIntent().getBooleanExtra("IS_PHONE_UPDATE", false);
+        String returnActivity = getIntent().getStringExtra("RETURN_ACTIVITY");
         
-        Log.d(TAG, "OTP_PAGE: Mobile number: " + mobileNumber + ", isNewUser: " + isNewUser);
+        Log.d(TAG, "OTP_PAGE: Mobile number: " + mobileNumber + ", isNewUser: " + isNewUser + ", isPhoneUpdate: " + isPhoneUpdate);
 
         resendButton.setEnabled(false);
         startTimer();
@@ -83,7 +85,7 @@ public class OTP_PAGE extends AppCompatActivity {
             if (!TextUtils.isEmpty(otp)) {
                 verifyOtp(otp);
             } else {
-                Toast.makeText(OTP_PAGE.this, "Please enter OTP", Toast.LENGTH_SHORT).show();
+                Toast.makeText(OTP_PAGE.this, getString(R.string.please_enter_otp), Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -99,19 +101,19 @@ public class OTP_PAGE extends AppCompatActivity {
             @Override
             public void onTick(long millisUntilFinished) {
                 int seconds = (int) (millisUntilFinished / 1000);
-                timerTextView.setText("Resend OTP in " + seconds + " seconds");
+                timerTextView.setText(String.format(getString(R.string.resend_otp_timer), seconds));
             }
 
             @Override
             public void onFinish() {
-                timerTextView.setText("Timer finished");
+                timerTextView.setText(getString(R.string.timer_finished));
                 resendButton.setEnabled(true);
             }
         }.start();
     }
 
     private void resendOtp() {
-        Toast.makeText(OTP_PAGE.this, "Resending OTP...", Toast.LENGTH_SHORT).show();
+        Toast.makeText(OTP_PAGE.this, getString(R.string.resending_otp), Toast.LENGTH_SHORT).show();
 
         PhoneAuthProvider.OnVerificationStateChangedCallbacks callbacks = new PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
             @Override
@@ -121,13 +123,13 @@ public class OTP_PAGE extends AppCompatActivity {
 
             @Override
             public void onVerificationFailed(@NonNull FirebaseException e) {
-                Toast.makeText(OTP_PAGE.this, "Verification failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                Toast.makeText(OTP_PAGE.this, String.format(getString(R.string.verification_failed_format), e.getMessage()), Toast.LENGTH_SHORT).show();
             }
 
             @Override
             public void onCodeSent(@NonNull String newVerificationId, @NonNull PhoneAuthProvider.ForceResendingToken forceResendingToken) {
                 verificationId = newVerificationId;
-                Toast.makeText(OTP_PAGE.this, "New OTP sent successfully", Toast.LENGTH_SHORT).show();
+                Toast.makeText(OTP_PAGE.this, getString(R.string.new_otp_sent_successfully), Toast.LENGTH_SHORT).show();
             }
         };
 
@@ -147,6 +149,25 @@ public class OTP_PAGE extends AppCompatActivity {
     }
 
     private void verifyWithCredential(PhoneAuthCredential credential) {
+        boolean isPhoneUpdate = getIntent().getBooleanExtra("IS_PHONE_UPDATE", false);
+        String returnActivity = getIntent().getStringExtra("RETURN_ACTIVITY");
+        
+        if (isPhoneUpdate && "BlankEditProfileActivity".equals(returnActivity)) {
+            // For phone update, just verify the credential and return result
+            // Don't sign in, just verify it's valid
+            Log.d(TAG, "OTP verification successful for phone update: " + mobileNumber);
+            
+            // Return result to BlankEditProfileActivity
+            Intent resultIntent = new Intent();
+            resultIntent.putExtra("OTP_VERIFIED", true);
+            resultIntent.putExtra("OTP_CODE", otpEditText.getText().toString().trim());
+            resultIntent.putExtra("VERIFICATION_ID", verificationId);
+            setResult(RESULT_OK, resultIntent);
+            finish();
+            return;
+        }
+        
+        // Normal flow - sign in with credential
         auth.signInWithCredential(credential)
                 .addOnCompleteListener(this, task -> {
                     if (!isFinishing() && !isDestroyed()) {
@@ -158,8 +179,8 @@ public class OTP_PAGE extends AppCompatActivity {
                             currentUserTypeIndex = 0;
                             findUserTypeByMobileNumber();
                         } else {
-                            Toast.makeText(OTP_PAGE.this, "Verification failed: " +
-                                    (task.getException() != null ? task.getException().getMessage() : "Unknown error"), Toast.LENGTH_SHORT).show();
+                            String errorMsg = task.getException() != null ? task.getException().getMessage() : getString(R.string.unknown_error_occurred);
+                            Toast.makeText(OTP_PAGE.this, String.format(getString(R.string.verification_failed_format), errorMsg), Toast.LENGTH_SHORT).show();
                         }
                     }
                 });
@@ -309,7 +330,7 @@ public class OTP_PAGE extends AppCompatActivity {
                             }
                         } else {
                             Log.e(TAG, "Error checking user type: " + task.getException());
-                            Toast.makeText(OTP_PAGE.this, "Error checking user type: " + task.getException(), Toast.LENGTH_SHORT).show();
+                            Toast.makeText(OTP_PAGE.this, String.format(getString(R.string.error_checking_user_type_format), task.getException()), Toast.LENGTH_SHORT).show();
                         }
                     }
                 });
@@ -374,9 +395,9 @@ public class OTP_PAGE extends AppCompatActivity {
 
     private void showPendingApprovalMessage() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Senior Citizen Account Pending Approval")
-                .setMessage("Your Senior Citizen account is registered but pending administrator approval. You cannot access the app until your account is approved. Please contact an administrator or try again later.")
-                .setPositiveButton("OK", (dialog, which) -> {
+        builder.setTitle(getString(R.string.senior_account_pending_approval_title))
+                .setMessage(getString(R.string.senior_account_pending_approval_message))
+                .setPositiveButton(getString(R.string.ok), (dialog, which) -> {
                     dialog.dismiss();
                     // Sign out the user and finish this activity
                     // This will return the user to the previous activity (MainActivity) naturally

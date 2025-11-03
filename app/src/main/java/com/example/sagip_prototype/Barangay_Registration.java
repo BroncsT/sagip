@@ -16,13 +16,21 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
+import com.google.firebase.FirebaseException;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.auth.PhoneAuthCredential;
+import com.google.firebase.auth.PhoneAuthOptions;
+import com.google.firebase.auth.PhoneAuthProvider;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import android.text.InputType;
+import android.text.TextUtils;
 import android.util.Log;
+import androidx.appcompat.app.AlertDialog;
 
 public class Barangay_Registration extends AppCompatActivity {
 
@@ -30,6 +38,11 @@ public class Barangay_Registration extends AppCompatActivity {
     FirebaseFirestore db;
 
     String userType = "barangay";
+    
+    // Phone verification variables
+    private String mVerificationId;
+    private PhoneAuthProvider.ForceResendingToken mResendToken;
+    private PhoneAuthProvider.OnVerificationStateChangedCallbacks mCallbacks;
     
     // Broadcast receiver for language changes
     private android.content.BroadcastReceiver languageChangeReceiver = new android.content.BroadcastReceiver() {
@@ -80,6 +93,9 @@ public class Barangay_Registration extends AppCompatActivity {
 
         // Setup real-time password validation
         setupPasswordValidation(newPassword, confirmNewPassword);
+        
+        // Setup phone auth callbacks
+        setupPhoneAuthCallbacks();
 
         Button continueButton = findViewById(R.id.addEmerContact);
 
@@ -94,7 +110,7 @@ public class Barangay_Registration extends AppCompatActivity {
                 String confirmPassword = confirmNewPassword.getText().toString().trim();
                 
                 if (barangayNameText.isEmpty() || addressText.isEmpty() || contactPersonText.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
-                    Toast.makeText(Barangay_Registration.this, "Please fill in all required fields", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(Barangay_Registration.this, getString(R.string.please_fill_all_required_fields), Toast.LENGTH_SHORT).show();
                     return;
                 }
 
@@ -114,7 +130,7 @@ public class Barangay_Registration extends AppCompatActivity {
                 
                 FirebaseUser user = mAuth.getCurrentUser();
                 if (user == null) {
-                    Toast.makeText(Barangay_Registration.this, "User not authenticated", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(Barangay_Registration.this, getString(R.string.user_not_authenticated), Toast.LENGTH_SHORT).show();
                     return;
                 }
                 String uid = user.getUid();
@@ -126,10 +142,15 @@ public class Barangay_Registration extends AppCompatActivity {
                         @Override
                         public void onComplete(@NonNull Task<Void> task) {
                             if (task.isSuccessful()) {
-                                // Password updated successfully, now save user data
-                                saveUserData(barangayNameText, addressText, contactPersonText, phoneNumberText, uid, userEmail);
+                                // Password updated successfully, now proceed with phone verification if number provided
+                                if (!phoneNumberText.isEmpty()) {
+                                    verifyPhoneNumber(phoneNumberText, barangayNameText, addressText, contactPersonText, uid, userEmail);
+                                } else {
+                                    // Skip phone verification and save data directly
+                                    saveUserData(barangayNameText, addressText, contactPersonText, phoneNumberText, uid, userEmail);
+                                }
                             } else {
-                                Toast.makeText(Barangay_Registration.this, "Failed to update password: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                                Toast.makeText(Barangay_Registration.this, String.format(getString(R.string.failed_to_update_password_format), task.getException().getMessage()), Toast.LENGTH_SHORT).show();
                             }
                         }
                     });
@@ -149,7 +170,7 @@ public class Barangay_Registration extends AppCompatActivity {
         usrData.put("user-type", userType);
         usrData.put("status", "registered");
 
-        Toast.makeText(Barangay_Registration.this, "Starting registration process...", Toast.LENGTH_SHORT).show();
+        Toast.makeText(Barangay_Registration.this, getString(R.string.starting_registration_process), Toast.LENGTH_SHORT).show();
 
         // Step 1: Save to Firestore with admin-provided email first
         db.collection("Sagip")
@@ -162,7 +183,7 @@ public class Barangay_Registration extends AppCompatActivity {
                     public void onComplete(@NonNull Task<Void> task) {
                         if (!isFinishing() && !isDestroyed()) {
                             if (task.isSuccessful()) {
-                                Toast.makeText(Barangay_Registration.this, "Data saved to Firestore successfully!", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(Barangay_Registration.this, getString(R.string.data_saved_successfully), Toast.LENGTH_SHORT).show();
                                 
                                 // Step 2: Admin-provided email is stored in Firestore only
                                 // Firebase Auth email remains as phone number (already verified)
@@ -342,6 +363,123 @@ public class Barangay_Registration extends AppCompatActivity {
         } catch (IllegalArgumentException e) {
             // Receiver was not registered
             Log.d("Barangay_Registration", "Language change receiver was not registered");
+        }
+    }
+    
+    private void setupPhoneAuthCallbacks() {
+        mCallbacks = new PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+            @Override
+            public void onVerificationCompleted(@NonNull PhoneAuthCredential credential) {
+                if (!isFinishing() && !isDestroyed()) {
+                    Toast.makeText(Barangay_Registration.this, getString(R.string.verification_automatically_completed), Toast.LENGTH_SHORT).show();
+                    linkPhoneWithCurrentUser(credential);
+                }
+            }
+
+            @Override
+            public void onVerificationFailed(@NonNull FirebaseException e) {
+                if (!isFinishing() && !isDestroyed()) {
+                    Log.e("Barangay_Registration", "Firebase verification failed: " + e.getMessage(), e);
+                    String errorMessage = "Verification failed. Please check your internet connection and try again.";
+                    Toast.makeText(Barangay_Registration.this, errorMessage, Toast.LENGTH_LONG).show();
+                }
+            }
+
+            @Override
+            public void onCodeSent(@NonNull String verificationId, @NonNull PhoneAuthProvider.ForceResendingToken token) {
+                mVerificationId = verificationId;
+                mResendToken = token;
+
+                if (!isFinishing() && !isDestroyed()) {
+                    Toast.makeText(Barangay_Registration.this, getString(R.string.verification_code_sent), Toast.LENGTH_SHORT).show();
+                    showVerificationCodeInputDialog();
+                }
+            }
+        };
+    }
+    
+    // Store pending registration data
+    private String pendingBarangayName;
+    private String pendingAddress;
+    private String pendingContactPerson;
+    private String pendingPhoneNumber;
+    private String pendingUid;
+    private String pendingUserEmail;
+    
+    private void verifyPhoneNumber(String phoneNumber, String barangayName, String address, String contactPerson, String uid, String userEmail) {
+        // Store pending data
+        pendingBarangayName = barangayName;
+        pendingAddress = address;
+        pendingContactPerson = contactPerson;
+        pendingPhoneNumber = phoneNumber;
+        pendingUid = uid;
+        pendingUserEmail = userEmail;
+        
+        // Remove leading 0 if present and format as +63XXXXXXXXXX
+        String formattedNumber = phoneNumber.startsWith("0") ? phoneNumber.substring(1) : phoneNumber;
+        if (!formattedNumber.startsWith("+")) {
+            formattedNumber = "+63" + formattedNumber;
+        }
+
+        PhoneAuthOptions options =
+                PhoneAuthOptions.newBuilder(mAuth)
+                        .setPhoneNumber(formattedNumber)
+                        .setTimeout(60L, TimeUnit.SECONDS)
+                        .setActivity(this)
+                        .setCallbacks(mCallbacks)
+                        .build();
+        PhoneAuthProvider.verifyPhoneNumber(options);
+    }
+    
+    private void showVerificationCodeInputDialog() {
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+        
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Enter Verification Code");
+
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_NUMBER);
+        builder.setView(input);
+
+        builder.setPositiveButton("Submit", (dialog, which) -> {
+            if (!isFinishing() && !isDestroyed()) {
+                String code = input.getText().toString();
+                if (!TextUtils.isEmpty(code)) {
+                    PhoneAuthCredential credential = PhoneAuthProvider.getCredential(mVerificationId, code);
+                    linkPhoneWithCurrentUser(credential);
+                }
+            }
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+        
+        try {
+            builder.show();
+        } catch (Exception e) {
+            Log.e("Barangay_Registration", "Error showing dialog: " + e.getMessage());
+        }
+    }
+
+    private void linkPhoneWithCurrentUser(PhoneAuthCredential credential) {
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+        
+        FirebaseUser user = mAuth.getCurrentUser();
+        if (user != null) {
+            user.linkWithCredential(credential)
+                    .addOnCompleteListener(this, task -> {
+                        if (!isFinishing() && !isDestroyed()) {
+                            if (task.isSuccessful()) {
+                                Toast.makeText(Barangay_Registration.this, getString(R.string.phone_verified), Toast.LENGTH_SHORT).show();
+                                saveUserData(pendingBarangayName, pendingAddress, pendingContactPerson, pendingPhoneNumber, pendingUid, pendingUserEmail);
+                            } else {
+                                Toast.makeText(Barangay_Registration.this, String.format(getString(R.string.phone_verification_failed_format), task.getException().getMessage()), Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                    });
         }
     }
 

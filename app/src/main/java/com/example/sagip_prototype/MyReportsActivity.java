@@ -125,7 +125,7 @@ public class MyReportsActivity extends AppCompatActivity {
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error loading reports", e);
-                    Toast.makeText(this, "Failed to load reports", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, getString(R.string.failed_to_load_reports), Toast.LENGTH_SHORT).show();
                     swipeRefreshLayout.setRefreshing(false);
                 });
     }
@@ -160,8 +160,6 @@ public class MyReportsActivity extends AppCompatActivity {
         private String feedbackType;
         private String subject;
         private String message;
-        private String priority;
-        private boolean anonymous;
         private boolean includeContact;
         private String contactEmail;
         private String contactPhone;
@@ -169,9 +167,12 @@ public class MyReportsActivity extends AppCompatActivity {
         private Date timestamp;
         private String userType;
         private String userId;
+        private String userEmail;
         private String attachmentUrl;
         private String adminResponse;
         private Date adminResponseDate;
+        private String priority;
+        private boolean anonymous;
 
         // Default constructor for Firestore
         public FeedbackReport() {}
@@ -188,12 +189,6 @@ public class MyReportsActivity extends AppCompatActivity {
 
         public String getMessage() { return message; }
         public void setMessage(String message) { this.message = message; }
-
-        public String getPriority() { return priority; }
-        public void setPriority(String priority) { this.priority = priority; }
-
-        public boolean isAnonymous() { return anonymous; }
-        public void setAnonymous(boolean anonymous) { this.anonymous = anonymous; }
 
         public boolean isIncludeContact() { return includeContact; }
         public void setIncludeContact(boolean includeContact) { this.includeContact = includeContact; }
@@ -216,6 +211,9 @@ public class MyReportsActivity extends AppCompatActivity {
         public String getUserId() { return userId; }
         public void setUserId(String userId) { this.userId = userId; }
 
+        public String getUserEmail() { return userEmail; }
+        public void setUserEmail(String userEmail) { this.userEmail = userEmail; }
+
         public String getAttachmentUrl() { return attachmentUrl; }
         public void setAttachmentUrl(String attachmentUrl) { this.attachmentUrl = attachmentUrl; }
 
@@ -224,6 +222,12 @@ public class MyReportsActivity extends AppCompatActivity {
 
         public Date getAdminResponseDate() { return adminResponseDate; }
         public void setAdminResponseDate(Date adminResponseDate) { this.adminResponseDate = adminResponseDate; }
+
+        public String getPriority() { return priority; }
+        public void setPriority(String priority) { this.priority = priority; }
+
+        public boolean isAnonymous() { return anonymous; }
+        public void setAnonymous(boolean anonymous) { this.anonymous = anonymous; }
     }
 
     // RecyclerView Adapter
@@ -257,38 +261,37 @@ public class MyReportsActivity extends AppCompatActivity {
         class ReportViewHolder extends RecyclerView.ViewHolder {
             private TextView subjectText;
             private TextView feedbackTypeText;
-            private TextView priorityText;
             private TextView statusText;
             private TextView dateText;
             private TextView adminResponseText;
+            private View adminResponseCard;
 
             public ReportViewHolder(@NonNull View itemView) {
                 super(itemView);
                 subjectText = itemView.findViewById(R.id.subjectText);
                 feedbackTypeText = itemView.findViewById(R.id.feedbackTypeText);
-                priorityText = itemView.findViewById(R.id.priorityText);
                 statusText = itemView.findViewById(R.id.statusText);
                 dateText = itemView.findViewById(R.id.dateText);
                 adminResponseText = itemView.findViewById(R.id.adminResponseText);
+                adminResponseCard = itemView.findViewById(R.id.adminResponseCard);
             }
 
             public void bind(FeedbackReport report) {
                 subjectText.setText(report.getSubject());
                 feedbackTypeText.setText(report.getFeedbackType());
-                priorityText.setText(report.getPriority());
-                statusText.setText(getString(R.string.feedback_report_status, report.getStatus()));
+                statusText.setText(report.getStatus());
 
                 // Format date
                 SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault());
                 String formattedDate = dateFormat.format(report.getTimestamp());
-                dateText.setText(getString(R.string.feedback_date_submitted, formattedDate));
+                dateText.setText(formattedDate);
 
                 // Show admin response if available
                 if (report.getAdminResponse() != null && !report.getAdminResponse().isEmpty()) {
-                    adminResponseText.setVisibility(View.VISIBLE);
-                    adminResponseText.setText(getString(R.string.feedback_admin_response) + " " + report.getAdminResponse());
+                    adminResponseCard.setVisibility(View.VISIBLE);
+                    adminResponseText.setText(report.getAdminResponse());
                 } else {
-                    adminResponseText.setVisibility(View.GONE);
+                    adminResponseCard.setVisibility(View.GONE);
                 }
 
                 // Set status color
@@ -335,7 +338,6 @@ public class MyReportsActivity extends AppCompatActivity {
             private String createReportDetailsMessage(FeedbackReport report) {
                 StringBuilder message = new StringBuilder();
                 message.append("Type: ").append(report.getFeedbackType()).append("\n\n");
-                message.append("Priority: ").append(report.getPriority()).append("\n\n");
                 message.append("Message:\n").append(report.getMessage()).append("\n\n");
                 message.append("Status: ").append(report.getStatus()).append("\n\n");
                 

@@ -13,7 +13,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/hello"
-        android:textSize="28sp"
+        android:textSize="@dimen/text_size_title"
         android:textColor="@color/black"
         android:textStyle="bold"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical1v2"
@@ -26,7 +26,7 @@
         android:layout_height="wrap_content"
         android:hint="App User"
         android:textColor="@color/black"
-        android:textSize="28sp"
+        android:textSize="@dimen/text_size_title"
         android:textStyle="bold"
         android:textAlignment="center"
         app:layout_constraintStart_toEndOf="@id/greetings"
@@ -36,11 +36,11 @@
     <!-- Senior Profile in Dashboard -->
     <ImageView
         android:id="@+id/notification"
-        android:layout_width="56dp"
-        android:layout_height="56dp"
+        android:layout_width="@dimen/icon_size_xlarge"
+        android:layout_height="@dimen/icon_size_xlarge"
         android:adjustViewBounds="true"
-        app:layout_constraintHeight_max="56dp"
-        app:layout_constraintWidth_max="56dp"
+        app:layout_constraintHeight_max="@dimen/icon_size_xlarge"
+        app:layout_constraintWidth_max="@dimen/icon_size_xlarge"
         app:layout_constraintEnd_toEndOf="@id/guidelineVertical2v2"
         app:layout_constraintBottom_toBottomOf="@id/guidelineHorizontal2"
         app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1"
@@ -65,12 +65,14 @@
     <!-- Emergency Note -->
     <TextView
         android:id="@+id/textNote"
-        android:layout_width="310dp"
-        android:layout_height="41dp"
-        android:layout_marginTop="30dp"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/spacing_xlarge"
+        android:layout_marginStart="@dimen/margin_medium"
+        android:layout_marginEnd="@dimen/margin_medium"
         android:text="@string/emergencynote"
         android:textAlignment="center"
-        android:textSize="29sp"
+        android:textSize="@dimen/text_size_xxlarge"
         android:textStyle="bold"
         android:textColor="@color/black"
         app:layout_constraintEnd_toEndOf="@id/guidelineVertical2"
@@ -79,12 +81,14 @@
 
     <TextView
         android:id="@+id/textGuide"
-        android:layout_width="310dp"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
+        android:layout_marginTop="@dimen/spacing_small"
+        android:layout_marginStart="@dimen/margin_medium"
+        android:layout_marginEnd="@dimen/margin_medium"
         android:text="@string/emergencyguide"
         android:textAlignment="center"
-        android:textSize="16sp"
+        android:textSize="@dimen/text_size_large"
         app:layout_constraintEnd_toEndOf="@id/guidelineVertical2"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical1"
         app:layout_constraintTop_toBottomOf="@id/textNote" />
@@ -92,9 +96,11 @@
     <!-- SOS Button -->
     <Button
         android:id="@+id/sosButton"
-        android:layout_width="250dp"
-        android:layout_height="250dp"
-        android:autoSizeMaxTextSize="60sp"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:minWidth="@dimen/sos_button_size_min"
+        android:minHeight="@dimen/sos_button_size_min"
+        android:autoSizeMaxTextSize="@dimen/sos_button_text_size"
         android:autoSizeMinTextSize="10sp"
         android:background="@drawable/sos_button_background"
         android:clickable="true"
@@ -102,11 +108,13 @@
         android:focusable="true"
         android:text="@string/emegencysignalcode"
         android:textColor="@color/white"
-        android:textSize="85sp"
+        android:textSize="@dimen/sos_button_text_size"
         android:textStyle="bold"
         app:backgroundTint="@color/secondaryRed"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintDimensionRatio="3:1"
+        app:layout_constraintDimensionRatio="1:1"
+        app:layout_constraintWidth_percent="0.6"
+        app:layout_constraintHeight_percent="0.4"
         app:layout_constraintEnd_toStartOf="@id/guidelineVertical2"
         app:layout_constraintStart_toEndOf="@id/guidelineVertical1"
         app:layout_constraintTop_toTopOf="parent"
@@ -147,7 +155,7 @@
                     android:layout_weight="1"
                     android:text="🚑 Rescuer Live Tracking"
                     android:textColor="@color/black"
-                    android:textSize="18sp"
+                    android:textSize="@dimen/text_size_xlarge"
                     android:textStyle="bold" />
 
                 <TextView
@@ -156,10 +164,10 @@
                     android:layout_height="wrap_content"
                     android:text="En Route"
                     android:textColor="@color/secondary_blue"
-                    android:textSize="14sp"
+                    android:textSize="@dimen/text_size_medium"
                     android:background="@drawable/rounded_background"
-                    android:paddingHorizontal="8dp"
-                    android:paddingVertical="4dp" />
+                    android:paddingHorizontal="@dimen/padding_small"
+                    android:paddingVertical="@dimen/spacing_tiny" />
             </LinearLayout>
 
             <!-- Map Container -->
@@ -167,8 +175,8 @@
                 android:id="@+id/seniorMapContainer"
                 android:name="com.google.android.gms.maps.SupportMapFragment"
                 android:layout_width="match_parent"
-                android:layout_height="200dp"
-                android:layout_marginBottom="10dp" />
+                android:layout_height="@dimen/map_height_small"
+                android:layout_marginBottom="@dimen/spacing_small" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -183,7 +191,7 @@
                     android:layout_weight="1"
                     android:text="Rescuer: Loading..."
                     android:textColor="@color/black"
-                    android:textSize="14sp" />
+                    android:textSize="@dimen/text_size_medium" />
 
                 <TextView
                     android:id="@+id/tvDistanceInfo"
@@ -191,7 +199,7 @@
                     android:layout_height="wrap_content"
                     android:text="Distance: --"
                     android:textColor="@color/secondary_blue"
-                    android:textSize="14sp" />
+                    android:textSize="@dimen/text_size_medium" />
             </LinearLayout>
         </LinearLayout>
     </androidx.cardview.widget.CardView>
@@ -224,7 +232,7 @@
                     android:layout_height="wrap_content"
                     android:text="Current Location: "
                     android:textColor="@color/black"
-                    android:textSize="16sp"
+                    android:textSize="@dimen/text_size_large"
                     android:textStyle="bold" />
 
                 <TextView
@@ -232,7 +240,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textColor="@color/secondary_blue"
-                    android:textSize="16sp" />
+                    android:textSize="@dimen/text_size_large" />
             </LinearLayout>
         </LinearLayout>
     </androidx.cardview.widget.CardView>

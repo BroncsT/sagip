@@ -26,23 +26,25 @@
             android:gravity="center_horizontal">
 
             <TextView
+                android:id="@+id/stepNumberText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="sans-serif-medium"
                 android:text="Step 2 of 4"
                 android:textColor="@color/black"
                 android:textStyle="bold"
-                android:textSize="18sp" />
+                android:textSize="@dimen/text_size_xlarge" />
 
             <TextView
+                android:id="@+id/stepTitleText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="sans-serif-medium"
-                android:layout_marginTop="5dp"
+                android:layout_marginTop="@dimen/spacing_tiny"
                 android:text="Account Registration"
                 android:textColor="@color/backgroundRed"
                 android:textStyle="bold"
-                android:textSize="18sp" />
+                android:textSize="@dimen/text_size_xlarge" />
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
@@ -59,7 +61,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="20dp">
+        android:padding="@dimen/padding_large">
 
         <!-- Title Section -->
         <TextView
@@ -68,7 +70,7 @@
             android:layout_height="wrap_content"
             android:text="@string/account_information"
             android:textColor="@color/black"
-            android:textSize="24sp"
+            android:textSize="@dimen/text_size_xxlarge"
             android:textStyle="bold" />
 
         <!-- Instruction -->
@@ -76,9 +78,9 @@
             android:id="@+id/instruction"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="5dp"
+            android:layout_marginBottom="@dimen/spacing_tiny"
             android:text="@string/instruction_text"
-            android:textSize="16sp"
+            android:textSize="@dimen/text_size_large"
             android:textColor="@color/gray" />
 
         <!-- Mobile Number Information -->
@@ -86,9 +88,9 @@
             android:id="@+id/senior_name"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="5dp"
+            android:layout_marginTop="@dimen/spacing_tiny"
             android:text="@string/mobile_info"
-            android:textSize="16sp"
+            android:textSize="@dimen/text_size_large"
             android:textColor="@color/black" />
 
         <TextView
@@ -97,29 +99,29 @@
             android:layout_height="wrap_content"
             android:text="09123456789"
             android:textColor="#3E69E0"
-            android:textSize="20sp"
+                android:textSize="@dimen/text_size_xlarge"
             android:textStyle="bold" />
 
         <!-- Basic Information -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="8dp"
+            android:layout_marginTop="@dimen/padding_small"
+            android:layout_marginBottom="@dimen/padding_small"
             android:text="Personal Information"
             android:textColor="@color/black"
-            android:textSize="18sp"
+            android:textSize="@dimen/text_size_xlarge"
             android:textStyle="bold"
             app:drawableStartCompat="@drawable/baseline_person_24"
-            android:drawablePadding="5dp"/>
+            android:drawablePadding="@dimen/spacing_tiny"/>
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/padding_small"
             android:text="@string/first_name_label"
             android:textColor="@color/black"
-            android:textSize="14sp"
+            android:textSize="@dimen/text_size_medium"
             android:textStyle="bold"/>
 
         <!-- Input Fields Section -->
@@ -127,7 +129,7 @@
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
+            android:layout_marginBottom="@dimen/padding_small"
             app:cursorColor="@color/secondaryRed"
             app:boxStrokeColor="@color/dark_blue"
             app:boxStrokeWidth="1dp"
@@ -144,17 +146,17 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/padding_small"
             android:text="@string/middle_name_label"
             android:textColor="@color/black"
-            android:textSize="14sp"
+            android:textSize="@dimen/text_size_medium"
             android:textStyle="bold"/>
 
         <com.google.android.material.textfield.TextInputLayout
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
+            android:layout_marginBottom="@dimen/padding_small"
             app:cursorColor="@color/secondaryRed"
             app:boxStrokeColor="@color/dark_blue"
             app:boxStrokeWidth="1dp"
@@ -171,17 +173,17 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/padding_small"
             android:text="@string/last_name_label"
             android:textColor="@color/black"
-            android:textSize="14sp"
+            android:textSize="@dimen/text_size_medium"
             android:textStyle="bold"/>
 
         <com.google.android.material.textfield.TextInputLayout
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
+            android:layout_marginBottom="@dimen/padding_small"
             app:cursorColor="@color/secondaryRed"
             app:boxStrokeColor="@color/dark_blue"
             app:boxStrokeWidth="1dp"
@@ -198,17 +200,17 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/padding_small"
             android:text="@string/birthday_label"
             android:textColor="@color/black"
-            android:textSize="14sp"
+            android:textSize="@dimen/text_size_medium"
             android:textStyle="bold"/>
 
         <com.google.android.material.textfield.TextInputLayout
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
+            android:layout_marginBottom="@dimen/padding_small"
             app:cursorColor="@color/secondaryRed"
             app:boxStrokeColor="@color/dark_blue"
             app:boxStrokeWidth="1dp"
@@ -225,10 +227,10 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/padding_small"
             android:text="@string/email_address_optional_label"
             android:textColor="@color/black"
-            android:textSize="14sp"
+            android:textSize="@dimen/text_size_medium"
             android:textStyle="bold"/>
 
         <com.google.android.material.textfield.TextInputLayout
@@ -251,19 +253,19 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="5dp"
+            android:layout_marginStart="@dimen/spacing_tiny"
             android:text="Gmail only"
             android:textColor="@color/text_secondary"
             android:textStyle="bold"
-            android:textSize="12sp"/>
+            android:textSize="@dimen/text_size_small"/>
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="9dp"
+            android:layout_marginTop="@dimen/spacing_small"
             android:text="@string/barangay_label"
             android:textColor="@color/black"
-            android:textSize="14sp"
+            android:textSize="@dimen/text_size_medium"
             android:textStyle="bold"/>
 
         <com.google.android.material.textfield.TextInputLayout
@@ -278,7 +280,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:backgroundTint="@color/dark_blue"
-                android:padding="16dp" />
+                android:padding="@dimen/padding_medium" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <!-- Terms and Conditions -->
@@ -286,11 +288,11 @@
             android:id="@+id/termsConditionsCheckbox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="@dimen/spacing_small"
             android:padding="5dp"
             android:text="@string/terms_conditions"
             android:textColor="#666666"
-            android:textSize="14sp"
+            android:textSize="@dimen/text_size_medium"
             app:buttonTint="@color/info_blue"/>
 
 <!--        <com.google.android.material.checkbox.MaterialCheckBox-->
@@ -300,16 +302,16 @@
 <!--            android:layout_marginBottom="24dp"-->
 <!--            android:text="@string/privacy_policy"-->
 <!--            android:textColor="#666666"-->
-<!--            android:textSize="14sp"-->
+<!--            android:textSize="@dimen/text_size_medium"-->
 <!--            app:buttonTint="#3E69E0" />-->
 
         <!-- Submit Button -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/addEmerContact"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
+            android:layout_height="@dimen/button_height"
             android:text="@string/submit_button_text"
-            android:textSize="17sp"
+            android:textSize="@dimen/text_size_xlarge"
             android:textAllCaps="false"
             app:backgroundTint="#3E69E0"
             app:cornerRadius="6dp"/>

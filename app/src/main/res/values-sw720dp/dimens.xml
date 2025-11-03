@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dimensions for large tablets (10" tablets and up) -->
+    <dimen name="spacing_tiny">8dp</dimen>
+    <dimen name="spacing_small">16dp</dimen>
+    <dimen name="spacing_medium">32dp</dimen>
+    <dimen name="spacing_large">48dp</dimen>
+    <dimen name="spacing_xlarge">56dp</dimen>
+    <dimen name="spacing_xxlarge">72dp</dimen>
+    
+    <dimen name="padding_medium">32dp</dimen>
+    <dimen name="padding_large">48dp</dimen>
+    <dimen name="padding_xlarge">56dp</dimen>
+    
+    <dimen name="margin_medium">32dp</dimen>
+    <dimen name="margin_large">48dp</dimen>
+    
+    <dimen name="text_size_small">15sp</dimen>
+    <dimen name="text_size_medium">18sp</dimen>
+    <dimen name="text_size_large">22sp</dimen>
+    <dimen name="text_size_xlarge">24sp</dimen>
+    <dimen name="text_size_xxlarge">36sp</dimen>
+    <dimen name="text_size_title">40sp</dimen>
+    <dimen name="text_size_headline">44sp</dimen>
+    
+    <dimen name="button_height">80dp</dimen>
+    <dimen name="button_height_small">64dp</dimen>
+    <dimen name="button_padding_horizontal">40dp</dimen>
+    
+    <dimen name="card_corner_radius">20dp</dimen>
+    <dimen name="card_padding">32dp</dimen>
+    
+    <dimen name="icon_size_medium">48dp</dimen>
+    <dimen name="icon_size_large">72dp</dimen>
+    <dimen name="icon_size_xlarge">80dp</dimen>
+    
+    <dimen name="sos_button_size_min">320dp</dimen>
+    <dimen name="sos_button_size_normal">400dp</dimen>
+    <dimen name="sos_button_text_size">90sp</dimen>
+    
+    <dimen name="map_height_small">350dp</dimen>
+    <dimen name="map_height_medium">500dp</dimen>
+    <dimen name="map_height_large">700dp</dimen>
+    
+    <dimen name="input_height">80dp</dimen>
+    <dimen name="input_padding">24dp</dimen>
+    
+    <dimen name="profile_image_small">96dp</dimen>
+    <dimen name="profile_image_medium">140dp</dimen>
+    <dimen name="profile_image_large">180dp</dimen>
+</resources>
+

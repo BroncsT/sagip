@@ -15,6 +15,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
@@ -92,7 +93,9 @@ public class Senior_Registration extends AppCompatActivity {
         EditText getEmailAddress = findViewById(R.id.emailAddress);
         TextView getMobileNumber = findViewById(R.id.mobileNumber);
         Button continueButton = findViewById(R.id.addEmerContact);
-
+        
+        // Note: Step indicator views (stepNumberText, stepTitleText) removed from layout
+        
         // Firebase initialization
         auth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
@@ -121,7 +124,7 @@ public class Senior_Registration extends AppCompatActivity {
 
                 FirebaseUser user = auth.getCurrentUser();
                 if (user == null) {
-                    Toast.makeText(Senior_Registration.this, "User not authenticated", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(Senior_Registration.this, getString(R.string.user_not_authenticated), Toast.LENGTH_SHORT).show();
                     return;
                 }
 
@@ -166,7 +169,7 @@ public class Senior_Registration extends AppCompatActivity {
                                                 if (task.isSuccessful()) {
                                                     Intent intent = new Intent(Senior_Registration.this,
                                                             Verification_Page.class);
-                                                    Toast.makeText(Senior_Registration.this, "Verification Process", Toast.LENGTH_SHORT).show();
+                                                    Toast.makeText(Senior_Registration.this, getString(R.string.verification_process), Toast.LENGTH_SHORT).show();
                                                     startActivity(intent);
                                                     finish();
                                                 } else {

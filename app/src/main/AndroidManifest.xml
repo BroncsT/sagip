@@ -199,7 +199,7 @@
             android:name=".IdCameraCapture"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="false"
-            android:screenOrientation="landscape" />
+            android:screenOrientation="sensorLandscape" />
         <activity
             android:name=".FaceVerification"
             android:exported="false"

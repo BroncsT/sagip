@@ -6,7 +6,6 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ActivityInfo;
-import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
@@ -80,7 +79,7 @@ public class IdCameraCapture extends AppCompatActivity {
         EdgeToEdge.enable(this);
         
         // Force landscape orientation for ID cards (horizontal display)
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
         
         // Apply saved language preference
         String savedLanguage = LanguageSelectionActivity.getSavedLanguage(this);
@@ -580,25 +579,7 @@ public class IdCameraCapture extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // Allow orientation changes for better user experience
-    }
-
-    @Override
-    public void onConfigurationChanged(Configuration newConfig) {
-        super.onConfigurationChanged(newConfig);
-        
-        // Handle orientation change
-        if (newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) {
-            Log.d(TAG, "Switched to landscape mode");
-            // The layout will automatically switch to layout-land/activity_id_camera_capture.xml
-        } else if (newConfig.orientation == Configuration.ORIENTATION_PORTRAIT) {
-            Log.d(TAG, "Switched to portrait mode");
-            // The layout will automatically switch to layout/activity_id_camera_capture.xml
-        }
-        
-        // Restart camera to ensure proper preview
-        if (cameraProvider != null) {
-            startCamera();
-        }
+        // Ensure landscape orientation is maintained
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
     }
 }

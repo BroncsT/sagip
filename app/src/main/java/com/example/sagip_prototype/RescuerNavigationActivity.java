@@ -332,7 +332,7 @@ public class RescuerNavigationActivity extends BaseRescuerActivity implements On
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
             if (currentLocation != null && emergencyLocation != null) {
                 showRoute();
-                Toast.makeText(this, "🗺️ Route to emergency location displayed", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.route_to_emergency_displayed), Toast.LENGTH_SHORT).show();
             }
         }, 2000); // 2 second delay
         
@@ -461,7 +461,7 @@ public class RescuerNavigationActivity extends BaseRescuerActivity implements On
 
     private void startNavigation() {
         if (currentLocation == null || emergencyLocation == null) {
-            Toast.makeText(this, "Location not available", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.location_not_available), Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -481,7 +481,7 @@ public class RescuerNavigationActivity extends BaseRescuerActivity implements On
         // Show enhanced route information
         showRouteInformation();
         
-        Toast.makeText(this, "🗺️ Turn-by-turn navigation started! Route displayed on map.", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, getString(R.string.turn_by_turn_navigation_started), Toast.LENGTH_LONG).show();
     }
 
     private void showRouteInformation() {
@@ -547,7 +547,7 @@ public class RescuerNavigationActivity extends BaseRescuerActivity implements On
         
         updateEmergencyInfo();
         
-        Toast.makeText(this, "Navigation stopped", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, getString(R.string.navigation_stopped), Toast.LENGTH_SHORT).show();
     }
 
     private void switchToEmergencyInfoUI() {
@@ -670,12 +670,12 @@ public class RescuerNavigationActivity extends BaseRescuerActivity implements On
 
     private void showArrivalNotification() {
         // Show a prominent arrival notification
-        Toast.makeText(this, "🏁 ARRIVED! You are at the emergency location!", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, getString(R.string.arrived_at_emergency_location), Toast.LENGTH_LONG).show();
         
         // Show a dialog for confirmation
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("🏁 Arrived at Destination");
-        builder.setMessage("You have arrived at the emergency location. Use the 'Mark as Arrived' button below to confirm your arrival.");
+        builder.setTitle(getString(R.string.arrived_at_destination_title));
+        builder.setMessage(getString(R.string.arrived_at_destination_message));
         builder.setIcon(android.R.drawable.ic_dialog_info);
         
         builder.setPositiveButton("OK", (dialog, which) -> {
@@ -973,13 +973,13 @@ public class RescuerNavigationActivity extends BaseRescuerActivity implements On
             callIntent.setData(Uri.parse("tel:" + seniorPhone));
             startActivity(callIntent);
         } else {
-            Toast.makeText(this, "No phone number available", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.no_phone_number_available), Toast.LENGTH_SHORT).show();
         }
     }
 
     private void openExternalMaps() {
         if (emergencyLocation == null) {
-            Toast.makeText(this, "Emergency location not available", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.emergency_location_not_available), Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -992,26 +992,26 @@ public class RescuerNavigationActivity extends BaseRescuerActivity implements On
             
             if (navigationIntent.resolveActivity(getPackageManager()) != null) {
                 startActivity(navigationIntent);
-                Toast.makeText(this, "🚗 Opening Google Maps navigation", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, getString(R.string.opening_google_maps_navigation), Toast.LENGTH_LONG).show();
             } else {
                 // Fallback to web-based Google Maps
                 String webMapsUri = String.format(Locale.getDefault(), "https://www.google.com/maps/dir/?api=1&destination=%f,%f&travelmode=driving", 
                     emergencyLocation.latitude, emergencyLocation.longitude);
                 Intent webIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(webMapsUri));
                 startActivity(webIntent);
-                Toast.makeText(this, "🌐 Opening web-based navigation", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, getString(R.string.opening_web_based_navigation), Toast.LENGTH_LONG).show();
             }
             
         } catch (Exception e) {
             Log.e(TAG, "Error opening external Google Maps navigation", e);
-            Toast.makeText(this, "Error opening navigation", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.error_opening_navigation), Toast.LENGTH_SHORT).show();
         }
     }
 
     private void markArrived() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Mark as Arrived");
-        builder.setMessage("Have you arrived at the emergency location?");
+        builder.setTitle(getString(R.string.mark_as_arrived_title));
+        builder.setMessage(getString(R.string.mark_as_arrived_message));
         
         builder.setPositiveButton("Yes, Arrived", (dialog, which) -> {
             // Prevent multiple automatic arrivals
@@ -1039,10 +1039,10 @@ public class RescuerNavigationActivity extends BaseRescuerActivity implements On
                 })
                     .addOnFailureListener(e -> {
                         Log.e(TAG, "Error updating help request status", e);
-                        Toast.makeText(this, "Error updating status", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, getString(R.string.error_updating_status), Toast.LENGTH_SHORT).show();
                     });
             } else {
-                Toast.makeText(this, "✅ Marked as arrived!", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, getString(R.string.marked_as_arrived), Toast.LENGTH_LONG).show();
                 finish();
             }
         });
@@ -1084,10 +1084,10 @@ public class RescuerNavigationActivity extends BaseRescuerActivity implements On
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error automatically updating help request status", e);
-                    Toast.makeText(this, "Error updating status", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, getString(R.string.error_updating_status), Toast.LENGTH_SHORT).show();
                 });
         } else {
-            Toast.makeText(this, "✅ Automatically marked as arrived!", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, getString(R.string.automatically_marked_as_arrived), Toast.LENGTH_LONG).show();
             stopNavigation();
             
             // Close the rescuer navigation activity after a brief delay
@@ -1308,32 +1308,32 @@ public class RescuerNavigationActivity extends BaseRescuerActivity implements On
 
     private void showRouteOptions() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("🗺️ Route Options");
-        builder.setMessage("Choose your preferred route to the emergency location:");
+        builder.setTitle(getString(R.string.route_options_title));
+        builder.setMessage(getString(R.string.route_options_message));
         
         builder.setPositiveButton("🚀 Fastest Route", (dialog, which) -> {
             // Recalculate route with fastest option
             showRouteWithOptions("fastest");
-            Toast.makeText(this, "🚀 Fastest route selected", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.fastest_route_selected), Toast.LENGTH_SHORT).show();
         });
         
         builder.setNeutralButton("📏 Shortest Route", (dialog, which) -> {
             // Recalculate route with shortest option
             showRouteWithOptions("shortest");
-            Toast.makeText(this, "📏 Shortest route selected", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.shortest_route_selected), Toast.LENGTH_SHORT).show();
         });
         
         builder.setNegativeButton("🚫 Avoid Highways", (dialog, which) -> {
             // Recalculate route avoiding highways
             showRouteWithOptions("avoid_highways");
-            Toast.makeText(this, "🚫 Route avoiding highways selected", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.route_avoiding_highways_selected), Toast.LENGTH_SHORT).show();
         });
         
         // Add a fourth option
         builder.setNeutralButton("🔄 Refresh Route", (dialog, which) -> {
             // Refresh current route
             showRoute();
-            Toast.makeText(this, "🔄 Route refreshed", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.route_refreshed), Toast.LENGTH_SHORT).show();
         });
         
         AlertDialog dialog = builder.create();
@@ -1379,7 +1379,7 @@ public class RescuerNavigationActivity extends BaseRescuerActivity implements On
     private void resetMapOrientation() {
         if (googleMap != null && currentLocation != null) {
             googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 18f));
-            Toast.makeText(this, "Map orientation reset", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.map_orientation_reset), Toast.LENGTH_SHORT).show();
         }
     }
 

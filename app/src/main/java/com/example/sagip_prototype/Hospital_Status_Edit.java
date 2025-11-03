@@ -411,7 +411,7 @@ public class Hospital_Status_Edit extends AppCompatActivity {
                 .addOnFailureListener(e -> {
                     tvDatabaseTotalBeds.setText("Error");
                     tvDatabaseTotalDoctors.setText("Error");
-                    Toast.makeText(this, "Failed to load hospital data: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, String.format(getString(R.string.failed_to_load_hospital_data_format), e.getMessage()), Toast.LENGTH_SHORT).show();
                     Log.e("Hospital_Status_Edit", "Failed to load hospital data", e);
                 });
     }
@@ -449,13 +449,13 @@ public class Hospital_Status_Edit extends AppCompatActivity {
             
             // Check if available beds exceed registered total beds
             if (availableBeds > databaseTotalBeds) {
-                Toast.makeText(this, "Available beds (" + availableBeds + ") cannot exceed registered total beds (" + databaseTotalBeds + ")", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, String.format(getString(R.string.available_beds_cannot_exceed_total_format), availableBeds, databaseTotalBeds), Toast.LENGTH_LONG).show();
                 return;
             }
             
             // Check if available doctors exceed registered total doctors
             if (doctorsAvailable > databaseTotalDoctors) {
-                Toast.makeText(this, "Available doctors (" + doctorsAvailable + ") cannot exceed registered total doctors (" + databaseTotalDoctors + ")", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, String.format(getString(R.string.available_doctors_cannot_exceed_total_format), doctorsAvailable, databaseTotalDoctors), Toast.LENGTH_LONG).show();
                 return;
             }
 
