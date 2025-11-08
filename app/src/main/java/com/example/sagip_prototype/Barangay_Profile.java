@@ -10,6 +10,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -29,16 +31,34 @@ public class Barangay_Profile extends BaseProfileActivity {
         private static final String KEY_CACHED_EMAIL = "cachedEmail";
         private SharedPreferences sharedPreferences;
         private boolean dataLoaded = false;
+        
+        // Activity result launcher for font size changes
+        private ActivityResultLauncher<Intent> fontSizeActivityLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
+        
+        // Apply saved font size preference
+        FontSizeHelper.applyFontSize(this);
+        
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
         storage = FirebaseStorage.getInstance();
         sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
         setContentView(R.layout.activity_barangay_profile);
+        
+        // Initialize activity result launcher for font size
+        fontSizeActivityLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == FontSizeActivity.RESULT_FONT_SIZE_CHANGED) {
+                    // Font size changed - refresh smoothly
+                    applyFontSizeImmediately();
+                }
+            }
+        );
         
         // Add language selection functionality
         addLanguageSelectionToLayout();
@@ -49,6 +69,7 @@ public class Barangay_Profile extends BaseProfileActivity {
         LinearLayout gotoUpdate = findViewById(R.id.gotoupdate);
         LinearLayout gotoLogut = findViewById(R.id.logoutLayout);
         LinearLayout deleteAccountLayout = findViewById(R.id.deleteAccountLayout);
+        LinearLayout fontSizeLayout = findViewById(R.id.notificationSettingsLayout);
 
         // Edit Information opens blank screen for barangay users
         gotoUpdate.setOnClickListener(new View.OnClickListener() {
@@ -58,6 +79,21 @@ public class Barangay_Profile extends BaseProfileActivity {
                 startActivity(intent);
             }
         });
+
+        // Font Size Layout
+        if (fontSizeLayout != null) {
+            fontSizeLayout.setClickable(true);
+            fontSizeLayout.setFocusable(true);
+            fontSizeLayout.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    openFontSizeSettings();
+                }
+            });
+            Log.d("Barangay_Profile", "Font size layout click listener set successfully");
+        } else {
+            Log.e("Barangay_Profile", "Font size layout not found!");
+        }
 
         // Feedback Support Layout
         LinearLayout feedbackSupportLayout = findViewById(R.id.feedbackSupportLayout);
@@ -374,5 +410,21 @@ public class Barangay_Profile extends BaseProfileActivity {
                                 Toast.makeText(this, getString(R.string.delete_account_failed), Toast.LENGTH_SHORT).show();
                             });
                 });
+    }
+    
+    private void openFontSizeSettings() {
+        Log.d("Barangay_Profile", "🔤 Opening font size settings");
+        Intent intent = new Intent(Barangay_Profile.this, FontSizeActivity.class);
+        fontSizeActivityLauncher.launch(intent);
+    }
+    
+    private void applyFontSizeImmediately() {
+        Log.d("Barangay_Profile", "Font size changed - navigating to dashboard");
+        
+        // Navigate to Barangay Dashboard to show the font size change
+        Intent intent = new Intent(Barangay_Profile.this, Barangay_Dashboard.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        startActivity(intent);
+        finish();
     }
 }

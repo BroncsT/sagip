@@ -55,6 +55,7 @@ public class HospitalAdapter extends RecyclerView.Adapter<HospitalAdapter.Hospit
         private TextView hospitalNameText;
         private TextView hospitalAddressText;
         private TextView hospitalContactText;
+        private TextView hospitalEmailText;
         private TextView hospitalStatusText;
         private TextView hospitalBedsText;
         private TextView hospitalSpecializationText;
@@ -65,6 +66,7 @@ public class HospitalAdapter extends RecyclerView.Adapter<HospitalAdapter.Hospit
             hospitalNameText = itemView.findViewById(R.id.hospitalNameText);
             hospitalAddressText = itemView.findViewById(R.id.hospitalAddressText);
             hospitalContactText = itemView.findViewById(R.id.hospitalContactText);
+            hospitalEmailText = itemView.findViewById(R.id.hospitalEmailText);
             hospitalStatusText = itemView.findViewById(R.id.hospitalStatusText);
             hospitalBedsText = itemView.findViewById(R.id.hospitalBedsText);
             hospitalSpecializationText = itemView.findViewById(R.id.hospitalSpecializationText);
@@ -79,6 +81,7 @@ public class HospitalAdapter extends RecyclerView.Adapter<HospitalAdapter.Hospit
                 hospitalNameText.setVisibility(View.GONE);
                 hospitalAddressText.setVisibility(View.GONE);
                 hospitalContactText.setVisibility(View.GONE);
+                hospitalEmailText.setVisibility(View.GONE);
                 hospitalStatusText.setVisibility(View.GONE);
                 hospitalBedsText.setVisibility(View.GONE);
                 
@@ -107,6 +110,7 @@ public class HospitalAdapter extends RecyclerView.Adapter<HospitalAdapter.Hospit
                 hospitalNameText.setVisibility(View.VISIBLE);
                 hospitalAddressText.setVisibility(View.VISIBLE);
                 hospitalContactText.setVisibility(View.VISIBLE);
+                hospitalEmailText.setVisibility(View.VISIBLE);
                 hospitalStatusText.setVisibility(View.VISIBLE);
                 hospitalBedsText.setVisibility(View.VISIBLE);
                 
@@ -118,6 +122,9 @@ public class HospitalAdapter extends RecyclerView.Adapter<HospitalAdapter.Hospit
 
                 // Set contact number
                 hospitalContactText.setText(hospital.getContactNumber() != null ? hospital.getContactNumber() : itemView.getContext().getString(R.string.contact_not_available));
+
+                // Set email
+                hospitalEmailText.setText(hospital.getEmail() != null ? hospital.getEmail() : itemView.getContext().getString(R.string.email_not_available));
 
                 // Set status with color coding
                 String status = hospital.getStatusDisplay();

@@ -675,7 +675,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     private AlertDialog currentEmergencyDialog; // Track current emergency popup
     private String currentEmergencyRequestId; // Track which emergency the dialog is showing
     
-    // SOS Emergency List
+    // SOS Emergency List - REMOVED
     private androidx.recyclerview.widget.RecyclerView sosEmergencyRecyclerView;
     private SOSEmergencyAdapter sosEmergencyAdapter;
     private TextView noSOSEmergenciesText;
@@ -844,11 +844,11 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         // Set up clear route button
         btnClearRoute.setOnClickListener(v -> clearRoute());
         
-        // Initialize SOS Emergency List
-        sosEmergencyRecyclerView = findViewById(R.id.sosEmergencyRecyclerView);
-        noSOSEmergenciesText = findViewById(R.id.noSOSEmergenciesText);
-        setupSOSEmergencyList();
-        startEmergencyListUpdates();
+        // Initialize SOS Emergency List - REMOVED
+        // sosEmergencyRecyclerView = findViewById(R.id.sosEmergencyRecyclerView);
+        // noSOSEmergenciesText = findViewById(R.id.noSOSEmergenciesText);
+        // setupSOSEmergencyList();
+        // startEmergencyListUpdates();
         
         // Initialize executor service for route requests
         executorService = Executors.newSingleThreadExecutor();
@@ -1097,8 +1097,8 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             emergencySOSListener = null;
         }
         
-        // Stop emergency list updates
-        stopEmergencyListUpdates();
+        // Stop emergency list updates - REMOVED
+        // stopEmergencyListUpdates();
 
         // Clear any pending emergency alerts
         clearPendingEmergencyAlerts();
@@ -1507,9 +1507,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     }
 
     /**
-     * Set up the SOS Emergency List RecyclerView
+     * Set up the SOS Emergency List RecyclerView - REMOVED
      */
-    private void setupSOSEmergencyList() {
+    /* private void setupSOSEmergencyList() {
         Log.d(TAG, "📋 Setting up SOS Emergency List");
         
         // Initialize adapter with empty list
@@ -1586,7 +1586,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     }
     
     /**
-     * Stop periodic updates for the emergency list
+     * Stop periodic updates for the emergency list - REMOVED
      */
     private void stopEmergencyListUpdates() {
         if (emergencyListUpdateHandler != null && emergencyListUpdateRunnable != null) {
@@ -1597,7 +1597,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     }
     
     /**
-     * Update the SOS Emergency List with current active emergencies
+     * Update the SOS Emergency List with current active emergencies - REMOVED
      */
     private void updateSOSEmergencyList() {
         List<EmergencyQueueManager.EmergencyRequest> activeEmergencies = 
@@ -3037,8 +3037,8 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                         Log.d(TAG, "🔍 [RESPOND_NOW] Calling assignRescuerToEmergencyById with requestId: " + requestId);
                         assignRescuerToEmergencyById(requestId);
                         
-                        // Update emergency list to reflect the change
-                        updateSOSEmergencyList();
+                        // Update emergency list to reflect the change - REMOVED
+                        // updateSOSEmergencyList();
                         
                         // Show confirmation to rescuer
                         Toast.makeText(this, getString(R.string.toast_assigned_to_emergency), Toast.LENGTH_LONG).show();
@@ -4907,12 +4907,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             loadEmergencyFromDatabaseAndAssign(requestId, rescuerId);
         }
     }
-    
-    /**
-     * Update rescuer's assignment status in their profile
-     * When onAssignment = true, they will NOT receive new emergency alerts
-     * When onAssignment = false, they will receive alerts normally
-     */
+
     private void setRescuerOnAssignmentStatus(String rescuerId, boolean onAssignment) {
         Log.d(TAG, "📝 Updating rescuer assignment status: " + rescuerId + " | onAssignment: " + onAssignment);
         

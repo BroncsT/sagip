@@ -6,14 +6,17 @@
     android:layout_height="match_parent"
     android:background="@color/light_gray">
 
+    <!-- Header Title -->
     <TextView
         android:id="@+id/labelProfile"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="Incoming Senior Patients"
-        android:textSize="28sp"
+        android:textSize="@dimen/text_size_title"
         android:textStyle="bold"
         android:textColor="@color/black"
+        android:fontFamily="sans-serif-medium"
+        android:letterSpacing="0.02"
         app:layout_constraintEnd_toEndOf="@id/guidelineVertical2v2"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical1v2"
         app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1"
@@ -26,6 +29,7 @@
         android:layout_height="0dp"
         android:padding="8dp"
         android:clipToPadding="false"
+        android:scrollbars="vertical"
         app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal2"
         app:layout_constraintBottom_toBottomOf="@id/bottomNavBar2"
         app:layout_constraintStart_toStartOf="parent"
@@ -39,17 +43,19 @@
         android:orientation="vertical"
         android:gravity="center"
         android:visibility="gone"
+        android:padding="@dimen/padding_xlarge"
         app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal2"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical1v2"
         app:layout_constraintEnd_toEndOf="@id/guidelineVertical2v2"
         app:layout_constraintBottom_toTopOf="@id/bottomNavBar2">
 
         <ImageView
-            android:layout_width="80dp"
-            android:layout_height="80dp"
+            android:layout_width="@dimen/icon_size_xlarge"
+            android:layout_height="@dimen/icon_size_xlarge"
             android:src="@drawable/ic_hospital"
             android:alpha="0.3"
-            android:layout_marginBottom="16dp" />
+            android:layout_marginBottom="@dimen/margin_medium"
+            android:tint="@color/gray" />
 
         <TextView
             android:id="@+id/noHospitalsText"
@@ -57,7 +63,8 @@
             android:layout_height="wrap_content"
             android:text="No senior patients coming."
             android:textColor="@color/gray"
-            android:textSize="16sp" />
+            android:textSize="@dimen/text_size_large"
+            android:fontFamily="sans-serif" />
 
     </LinearLayout>
 

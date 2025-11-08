@@ -38,6 +38,7 @@ import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseAuth.AuthStateListener;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -68,6 +69,8 @@ public class Senior_Dashboard extends AppCompatActivity {
     FirebaseAuth mAuth;
     FirebaseFirestore db;
     private SharedPreferences sharedPreferences;
+    private AuthStateListener authStateListener;
+    private boolean authStateChecked = false;
 
     TextView tvFullName, tvCurrentLocation;
     Button btnFindHospital, btnSOS;
@@ -111,8 +114,9 @@ public class Senior_Dashboard extends AppCompatActivity {
         db = FirebaseFirestore.getInstance();
         sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
 
-        // Check authentication state with persistence
-        checkAuthStateWithPersistence();
+        // Check authentication state with persistence using AuthStateListener
+        // This ensures we wait for Firebase Auth to fully restore the session
+        setupAuthStateListener();
 
         initializeViews();
         
@@ -804,6 +808,77 @@ public class Senior_Dashboard extends AppCompatActivity {
                 });
     }
 
+    private void setupAuthStateListener() {
+        // Use AuthStateListener to wait for Firebase Auth to restore the session
+        // This prevents premature logout when app reopens
+        authStateListener = new AuthStateListener() {
+            @Override
+            public void onAuthStateChanged(@NonNull FirebaseAuth firebaseAuth) {
+                // Only check once to prevent multiple checks
+                if (authStateChecked) {
+                    return;
+                }
+                
+                // Check if we have stored credentials - if yes, wait a bit more for session restore
+                boolean hasStoredCredentials = sharedPreferences.getBoolean(KEY_IS_LOGGED_IN, false);
+                FirebaseUser currentUser = firebaseAuth.getCurrentUser();
+                
+                if (hasStoredCredentials && currentUser == null) {
+                    // We have stored credentials but Firebase Auth hasn't restored session yet
+                    // Wait a bit more before checking
+                    Log.d(TAG, "Stored credentials found but Firebase Auth not ready, waiting...");
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                        if (!authStateChecked) {
+                            authStateChecked = true;
+                            mAuth.removeAuthStateListener(this);
+                            checkAuthStateWithPersistence();
+                        }
+                    }, 1000); // Wait 1 second for Firebase Auth to restore session
+                    return;
+                }
+                
+                // Auth state is ready, proceed with check
+                authStateChecked = true;
+                mAuth.removeAuthStateListener(this);
+                checkAuthStateWithPersistence();
+            }
+        };
+        
+        // Add the listener - it will fire when Firebase Auth state is ready
+        mAuth.addAuthStateListener(authStateListener);
+        
+        // Also check after a delay in case auth state is already ready
+        // This handles the case where Firebase Auth has already restored the session
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            if (!authStateChecked) {
+                // If listener hasn't fired yet, check manually
+                FirebaseUser currentUser = mAuth.getCurrentUser();
+                boolean hasStoredCredentials = sharedPreferences.getBoolean(KEY_IS_LOGGED_IN, false);
+                
+                if (currentUser != null || !hasStoredCredentials) {
+                    // User is logged in OR no stored credentials - safe to check
+                    authStateChecked = true;
+                    if (authStateListener != null) {
+                        mAuth.removeAuthStateListener(authStateListener);
+                    }
+                    checkAuthStateWithPersistence();
+                } else {
+                    // Has stored credentials but no Firebase user - wait a bit more
+                    Log.d(TAG, "Delayed check: stored credentials but no Firebase user, waiting more...");
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                        if (!authStateChecked) {
+                            authStateChecked = true;
+                            if (authStateListener != null) {
+                                mAuth.removeAuthStateListener(authStateListener);
+                            }
+                            checkAuthStateWithPersistence();
+                        }
+                    }, 1500); // Wait another 1.5 seconds
+                }
+            }
+        }, 500); // Initial delay of 500ms
+    }
+
     private void checkAuthStateWithPersistence() {
         // Check if user was previously logged in
         boolean isLoggedIn = sharedPreferences.getBoolean(KEY_IS_LOGGED_IN, false);
@@ -813,11 +888,13 @@ public class Senior_Dashboard extends AppCompatActivity {
         if (isLoggedIn && userId != null && storedUserType != null) {
             // User was previously logged in, verify Firebase Auth state
             FirebaseUser currentUser = mAuth.getCurrentUser();
-            if (currentUser != null) {
-                // Firebase user is still authenticated, check status
+            if (currentUser != null && currentUser.getUid().equals(userId)) {
+                // Firebase user is still authenticated and matches stored ID, check status
+                Log.d(TAG, "User session restored successfully, checking status");
                 checkUserStatus();
             } else {
-                // Firebase session expired, redirect to login
+                // Firebase session expired or user ID doesn't match
+                Log.d(TAG, "Firebase session expired or user ID mismatch, clearing credentials");
                 clearStoredCredentials();
                 navigateToLogin();
             }
@@ -826,9 +903,11 @@ public class Senior_Dashboard extends AppCompatActivity {
             FirebaseUser currentUser = mAuth.getCurrentUser();
             if (currentUser == null) {
                 // User is not logged in, redirect to login
+                Log.d(TAG, "No Firebase user found, redirecting to login");
                 navigateToLogin();
             } else {
                 // User is logged in but not stored in SharedPreferences
+                Log.d(TAG, "Firebase user found but not in SharedPreferences, saving credentials");
                 saveUserCredentials(currentUser.getUid(), "seniors", currentUser.getPhoneNumber());
                 checkUserStatus();
             }
@@ -1490,6 +1569,12 @@ public class Senior_Dashboard extends AppCompatActivity {
         if (rescuerAcceptedReceiver != null) {
             unregisterReceiver(rescuerAcceptedReceiver);
             Log.d(TAG, "📡 Unregistered rescuer accepted broadcast receiver");
+        }
+        
+        // Remove auth state listener if it was added
+        if (authStateListener != null) {
+            mAuth.removeAuthStateListener(authStateListener);
+            Log.d(TAG, "Removed auth state listener");
         }
         
         // Remove emergency status listener

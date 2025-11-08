@@ -10,6 +10,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -29,11 +31,18 @@ public class Hospital_Profile extends BaseProfileActivity {
     FirebaseAuth mAuth;
     FirebaseFirestore db;
     private SharedPreferences sharedPreferences;
+    
+    // Activity result launcher for font size changes
+    private ActivityResultLauncher<Intent> fontSizeActivityLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
+        
+        // Apply saved font size preference
+        FontSizeHelper.applyFontSize(this);
+        
         setContentView(R.layout.activity_hospital_profile);
 
         // Initialize SharedPreferences
@@ -41,6 +50,17 @@ public class Hospital_Profile extends BaseProfileActivity {
 
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
+        
+        // Initialize activity result launcher for font size
+        fontSizeActivityLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == FontSizeActivity.RESULT_FONT_SIZE_CHANGED) {
+                    // Font size changed - refresh smoothly
+                    applyFontSizeImmediately();
+                }
+            }
+        );
 
         // Add language selection functionality
         addLanguageSelectionToLayout();
@@ -49,6 +69,7 @@ public class Hospital_Profile extends BaseProfileActivity {
         TextView hospitalProfile = findViewById(R.id.profileName);
         TextView hospitalEmail = findViewById(R.id.profileEmail);
         LinearLayout logout = findViewById(R.id.logoutLayout);
+        LinearLayout fontSizeLayout = findViewById(R.id.notificationSettingsLayout);
 
         setupBottomNavigation();
 
@@ -60,6 +81,16 @@ public class Hospital_Profile extends BaseProfileActivity {
                 startActivity(gotoUpdate);
             }
         });
+
+        // Font Size Layout
+        if (fontSizeLayout != null) {
+            fontSizeLayout.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    openFontSizeSettings();
+                }
+            });
+        }
 
         // Feedback Support Layout
         LinearLayout feedbackSupportLayout = findViewById(R.id.feedbackSupportLayout);
@@ -202,5 +233,26 @@ public class Hospital_Profile extends BaseProfileActivity {
         if (logoutText != null) {
             logoutText.setText(getString(R.string.logout));
         }
+        
+        TextView notificationSettingsText = findViewById(R.id.notificationSettingsText);
+        if (notificationSettingsText != null) {
+            notificationSettingsText.setText(getString(R.string.notification_settings));
+        }
+    }
+    
+    private void openFontSizeSettings() {
+        Log.d("Hospital_Profile", "🔤 Opening font size settings");
+        Intent intent = new Intent(Hospital_Profile.this, FontSizeActivity.class);
+        fontSizeActivityLauncher.launch(intent);
+    }
+    
+    private void applyFontSizeImmediately() {
+        Log.d("Hospital_Profile", "Font size changed - navigating to dashboard");
+        
+        // Navigate to Hospital Dashboard to show the font size change
+        Intent intent = new Intent(Hospital_Profile.this, Hospital_Dashboard.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        startActivity(intent);
+        finish();
     }
 }

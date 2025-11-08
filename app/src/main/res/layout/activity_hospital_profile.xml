@@ -118,6 +118,39 @@
                 android:background="#E0E0E0" />
 
             <LinearLayout
+                android:id="@+id/notificationSettingsLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="16dp"
+                android:focusable="true"
+                android:clickable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_marginStart="8dp"
+                    android:src="@drawable/ic_font_size" />
+
+                <TextView
+                    android:id="@+id/notificationSettingsText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:text="@string/notification_settings"
+                    android:textColor="@color/black"
+                    android:textSize="16sp"
+                    app:drawableEndCompat="@drawable/baseline_keyboard_arrow_right_24"
+                    app:drawableTint="@color/gray"/>
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0.5dp"
+                android:background="#E0E0E0" />
+
+            <LinearLayout
                 android:id="@+id/languageSelectionLayout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

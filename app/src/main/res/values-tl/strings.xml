@@ -907,6 +907,7 @@
     <string name="hospital_details_format">Hospital: %1$s\nStatus: %2$s\nMga Kama: %3$s</string>
     <string name="unknown_hospital">Hindi Kilalang Hospital</string>
     <string name="contact_not_available">Hindi available ang contact</string>
+    <string name="email_not_available">Hindi available ang email</string>
     <string name="incoming_emergency">🚨 MAY DARATING NA EMERGENCY</string>
     <string name="senior_label_colon">Senior:</string>
     <string name="senior_phone_label">Telepono ng Senior:</string>

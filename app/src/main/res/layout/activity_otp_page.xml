@@ -27,16 +27,6 @@
             android:gravity="center_horizontal">
 
             <TextView
-                android:id="@+id/stepNumberText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="sans-serif-medium"
-                android:text="Step 1 of 4"
-                android:textColor="@color/black"
-                android:textStyle="bold"
-                android:textSize="@dimen/text_size_xlarge" />
-
-            <TextView
                 android:id="@+id/stepTitleText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

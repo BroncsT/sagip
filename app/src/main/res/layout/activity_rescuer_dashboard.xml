@@ -194,48 +194,6 @@
                 android:layout_height="@dimen/map_height_large"
                 android:layout_marginBottom="@dimen/margin_medium" />
 
-            <!-- Active SOS Alerts List -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:background="@drawable/rounded_background"
-                android:padding="16dp"
-                android:layout_marginBottom="20dp">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="🚨 Active SOS Alerts"
-                    android:textSize="@dimen/text_size_large"
-                    android:textStyle="bold"
-                    android:textColor="@color/primary_blue"
-                    android:layout_marginBottom="@dimen/padding_small"/>
-
-                <!-- Emergency List RecyclerView -->
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/sosEmergencyRecyclerView"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:nestedScrollingEnabled="false"
-                    android:maxHeight="400dp"
-                    android:clipToPadding="false"
-                    android:paddingBottom="8dp"/>
-
-                <!-- No Emergencies Message -->
-                <TextView
-                    android:id="@+id/noSOSEmergenciesText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="No active SOS alerts at the moment"
-                    android:textSize="@dimen/text_size_medium"
-                    android:textColor="@color/gray"
-                    android:gravity="center"
-                    android:padding="16dp"
-                    android:visibility="gone"/>
-
-            </LinearLayout>
-
             <!-- Emergency Status Section -->
             <LinearLayout
                 android:layout_width="match_parent"

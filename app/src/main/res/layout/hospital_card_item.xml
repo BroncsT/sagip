@@ -1,30 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.cardview.widget.CardView
+<com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="8dp"
-    app:cardElevation="3dp"
-    app:cardBackgroundColor="@color/white">
+    android:layout_marginStart="@dimen/padding_small"
+    android:layout_marginEnd="@dimen/padding_small"
+    android:layout_marginBottom="@dimen/spacing_medium"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?android:attr/selectableItemBackground"
+    app:cardCornerRadius="@dimen/card_corner_radius"
+    app:cardElevation="@dimen/card_elevation"
+    app:cardBackgroundColor="@color/white"
+    app:strokeWidth="0dp">
 
     <LinearLayout
         android:id="@+id/hospitalCardContent"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:padding="16dp"
-        android:clickable="true"
-        android:focusable="true"
+        android:padding="@dimen/padding_large"
         android:gravity="center_vertical">
 
         <!-- Hospital Icon -->
         <ImageView
             android:id="@+id/hospitalImageView"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
+            android:layout_width="@dimen/profile_image_medium"
+            android:layout_height="@dimen/profile_image_medium"
             android:background="@drawable/circle_background"
-            android:padding="12dp"
+            android:padding="@dimen/padding_medium"
             android:src="@drawable/ic_hospital"
             android:scaleType="centerCrop" />
 
@@ -34,7 +39,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:orientation="vertical"
-            android:layout_marginStart="16dp">
+            android:layout_marginStart="@dimen/margin_medium">
 
             <!-- Hospital Name -->
             <TextView
@@ -43,8 +48,11 @@
                 android:layout_height="wrap_content"
                 android:text="Hospital Name"
                 android:textColor="@color/black"
-                android:textSize="18sp"
-                android:textStyle="bold" />
+                android:textSize="@dimen/text_size_xlarge"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:ellipsize="end" />
 
             <!-- Address -->
             <TextView
@@ -53,8 +61,9 @@
                 android:layout_height="wrap_content"
                 android:text="Address"
                 android:textColor="@color/gray"
-                android:textSize="14sp"
-                android:layout_marginTop="2dp"
+                android:textSize="@dimen/text_size_medium"
+                android:fontFamily="sans-serif"
+                android:layout_marginTop="@dimen/spacing_tiny"
                 android:maxLines="2"
                 android:ellipsize="end" />
 
@@ -65,8 +74,20 @@
                 android:layout_height="wrap_content"
                 android:text="Contact"
                 android:textColor="@color/gray"
-                android:textSize="14sp"
-                android:layout_marginTop="2dp" />
+                android:textSize="@dimen/text_size_medium"
+                android:fontFamily="sans-serif"
+                android:layout_marginTop="@dimen/spacing_tiny" />
+
+            <!-- Email -->
+            <TextView
+                android:id="@+id/hospitalEmailText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Email"
+                android:textColor="@color/gray"
+                android:textSize="@dimen/text_size_medium"
+                android:fontFamily="sans-serif"
+                android:layout_marginTop="@dimen/spacing_tiny" />
 
             <!-- Specialization -->
             <TextView
@@ -75,8 +96,9 @@
                 android:layout_height="wrap_content"
                 android:text="Specialization"
                 android:textColor="@color/primary_blue"
-                android:textSize="12sp"
-                android:layout_marginTop="4dp"
+                android:textSize="@dimen/text_size_small"
+                android:fontFamily="sans-serif"
+                android:layout_marginTop="@dimen/spacing_small"
                 android:visibility="gone" />
 
         </LinearLayout>
@@ -95,8 +117,9 @@
                 android:layout_height="wrap_content"
                 android:text="Open"
                 android:textColor="@color/success_green"
-                android:textSize="14sp"
-                android:textStyle="bold" />
+                android:textSize="@dimen/text_size_medium"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium" />
 
             <!-- Bed Capacity -->
             <TextView
@@ -105,9 +128,10 @@
                 android:layout_height="wrap_content"
                 android:text="Beds"
                 android:textColor="@color/gray"
-                android:textSize="12sp"
-                android:layout_marginTop="4dp" />
+                android:textSize="@dimen/text_size_small"
+                android:fontFamily="sans-serif"
+                android:layout_marginTop="@dimen/spacing_small" />
 
         </LinearLayout>
     </LinearLayout>
-</androidx.cardview.widget.CardView>
+</com.google.android.material.card.MaterialCardView>

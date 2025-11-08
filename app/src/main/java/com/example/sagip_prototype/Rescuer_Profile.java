@@ -10,6 +10,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -35,16 +37,34 @@ public class Rescuer_Profile extends BaseRescuerActivity {
     private ListenerRegistration emergencyListener;
     private String userId;
     private String userType;
+    
+    // Activity result launcher for font size changes
+    private ActivityResultLauncher<Intent> fontSizeActivityLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
+        
+        // Apply saved font size preference
+        FontSizeHelper.applyFontSize(this);
+        
         setContentView(R.layout.activity_rescuer_profile);
 
         db = FirebaseFirestore.getInstance();
         storage = FirebaseStorage.getInstance();
         sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        
+        // Initialize activity result launcher for font size
+        fontSizeActivityLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == FontSizeActivity.RESULT_FONT_SIZE_CHANGED) {
+                    // Font size changed - refresh smoothly
+                    applyFontSizeImmediately();
+                }
+            }
+        );
 
         // Add language selection functionality
         addLanguageSelectionToLayout();
@@ -54,6 +74,7 @@ public class Rescuer_Profile extends BaseRescuerActivity {
         TextView rescueEmail = findViewById(R.id.profileEmail);
         LinearLayout logout = findViewById(R.id.logoutLayout);
         LinearLayout deleteAccountLayout = findViewById(R.id.deleteAccountLayout);
+        LinearLayout fontSizeLayout = findViewById(R.id.notificationSettingsLayout);
 
         setupBottomNavigation();
 
@@ -63,6 +84,14 @@ public class Rescuer_Profile extends BaseRescuerActivity {
             public void onClick(View v) {
                 Intent gotoUpdate = new Intent(Rescuer_Profile.this, BlankEditProfileActivity.class);
                 startActivity(gotoUpdate);
+            }
+        });
+
+        // Font Size Layout
+        fontSizeLayout.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                openFontSizeSettings();
             }
         });
 
@@ -504,5 +533,21 @@ public class Rescuer_Profile extends BaseRescuerActivity {
         dialog.show();
         
         Log.d(TAG, "✅ Emergency alert shown in Rescuer_Profile for: " + seniorName);
+    }
+    
+    private void openFontSizeSettings() {
+        Log.d(TAG, "🔤 Opening font size settings");
+        Intent intent = new Intent(Rescuer_Profile.this, FontSizeActivity.class);
+        fontSizeActivityLauncher.launch(intent);
+    }
+    
+    private void applyFontSizeImmediately() {
+        Log.d(TAG, "Font size changed - navigating to dashboard");
+        
+        // Navigate to Rescuer Dashboard to show the font size change
+        Intent intent = new Intent(Rescuer_Profile.this, Rescuer_Dashboard.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        startActivity(intent);
+        finish();
     }
 }

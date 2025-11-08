@@ -124,13 +124,16 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:padding="16dp">
+                android:padding="16dp"
+                android:focusable="true"
+                android:clickable="true"
+                android:background="?android:attr/selectableItemBackground">
 
                 <ImageView
                     android:layout_width="24dp"
                     android:layout_height="24dp"
                     android:layout_marginStart="8dp"
-                    android:src="@drawable/ic_notification" />
+                    android:src="@drawable/ic_font_size" />
 
                 <TextView
                     android:id="@+id/notificationSettingsText"
@@ -140,6 +143,8 @@
                     android:text="@string/notification_settings"
                     android:textColor="@color/black"
                     android:textSize="16sp"
+                    android:clickable="false"
+                    android:focusable="false"
                     app:drawableEndCompat="@drawable/baseline_keyboard_arrow_right_24"
                     app:drawableTint="@color/gray"/>
             </LinearLayout>

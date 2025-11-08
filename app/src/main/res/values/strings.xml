@@ -967,6 +967,7 @@
     <string name="hospital_details_format">Hospital: %1$s\nStatus: %2$s\nBeds: %3$s</string>
     <string name="unknown_hospital">Unknown Hospital</string>
     <string name="contact_not_available">Contact not available</string>
+    <string name="email_not_available">Email not available</string>
     <string name="incoming_emergency">🚨 INCOMING EMERGENCY</string>
     <string name="senior_label_colon">Senior:</string>
     <string name="senior_phone_label">Senior Phone:</string>

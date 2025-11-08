@@ -4,7 +4,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
-import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
@@ -60,7 +60,7 @@ public class BlankEditProfileActivity extends AppCompatActivity {
         db = FirebaseFirestore.getInstance();
 
         // Initialize views
-        ImageButton backButton = findViewById(R.id.backButton);
+        ImageView backButton = findViewById(R.id.backButton);
         MaterialButton saveButton = findViewById(R.id.saveButton);
         rescueTeamNameText = findViewById(R.id.rescueTeamNameText);
         addressInput = findViewById(R.id.addressInput);
@@ -72,9 +72,13 @@ public class BlankEditProfileActivity extends AppCompatActivity {
         loadUserData();
 
         // Back button functionality
-        backButton.setOnClickListener(v -> {
-            finish();
-        });
+        if (backButton != null) {
+            backButton.setClickable(true);
+            backButton.setFocusable(true);
+            backButton.setOnClickListener(v -> {
+                finish();
+            });
+        }
 
         // Save button functionality
         saveButton.setOnClickListener(v -> {
