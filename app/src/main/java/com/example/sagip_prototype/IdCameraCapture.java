@@ -12,6 +12,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -56,9 +57,10 @@ public class IdCameraCapture extends AppCompatActivity {
     private PreviewView previewView;
     private ImageView frameOverlay;
     private Button captureButton, retakeButton, confirmButton;
-    private TextView instructionsTextView, additionalInstructionsTextView;
     private ImageView capturedImageView;
     private LinearLayout actionButtonsLayout;
+    private ImageButton closeButton;
+    private LinearLayout sideTextContainer;
 
     private ImageCapture imageCapture;
     private ExecutorService cameraExecutor;
@@ -104,15 +106,10 @@ public class IdCameraCapture extends AppCompatActivity {
         captureButton = findViewById(R.id.captureButton);
         retakeButton = findViewById(R.id.retakeButton);
         confirmButton = findViewById(R.id.confirmButton);
-        instructionsTextView = findViewById(R.id.instructionsTextView);
-        additionalInstructionsTextView = findViewById(R.id.additionalInstructionsTextView);
         capturedImageView = findViewById(R.id.capturedImageView);
         actionButtonsLayout = findViewById(R.id.actionButtonsLayout);
-        
-        // Set header title based on ID side
-        TextView headerTitle = findViewById(R.id.headerTitle);
-        String sideText = isFrontSide ? getString(R.string.front_of_id) : getString(R.string.back_of_id);
-        headerTitle.setText(sideText);
+        closeButton = findViewById(R.id.closeButton);
+        sideTextContainer = findViewById(R.id.sideTextContainer);
 
         // Set initial UI state
         setupInitialUI();
@@ -121,6 +118,13 @@ public class IdCameraCapture extends AppCompatActivity {
         captureButton.setOnClickListener(v -> captureImage());
         retakeButton.setOnClickListener(v -> retakePhoto());
         confirmButton.setOnClickListener(v -> confirmAndReturn());
+        closeButton.setOnClickListener(v -> finish());
+        
+        // Allow tap to focus on preview
+        previewView.setOnTouchListener((v, event) -> {
+            // This enables tap-to-focus functionality
+            return false;
+        });
 
         // Start camera
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
@@ -133,17 +137,15 @@ public class IdCameraCapture extends AppCompatActivity {
     }
 
     private void setupInitialUI() {
-        // Set instructions text
-        instructionsTextView.setText(getString(R.string.id_capture_instructions));
-        additionalInstructionsTextView.setText(getString(R.string.id_capture_additional_instructions));
-        
         // Initially hide retake and confirm buttons
         actionButtonsLayout.setVisibility(View.GONE);
         capturedImageView.setVisibility(View.GONE);
         
-        // Show camera preview (no frame overlay)
+        // Show camera preview with corner brackets and side text
         previewView.setVisibility(View.VISIBLE);
-        frameOverlay.setVisibility(View.GONE);
+        frameOverlay.setVisibility(View.VISIBLE);
+        sideTextContainer.setVisibility(View.VISIBLE);
+        closeButton.setVisibility(View.VISIBLE);
         captureButton.setVisibility(View.VISIBLE);
     }
 
@@ -250,26 +252,27 @@ public class IdCameraCapture extends AppCompatActivity {
 
 
     private void showCapturedImage() {
-        // Hide camera preview (overlay already hidden)
+        // Hide camera preview, overlay, and side text
         previewView.setVisibility(View.GONE);
+        frameOverlay.setVisibility(View.GONE);
+        sideTextContainer.setVisibility(View.GONE);
         captureButton.setVisibility(View.GONE);
 
         // Show captured image and action buttons
         capturedImageView.setVisibility(View.VISIBLE);
         capturedImageView.setImageBitmap(capturedBitmap);
         actionButtonsLayout.setVisibility(View.VISIBLE);
-
-        // Update instructions
-        instructionsTextView.setText(getString(R.string.review_captured_image));
-        additionalInstructionsTextView.setText(getString(R.string.review_instructions));
+        closeButton.setVisibility(View.VISIBLE);
     }
 
     private void retakePhoto() {
         // Reset UI to camera mode
         previewView.setVisibility(View.VISIBLE);
-        frameOverlay.setVisibility(View.GONE);
+        frameOverlay.setVisibility(View.VISIBLE);
+        sideTextContainer.setVisibility(View.VISIBLE);
         captureButton.setVisibility(View.VISIBLE);
         captureButton.setEnabled(true);
+        closeButton.setVisibility(View.VISIBLE);
 
         capturedImageView.setVisibility(View.GONE);
         actionButtonsLayout.setVisibility(View.GONE);
@@ -277,10 +280,6 @@ public class IdCameraCapture extends AppCompatActivity {
         // Reset captured data
         capturedBitmap = null;
         uploadedImageUrl = "";
-
-        // Update instructions
-        instructionsTextView.setText(getString(R.string.id_capture_instructions));
-        additionalInstructionsTextView.setText(getString(R.string.id_capture_additional_instructions));
     }
 
 

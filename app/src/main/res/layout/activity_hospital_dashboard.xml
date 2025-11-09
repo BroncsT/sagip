@@ -279,62 +279,6 @@
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
-    <!--    <androidx.cardview.widget.CardView-->
-    <!--        android:id="@+id/hospitalDispatchERCard"-->
-    <!--        android:layout_width="0dp"-->
-    <!--        android:layout_height="wrap_content"-->
-    <!--        android:layout_marginTop="20dp"-->
-    <!--        app:cardCornerRadius="16dp"-->
-    <!--        app:cardElevation="10dp"-->
-    <!--        app:layout_constraintEnd_toEndOf="@id/guidelineVertical2v2"-->
-    <!--        app:layout_constraintStart_toStartOf="@id/guidelineVertical1v2"-->
-    <!--        app:layout_constraintTop_toBottomOf="@id/rescuerCurrentLocationCard">-->
-
-    <!--        <LinearLayout-->
-    <!--            android:layout_width="match_parent"-->
-    <!--            android:layout_height="wrap_content"-->
-    <!--            android:orientation="vertical"-->
-    <!--            android:padding="16dp">-->
-
-    <!--            <TextView-->
-    <!--                android:layout_width="match_parent"-->
-    <!--                android:layout_height="wrap_content"-->
-    <!--                android:text="@string/notify_rescuer_barangay"-->
-    <!--                android:textAlignment="center"-->
-    <!--                android:textColor="@color/black"-->
-    <!--                android:textSize="16sp"-->
-    <!--                android:textStyle="bold" />-->
-
-    <!--            <LinearLayout-->
-    <!--                android:layout_width="match_parent"-->
-    <!--                android:layout_height="wrap_content"-->
-    <!--                android:orientation="horizontal">-->
-
-    <!--                <Button-->
-    <!--                    android:id="@+id/updateButton"-->
-    <!--                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"-->
-    <!--                    android:layout_width="0dp"-->
-    <!--                    android:layout_height="wrap_content"-->
-    <!--                    android:layout_marginEnd="4dp"-->
-    <!--                    android:layout_weight="1"-->
-    <!--                    android:backgroundTint="#4CAF50"-->
-    <!--                    android:text="@string/update"-->
-    <!--                    android:textColor="#FFFFFF" />-->
-
-    <!--                <Button-->
-    <!--                    android:id="@+id/deleteButton"-->
-    <!--                    style="@style/Widget.MaterialComponents.Button.OutlinedButton.Icon"-->
-    <!--                    android:layout_width="0dp"-->
-    <!--                    android:layout_height="wrap_content"-->
-    <!--                    android:layout_marginStart="4dp"-->
-    <!--                    android:layout_weight="1"-->
-    <!--                    android:backgroundTint="#F44336"-->
-    <!--                    android:text="@string/no_button"-->
-    <!--                    android:textColor="#F8FFFFFF" />-->
-    <!--            </LinearLayout>-->
-    <!--        </LinearLayout>-->
-    <!--    </androidx.cardview.widget.CardView>-->
-
     <!-- Bottom Navigation -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNavBar2"

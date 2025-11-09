@@ -332,6 +332,7 @@ public class Rescuer_Profile extends BaseRescuerActivity {
 
     private void deleteUserDocument(String uid, String userType, Runnable onComplete) {
         Log.d(TAG, "🗑️ Deleting rescuer document from Firestore: " + uid);
+        Log.d(TAG, "🗑️ Full path: Sagip/users/" + userType + "/" + uid);
         
         // Get reference to user document
         com.google.firebase.firestore.DocumentReference userDocRef = db.collection("Sagip")
@@ -339,59 +340,147 @@ public class Rescuer_Profile extends BaseRescuerActivity {
                 .collection(userType)
                 .document(uid);
         
-        // First, verify document exists
-        userDocRef.get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    if (documentSnapshot.exists()) {
-                        Log.d(TAG, "📄 Rescuer document exists, deleting now...");
-                        // Delete the document
-                        userDocRef.delete()
-                                .addOnSuccessListener(aVoid -> {
-                                    Log.d(TAG, "✅ Rescuer document deleted successfully from Firestore");
-                                    
-                                    // Verify deletion
-                                    verifyDocumentDeletion(uid, userType, 0, () -> {
-                                        onComplete.run();
-                                    });
-                                })
-                                .addOnFailureListener(e -> {
-                                    Log.e(TAG, "❌ Failed to delete rescuer document: " + e.getMessage());
-                                    Log.e(TAG, "❌ Error details: " + e.getClass().getSimpleName());
-                                    
-                                    // Retry deletion
-                                    retryDeleteDocument(uid, userType, 1, () -> {
-                                        onComplete.run();
-                                    });
-                                });
-                    } else {
-                        Log.d(TAG, "⚠️ Rescuer document does not exist, may have been already deleted");
-                        onComplete.run();
-                    }
+        // Delete immediately without checking existence first
+        // This is more aggressive and ensures deletion happens
+        userDocRef.delete()
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "✅ Rescuer document delete() called successfully");
+                    
+                    // Wait a moment for Firestore to process, then verify
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                        verifyAndForceDeleteDocument(uid, userType, 0, onComplete);
+                    }, 1000);
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "⚠️ Failed to check if rescuer document exists: " + e.getMessage());
-                    // Try to delete anyway
-                    userDocRef.delete()
-                            .addOnSuccessListener(aVoid -> {
-                                Log.d(TAG, "✅ Rescuer document deleted (existence check failed but delete succeeded)");
-                                onComplete.run();
-                            })
-                            .addOnFailureListener(ex -> {
-                                Log.e(TAG, "❌ Failed to delete rescuer document: " + ex.getMessage());
-                                // Continue anyway - might not exist
-                                onComplete.run();
-                            });
+                    Log.e(TAG, "❌ Failed to delete rescuer document: " + e.getMessage());
+                    Log.e(TAG, "❌ Error type: " + e.getClass().getSimpleName());
+                    if (e instanceof com.google.firebase.firestore.FirebaseFirestoreException) {
+                        com.google.firebase.firestore.FirebaseFirestoreException firestoreEx = 
+                            (com.google.firebase.firestore.FirebaseFirestoreException) e;
+                        Log.e(TAG, "❌ Firestore error code: " + firestoreEx.getCode());
+                    }
+                    
+                    // Retry deletion immediately
+                    retryDeleteDocument(uid, userType, 1, onComplete);
                 });
     }
-
-    private void retryDeleteDocument(String uid, String userType, int attempt, Runnable onComplete) {
-        if (attempt >= 3) {
-            Log.e(TAG, "❌ Failed to delete rescuer document after 3 attempts");
-            onComplete.run();
+    
+    private void verifyAndForceDeleteDocument(String uid, String userType, int attempt, Runnable onComplete) {
+        if (attempt >= 5) {
+            Log.e(TAG, "❌ Document still exists after 5 verification attempts - forcing final deletion");
+            // Final aggressive attempt
+            forceDeleteDocument(uid, userType, onComplete);
             return;
         }
         
-        Log.d(TAG, "🔄 Retrying document deletion (attempt " + (attempt + 1) + "/3)");
+        Log.d(TAG, "🔍 Verifying document deletion (attempt " + (attempt + 1) + "/5)");
+        
+        com.google.firebase.firestore.DocumentReference userDocRef = db.collection("Sagip")
+                .document("users")
+                .collection(userType)
+                .document(uid);
+        
+        userDocRef.get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (!documentSnapshot.exists()) {
+                        Log.d(TAG, "✅ VERIFIED: Rescuer document successfully deleted from Firestore");
+                        onComplete.run();
+                    } else {
+                        Log.w(TAG, "⚠️ Document STILL EXISTS! Attempting forced deletion (attempt " + (attempt + 1) + ")");
+                        // Document still exists - delete it again
+                        userDocRef.delete()
+                                .addOnSuccessListener(aVoid -> {
+                                    Log.d(TAG, "✅ Forced delete() called again");
+                                    // Wait and verify again
+                                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                                        verifyAndForceDeleteDocument(uid, userType, attempt + 1, onComplete);
+                                    }, 1500);
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e(TAG, "❌ Forced deletion failed: " + e.getMessage());
+                                    // Try again after delay
+                                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                                        verifyAndForceDeleteDocument(uid, userType, attempt + 1, onComplete);
+                                    }, 2000);
+                                });
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.w(TAG, "⚠️ Could not verify deletion: " + e.getMessage());
+                    // Assume deleted if we can't verify
+                    if (attempt >= 3) {
+                        Log.w(TAG, "⚠️ Assuming document deleted after 3 failed verification attempts");
+                        onComplete.run();
+                    } else {
+                        verifyAndForceDeleteDocument(uid, userType, attempt + 1, onComplete);
+                    }
+                });
+    }
+    
+    private void forceDeleteDocument(String uid, String userType, Runnable onComplete) {
+        Log.e(TAG, "🔥 FORCE DELETING document - final attempt");
+        
+        com.google.firebase.firestore.DocumentReference userDocRef = db.collection("Sagip")
+                .document("users")
+                .collection(userType)
+                .document(uid);
+        
+        // Try multiple times in quick succession
+        final int[] attempts = {0};
+        final int maxAttempts = 3;
+        
+        android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+        
+        Runnable deleteAttempt = new Runnable() {
+            @Override
+            public void run() {
+                attempts[0]++;
+                Log.d(TAG, "🔥 Force delete attempt " + attempts[0] + "/" + maxAttempts);
+                
+                userDocRef.delete()
+                        .addOnSuccessListener(aVoid -> {
+                            Log.d(TAG, "✅ Force delete attempt " + attempts[0] + " succeeded");
+                            // Wait and verify one more time
+                            handler.postDelayed(() -> {
+                                userDocRef.get()
+                                        .addOnSuccessListener(doc -> {
+                                            if (!doc.exists()) {
+                                                Log.d(TAG, "✅ FORCE DELETE VERIFIED: Document removed");
+                                                onComplete.run();
+                                            } else {
+                                                Log.e(TAG, "❌ Document STILL EXISTS after force delete!");
+                                                onComplete.run(); // Continue anyway
+                                            }
+                                        })
+                                        .addOnFailureListener(e -> {
+                                            Log.w(TAG, "⚠️ Could not verify force delete: " + e.getMessage());
+                                            onComplete.run();
+                                        });
+                            }, 2000);
+                        })
+                        .addOnFailureListener(e -> {
+                            Log.e(TAG, "❌ Force delete attempt " + attempts[0] + " failed: " + e.getMessage());
+                            if (attempts[0] < maxAttempts) {
+                                handler.postDelayed(this, 1000);
+                            } else {
+                                Log.e(TAG, "❌ All force delete attempts failed");
+                                onComplete.run();
+                            }
+                        });
+            }
+        };
+        
+        deleteAttempt.run();
+    }
+
+    private void retryDeleteDocument(String uid, String userType, int attempt, Runnable onComplete) {
+        if (attempt >= 5) {
+            Log.e(TAG, "❌ Failed to delete rescuer document after 5 retry attempts - using force delete");
+            forceDeleteDocument(uid, userType, onComplete);
+            return;
+        }
+        
+        Log.d(TAG, "🔄 Retrying document deletion (attempt " + (attempt + 1) + "/5)");
         
         db.collection("Sagip")
                 .document("users")
@@ -400,58 +489,17 @@ public class Rescuer_Profile extends BaseRescuerActivity {
                 .delete()
                 .addOnSuccessListener(aVoid -> {
                     Log.d(TAG, "✅ Rescuer document deleted on retry attempt " + (attempt + 1));
-                    verifyDocumentDeletion(uid, userType, 0, () -> {
-                        onComplete.run();
-                    });
+                    // Wait and verify
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                        verifyAndForceDeleteDocument(uid, userType, 0, onComplete);
+                    }, 1000);
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "❌ Retry " + (attempt + 1) + " failed: " + e.getMessage());
-                    // Wait 1 second before next retry
+                    // Wait before next retry
                     new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
                         retryDeleteDocument(uid, userType, attempt + 1, onComplete);
-                    }, 1000);
-                });
-    }
-
-    private void verifyDocumentDeletion(String uid, String userType, int attempt, Runnable onComplete) {
-        if (attempt >= 3) {
-            Log.w(TAG, "⚠️ Could not verify document deletion after 3 attempts, assuming deleted");
-            onComplete.run();
-            return;
-        }
-        
-        db.collection("Sagip")
-                .document("users")
-                .collection(userType)
-                .document(uid)
-                .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    if (!documentSnapshot.exists()) {
-                        Log.d(TAG, "✅ Verified: Rescuer document successfully deleted");
-                        onComplete.run();
-                    } else {
-                        Log.w(TAG, "⚠️ Document still exists, attempting to delete again (verification attempt " + (attempt + 1) + ")");
-                        // Try to delete again
-                        db.collection("Sagip")
-                                .document("users")
-                                .collection(userType)
-                                .document(uid)
-                                .delete()
-                                .addOnSuccessListener(aVoid -> {
-                                    // Verify again after a delay
-                                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                                        verifyDocumentDeletion(uid, userType, attempt + 1, onComplete);
-                                    }, 500);
-                                })
-                                .addOnFailureListener(e -> {
-                                    Log.e(TAG, "❌ Failed to delete document on verification: " + e.getMessage());
-                                    onComplete.run();
-                                });
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    Log.w(TAG, "⚠️ Could not verify deletion: " + e.getMessage());
-                    onComplete.run();
+                    }, 1500);
                 });
     }
 
