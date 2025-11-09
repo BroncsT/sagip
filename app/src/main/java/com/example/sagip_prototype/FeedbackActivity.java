@@ -34,7 +34,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -65,7 +64,6 @@ public class FeedbackActivity extends AppCompatActivity {
 
     // UI Components
     private Spinner feedbackTypeSpinner;
-    private EditText subjectEditText;
     private EditText messageEditText;
     private CheckBox includeContactCheckBox;
     private EditText contactEmailEditText;
@@ -76,9 +74,7 @@ public class FeedbackActivity extends AppCompatActivity {
     private Button removeAttachmentButton;
     private Button submitButton;
     private ProgressBar progressBar;
-    private TextView characterCountText;
     private LinearLayout contactInfoLayout;
-    private FloatingActionButton myReportsFab;
 
     // Data
     private String selectedFeedbackType;
@@ -116,7 +112,6 @@ public class FeedbackActivity extends AppCompatActivity {
 
     private void initializeViews() {
         feedbackTypeSpinner = findViewById(R.id.feedbackTypeSpinner);
-        subjectEditText = findViewById(R.id.subjectEditText);
         messageEditText = findViewById(R.id.messageEditText);
         includeContactCheckBox = findViewById(R.id.includeContactCheckBox);
         contactEmailEditText = findViewById(R.id.contactEmailEditText);
@@ -126,9 +121,7 @@ public class FeedbackActivity extends AppCompatActivity {
         removeAttachmentButton = findViewById(R.id.removeAttachmentButton);
         submitButton = findViewById(R.id.submitButton);
         progressBar = findViewById(R.id.progressBar);
-        characterCountText = findViewById(R.id.characterCountText);
         contactInfoLayout = findViewById(R.id.contactInfoLayout);
-        myReportsFab = findViewById(R.id.myReportsFab);
 
         // Get the actual ImageView inside the MaterialCardView
         if (attachmentImageView != null) {
@@ -150,8 +143,8 @@ public class FeedbackActivity extends AppCompatActivity {
                 getString(R.string.feedback_type_complaint),
                 getString(R.string.feedback_type_other)
         };
-        ArrayAdapter<String> feedbackTypeAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, feedbackTypes);
-        feedbackTypeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<String> feedbackTypeAdapter = new ArrayAdapter<>(this, R.layout.spinner_item_feedback, feedbackTypes);
+        feedbackTypeAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item_feedback);
         feedbackTypeSpinner.setAdapter(feedbackTypeAdapter);
 
         // Set default selection
@@ -159,18 +152,7 @@ public class FeedbackActivity extends AppCompatActivity {
     }
 
     private void setupTextWatchers() {
-        messageEditText.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-                updateCharacterCount(s.length());
-            }
-
-            @Override
-            public void afterTextChanged(Editable s) {}
-        });
+        // Character counter is now handled by TextInputLayout in the XML
     }
 
     private void setupActivityResultLaunchers() {
@@ -226,7 +208,6 @@ public class FeedbackActivity extends AppCompatActivity {
         addAttachmentButton.setOnClickListener(v -> checkPermissionsAndShowDialog());
         removeAttachmentButton.setOnClickListener(v -> removeAttachment());
         submitButton.setOnClickListener(v -> validateAndSubmitFeedback());
-        myReportsFab.setOnClickListener(v -> openMyReports());
     }
 
     private void checkPermissionsAndShowDialog() {
@@ -268,29 +249,13 @@ public class FeedbackActivity extends AppCompatActivity {
         Toast.makeText(this, getString(R.string.feedback_image_removed), Toast.LENGTH_SHORT).show();
     }
 
-    private void updateCharacterCount(int length) {
-        characterCountText.setText(getString(R.string.feedback_character_count, length));
-        
-        if (length > MAX_MESSAGE_LENGTH) {
-            characterCountText.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
-        } else if (length < MIN_MESSAGE_LENGTH) {
-            characterCountText.setTextColor(getResources().getColor(android.R.color.holo_orange_dark));
-        } else {
-            characterCountText.setTextColor(getResources().getColor(android.R.color.darker_gray));
-        }
-    }
 
     private void validateAndSubmitFeedback() {
-        String subject = subjectEditText.getText().toString().trim();
         String message = messageEditText.getText().toString().trim();
         String contactEmail = contactEmailEditText.getText().toString().trim();
         String contactPhone = contactPhoneEditText.getText().toString().trim();
 
         // Validation
-        if (subject.isEmpty()) {
-            subjectEditText.setError(getString(R.string.feedback_required_fields));
-            return;
-        }
 
         if (message.length() < MIN_MESSAGE_LENGTH) {
             messageEditText.setError(getString(R.string.feedback_min_length));
@@ -315,16 +280,15 @@ public class FeedbackActivity extends AppCompatActivity {
             }
         }
 
-        submitFeedback(subject, message, contactEmail, contactPhone);
+        submitFeedback(message, contactEmail, contactPhone);
     }
 
-    private void submitFeedback(String subject, String message, String contactEmail, String contactPhone) {
+    private void submitFeedback(String message, String contactEmail, String contactPhone) {
         setLoading(true);
 
         // Create feedback data
         Map<String, Object> feedbackData = new HashMap<>();
         feedbackData.put("feedbackType", selectedFeedbackType);
-        feedbackData.put("subject", subject);
         feedbackData.put("message", message);
         feedbackData.put("includeContact", includeContactCheckBox.isChecked());
         feedbackData.put("contactEmail", contactEmail);
@@ -414,19 +378,12 @@ public class FeedbackActivity extends AppCompatActivity {
     }
 
     private void clearForm() {
-        subjectEditText.setText("");
         messageEditText.setText("");
         feedbackTypeSpinner.setSelection(0);
         includeContactCheckBox.setChecked(false);
         contactEmailEditText.setText("");
         contactPhoneEditText.setText("");
         removeAttachment();
-        updateCharacterCount(0);
-    }
-
-    private void openMyReports() {
-        Intent intent = new Intent(this, MyReportsActivity.class);
-        startActivity(intent);
     }
 
     @Override

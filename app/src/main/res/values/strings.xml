@@ -374,6 +374,7 @@
     <string name="phone_number_not_available">Phone number not available</string>
     <string name="current_location_not_available_permissions">Current location not available. Please wait or check permissions.</string>
     <string name="user_profile_not_found">User profile not found. Please login again.</string>
+    <string name="user_profile_not_found_senior">User profile not found. Please login again.</string>
     <string name="location_permission_denied">Location permission denied. Unable to update location.</string>
     <string name="error_starting_location_updates">Error starting location updates</string>
 

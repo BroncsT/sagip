@@ -329,7 +329,7 @@
         android:id="@+id/btnCallRescuer"
         android:layout_width="0dp"
         android:layout_height="56dp"
-        android:text="📞 @string/call_rescuer_button_text"
+        android:text="@string/call_rescuer_button_text"
         android:textSize="16sp"
         android:textColor="@color/white"
         android:textStyle="bold"

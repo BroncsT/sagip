@@ -12,7 +12,6 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
-import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -36,7 +35,6 @@ public class Senior_add_Emergency_Contact extends AppCompatActivity {
     private String selectedRelationship = "";
     private TextView seniorNameTextView;
     private TextView mobileNumberTextView;
-    private ScrollView scrollView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,7 +44,6 @@ public class Senior_add_Emergency_Contact extends AppCompatActivity {
 
         EditText emerName = findViewById(R.id.emerContact_name);
         EditText emerNumber = findViewById(R.id.emerContact_Number);
-        EditText emerAddress = findViewById(R.id.emerContact_add);
         relationshipSpinner = findViewById(R.id.emerContact_relationship);
         Button addEmergencyContact = findViewById(R.id.addEmerContact);
         ImageView backArrow = findViewById(R.id.backArrow);
@@ -54,7 +51,6 @@ public class Senior_add_Emergency_Contact extends AppCompatActivity {
         // Initialize TextViews for senior info
         seniorNameTextView = findViewById(R.id.senior_name);
         mobileNumberTextView = findViewById(R.id.mobileNumber);
-        scrollView = findViewById(R.id.scrollView);
 
         // Setup relationship spinner
         setupRelationshipSpinner();
@@ -78,15 +74,6 @@ public class Senior_add_Emergency_Contact extends AppCompatActivity {
             }
         }});
 
-        // Simple scroll to bottom when address field is focused
-        emerAddress.setOnFocusChangeListener((v, hasFocus) -> {
-            if (hasFocus) {
-                scrollView.postDelayed(() -> {
-                    scrollView.fullScroll(ScrollView.FOCUS_DOWN);
-                }, 200);
-            }
-        });
-
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         FirebaseAuth mAuth = FirebaseAuth.getInstance();
 
@@ -95,11 +82,10 @@ public class Senior_add_Emergency_Contact extends AppCompatActivity {
             public void onClick(View v) {
                 String name = emerName.getText().toString().trim();
                 String number = emerNumber.getText().toString().trim();
-                String address = emerAddress.getText().toString().trim();
                 // Get current relationship value
                 String relationship = relationshipSpinner.getSelectedItem().toString();
                 
-                if (name.isEmpty() || number.isEmpty() || address.isEmpty() || relationship.equals(getString(R.string.select_relationship))) {
+                if (name.isEmpty() || number.isEmpty() || relationship.equals(getString(R.string.select_relationship))) {
                     Toast.makeText(Senior_add_Emergency_Contact.this, getString(R.string.toast_fill_all_fields), Toast.LENGTH_SHORT).show();
                     return;
                 }
@@ -119,7 +105,7 @@ public class Senior_add_Emergency_Contact extends AppCompatActivity {
                 String userType = "seniors";
 
                 // Check for duplicate phone numbers before adding
-                checkForDuplicateAndAdd(uid, userType, name, number, address, relationship, db);
+                checkForDuplicateAndAdd(uid, userType, name, number, relationship, db);
             }
         });
     }
@@ -235,7 +221,7 @@ public class Senior_add_Emergency_Contact extends AppCompatActivity {
         });
     }
 
-    private void checkForDuplicateAndAdd(String uid, String userType, String name, String number, String address, String relationship, FirebaseFirestore db) {
+    private void checkForDuplicateAndAdd(String uid, String userType, String name, String number, String relationship, FirebaseFirestore db) {
         db.collection("Sagip")
                 .document("users")
                 .collection(userType)
@@ -257,10 +243,10 @@ public class Senior_add_Emergency_Contact extends AppCompatActivity {
                         }
                         
                         // No duplicate found, add the contact
-                        addEmergencyContact(uid, userType, name, number, address, relationship, db);
+                        addEmergencyContact(uid, userType, name, number, relationship, db);
                     } else {
                         // No existing contacts, add the contact
-                        addEmergencyContact(uid, userType, name, number, address, relationship, db);
+                        addEmergencyContact(uid, userType, name, number, relationship, db);
                     }
                 })
                 .addOnFailureListener(e -> {
@@ -268,11 +254,11 @@ public class Senior_add_Emergency_Contact extends AppCompatActivity {
                 });
     }
 
-    private void addEmergencyContact(String uid, String userType, String name, String number, String address, String relationship, FirebaseFirestore db) {
+    private void addEmergencyContact(String uid, String userType, String name, String number, String relationship, FirebaseFirestore db) {
         HashMap<String, Object> newContact = new HashMap<>();
         newContact.put("name", name);
         newContact.put("number", number);
-        newContact.put("address", address);
+        newContact.put("address", ""); // Address removed - keeping field for backwards compatibility
         newContact.put("relationship", relationship);
 
         db.collection("Sagip")

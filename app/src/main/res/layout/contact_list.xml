@@ -85,35 +85,6 @@
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginBottom="4dp">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/address_label"
-                    android:textSize="12sp"
-                    android:textColor="@android:color/darker_gray" />
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text=": "
-                    android:textSize="12sp"
-                    android:textColor="@android:color/darker_gray" />
-                <TextView
-                    android:id="@+id/addressTextView"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textSize="12sp"
-                    android:textColor="@android:color/darker_gray"
-                    android:singleLine="true"
-                    android:ellipsize="end"
-                    android:maxLines="1" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
                 android:orientation="horizontal">
                 <TextView
                     android:layout_width="wrap_content"

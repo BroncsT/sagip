@@ -293,6 +293,8 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
                 Map<String, Object> contactMap = new HashMap<>();
                 contactMap.put("name", contact.getName());
                 contactMap.put("number", contact.getNumber());
+                contactMap.put("address", contact.getAddress() != null ? contact.getAddress() : "");
+                contactMap.put("relationship", contact.getRelationship() != null ? contact.getRelationship() : "");
                 updatedContactList.add(contactMap);
             }
         }
@@ -330,7 +332,6 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
 
         EditText nameEditText = dialogView.findViewById(R.id.editTextName);
         EditText numberEditText = dialogView.findViewById(R.id.editTextNumber);
-        EditText addressEditText = dialogView.findViewById(R.id.editTextAddress);
         Spinner relationshipSpinner = dialogView.findViewById(R.id.spinnerRelationship);
         
         // Setup relationship spinner
@@ -351,23 +352,21 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
 
         nameEditText.setText(contact.getName());
         numberEditText.setText(contact.getNumber());
-        addressEditText.setText(contact.getAddress());
 
         builder.setView(dialogView)
                 .setTitle(getString(R.string.update_contact_title))
                 .setPositiveButton(getString(R.string.update_dialog_button), (dialog, which) -> {
                     String newName = nameEditText.getText().toString().trim();
                     String newNumber = numberEditText.getText().toString().trim();
-                    String newAddress = addressEditText.getText().toString().trim();
                     String newRelationship = relationshipSpinner.getSelectedItem().toString();
 
-                    if (!newName.isEmpty() && !newNumber.isEmpty() && !newAddress.isEmpty() && !newRelationship.equals(getString(R.string.select_relationship))) {
+                    if (!newName.isEmpty() && !newNumber.isEmpty() && !newRelationship.equals(getString(R.string.select_relationship))) {
                         if (!isValidPhoneNumber(newNumber)) {
                             Toast.makeText(this, getString(R.string.valid_mobile_error), Toast.LENGTH_SHORT).show();
                             return;
                         }
                         // Check for duplicate phone numbers before updating
-                        checkForDuplicateAndUpdate(position, contact, newName, newNumber, newAddress, newRelationship);
+                        checkForDuplicateAndUpdate(position, contact, newName, newNumber, newRelationship);
                     } else {
                         Toast.makeText(this, getString(R.string.fill_all_fields_error), Toast.LENGTH_SHORT).show();
                     }
@@ -400,7 +399,7 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
         }
     }
 
-    private void updateContactInFirestore(int position, Emergency_Contacts oldContact, String newName, String newNumber, String newAddress, String newRelationship) {
+    private void updateContactInFirestore(int position, Emergency_Contacts oldContact, String newName, String newNumber, String newRelationship) {
         String uid = mAuth.getCurrentUser().getUid();
         String userType = "seniors";
 
@@ -413,12 +412,12 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
             if (i == position) {
                 contactMap.put("name", newName);
                 contactMap.put("number", newNumber);
-                contactMap.put("address", newAddress);
+                contactMap.put("address", ""); // Address removed - keeping field for backwards compatibility
                 contactMap.put("relationship", newRelationship);
             } else {
                 contactMap.put("name", contact.getName());
                 contactMap.put("number", contact.getNumber());
-                contactMap.put("address", contact.getAddress());
+                contactMap.put("address", contact.getAddress() != null ? contact.getAddress() : "");
                 contactMap.put("relationship", contact.getRelationship());
             }
             updatedContactList.add(contactMap);
@@ -432,7 +431,7 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
                 .update("emergencyContacts", updatedContactList)
                 .addOnSuccessListener(aVoid -> {
                     // Update local contact object
-                    Emergency_Contacts updatedContact = new Emergency_Contacts(newName, newNumber, newAddress, newRelationship);
+                    Emergency_Contacts updatedContact = new Emergency_Contacts(newName, newNumber, "", newRelationship);
                     adapter.updateItem(position, updatedContact);
                     
                     // Update cache after successful update
@@ -445,14 +444,14 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
                 });
     }
 
-    private void checkForDuplicateAndUpdate(int position, Emergency_Contacts oldContact, String newName, String newNumber, String newAddress, String newRelationship) {
+    private void checkForDuplicateAndUpdate(int position, Emergency_Contacts oldContact, String newName, String newNumber, String newRelationship) {
         String uid = mAuth.getCurrentUser().getUid();
         String userType = "seniors";
 
         // Check if the new number is different from the old number
         if (oldContact.getNumber().equals(newNumber)) {
-            // Same number, just update the name, address and relationship
-            updateContactInFirestore(position, oldContact, newName, newNumber, newAddress, newRelationship);
+            // Same number, just update the name and relationship
+            updateContactInFirestore(position, oldContact, newName, newNumber, newRelationship);
             return;
         }
 
@@ -471,7 +470,7 @@ public class Senior_Emergency_Contact extends AppCompatActivity implements Emerg
         if (isDuplicate) {
             Toast.makeText(this, getString(R.string.phone_number_already_exists), Toast.LENGTH_SHORT).show();
         } else {
-            updateContactInFirestore(position, oldContact, newName, newNumber, newAddress, newRelationship);
+            updateContactInFirestore(position, oldContact, newName, newNumber, newRelationship);
         }
     }
 

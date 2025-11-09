@@ -18,7 +18,6 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -41,7 +40,6 @@ public class MyReportsActivity extends AppCompatActivity {
     private RecyclerView reportsRecyclerView;
     private SwipeRefreshLayout swipeRefreshLayout;
     private TextView emptyStateText;
-    private FloatingActionButton newReportFab;
     private ReportsAdapter reportsAdapter;
     private List<FeedbackReport> reportsList;
 
@@ -72,7 +70,6 @@ public class MyReportsActivity extends AppCompatActivity {
         reportsRecyclerView = findViewById(R.id.reportsRecyclerView);
         swipeRefreshLayout = findViewById(R.id.swipeRefreshLayout);
         emptyStateText = findViewById(R.id.emptyStateText);
-        newReportFab = findViewById(R.id.newReportFab);
     }
 
     private void loadUserInfo() {
@@ -92,10 +89,6 @@ public class MyReportsActivity extends AppCompatActivity {
 
     private void setupClickListeners() {
         swipeRefreshLayout.setOnRefreshListener(this::loadReports);
-        newReportFab.setOnClickListener(v -> {
-            Intent intent = new Intent(this, FeedbackActivity.class);
-            startActivity(intent);
-        });
     }
 
     private void loadReports() {

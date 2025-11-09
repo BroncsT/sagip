@@ -250,31 +250,6 @@
 
                 </LinearLayout>
 
-                <!-- Address Input -->
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="20dp"
-                    android:layout_marginTop="8dp"
-                    android:hint="@string/emergency_address"
-                    app:startIconDrawable="@drawable/baseline_location_on_24"
-                    app:startIconTint="@color/primary_blue"
-                    app:boxStrokeColor="@color/primary_blue"
-                    app:hintTextColor="@color/primary_blue">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/emerContact_add"
-                        android:layout_width="match_parent"
-                        android:layout_height="120dp"
-                        android:inputType="textPostalAddress|textMultiLine"
-                        android:textSize="16sp"
-                        android:textColor="@color/black"
-                        android:gravity="top|start"
-                        android:maxLines="4"
-                        android:scrollbars="vertical" />
-                </com.google.android.material.textfield.TextInputLayout>
-
             </LinearLayout>
 
         </androidx.cardview.widget.CardView>

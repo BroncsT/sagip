@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FAFAFA"
+    android:background="@color/background_light"
     tools:context=".FeedbackActivity">
 
     <!-- App Bar -->
@@ -13,42 +13,63 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/white"
-        android:elevation="4dp"
-        app:elevation="4dp">
+        android:elevation="6dp"
+        app:elevation="6dp">
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
-            android:paddingStart="8dp"
-            android:paddingEnd="16dp">
+            android:layout_height="wrap_content"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="16dp"
+            android:minHeight="?attr/actionBarSize">
 
             <ImageView
                 android:id="@+id/backButton"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:padding="12dp"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:padding="8dp"
                 android:clickable="true"
                 android:focusable="true"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/rounded_arrow_left_alt_24"
-                app:tint="@color/black"
-                app:layout_constraintBottom_toBottomOf="parent"
+                app:tint="@color/bottom_nav_color"
+                app:layout_constraintBottom_toBottomOf="@id/titleLayout"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
+                app:layout_constraintTop_toTopOf="@id/titleLayout" />
 
-            <TextView
+            <LinearLayout
+                android:id="@+id/titleLayout"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:text="@string/feedback_title"
-                android:textColor="@color/black"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                android:fontFamily="sans-serif-medium"
+                android:layout_marginStart="12dp"
+                android:orientation="vertical"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toEndOf="@id/backButton"
-                app:layout_constraintTop_toTopOf="parent" />
+                app:layout_constraintTop_toTopOf="parent">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/feedback_title"
+                    android:textColor="@color/bottom_nav_color"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
+                    android:letterSpacing="0.01" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/feedback_subtitle"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="14sp"
+                    android:alpha="0.8" />
+
+            </LinearLayout>
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
@@ -65,16 +86,18 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="20dp"
+            android:paddingTop="24dp">
 
             <!-- Main Form Card -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="2dp"
-                app:strokeWidth="0dp">
+                android:layout_marginBottom="20dp"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="4dp"
+                app:strokeWidth="0dp"
+                app:cardBackgroundColor="@color/white">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -82,115 +105,194 @@
                     android:orientation="vertical"
                     android:padding="24dp">
 
-                    <!-- Subject -->
-                    <com.google.android.material.textfield.TextInputLayout
+                    <!-- Feedback Type Section -->
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginBottom="20dp"
-                        android:hint="@string/feedback_subject"
-                        app:boxBackgroundMode="outline"
-                        app:boxCornerRadiusBottomEnd="12dp"
-                        app:boxCornerRadiusBottomStart="12dp"
-                        app:boxCornerRadiusTopEnd="12dp"
-                        app:boxCornerRadiusTopStart="12dp"
-                        app:boxStrokeColor="@color/black"
-                        app:hintTextColor="@color/black">
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="12dp"
+                        android:gravity="center_vertical">
 
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/subjectEditText"
-                            android:layout_width="match_parent"
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@android:drawable/ic_menu_sort_by_size"
+                            app:tint="@color/primary_blue"
+                            android:layout_marginEnd="8dp" />
+
+                        <TextView
+                            android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:inputType="text"
-                            android:maxLines="2"
-                            android:textSize="15sp" />
-                    </com.google.android.material.textfield.TextInputLayout>
+                            android:layout_weight="1"
+                            android:text="@string/feedback_type"
+                            android:textColor="@color/bottom_nav_color"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:fontFamily="sans-serif-medium"
+                            android:letterSpacing="0.01" />
 
-                    <!-- Feedback Type -->
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="8dp"
-                        android:text="@string/feedback_type"
-                        android:textColor="#1A1A1A"
-                        android:textSize="14sp"
-                        android:fontFamily="sans-serif-medium"
-                        android:letterSpacing="0.01" />
+                    </LinearLayout>
 
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginBottom="20dp"
+                        android:layout_marginBottom="28dp"
                         app:boxBackgroundMode="outline"
-                        app:boxCornerRadiusBottomEnd="12dp"
-                        app:boxCornerRadiusBottomStart="12dp"
-                        app:boxCornerRadiusTopEnd="12dp"
-                        app:boxCornerRadiusTopStart="12dp"
-                        app:boxStrokeColor="@color/black"
-                        app:hintEnabled="false">
+                        app:boxCornerRadiusBottomEnd="16dp"
+                        app:boxCornerRadiusBottomStart="16dp"
+                        app:boxCornerRadiusTopEnd="16dp"
+                        app:boxCornerRadiusTopStart="16dp"
+                        app:boxStrokeColor="@color/primary_blue"
+                        app:boxStrokeWidth="2dp"
+                        app:boxStrokeWidthFocused="2dp"
+                        app:hintEnabled="false"
+                        app:startIconDrawable="@drawable/ic_feedback"
+                        app:startIconTint="@color/primary_blue">
 
                         <Spinner
                             android:id="@+id/feedbackTypeSpinner"
                             android:layout_width="match_parent"
-                            android:layout_height="56dp"
+                            android:layout_height="60dp"
                             android:paddingStart="16dp"
-                            android:paddingEnd="16dp" />
+                            android:paddingEnd="16dp"
+                            android:textSize="15sp" />
                     </com.google.android.material.textfield.TextInputLayout>
 
-                    <!-- Message -->
+                    <!-- Message Section -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="12dp"
+                        android:gravity="center_vertical">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@android:drawable/ic_dialog_info"
+                            app:tint="@color/primary_blue"
+                            android:layout_marginEnd="8dp" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/feedback_message"
+                            android:textColor="@color/bottom_nav_color"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:fontFamily="sans-serif-medium"
+                            android:letterSpacing="0.01" />
+
+                    </LinearLayout>
+
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginBottom="8dp"
-                        android:hint="@string/feedback_message"
+                        android:layout_marginBottom="24dp"
+                        android:hint="Describe your feedback or issue in detail..."
                         app:boxBackgroundMode="outline"
-                        app:boxCornerRadiusBottomEnd="12dp"
-                        app:boxCornerRadiusBottomStart="12dp"
-                        app:boxCornerRadiusTopEnd="12dp"
-                        app:boxCornerRadiusTopStart="12dp"
-                        app:boxStrokeColor="@color/black"
-                        app:hintTextColor="@color/black"
+                        app:boxCornerRadiusBottomEnd="16dp"
+                        app:boxCornerRadiusBottomStart="16dp"
+                        app:boxCornerRadiusTopEnd="16dp"
+                        app:boxCornerRadiusTopStart="16dp"
+                        app:boxStrokeColor="@color/primary_blue"
+                        app:boxStrokeWidth="2dp"
+                        app:boxStrokeWidthFocused="2dp"
+                        app:hintTextColor="@color/text_secondary"
                         app:counterEnabled="true"
-                        app:counterMaxLength="1000">
+                        app:counterMaxLength="1000"
+                        app:counterTextColor="@color/text_secondary"
+                        app:counterOverflowTextColor="@color/primaryRed"
+                        app:startIconDrawable="@android:drawable/ic_menu_edit"
+                        app:startIconTint="@color/primary_blue">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/messageEditText"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:inputType="textMultiLine|textCapSentences"
-                            android:minLines="4"
-                            android:maxLines="8"
+                            android:minLines="6"
+                            android:maxLines="12"
                             android:gravity="top|start"
-                            android:textSize="15sp" />
+                            android:textSize="15sp"
+                            android:textColor="@color/bottom_nav_color"
+                            android:lineSpacingExtra="6dp"
+                            android:paddingTop="16dp"
+                            android:paddingBottom="16dp" />
                     </com.google.android.material.textfield.TextInputLayout>
 
-                    <TextView
-                        android:id="@+id/characterCountText"
+                    <!-- Divider with Section Header -->
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginBottom="20dp"
-                        android:gravity="end"
-                        android:text="@string/feedback_character_count"
-                        android:textColor="#757575"
-                        android:textSize="12sp"
-                        android:fontFamily="sans-serif" />
-
-                    <!-- Divider -->
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
+                        android:orientation="horizontal"
                         android:layout_marginTop="8dp"
                         android:layout_marginBottom="20dp"
-                        android:background="#E0E0E0" />
+                        android:gravity="center_vertical">
 
-                    <!-- Options -->
+                        <View
+                            android:layout_width="0dp"
+                            android:layout_height="1dp"
+                            android:layout_weight="1"
+                            android:background="@color/border_gray" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="12dp"
+                            android:layout_marginEnd="12dp"
+                            android:text="OPTIONAL"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:letterSpacing="0.05" />
+
+                        <View
+                            android:layout_width="0dp"
+                            android:layout_height="1dp"
+                            android:layout_weight="1"
+                            android:background="@color/border_gray" />
+
+                    </LinearLayout>
+
+                    <!-- Contact Information Section -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="16dp"
+                        android:gravity="center_vertical">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@android:drawable/ic_dialog_alert"
+                            app:tint="@color/text_secondary"
+                            android:layout_marginEnd="8dp" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Contact Information"
+                            android:textColor="@color/bottom_nav_color"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:fontFamily="sans-serif-medium"
+                            android:letterSpacing="0.01" />
+
+                    </LinearLayout>
+
                     <com.google.android.material.checkbox.MaterialCheckBox
                         android:id="@+id/includeContactCheckBox"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginBottom="16dp"
+                        android:layout_marginBottom="20dp"
                         android:text="@string/feedback_include_contact"
                         android:textSize="15sp"
-                        android:textColor="#1A1A1A" />
+                        android:textColor="@color/bottom_nav_color"
+                        app:buttonTint="@color/primary_blue" />
 
                     <!-- Contact Info Layout -->
                     <LinearLayout
@@ -204,155 +306,249 @@
                         <com.google.android.material.textfield.TextInputLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginBottom="16dp"
+                            android:layout_marginBottom="20dp"
                             android:hint="@string/feedback_contact_email"
                             app:boxBackgroundMode="outline"
-                            app:boxCornerRadiusBottomEnd="12dp"
-                            app:boxCornerRadiusBottomStart="12dp"
-                            app:boxCornerRadiusTopEnd="12dp"
-                            app:boxCornerRadiusTopStart="12dp"
-                            app:boxStrokeColor="@color/black"
-                            app:hintTextColor="@color/black"
-                            app:startIconDrawable="@android:drawable/ic_dialog_email">
+                            app:boxCornerRadiusBottomEnd="16dp"
+                            app:boxCornerRadiusBottomStart="16dp"
+                            app:boxCornerRadiusTopEnd="16dp"
+                            app:boxCornerRadiusTopStart="16dp"
+                            app:boxStrokeColor="@color/primary_blue"
+                            app:boxStrokeWidth="2dp"
+                            app:boxStrokeWidthFocused="2dp"
+                            app:hintTextColor="@color/text_secondary"
+                            app:startIconDrawable="@android:drawable/ic_dialog_email"
+                            app:startIconTint="@color/primary_blue">
 
                             <com.google.android.material.textfield.TextInputEditText
                                 android:id="@+id/contactEmailEditText"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:inputType="textEmailAddress"
-                                android:textSize="15sp" />
+                                android:textSize="15sp"
+                                android:textColor="@color/bottom_nav_color"
+                                android:paddingTop="16dp"
+                                android:paddingBottom="16dp" />
                         </com.google.android.material.textfield.TextInputLayout>
 
                         <com.google.android.material.textfield.TextInputLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginBottom="16dp"
+                            android:layout_marginBottom="20dp"
                             android:hint="@string/feedback_contact_phone"
                             app:boxBackgroundMode="outline"
-                            app:boxCornerRadiusBottomEnd="12dp"
-                            app:boxCornerRadiusBottomStart="12dp"
-                            app:boxCornerRadiusTopEnd="12dp"
-                            app:boxCornerRadiusTopStart="12dp"
-                            app:boxStrokeColor="@color/black"
-                            app:hintTextColor="@color/black"
-                            app:startIconDrawable="@android:drawable/stat_sys_phone_call">
+                            app:boxCornerRadiusBottomEnd="16dp"
+                            app:boxCornerRadiusBottomStart="16dp"
+                            app:boxCornerRadiusTopEnd="16dp"
+                            app:boxCornerRadiusTopStart="16dp"
+                            app:boxStrokeColor="@color/primary_blue"
+                            app:boxStrokeWidth="2dp"
+                            app:boxStrokeWidthFocused="2dp"
+                            app:hintTextColor="@color/text_secondary"
+                            app:startIconDrawable="@android:drawable/stat_sys_phone_call"
+                            app:startIconTint="@color/primary_blue">
 
                             <com.google.android.material.textfield.TextInputEditText
                                 android:id="@+id/contactPhoneEditText"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:inputType="phone"
-                                android:textSize="15sp" />
+                                android:textSize="15sp"
+                                android:textColor="@color/bottom_nav_color"
+                                android:paddingTop="16dp"
+                                android:paddingBottom="16dp" />
                         </com.google.android.material.textfield.TextInputLayout>
                     </LinearLayout>
 
-                    <!-- Attachment Section -->
-                    <View
+                    <!-- Divider with Section Header -->
+                    <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="1dp"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
                         android:layout_marginTop="8dp"
                         android:layout_marginBottom="20dp"
-                        android:background="#E0E0E0" />
+                        android:gravity="center_vertical">
+
+                        <View
+                            android:layout_width="0dp"
+                            android:layout_height="1dp"
+                            android:layout_weight="1"
+                            android:background="@color/border_gray" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="12dp"
+                            android:layout_marginEnd="12dp"
+                            android:text="ATTACHMENT"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:letterSpacing="0.05" />
+
+                        <View
+                            android:layout_width="0dp"
+                            android:layout_height="1dp"
+                            android:layout_weight="1"
+                            android:background="@color/border_gray" />
+
+                    </LinearLayout>
+
+                    <!-- Attachment Section -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="12dp"
+                        android:gravity="center_vertical">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/baseline_attach_file_24"
+                            app:tint="@color/text_secondary"
+                            android:layout_marginEnd="8dp" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/feedback_attachment"
+                            android:textSize="16sp"
+                            android:textColor="@color/bottom_nav_color"
+                            android:textStyle="bold"
+                            android:fontFamily="sans-serif-medium"
+                            android:letterSpacing="0.01" />
+
+                    </LinearLayout>
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginBottom="4dp"
-                        android:text="@string/feedback_attachment"
-                        android:textSize="14sp"
-                        android:textColor="#1A1A1A"
-                        android:fontFamily="sans-serif-medium" />
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="16dp"
+                        android:layout_marginBottom="20dp"
                         android:text="@string/feedback_attachment_hint"
-                        android:textColor="#757575"
-                        android:textSize="13sp" />
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp"
+                        android:lineSpacingExtra="4dp" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/addAttachmentButton"
                         android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="12dp"
+                        android:layout_height="56dp"
+                        android:layout_marginBottom="16dp"
                         android:text="@string/feedback_add_attachment"
-                        android:textSize="14sp"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:paddingStart="32dp"
+                        android:paddingEnd="32dp"
                         app:icon="@android:drawable/ic_menu_gallery"
                         app:iconGravity="start"
-                        app:cornerRadius="8dp"
+                        app:iconPadding="8dp"
+                        app:cornerRadius="16dp"
+                        app:strokeWidth="2dp"
+                        app:strokeColor="@color/primary_blue"
+                        app:backgroundTint="@android:color/transparent"
+                        android:textColor="@color/primary_blue"
                         style="@style/Widget.Material3.Button.OutlinedButton" />
 
                     <com.google.android.material.card.MaterialCardView
                         android:id="@+id/attachmentImageView"
                         android:layout_width="match_parent"
-                        android:layout_height="200dp"
-                        android:layout_marginBottom="12dp"
+                        android:layout_height="220dp"
+                        android:layout_marginBottom="16dp"
                         android:visibility="gone"
-                        app:cardCornerRadius="12dp"
-                        app:cardElevation="2dp"
-                        app:strokeWidth="1dp"
-                        app:strokeColor="#E0E0E0">
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="3dp"
+                        app:strokeWidth="0dp">
 
                         <ImageView
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
-                            android:scaleType="centerCrop" />
+                            android:scaleType="centerCrop"
+                            android:contentDescription="Attachment preview" />
                     </com.google.android.material.card.MaterialCardView>
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/removeAttachmentButton"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginBottom="16dp"
+                        android:layout_marginBottom="8dp"
                         android:text="@string/feedback_remove_attachment"
                         android:textSize="14sp"
+                        android:textColor="@color/primaryRed"
                         android:visibility="gone"
                         app:icon="@android:drawable/ic_menu_close_clear_cancel"
                         app:iconGravity="start"
-                        app:cornerRadius="8dp"
+                        app:iconTint="@color/primaryRed"
+                        app:cornerRadius="12dp"
                         style="@style/Widget.Material3.Button.TextButton" />
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Submit Button -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/submitButton"
+            <!-- Submit Button Card -->
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
-                android:layout_height="64dp"
-                android:layout_marginBottom="16dp"
-                android:text="@string/feedback_submit"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                app:cornerRadius="12dp"
-                app:icon="@android:drawable/ic_menu_send"
-                app:iconGravity="textStart"
-                style="@style/Widget.Material3.Button" />
-
-            <!-- Progress Bar -->
-            <ProgressBar
-                android:id="@+id/progressBar"
-                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_gravity="center"
+                android:layout_marginBottom="24dp"
+                app:cardCornerRadius="0dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="@android:color/transparent"
+                app:strokeWidth="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="0dp">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/submitButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="60dp"
+                        android:text="@string/feedback_submit"
+                        android:textSize="17sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.03"
+                        android:textColor="@color/white"
+                        app:cornerRadius="16dp"
+                        app:icon="@android:drawable/ic_menu_send"
+                        app:iconGravity="textStart"
+                        app:iconPadding="8dp"
+                        app:iconTint="@color/white"
+                        app:elevation="4dp"
+                        app:backgroundTint="@color/primary_blue"
+                        style="@style/Widget.Material3.Button" />
+
+                    <!-- Progress Bar -->
+                    <ProgressBar
+                        android:id="@+id/progressBar"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:layout_marginTop="16dp"
+                        android:layout_marginBottom="8dp"
+                        android:visibility="gone"
+                        android:indeterminateTint="@color/primary_blue" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Help Text -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
-                android:visibility="gone" />
+                android:text="Your feedback helps us improve the app. We appreciate your time and input."
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp"
+                android:gravity="center"
+                android:lineSpacingExtra="4dp"
+                android:alpha="0.8" />
 
         </LinearLayout>
 
     </androidx.core.widget.NestedScrollView>
-
-    <!-- Floating Action Button for My Reports -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/myReportsFab"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="24dp"
-        android:src="@drawable/ic_list"
-        android:contentDescription="@string/feedback_title"
-        app:fabSize="normal"
-        app:tint="@color/white" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

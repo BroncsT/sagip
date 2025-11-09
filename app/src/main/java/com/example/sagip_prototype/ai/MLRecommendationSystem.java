@@ -32,13 +32,16 @@ public class MLRecommendationSystem {
     }
     
     private void loadHistoricalData() {
+        // Initialize with default rates immediately to prevent null pointer
+        historicalSuccessRates = getDefaultSuccessRates();
+        
         // Load historical success rates from Firestore
         db.collection("Sagip")
           .document("hospitalPerformance")
           .collection("historicalData")
           .get()
           .addOnSuccessListener(queryDocumentSnapshots -> {
-              historicalSuccessRates = new HashMap<>();
+              // Update with actual data when loaded
               for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
                   String hospitalId = document.getId();
                   Double successRate = document.getDouble("successRate");
@@ -48,8 +51,8 @@ public class MLRecommendationSystem {
               }
           })
           .addOnFailureListener(e -> {
-              // Use default success rates if loading fails
-              historicalSuccessRates = getDefaultSuccessRates();
+              // Already initialized with defaults, just log the error
+              android.util.Log.e("MLRecommendation", "Failed to load historical data", e);
           });
     }
     

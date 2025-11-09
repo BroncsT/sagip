@@ -10,6 +10,9 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import androidx.activity.EdgeToEdge;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -243,62 +246,378 @@ public class Senior_Profile extends BaseProfileActivity {
 
         // Show progress
         Toast.makeText(this, getString(R.string.delete_account_progress), Toast.LENGTH_SHORT).show();
+        Log.d(TAG, "🗑️ Starting account deletion process for user: " + uid);
 
-        // Delete user data from Firestore
+        // Step 1: Archive user data first (backup)
+        archiveUserData(uid, userType, () -> {
+            // Step 2: DELETE USER DOCUMENT FIRST - Most critical step
+            deleteUserDocument(uid, userType, () -> {
+                // Step 3: Delete user notifications
+                deleteUserNotifications(uid, userType, () -> {
+                    // Step 4: Handle emergency requests (archive those created by this user)
+                    archiveUserEmergencyRequests(uid, () -> {
+                        // Step 5: Delete user images from Storage
+                        deleteUserImages(uid);
+                    });
+                });
+            });
+        });
+    }
+
+    private void deleteUserDocument(String uid, String userType, Runnable onComplete) {
+        Log.d(TAG, "🗑️ Deleting user document from Firestore: " + uid);
+        
+        // Get reference to user document
+        com.google.firebase.firestore.DocumentReference userDocRef = db.collection("Sagip")
+                .document("users")
+                .collection(userType)
+                .document(uid);
+        
+        // First, verify document exists
+        userDocRef.get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        Log.d(TAG, "📄 User document exists, deleting now...");
+                        // Delete the document
+                        userDocRef.delete()
+                                .addOnSuccessListener(aVoid -> {
+                                    Log.d(TAG, "✅ User document deleted successfully from Firestore");
+                                    
+                                    // Verify deletion
+                                    verifyDocumentDeletion(uid, userType, 0, () -> {
+                                        onComplete.run();
+                                    });
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e(TAG, "❌ Failed to delete user document: " + e.getMessage());
+                                    Log.e(TAG, "❌ Error details: " + e.getClass().getSimpleName());
+                                    
+                                    // Retry deletion
+                                    retryDeleteDocument(uid, userType, 1, () -> {
+                                        onComplete.run();
+                                    });
+                                });
+                    } else {
+                        Log.d(TAG, "⚠️ User document does not exist, may have been already deleted");
+                        onComplete.run();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "⚠️ Failed to check if user document exists: " + e.getMessage());
+                    // Try to delete anyway
+                    userDocRef.delete()
+                            .addOnSuccessListener(aVoid -> {
+                                Log.d(TAG, "✅ User document deleted (existence check failed but delete succeeded)");
+                                onComplete.run();
+                            })
+                            .addOnFailureListener(ex -> {
+                                Log.e(TAG, "❌ Failed to delete user document: " + ex.getMessage());
+                                // Continue anyway - might not exist
+                                onComplete.run();
+                            });
+                });
+    }
+
+    private void retryDeleteDocument(String uid, String userType, int attempt, Runnable onComplete) {
+        if (attempt >= 3) {
+            Log.e(TAG, "❌ Failed to delete user document after 3 attempts");
+            onComplete.run();
+            return;
+        }
+        
+        Log.d(TAG, "🔄 Retrying document deletion (attempt " + (attempt + 1) + "/3)");
+        
         db.collection("Sagip")
                 .document("users")
                 .collection(userType)
                 .document(uid)
                 .delete()
                 .addOnSuccessListener(aVoid -> {
-                    // Delete user images from Storage
-                    deleteUserImages(uid);
+                    Log.d(TAG, "✅ User document deleted on retry attempt " + (attempt + 1));
+                    verifyDocumentDeletion(uid, userType, 0, () -> {
+                        onComplete.run();
+                    });
                 })
                 .addOnFailureListener(e -> {
-                    Toast.makeText(this, getString(R.string.delete_account_failed), Toast.LENGTH_SHORT).show();
+                    Log.e(TAG, "❌ Retry " + (attempt + 1) + " failed: " + e.getMessage());
+                    // Wait 1 second before next retry
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                        retryDeleteDocument(uid, userType, attempt + 1, onComplete);
+                    }, 1000);
+                });
+    }
+
+    private void verifyDocumentDeletion(String uid, String userType, int attempt, Runnable onComplete) {
+        if (attempt >= 3) {
+            Log.w(TAG, "⚠️ Could not verify document deletion after 3 attempts, assuming deleted");
+            onComplete.run();
+            return;
+        }
+        
+        db.collection("Sagip")
+                .document("users")
+                .collection(userType)
+                .document(uid)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (!documentSnapshot.exists()) {
+                        Log.d(TAG, "✅ Verified: User document successfully deleted");
+                        onComplete.run();
+                    } else {
+                        Log.w(TAG, "⚠️ Document still exists, attempting to delete again (verification attempt " + (attempt + 1) + ")");
+                        // Try to delete again
+                        db.collection("Sagip")
+                                .document("users")
+                                .collection(userType)
+                                .document(uid)
+                                .delete()
+                                .addOnSuccessListener(aVoid -> {
+                                    // Verify again after a delay
+                                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                                        verifyDocumentDeletion(uid, userType, attempt + 1, onComplete);
+                                    }, 500);
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e(TAG, "❌ Failed to delete document on verification: " + e.getMessage());
+                                    onComplete.run();
+                                });
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.w(TAG, "⚠️ Could not verify deletion: " + e.getMessage());
+                    onComplete.run();
+                });
+    }
+
+    private void archiveUserData(String uid, String userType, Runnable onComplete) {
+        Log.d(TAG, "📦 Archiving user data for: " + uid);
+        
+        // Get user document
+        db.collection("Sagip")
+                .document("users")
+                .collection(userType)
+                .document(uid)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        // Create archive document with user data
+                        Map<String, Object> archiveData = new HashMap<>();
+                        archiveData.putAll(documentSnapshot.getData());
+                        archiveData.put("archivedAt", System.currentTimeMillis());
+                        archiveData.put("originalUserType", userType);
+                        archiveData.put("originalUid", uid);
+                        
+                        // Save to archive collection
+                        db.collection("Sagip")
+                                .document("archivedUsers")
+                                .collection("users")
+                                .document(uid)
+                                .set(archiveData)
+                                .addOnSuccessListener(aVoid -> {
+                                    Log.d(TAG, "✅ User data archived successfully");
+                                    onComplete.run();
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e(TAG, "⚠️ Failed to archive user data: " + e.getMessage());
+                                    // Continue with deletion even if archiving fails
+                                    onComplete.run();
+                                });
+                    } else {
+                        Log.d(TAG, "⚠️ User document not found, skipping archive");
+                        onComplete.run();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "⚠️ Failed to fetch user data for archiving: " + e.getMessage());
+                    // Continue with deletion even if archiving fails
+                    onComplete.run();
+                });
+    }
+
+    private void deleteUserNotifications(String uid, String userType, Runnable onComplete) {
+        Log.d(TAG, "🗑️ Deleting user notifications for: " + uid);
+        
+        // Delete all notifications in user's notification collection
+        db.collection("Sagip")
+                .document("users")
+                .collection(userType)
+                .document(uid)
+                .collection("notifications")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    if (querySnapshot.isEmpty()) {
+                        Log.d(TAG, "✅ No notifications to delete");
+                        onComplete.run();
+                        return;
+                    }
+                    
+                    int totalNotifications = querySnapshot.size();
+                    final int[] deletedCount = {0};
+                    
+                    for (com.google.firebase.firestore.QueryDocumentSnapshot doc : querySnapshot) {
+                        doc.getReference().delete()
+                                .addOnSuccessListener(aVoid -> {
+                                    deletedCount[0]++;
+                                    if (deletedCount[0] == totalNotifications) {
+                                        Log.d(TAG, "✅ Deleted " + totalNotifications + " notifications");
+                                        onComplete.run();
+                                    }
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e(TAG, "⚠️ Failed to delete notification: " + e.getMessage());
+                                    deletedCount[0]++;
+                                    if (deletedCount[0] == totalNotifications) {
+                                        onComplete.run();
+                                    }
+                                });
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "⚠️ Failed to fetch notifications: " + e.getMessage());
+                    // Continue even if notification deletion fails
+                    onComplete.run();
+                });
+    }
+
+    private void archiveUserEmergencyRequests(String uid, Runnable onComplete) {
+        Log.d(TAG, "📦 Archiving emergency requests for user: " + uid);
+        
+        // Find all emergency requests created by this user (seniorUid matches)
+        db.collection("Sagip")
+                .document("emergencyRequests")
+                .collection("activeRequests")
+                .whereEqualTo("seniorUid", uid)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    if (querySnapshot.isEmpty()) {
+                        Log.d(TAG, "✅ No emergency requests to archive");
+                        onComplete.run();
+                        return;
+                    }
+                    
+                    int totalRequests = querySnapshot.size();
+                    final int[] archivedCount = {0};
+                    
+                    for (com.google.firebase.firestore.QueryDocumentSnapshot doc : querySnapshot) {
+                        // Archive the emergency request
+                        Map<String, Object> archiveData = new HashMap<>();
+                        archiveData.putAll(doc.getData());
+                        archiveData.put("archivedAt", System.currentTimeMillis());
+                        archiveData.put("archivedReason", "user_account_deleted");
+                        
+                        db.collection("Sagip")
+                                .document("archivedUsers")
+                                .collection("emergencyRequests")
+                                .document(doc.getId())
+                                .set(archiveData)
+                                .addOnSuccessListener(aVoid -> {
+                                    // Delete from active requests
+                                    doc.getReference().delete()
+                                            .addOnSuccessListener(aVoid2 -> {
+                                                archivedCount[0]++;
+                                                if (archivedCount[0] == totalRequests) {
+                                                    Log.d(TAG, "✅ Archived " + totalRequests + " emergency requests");
+                                                    onComplete.run();
+                                                }
+                                            })
+                                            .addOnFailureListener(e -> {
+                                                Log.e(TAG, "⚠️ Failed to delete emergency request: " + e.getMessage());
+                                                archivedCount[0]++;
+                                                if (archivedCount[0] == totalRequests) {
+                                                    onComplete.run();
+                                                }
+                                            });
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e(TAG, "⚠️ Failed to archive emergency request: " + e.getMessage());
+                                    archivedCount[0]++;
+                                    if (archivedCount[0] == totalRequests) {
+                                        onComplete.run();
+                                    }
+                                });
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "⚠️ Failed to fetch emergency requests: " + e.getMessage());
+                    // Continue even if emergency request handling fails
+                    onComplete.run();
                 });
     }
 
     private void deleteUserImages(String uid) {
+        Log.d(TAG, "🗑️ Deleting user images for: " + uid);
         StorageReference userImagesRef = storage.getReference().child("users/" + uid);
         
         userImagesRef.listAll()
                 .addOnSuccessListener(listResult -> {
-                    // Delete all images
-                    for (StorageReference item : listResult.getItems()) {
-                        item.delete();
+                    if (listResult.getItems().isEmpty()) {
+                        Log.d(TAG, "✅ No images to delete");
+                        // Proceed to delete Firebase Auth account
+                        deleteFirebaseAuthAccount();
+                        return;
                     }
                     
-                    // Delete the user from Firebase Auth
-                    mAuth.getCurrentUser().delete()
-                            .addOnSuccessListener(aVoid -> {
-                                Toast.makeText(this, getString(R.string.delete_account_success), Toast.LENGTH_LONG).show();
-                                
-                                // Redirect to login page
-                                Intent intent = new Intent(Senior_Profile.this, MainActivity.class);
-                                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                                startActivity(intent);
-                                finish();
-                            })
-                            .addOnFailureListener(e -> {
-                                Toast.makeText(this, getString(R.string.delete_account_failed), Toast.LENGTH_SHORT).show();
-                            });
+                    int totalImages = listResult.getItems().size();
+                    final int[] deletedCount = {0};
+                    
+                    // Delete all images
+                    for (StorageReference item : listResult.getItems()) {
+                        item.delete()
+                                .addOnSuccessListener(aVoid -> {
+                                    deletedCount[0]++;
+                                    if (deletedCount[0] == totalImages) {
+                                        Log.d(TAG, "✅ Deleted " + totalImages + " user images");
+                                        // Proceed to delete Firebase Auth account
+                                        deleteFirebaseAuthAccount();
+                                    }
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e(TAG, "⚠️ Failed to delete image: " + e.getMessage());
+                                    deletedCount[0]++;
+                                    if (deletedCount[0] == totalImages) {
+                                        // Proceed even if some images failed to delete
+                                        deleteFirebaseAuthAccount();
+                                    }
+                                });
+                    }
                 })
                 .addOnFailureListener(e -> {
+                    Log.e(TAG, "⚠️ Failed to list images: " + e.getMessage());
                     // Even if image deletion fails, proceed with account deletion
-                    mAuth.getCurrentUser().delete()
-                            .addOnSuccessListener(aVoid -> {
-                                Toast.makeText(this, getString(R.string.delete_account_success), Toast.LENGTH_LONG).show();
-                                
-                                Intent intent = new Intent(Senior_Profile.this, MainActivity.class);
-                                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                                startActivity(intent);
-                                finish();
-                            })
-                            .addOnFailureListener(ex -> {
-                                Toast.makeText(this, getString(R.string.delete_account_failed), Toast.LENGTH_SHORT).show();
-                            });
+                    deleteFirebaseAuthAccount();
                 });
+    }
+
+    private void deleteFirebaseAuthAccount() {
+        Log.d(TAG, "🗑️ Deleting Firebase Auth account");
+        
+        // Stop all background services first
+        BackgroundServiceManager.stopAllBackgroundServices(this);
+        
+        // Clear stored credentials
+        clearStoredCredentials();
+        
+        // Delete the user from Firebase Auth
+        if (mAuth.getCurrentUser() != null) {
+            mAuth.getCurrentUser().delete()
+                    .addOnSuccessListener(aVoid -> {
+                        Log.d(TAG, "✅ Firebase Auth account deleted successfully");
+                        Toast.makeText(this, getString(R.string.delete_account_success), Toast.LENGTH_LONG).show();
+                        
+                        // Redirect to login page
+                        Intent intent = new Intent(Senior_Profile.this, MainActivity.class);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        startActivity(intent);
+                        finish();
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "❌ Failed to delete Firebase Auth account: " + e.getMessage());
+                        Toast.makeText(this, getString(R.string.delete_account_failed) + ": " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    });
+        } else {
+            Log.e(TAG, "❌ No current user in Firebase Auth");
+            Toast.makeText(this, getString(R.string.delete_account_failed), Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override
@@ -324,10 +643,6 @@ public class Senior_Profile extends BaseProfileActivity {
             moreOptionsTitle.setText(getString(R.string.more_options));
         }
 
-        TextView helpSupportText = findViewById(R.id.helpSupportText);
-        if (helpSupportText != null) {
-            helpSupportText.setText(getString(R.string.help_support));
-        }
 
         TextView feedbackSupportText = findViewById(R.id.feedbackSupportText);
         if (feedbackSupportText != null) {
