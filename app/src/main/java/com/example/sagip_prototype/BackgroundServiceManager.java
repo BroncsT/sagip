@@ -56,28 +56,48 @@ public class BackgroundServiceManager {
      * @param context The application context
      */
     public static void stopAllBackgroundServices(Context context) {
-        if (context == null) {
-            Log.w(TAG, "Context is null, cannot stop services");
-            return;
-        }
-        
         Log.d(TAG, "Stopping all background services");
         
         try {
-            // Stop all possible background services
-            stopService(context, RescuerForegroundService.class);
-            stopService(context, EmergencySOSBackgroundService.class);
-            stopService(context, EmergencyNotificationService.class);
-            stopService(context, HospitalStatusNotificationService.class);
-            stopService(context, HospitalStatusReminderService.class);
-            stopService(context, BackgroundNotificationService.class);
-            stopService(context, FCMNotificationService.class);
-            stopService(context, WebSocketNotificationService.class);
-            stopService(context, RescuerBackgroundNotificationService.class);
+            // Stop RescuerForegroundService
+            Intent rescuerForegroundIntent = new Intent(context, RescuerForegroundService.class);
+            context.stopService(rescuerForegroundIntent);
             
-            Log.d(TAG, "All background services stopped successfully");
+            // CRITICAL FIX: Stop BarangayForegroundService
+            Intent barangayForegroundIntent = new Intent(context, BarangayForegroundService.class);
+            context.stopService(barangayForegroundIntent);
+            
+            // Stop EmergencySOSBackgroundService
+            Intent emergencySOSIntent = new Intent(context, EmergencySOSBackgroundService.class);
+            context.stopService(emergencySOSIntent);
+            
+            // Stop RescuerBackgroundNotificationService
+            Intent rescuerBackgroundIntent = new Intent(context, RescuerBackgroundNotificationService.class);
+            context.stopService(rescuerBackgroundIntent);
+            
+            // Stop BackgroundNotificationService
+            Intent backgroundIntent = new Intent(context, BackgroundNotificationService.class);
+            context.stopService(backgroundIntent);
+            
+            // Stop EmergencyNotificationService
+            Intent emergencyIntent = new Intent(context, EmergencyNotificationService.class);
+            context.stopService(emergencyIntent);
+            
+            // Stop HospitalStatusNotificationService
+            Intent hospitalStatusIntent = new Intent(context, HospitalStatusNotificationService.class);
+            context.stopService(hospitalStatusIntent);
+            
+            // Stop HospitalStatusReminderService
+            Intent hospitalReminderIntent = new Intent(context, HospitalStatusReminderService.class);
+            context.stopService(hospitalReminderIntent);
+            
+            // Stop WorkManager
+            NotificationWorkManager.stopNotificationMonitoring(context);
+            
+            Log.d(TAG, "✅ All background services stopped - including barangay foreground service");
+            
         } catch (Exception e) {
-            Log.e(TAG, "Error stopping background services: " + e.getMessage());
+            Log.e(TAG, "Error stopping background services: " + e.getMessage(), e);
         }
     }
     
@@ -122,8 +142,17 @@ public class BackgroundServiceManager {
     private static void startBarangayServices(Context context) {
         Log.d(TAG, "Starting barangay-specific services");
         
-        // Start background notification service
+        // CRITICAL FIX: Start dedicated barangay foreground service for reliable notifications
+        // This ensures barangay officials receive emergency alerts even when app is closed
+        startService(context, BarangayForegroundService.class);
+        
+        // Start background notification service as backup
         startService(context, BackgroundNotificationService.class);
+        
+        // Start WorkManager for additional reliability
+        NotificationWorkManager.startNotificationMonitoring(context);
+        
+        Log.d(TAG, "✅ Barangay services started - includes foreground service for reliability");
     }
     
     /**

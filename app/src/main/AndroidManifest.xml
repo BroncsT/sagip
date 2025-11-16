@@ -224,13 +224,16 @@
         <activity
             android:name=".MyReportsActivity"
             android:exported="false"
-            android:label="@string/feedback_my_reports" />
-        <activity
-            android:name=".AdminFeedbackActivity"
-            android:exported="false"
             android:label="@string/admin_feedback_title" /> <!-- Rescuer Background Notification Service -->
         <service
             android:name=".RescuerBackgroundNotificationService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+        
+        <!-- Barangay Foreground Service for reliable emergency notifications -->
+        <service
+            android:name=".BarangayForegroundService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="dataSync" />         <!-- Firebase Cloud Messaging Service -->

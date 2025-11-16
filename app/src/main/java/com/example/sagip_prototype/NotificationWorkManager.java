@@ -22,10 +22,10 @@ public class NotificationWorkManager {
             .setRequiresBatteryNotLow(true)
             .build();
         
-        // Create periodic work request - runs every 15 minutes
+        // Create periodic work request - runs every 5 minutes for emergency responsiveness
         PeriodicWorkRequest notificationWork = new PeriodicWorkRequest.Builder(
             NotificationWorker.class,
-            15, // repeat interval
+            5, // repeat interval - reduced from 15 minutes for faster emergency response
             TimeUnit.MINUTES
         )
         .setConstraints(constraints)

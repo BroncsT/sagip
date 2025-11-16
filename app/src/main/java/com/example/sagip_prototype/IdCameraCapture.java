@@ -59,7 +59,7 @@ public class IdCameraCapture extends AppCompatActivity {
     private Button captureButton, retakeButton, confirmButton;
     private ImageView capturedImageView;
     private LinearLayout actionButtonsLayout;
-    private ImageButton closeButton;
+    private     ImageButton closeButton;
     private LinearLayout sideTextContainer;
 
     private ImageCapture imageCapture;

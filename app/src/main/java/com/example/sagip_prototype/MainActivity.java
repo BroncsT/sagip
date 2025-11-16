@@ -2,6 +2,8 @@ package com.example.sagip_prototype;
 
 import static android.content.ContentValues.TAG;
 
+import static androidx.core.content.ContextCompat.startForegroundService;
+
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -147,6 +149,14 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
+        // If we have a Firebase email user that is not verified, force logout and clear stored credentials
+        FirebaseUser storedUser = auth.getCurrentUser();
+        if (storedUser != null && storedUser.getEmail() != null && !storedUser.isEmailVerified()) {
+            Log.d(TAG, "Stored Firebase email user not verified, forcing logout and clearing credentials");
+            auth.signOut();
+            clearStoredCredentials();
+        }
+
         // Check if user is already logged in (only if we have stored credentials)
         if (isUserLoggedIn()) {
             Log.d(TAG, "User already logged in with stored credentials, redirecting to dashboard");
@@ -258,18 +268,19 @@ public class MainActivity extends AppCompatActivity {
         // Start notification services in background thread to prevent ANR
         new Thread(() -> {
             try {
-                // Verify FCM token registration for notifications
-                FCMTokenManager.verifyTokenRegistration(this);
-                
                 // Use BackgroundServiceManager to start appropriate services based on user type
                 BackgroundServiceManager.startBackgroundServicesForUser(this, userType);
                 
+                // CRITICAL FIX: Request battery optimization whitelist for emergency users
+                // This ensures background services aren't killed by Android battery optimization
+                if ("rescuer".equals(userType) || "barangay".equals(userType)) {
+                    Log.d(TAG, "🔋 Emergency user detected - requesting battery optimization whitelist");
+                    BatteryOptimizationHelper.logBatteryOptimizationStatus(this);
+                    BatteryOptimizationHelper.showBatteryOptimizationDialog(this, null);
+                }
+                
                 // Also start WorkManager for reliable background notifications (FCM alternative)
                 NotificationWorkManager.startNotificationMonitoring(this);
-                
-                // Start alternative notification manager (no FCM required)
-                AlternativeNotificationManager.getInstance(this).startMonitoring();
-                
             } catch (Exception e) {
                 Log.e(TAG, "Error starting notification services: " + e.getMessage());
             }
@@ -1074,6 +1085,14 @@ public class MainActivity extends AppCompatActivity {
             default:
                 dashboardIntent = new Intent(MainActivity.this, Senior_Dashboard.class);
                 break;
+        }
+
+        // CRITICAL FIX: Request battery optimization whitelist for emergency users
+        // This ensures background services aren't killed by Android battery optimization
+        if ("rescuer".equals(userType) || "barangay".equals(userType)) {
+            Log.d(TAG, "🔋 Emergency user detected - requesting battery optimization whitelist");
+            BatteryOptimizationHelper.logBatteryOptimizationStatus(this);
+            BatteryOptimizationHelper.showBatteryOptimizationDialog(this, null);
         }
 
         startActivity(dashboardIntent);
