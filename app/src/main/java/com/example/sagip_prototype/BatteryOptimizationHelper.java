@@ -4,6 +4,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.PowerManager;
 import android.provider.Settings;
 import android.util.Log;
@@ -115,6 +117,31 @@ public class BatteryOptimizationHelper {
             }
         } else {
             Log.d(TAG, "Battery optimization check not needed for Android < 6.0");
+        }
+    }
+    
+    /**
+     * Checks and shows battery optimization dialog if needed for emergency users
+     * @param context Activity context
+     * @param userType Type of user (rescuer, barangay, etc.)
+     */
+    public static void checkAndShowBatteryOptimization(Context context, String userType) {
+        // Only show for emergency users (rescuers and barangay)
+        if ("rescuer".equals(userType) || "barangay".equals(userType)) {
+            Log.d(TAG, "🔋 Emergency user detected (" + userType + ") - checking battery optimization");
+            logBatteryOptimizationStatus(context);
+            
+            // Only show the dialog if not already whitelisted
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !isIgnoringBatteryOptimizations(context)) {
+                // Show dialog after a short delay to ensure UI is ready
+                new  Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    showBatteryOptimizationDialog(context, () -> {
+                        // This runs when user clicks 'Enable' on the dialog
+                        Log.d(TAG, "User agreed to enable battery optimization whitelist");
+                        requestBatteryOptimizationWhitelist(context);
+                    });
+                }, 1000); // 1 second delay
+            }
         }
     }
 }

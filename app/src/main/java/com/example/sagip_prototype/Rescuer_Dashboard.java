@@ -954,133 +954,16 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 saveLocationToFirestore(currentLat, currentLong);
             }
         }
+        
+        // Check battery optimization for rescuers
+        if (userType != null && userType.equals("rescuer")) {
+            Log.d(TAG, "🔋 Checking battery optimization for rescuer");
+            BatteryOptimizationHelper.checkAndShowBatteryOptimization(this, userType);
+        }
 
         // Check if user is still logged in before starting emergency listener
         SharedPreferences prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
         boolean isLoggedOut = prefs.getBoolean("user_logged_out", false);
-        String currentUserType = prefs.getString("user_type", null);
-        
-        if (isLoggedOut || currentUserType == null || !currentUserType.equals("rescuer")) {
-            Log.w(TAG, "⚠️ User has logged out or is not a rescuer, not starting emergency listener");
-            // Clean up any existing listeners
-            if (emergencyListener != null) {
-                emergencyListener.remove();
-                emergencyListener = null;
-            }
-            if (emergencySOSListener != null) {
-                emergencySOSListener.remove();
-                emergencySOSListener = null;
-            }
-        } else {
-            // Start emergency listener when activity resumes (only if not already started)
-            if (emergencyListener == null) {
-                Log.d(TAG, "Starting emergency listener in onResume()");
-                startEmergencyListener();
-            } else {
-                Log.d(TAG, "Emergency listener already active, skipping start");
-            }
-            
-            // Start emergency SOS notification listener (only if not already started)
-            if (emergencySOSListener == null) {
-                Log.d(TAG, "Starting emergency SOS listener in onResume()");
-                startEmergencySOSListener();
-            } else {
-                Log.d(TAG, "Emergency SOS listener already active, skipping start");
-            }
-        }
-        
-        // Don't start background service when dashboard is active
-        // Dashboard listener handles notifications when app is open
-        // Background service will auto-start when app goes to background
-        
-        // Disable RescuerNotificationManager to prevent duplicate notifications
-        // RescuerNotificationManager.startMonitoring(this);
-        
-        // Test emergency notification system
-        testEmergencyNotificationSystem();
-        
-        // Debug: Check if there are any existing emergency notifications (without playing sounds)
-        checkForExistingEmergencyNotifications();
-
-        // Clear any old notifications when app comes to foreground
-        clearOldEmergencyNotifications();
-        
-        // Clear any emergency notifications when returning to dashboard
-        clearAllEmergencyNotifications();
-        
-        // Send test notification to verify system is working (for debugging)
-        if (userType != null && userType.equals("rescuer") && userId != null) {
-        }
-        
-        // Check for new hospital status update notifications when returning to app
-        // Only check if we haven't already checked recently to avoid unnecessary refreshes
-        if (userType != null && userType.equals("rescuer") && userId != null) {
-            long currentTime = System.currentTimeMillis();
-            long lastCheckTime = sharedPreferences.getLong("lastNotificationCheck", 0);
-            long timeSinceLastCheck = currentTime - lastCheckTime;
-            
-            // Only check notifications if it's been more than 30 seconds since last check
-            if (timeSinceLastCheck > 30000) {
-                Log.d(TAG, "=== CHECKING FOR REAL-TIME FCM NOTIFICATIONS IN ONRESUME ===");
-                Log.d(TAG, "User Type: " + userType);
-                Log.d(TAG, "User ID: " + userId);
-
-                HospitalStatusUpdateNotificationService.checkAndDisplayNotificationsForRescuer(this, userId);
-                
-                // Update last check time
-                sharedPreferences.edit().putLong("lastNotificationCheck", currentTime).apply();
-            } else {
-                Log.d(TAG, "Skipping notification check - checked recently (" + (timeSinceLastCheck/1000) + " seconds ago)");
-            }
-        } else {
-            Log.d(TAG, "Skipping notification check - User Type: " + userType + ", User ID: " + userId);
-        }
-    }
-
-    @Override
-    public void onConfigurationChanged(android.content.res.Configuration newConfig) {
-        super.onConfigurationChanged(newConfig);
-        
-        // Handle language change without recreating activity
-        Log.d(TAG, "Configuration changed - language change detected");
-        
-        // Reload cached display name to ensure it's still displayed
-        loadCachedDisplayName();
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        stopLocationUpdates();
-        
-        // KEEP emergency SOS listener active even when navigating between screens
-        // This ensures continuous notification monitoring
-        Log.d(TAG, "🚨 Keeping emergency SOS listener active during navigation");
-        
-        // Stop old emergency listener when app goes to background
-        if (emergencyListener != null) {
-            Log.d(TAG, "🚨 Stopping old emergency listener in activity");
-            emergencyListener.remove();
-            emergencyListener = null;
-        }
-        
-        // Note: emergencySOSListener stays active
-        
-        // Foreground services will continue running to handle notifications when app is closed
-        if (userType != null && userType.equals("rescuer") && userId != null) {
-            Log.d(TAG, "App paused - Emergency SOS listener still active");
-        }
-        
-        // Clear tracking status when app is paused (optional - you might want to keep tracking active)
-        // clearTrackingStatus();
-        
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-
-        // Shutdown executor service
         if (executorService != null) {
             executorService.shutdown();
         }
