@@ -232,9 +232,14 @@ public class EmergencySOSBackgroundService extends Service {
             return START_NOT_STICKY; // Don't restart if killed
         }
         
-        // Start listening for emergency notifications with fresh user data
-        if (!isListening) {
+        // CRITICAL FIX: Always ensure the listener is started, even if service was restarted
+        // Check if listener exists and is valid - if not, start it
+        // This fixes the issue where isListening flag might be true but listener is null after service restart
+        if (!isListening || emergencyListener == null) {
+            Log.d(TAG, "🚨 Starting emergency SOS listener (isListening: " + isListening + ", listener: " + (emergencyListener != null ? "exists" : "null") + ")");
             startEmergencySOSListener();
+        } else {
+            Log.d(TAG, "✅ Emergency SOS listener already active, skipping restart");
         }
         
         return START_STICKY; // Restart if killed by system
@@ -362,17 +367,19 @@ public class EmergencySOSBackgroundService extends Service {
             return;
         }
         
-        // PREVENT DUPLICATE LISTENERS - Check if already listening
+        // PREVENT DUPLICATE LISTENERS - Check if already listening with valid listener
         if (isListening && emergencyListener != null) {
             Log.d(TAG, "✅ [DUPLICATE_PREVENTION] Already listening for emergency notifications, skipping listener creation");
             Log.d(TAG, "✅ [DUPLICATE_PREVENTION] Existing listener is active, this prevents double notifications");
             return;
         }
         
-        // If flag is set but listener is null, something went wrong - clean up
+        // If flag is set but listener is null, something went wrong - clean up and continue
+        // This can happen if the service was killed and restarted, or if listener was removed unexpectedly
         if (isListening && emergencyListener == null) {
-            Log.w(TAG, "⚠️ [DUPLICATE_PREVENTION] isListening flag was set but listener was null, resetting");
+            Log.w(TAG, "⚠️ [DUPLICATE_PREVENTION] isListening flag was set but listener was null, resetting and creating new listener");
             isListening = false;
+            // Continue to create new listener below
         }
         
         // Remove any existing listener before creating a new one

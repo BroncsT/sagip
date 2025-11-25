@@ -140,6 +140,8 @@
     <string name="no">No</string>
     <string name="loading">Loading...</string>
     <string name="please_wait">Please wait...</string>
+    <string name="restoring_session">Restoring your session...</string>
+    <string name="session_restore_failed">Session expired. Please log in again.</string>
 
     <!-- Image Source Dialog -->
     <string name="select_image_source">Select Image Source</string>

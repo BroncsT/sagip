@@ -10,6 +10,8 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.Patterns;
@@ -54,6 +56,10 @@ public class MainActivity extends AppCompatActivity {
     private FirebaseFirestore db;
     private final Long timeout = 60L;
     private SharedPreferences sharedPreferences;
+    private FirebaseAuth.AuthStateListener sessionRestoreListener;
+    private Handler sessionRestoreHandler;
+    private Runnable sessionRestoreTimeoutRunnable;
+    private boolean waitingForSessionRestore = false;
 
     // UI Components for Phone Login
     private View phoneLoginLayout;
@@ -141,11 +147,7 @@ public class MainActivity extends AppCompatActivity {
             Log.d(TAG, "Logout action detected, clearing credentials and signing out");
             auth.signOut();
             clearStoredCredentials();
-            // Set content view and show login screen
-            setContentView(R.layout.activity_main);
-            initializeUI();
-            setupPhoneLogin();
-            setupEmailLogin();
+            showLoginScreen();
             return;
         }
 
@@ -155,6 +157,15 @@ public class MainActivity extends AppCompatActivity {
             Log.d(TAG, "Stored Firebase email user not verified, forcing logout and clearing credentials");
             auth.signOut();
             clearStoredCredentials();
+        }
+
+        boolean storedCredentialsAvailable = hasStoredCredentials();
+
+        if (storedCredentialsAvailable && auth.getCurrentUser() == null) {
+            Log.d(TAG, "Stored credentials found but Firebase Auth session not ready yet. Waiting for restore.");
+            showLoginScreen();
+            waitForFirebaseSessionRestore();
+            return;
         }
 
         // Check if user is already logged in (only if we have stored credentials)
@@ -185,11 +196,21 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "  - Model: " + model);
         Log.d(TAG, "  - Is Samsung: " + manufacturer.toLowerCase().contains("samsung"));
 
-        // Set content view and initialize UI
+        showLoginScreen();
+    }
+
+    private void showLoginScreen() {
         setContentView(R.layout.activity_main);
         initializeUI();
         setupPhoneLogin();
         setupEmailLogin();
+    }
+
+    private boolean hasStoredCredentials() {
+        boolean isLoggedIn = sharedPreferences.getBoolean(KEY_IS_LOGGED_IN, false);
+        String userId = sharedPreferences.getString(KEY_USER_ID, null);
+        String userType = sharedPreferences.getString(KEY_USER_TYPE, null);
+        return isLoggedIn && userId != null && userType != null;
     }
 
     private boolean isUserLoggedIn() {
@@ -206,8 +227,6 @@ public class MainActivity extends AppCompatActivity {
         boolean isFreshInstall = sharedPreferences.getBoolean("FRESH_INSTALL_FLAG", true);
         Log.d(TAG, "  - isFreshInstall: " + isFreshInstall);
 
-        // Additional Samsung-specific check: if we have stored data but no Firebase user,
-        // it might be restored data from Samsung Cloud/Smart Switch
         FirebaseUser currentUser = auth.getCurrentUser();
         boolean hasStoredData = isLoggedIn && userId != null && userType != null;
         boolean hasFirebaseUser = currentUser != null;
@@ -215,11 +234,8 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "  - hasStoredData: " + hasStoredData);
         Log.d(TAG, "  - hasFirebaseUser: " + hasFirebaseUser);
 
-        // If it's a fresh install OR we have stored data but no Firebase user (restored data),
-        // don't auto-login and force login screen
-        if (isFreshInstall || (hasStoredData && !hasFirebaseUser)) {
-            Log.d(TAG, "  - Fresh install or restored data detected, forcing login screen");
-            // Mark that we've checked this install
+        if (isFreshInstall) {
+            Log.d(TAG, "  - Fresh install detected, forcing login screen");
             sharedPreferences.edit().putBoolean("FRESH_INSTALL_FLAG", false).apply();
             return false;
         }
@@ -1310,6 +1326,64 @@ public class MainActivity extends AppCompatActivity {
         return !TextUtils.isEmpty(number) && number.matches("09\\d{9}");
     }
 
+    private void waitForFirebaseSessionRestore() {
+        waitingForSessionRestore = true;
+        Toast.makeText(this, getString(R.string.restoring_session), Toast.LENGTH_SHORT).show();
+        showProgressBar(true);
+        setLoginButtonsEnabled(false);
+
+        if (sessionRestoreListener != null) {
+            auth.removeAuthStateListener(sessionRestoreListener);
+        }
+
+        sessionRestoreListener = firebaseAuth -> {
+            FirebaseUser restoredUser = firebaseAuth.getCurrentUser();
+            if (restoredUser != null && waitingForSessionRestore) {
+                Log.d(TAG, "Firebase session restored, redirecting to stored dashboard");
+                stopSessionRestoreWait();
+                redirectToStoredUserDashboard();
+            }
+        };
+        auth.addAuthStateListener(sessionRestoreListener);
+
+        if (sessionRestoreHandler == null) {
+            sessionRestoreHandler = new Handler(Looper.getMainLooper());
+        }
+
+        sessionRestoreTimeoutRunnable = () -> {
+            if (waitingForSessionRestore) {
+                Log.w(TAG, "Firebase session restore timed out, clearing stored credentials");
+                stopSessionRestoreWait();
+                showProgressBar(false);
+                setLoginButtonsEnabled(true);
+                clearStoredCredentials();
+                Toast.makeText(MainActivity.this, getString(R.string.session_restore_failed), Toast.LENGTH_SHORT).show();
+            }
+        };
+        sessionRestoreHandler.postDelayed(sessionRestoreTimeoutRunnable, 2500);
+    }
+
+    private void stopSessionRestoreWait() {
+        waitingForSessionRestore = false;
+        if (sessionRestoreListener != null) {
+            auth.removeAuthStateListener(sessionRestoreListener);
+            sessionRestoreListener = null;
+        }
+        if (sessionRestoreHandler != null && sessionRestoreTimeoutRunnable != null) {
+            sessionRestoreHandler.removeCallbacks(sessionRestoreTimeoutRunnable);
+            sessionRestoreTimeoutRunnable = null;
+        }
+    }
+
+    private void setLoginButtonsEnabled(boolean enabled) {
+        if (phoneLoginButton != null) {
+            phoneLoginButton.setEnabled(enabled);
+        }
+        if (emailLoginButton != null) {
+            emailLoginButton.setEnabled(enabled);
+        }
+    }
+
     private void showProgressBar(boolean show) {
         ProgressBar progressBar = findViewById(R.id.progressBar);
         if (progressBar != null) {
@@ -1576,6 +1650,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         Log.d(TAG, "MainActivity destroyed - cleaning up resources");
+        stopSessionRestoreWait();
         
         // Stop all background services when activity is destroyed
         try {

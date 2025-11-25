@@ -986,6 +986,14 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         // Clear any pending emergency alerts
         clearPendingEmergencyAlerts();
         
+        // CRITICAL FIX: Start emergency listeners after cleanup
+        // This ensures rescuers receive notifications when app is active
+        if (userId != null && userType != null && "rescuer".equals(userType)) {
+            Log.d(TAG, "🚨 Starting emergency listeners in onResume()");
+            startEmergencyListener(); // Listen to global activeEmergencies collection
+            startEmergencySOSListener(); // Listen to user-specific emergencyNotifications collection
+        }
+        
         // NOTE: Do NOT stop notification services here - they should continue running when app is closed
         // The foreground services (RescuerForegroundService, WebSocketNotificationService, etc.) 
         // started in MainActivity will continue running to handle notifications when app is closed
@@ -1516,72 +1524,71 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         // Dashboard listener handles notifications when app is active
     }
 
-    private void startEmergencyListener() {
-        Log.d(TAG, "🚨 Starting emergency listener...");
-
-        // Prevent duplicate listeners
-        if (emergencyListener != null) {
-            Log.w(TAG, "Emergency listener already exists, removing old one first");
-            emergencyListener.remove();
-            emergencyListener = null;
-        }
-
-        // Clean up old emergencies first (older than 1 hour)
-        cleanupOldEmergencies();
-
-        // Listen for new emergency notifications
-        emergencyListener = db.collection("Sagip")
-                .document("emergencyNotifications")
-                .collection("activeEmergencies")
-                .whereEqualTo("isActive", true)
-                .addSnapshotListener((snapshots, e) -> {
-                    if (e != null) {
-                        Log.e(TAG, "🚨 Emergency listener failed.", e);
-                        return;
-                    }
-
-                    Log.d(TAG, "🚨 Emergency listener triggered - snapshots: " + (snapshots != null ? snapshots.size() : "null"));
-
-                    if (snapshots != null && !snapshots.isEmpty()) {
-                        for (DocumentChange dc : snapshots.getDocumentChanges()) {
-                            Log.d(TAG, "🚨 Document change type: " + dc.getType() + " for document: " + dc.getDocument().getId());
-                            
-                            if (dc.getType() == DocumentChange.Type.ADDED) {
-                                // New emergency detected!
-                                DocumentSnapshot emergency = dc.getDocument();
-                                Log.d(TAG, "🚨 NEW EMERGENCY DETECTED: " + emergency.getId());
-                                handleNewEmergency(emergency);
-                            } else if (dc.getType() == DocumentChange.Type.MODIFIED) {
-                                // Emergency was modified (likely responded to by another rescuer)
-                                DocumentSnapshot emergency = dc.getDocument();
-                                Boolean isActive = emergency.getBoolean("isActive");
-                                Log.d(TAG, "🚨 Emergency modified - isActive: " + isActive);
+        private void startEmergencyListener() {
+            Log.d(TAG, "🚨 Starting emergency listener...");
+    
+            // Prevent duplicate listeners
+            if (emergencyListener != null) {
+                Log.w(TAG, "Emergency listener already exists, removing old one first");
+                emergencyListener.remove();
+                emergencyListener = null;
+            }
+            // Clean up old emergencies first (older than 1 hour)
+            cleanupOldEmergencies();
+    
+            // Listen for new emergency notifications
+            emergencyListener = db.collection("Sagip")
+                    .document("emergencyNotifications")
+                    .collection("activeEmergencies")
+                    .whereEqualTo("isActive", true)
+                    .addSnapshotListener((snapshots, e) -> {
+                        if (e != null) {
+                            Log.e(TAG, "🚨 Emergency listener failed.", e);
+                            return;
+                        }
+    
+                        Log.d(TAG, "🚨 Emergency listener triggered - snapshots: " + (snapshots != null ? snapshots.size() : "null"));
+    
+                        if (snapshots != null && !snapshots.isEmpty()) {
+                            for (DocumentChange dc : snapshots.getDocumentChanges()) {
+                                Log.d(TAG, "🚨 Document change type: " + dc.getType() + " for document: " + dc.getDocument().getId());
                                 
-                                if (isActive != null && !isActive) {
-                                    // Emergency was deactivated, clear the notification
-                                    String helpRequestId = emergency.getString("helpRequestId");
-                                    String respondedBy = emergency.getString("respondedBy");
-                                    if (helpRequestId != null) {
-                                        clearEmergencyNotification(helpRequestId);
-                                        Log.d(TAG, "🚨 Emergency was responded to by another rescuer, clearing notification");
-                                        
-                                        // Show toast to inform user that another rescuer responded
-                                        if (respondedBy != null && !respondedBy.equals(userId)) {
-                                            Toast.makeText(Rescuer_Dashboard.this, 
-                                                "✅ Another rescuer has responded to this emergency", 
-                                                Toast.LENGTH_LONG).show();
+                                if (dc.getType() == DocumentChange.Type.ADDED) {
+                                    // New emergency detected!
+                                    DocumentSnapshot emergency = dc.getDocument();
+                                    Log.d(TAG, "🚨 NEW EMERGENCY DETECTED: " + emergency.getId());
+                                    handleNewEmergency(emergency);
+                                } else if (dc.getType() == DocumentChange.Type.MODIFIED) {
+                                    // Emergency was modified (likely responded to by another rescuer)
+                                    DocumentSnapshot emergency = dc.getDocument();
+                                    Boolean isActive = emergency.getBoolean("isActive");
+                                    Log.d(TAG, "🚨 Emergency modified - isActive: " + isActive);
+                                    
+                                    if (isActive != null && !isActive) {
+                                        // Emergency was deactivated, clear the notification
+                                        String helpRequestId = emergency.getString("helpRequestId");
+                                        String respondedBy = emergency.getString("respondedBy");
+                                        if (helpRequestId != null) {
+                                            clearEmergencyNotification(helpRequestId);
+                                            Log.d(TAG, "🚨 Emergency was responded to by another rescuer, clearing notification");
+                                            
+                                            // Show toast to inform user that another rescuer responded
+                                            if (respondedBy != null && !respondedBy.equals(userId)) {
+                                                Toast.makeText(Rescuer_Dashboard.this, 
+                                                    "✅ Another rescuer has responded to this emergency", 
+                                                    Toast.LENGTH_LONG).show();
+                                            }
                                         }
                                     }
                                 }
                             }
+                        } else {
+                            Log.d(TAG, "🚨 No active emergencies found");
                         }
-                    } else {
-                        Log.d(TAG, "🚨 No active emergencies found");
-                    }
-                });
-
-        Log.d(TAG, "🚨 Emergency listener started successfully");
-    }
+                    });
+    
+            Log.d(TAG, "🚨 Emergency listener started successfully");
+        }
 
     private void cleanupOldEmergencies() {
         // Clean up emergencies older than 1 hour
@@ -3902,7 +3909,13 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                                 // Request SMS permission for emergency notifications
                                 requestSMSPermissionForEmergencyNotifications();
 
-                                // Emergency listener will be started in onResume()
+                                // CRITICAL FIX: Start emergency listeners after user data is loaded
+                                // This ensures rescuers receive notifications immediately after login
+                                if ("rescuer".equals(userType) && userId != null) {
+                                    Log.d(TAG, "🚨 Starting emergency listeners after user data loaded");
+                                    startEmergencyListener(); // Listen to global activeEmergencies collection
+                                    startEmergencySOSListener(); // Listen to user-specific emergencyNotifications collection
+                                }
                             } else {
                                 Log.e(TAG, "User document does not exist for UID: " + uid + " in collection: " + userType);
 
@@ -4011,7 +4024,16 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                         saveUserToPreferences(uid, currentUserType, phoneNumber);
                         loadUserDataFromDocument(document);
 
-                        // Emergency listener will be started in onResume()
+                        // CRITICAL FIX: Start emergency listeners after user type is detected
+                        // This ensures rescuers receive notifications immediately after login
+                        if ("rescuer".equals(currentUserType) && uid != null) {
+                            Log.d(TAG, "🚨 Starting emergency listeners after user type detection");
+                            // Set userId before starting listeners
+                            userId = uid;
+                            userType = currentUserType;
+                            startEmergencyListener(); // Listen to global activeEmergencies collection
+                            startEmergencySOSListener(); // Listen to user-specific emergencyNotifications collection
+                        }
                     } else {
                         Log.d(TAG, "❌ User not found in collection: " + currentUserType);
                         // Try next user type

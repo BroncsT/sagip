@@ -114,6 +114,39 @@ public class FCMNotificationService extends FirebaseMessagingService {
                     phoneNumber
                 );
             }
+        } else if ("emergency_sos".equals(type)) {
+            // Handle emergency SOS notifications for rescuers only
+            SharedPreferences sharedPreferences = getSharedPreferences("SagipAppPrefs", MODE_PRIVATE);
+            String userType = sharedPreferences.getString("userType", null);
+            
+            if (!"rescuer".equals(userType)) {
+                Log.d(TAG, "🚫 Skipping emergency SOS notification - user is not a rescuer (userType: " + userType + ")");
+                return;
+            }
+            
+            String seniorName = data.get("seniorName");
+            String seniorPhone = data.get("seniorPhone");
+            String locationAddress = data.get("locationAddress");
+            String emergencyType = data.get("emergencyType");
+            String requestId = data.get("requestId");
+            String seniorLat = data.get("seniorLat");
+            String seniorLng = data.get("seniorLng");
+            
+            Log.d(TAG, "🚨 Emergency SOS notification received for rescuer - Senior: " + seniorName);
+            
+            if (seniorName != null && locationAddress != null) {
+                showEmergencySOSNotification(
+                    seniorName,
+                    seniorPhone != null ? seniorPhone : "",
+                    locationAddress,
+                    emergencyType != null ? emergencyType : "medical",
+                    requestId,
+                    seniorLat,
+                    seniorLng
+                );
+            } else {
+                Log.w(TAG, "⚠️ Emergency SOS notification missing required data - seniorName: " + seniorName + ", locationAddress: " + locationAddress);
+            }
         }
     }
     
@@ -123,7 +156,15 @@ public class FCMNotificationService extends FirebaseMessagingService {
         String body = notification.getBody();
         
         if (title != null && body != null) {
-            showSimpleNotification(title, body);
+            // Check if this is an emergency SOS notification by checking the title
+            if (title.contains("EMERGENCY SOS") || title.contains("🚨")) {
+                Log.d(TAG, "🚨 Emergency SOS detected in notification payload");
+                // Try to extract information from body or show as simple notification
+                // The data payload should have the full details, but this is a fallback
+                showSimpleNotification(title, body);
+            } else {
+                showSimpleNotification(title, body);
+            }
         }
     }
     
@@ -275,6 +316,113 @@ public class FCMNotificationService extends FirebaseMessagingService {
             
             NotificationManager notificationManager = getSystemService(NotificationManager.class);
             notificationManager.createNotificationChannel(channel);
+        }
+    }
+    
+    /**
+     * Creates the emergency SOS notification channel
+     */
+    private void createEmergencySOSChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            String channelId = "emergency_sos_channel";
+            NotificationChannel channel = new NotificationChannel(
+                channelId,
+                "Emergency SOS Alerts",
+                NotificationManager.IMPORTANCE_MAX
+            );
+            channel.setDescription("Critical emergency SOS notifications from seniors");
+            channel.enableVibration(true);
+            channel.setShowBadge(true);
+            channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+            channel.enableLights(true);
+            channel.setLightColor(0xFFFF0000); // Red light
+            channel.setSound(getCustomAlarmSound(), new android.media.AudioAttributes.Builder()
+                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                .build());
+            
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            notificationManager.createNotificationChannel(channel);
+            Log.d(TAG, "✅ Emergency SOS notification channel created");
+        }
+    }
+    
+    /**
+     * Shows emergency SOS notification for rescuers
+     */
+    private void showEmergencySOSNotification(String seniorName, String seniorPhone, 
+                                             String locationAddress, String emergencyType,
+                                             String requestId, String seniorLat, String seniorLng) {
+        
+        Log.d(TAG, "🚨 Showing emergency SOS notification: " + seniorName);
+        createEmergencySOSChannel();
+        
+        Intent intent = new Intent(this, Rescuer_Dashboard.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        intent.putExtra("emergency_sos_clicked", true);
+        intent.putExtra("from_emergency_notification", true);
+        intent.putExtra("senior_name", seniorName);
+        intent.putExtra("senior_phone", seniorPhone);
+        intent.putExtra("location_address", locationAddress);
+        intent.putExtra("emergency_type", emergencyType);
+        if (requestId != null) {
+            intent.putExtra("request_id", requestId);
+        }
+        if (seniorLat != null && !seniorLat.isEmpty() && !"0".equals(seniorLat)) {
+            try {
+                intent.putExtra("senior_lat", Double.parseDouble(seniorLat));
+            } catch (NumberFormatException e) {
+                Log.w(TAG, "Invalid seniorLat: " + seniorLat);
+            }
+        }
+        if (seniorLng != null && !seniorLng.isEmpty() && !"0".equals(seniorLng)) {
+            try {
+                intent.putExtra("senior_lng", Double.parseDouble(seniorLng));
+            } catch (NumberFormatException e) {
+                Log.w(TAG, "Invalid seniorLng: " + seniorLng);
+            }
+        }
+        
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+            this,
+            (int) System.currentTimeMillis(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        
+        // Get emergency emoji
+        String emergencyEmoji = getEmergencyEmoji(emergencyType);
+        
+        String channelId = "emergency_sos_channel";
+        Notification notification = new NotificationCompat.Builder(this, channelId)
+                .setContentTitle("🚨 EMERGENCY SOS - " + seniorName)
+                .setContentText("Senior needs immediate help at " + locationAddress)
+                .setStyle(new NotificationCompat.BigTextStyle()
+                        .bigText("🚨 EMERGENCY SOS ALERT 🚨\n\n" +
+                                "👤 Senior: " + seniorName + "\n" +
+                                "🆘 Emergency: " + emergencyEmoji + " " + emergencyType + "\n" +
+                                "📍 Location: " + locationAddress + "\n" +
+                                (seniorPhone != null && !seniorPhone.isEmpty() ? "📞 Phone: " + seniorPhone + "\n" : "") +
+                                "\nTap to open app and respond immediately!"))
+                .setSmallIcon(R.drawable.baseline_notifications_active_24)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+                .setVibrate(new long[]{0, 1000, 500, 1000, 500, 1000})
+                .setLights(0xFFFF0000, 1000, 1000)
+                .setSound(getCustomAlarmSound())
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setOngoing(true)
+                .setFullScreenIntent(pendingIntent, true) // Show as heads-up notification
+                .build();
+        
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (notificationManager != null) {
+            notificationManager.notify(9999, notification); // Use fixed ID for emergency SOS notifications
+            Log.d(TAG, "✅ Emergency SOS notification shown for: " + seniorName);
+        } else {
+            Log.e(TAG, "❌ NotificationManager is null, cannot show emergency SOS notification");
         }
     }
     
