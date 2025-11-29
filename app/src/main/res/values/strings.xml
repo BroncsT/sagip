@@ -877,6 +877,7 @@
     <string name="notification_emergency_monitor">🚨 SAGIP Emergency Monitor</string>
     <string name="notification_listening_alerts">Listening for emergency alerts from seniors...</string>
     <string name="notification_emergency_help_default">%1$s needs help!</string>
+    <string name="emergency_details_not_available">Emergency details are not available right now.</string>
     <string name="notification_background_service">SAGIP Background Service</string>
     <string name="notification_listening_notifications">Listening for emergency notifications...</string>
     <string name="notification_background_monitoring">Monitoring for emergency notifications...</string>

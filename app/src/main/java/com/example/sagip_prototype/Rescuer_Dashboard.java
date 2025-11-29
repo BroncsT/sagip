@@ -1066,6 +1066,19 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 intent.removeExtra("senior_name");
                 intent.removeExtra("senior_phone");
                 intent.removeExtra("location_address");
+            } else if (handleStandardEmergencyNotification(intent, false)) {
+                Log.d(TAG, "🚨 App opened from standard emergency notification");
+                intent.removeExtra("emergency_notification");
+                intent.removeExtra("notification_type");
+                intent.removeExtra("notification_clicked");
+                intent.removeExtra("helpRequestId");
+                intent.removeExtra("senior_name");
+                intent.removeExtra("senior_phone");
+                intent.removeExtra("phone_number");
+                intent.removeExtra("location_address");
+                intent.removeExtra("location");
+                intent.removeExtra("emergency_type");
+                intent.removeExtra("timestamp");
             }
         }
     }
@@ -1213,9 +1226,10 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 intent.removeExtra("request_id");
                 
             } else if (intent.getBooleanExtra("notification_clicked", false)) {
-                // Handle emergency notification
+                Log.d(TAG, "Activity opened from emergency notification click");
                 String helpRequestId = intent.getStringExtra("helpRequestId");
-                Log.d(TAG, "Activity opened from emergency notification click for helpRequestId: " + helpRequestId);
+                
+                boolean handled = handleStandardEmergencyNotification(intent, true);
                 
                 // Clear the specific notification
                 if (helpRequestId != null) {
@@ -1223,12 +1237,20 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                     Log.d(TAG, "Cleared notification for helpRequestId: " + helpRequestId);
                 }
                 
-                // Show a toast to confirm
-                Toast.makeText(this, getString(R.string.emergency_notification_cleared), Toast.LENGTH_SHORT).show();
+                if (!handled) {
+                    Toast.makeText(this, getString(R.string.emergency_notification_cleared), Toast.LENGTH_SHORT).show();
+                }
                 
                 // Clear the intent extras to prevent repeated handling
                 intent.removeExtra("notification_clicked");
                 intent.removeExtra("helpRequestId");
+                intent.removeExtra("emergency_notification");
+                intent.removeExtra("senior_name");
+                intent.removeExtra("senior_phone");
+                intent.removeExtra("phone_number");
+                intent.removeExtra("location");
+                intent.removeExtra("location_address");
+                intent.removeExtra("emergency_type");
             }
         }
     }
@@ -1254,6 +1276,190 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 }
             }
         }, 300);
+    }
+
+    /**
+     * Handles standard (non-SOS) emergency notifications opened via system notification
+     *
+     * @param intent Intent received when launching the dashboard
+     * @param triggeredFromNotificationClick true when invoked from handleNotificationClick()
+     * @return true if an emergency dialog was shown
+     */
+    private boolean handleStandardEmergencyNotification(Intent intent, boolean triggeredFromNotificationClick) {
+        if (intent == null) {
+            return false;
+        }
+
+        boolean shouldHandle =
+                intent.getBooleanExtra("emergency_notification", false) ||
+                "emergency".equals(intent.getStringExtra("notification_type")) ||
+                (triggeredFromNotificationClick && intent.getBooleanExtra("notification_clicked", false));
+
+        if (!shouldHandle) {
+            return false;
+        }
+
+        String helpRequestId = intent.getStringExtra("helpRequestId");
+        String seniorName = intent.getStringExtra("senior_name");
+        if (seniorName == null) {
+            seniorName = intent.getStringExtra("seniorName");
+        }
+        String seniorPhone = intent.getStringExtra("senior_phone");
+        if (seniorPhone == null) {
+            seniorPhone = intent.getStringExtra("phone_number");
+        }
+        String locationAddress = intent.getStringExtra("location_address");
+        if (locationAddress == null) {
+            locationAddress = intent.getStringExtra("location");
+        }
+        Long timestamp = intent.hasExtra("timestamp")
+                ? intent.getLongExtra("timestamp", System.currentTimeMillis())
+                : null;
+
+        if (helpRequestId != null && !helpRequestId.isEmpty()) {
+            fetchEmergencyDetailsAndShow(helpRequestId, seniorName, seniorPhone, locationAddress, timestamp);
+            return true;
+        }
+
+        if (seniorName != null && locationAddress != null) {
+            showEmergencyDialogFromData(
+                    seniorName,
+                    seniorPhone,
+                    locationAddress,
+                    null,
+                    null,
+                    null,
+                    timestamp
+            );
+            return true;
+        }
+
+        Log.w(TAG, "⚠️ Cannot handle emergency notification - missing senior data");
+        return false;
+    }
+
+    /**
+     * Fetches the latest emergency details from Firestore before showing the dialog
+     */
+    private void fetchEmergencyDetailsAndShow(String helpRequestId,
+                                              String fallbackSeniorName,
+                                              String fallbackSeniorPhone,
+                                              String fallbackLocation,
+                                              Long fallbackTimestamp) {
+        if (db == null) {
+            Log.w(TAG, "⚠️ Firestore not initialized, using fallback emergency data");
+            showEmergencyDialogFromData(
+                    fallbackSeniorName,
+                    fallbackSeniorPhone,
+                    fallbackLocation,
+                    helpRequestId,
+                    null,
+                    null,
+                    fallbackTimestamp
+            );
+            return;
+        }
+
+        db.collection("Sagip")
+          .document("emergencyRequests")
+          .collection("activeRequests")
+          .document(helpRequestId)
+          .get()
+          .addOnSuccessListener(documentSnapshot -> {
+              if (documentSnapshot.exists()) {
+                  String seniorName = documentSnapshot.getString("seniorName");
+                  String seniorPhone = documentSnapshot.getString("seniorPhone");
+                  String locationAddress = documentSnapshot.getString("locationAddress");
+                  Double latitude = documentSnapshot.getDouble("latitude");
+                  if (latitude == null) {
+                      latitude = documentSnapshot.getDouble("seniorLat");
+                  }
+                  Double longitude = documentSnapshot.getDouble("longitude");
+                  if (longitude == null) {
+                      longitude = documentSnapshot.getDouble("seniorLng");
+                  }
+                  Long timestamp = documentSnapshot.getLong("timestamp");
+
+                  Double finalLatitude = latitude;
+                  Double finalLongitude = longitude;
+                  String finalSeniorName = seniorName != null ? seniorName : fallbackSeniorName;
+                  String finalSeniorPhone = seniorPhone != null ? seniorPhone : fallbackSeniorPhone;
+                  String finalLocation = locationAddress != null ? locationAddress : fallbackLocation;
+                  Long finalTimestamp = timestamp != null ? timestamp : fallbackTimestamp;
+
+                  runOnUiThread(() -> showEmergencyDialogFromData(
+                          finalSeniorName,
+                          finalSeniorPhone,
+                          finalLocation,
+                          helpRequestId,
+                          finalLatitude,
+                          finalLongitude,
+                          finalTimestamp
+                  ));
+              } else {
+                  Log.w(TAG, "⚠️ Emergency request " + helpRequestId + " not found, using fallback data");
+                  runOnUiThread(() -> showEmergencyDialogFromData(
+                          fallbackSeniorName,
+                          fallbackSeniorPhone,
+                          fallbackLocation,
+                          helpRequestId,
+                          null,
+                          null,
+                          fallbackTimestamp
+                  ));
+              }
+          })
+          .addOnFailureListener(e -> {
+              Log.e(TAG, "❌ Error fetching emergency details for " + helpRequestId + ": " + e.getMessage());
+              runOnUiThread(() -> showEmergencyDialogFromData(
+                      fallbackSeniorName,
+                      fallbackSeniorPhone,
+                      fallbackLocation,
+                      helpRequestId,
+                      null,
+                      null,
+                      fallbackTimestamp
+              ));
+          });
+    }
+
+    /**
+     * Routes emergency data to the appropriate dialog implementation
+     */
+    private void showEmergencyDialogFromData(String seniorName,
+                                             String seniorPhone,
+                                             String locationAddress,
+                                             String helpRequestId,
+                                             Double latitude,
+                                             Double longitude,
+                                             Long timestamp) {
+        if (seniorName == null || locationAddress == null) {
+            Log.w(TAG, "⚠️ Cannot show emergency dialog - seniorName or location is null");
+            Toast.makeText(this, getString(R.string.emergency_details_not_available), Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        long dialogTimestamp = timestamp != null ? timestamp : System.currentTimeMillis();
+
+        if (latitude != null && longitude != null && latitude != 0.0 && longitude != 0.0) {
+            showEmergencySOSAlertWithLocation(
+                    seniorName,
+                    seniorPhone,
+                    locationAddress,
+                    dialogTimestamp,
+                    helpRequestId,
+                    latitude,
+                    longitude
+            );
+        } else {
+            showEmergencySOSAlert(
+                    seniorName,
+                    seniorPhone,
+                    locationAddress,
+                    dialogTimestamp,
+                    helpRequestId
+            );
+        }
     }
     
     private void showHospitalStatusUpdateDialog(String hospitalName, String hospitalStatus, int availableBeds, int availableDoctors) {

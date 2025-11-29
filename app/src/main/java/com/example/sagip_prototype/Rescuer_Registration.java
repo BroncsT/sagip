@@ -30,6 +30,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import android.util.Log;
+import android.app.ProgressDialog;
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException;
+import com.google.firebase.FirebaseTooManyRequestsException;
 
 public class Rescuer_Registration extends BaseRescuerActivity {
     
@@ -128,56 +131,103 @@ public class Rescuer_Registration extends BaseRescuerActivity {
                 });
         });
 
-        setupPhoneAuthCallbacks();
+
     }
 
-    private void setupPhoneAuthCallbacks() {
-        mCallbacks = new PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
-            @Override
-            public void onVerificationCompleted(@NonNull PhoneAuthCredential credential) {
-                if (!isFinishing() && !isDestroyed()) {
-                    Toast.makeText(Rescuer_Registration.this, getString(R.string.verification_automatically_completed), Toast.LENGTH_SHORT).show();
-                    linkPhoneWithCurrentUser(credential);
-                }
+    private void handleVerificationError(FirebaseException e) {
+        if (isFinishing() || isDestroyed()) return;
+        
+        String errorMessage;
+        if (e instanceof FirebaseTooManyRequestsException) {
+            errorMessage = "Too many attempts. Please try again in 30 minutes.";
+        } else if (e instanceof FirebaseAuthInvalidCredentialsException) {
+            errorMessage = "Invalid phone number format. Please check and try again.";
+        } else if (e.getLocalizedMessage() != null && e.getLocalizedMessage().contains("quota")) {
+            errorMessage = "Verification quota exceeded. Please try again later.";
+        } else {
+            errorMessage = "Verification failed: " + e.getMessage();
+        }
+        
+        Log.e(TAG, "Verification failed", e);
+        runOnUiThread(() -> {
+            if (!isFinishing() && !isDestroyed()) {
+                new AlertDialog.Builder(Rescuer_Registration.this)
+                    .setTitle("Verification Error")
+                    .setMessage(errorMessage)
+                    .setPositiveButton("OK", null)
+                    .show();
             }
-
-            @Override
-            public void onVerificationFailed(@NonNull FirebaseException e) {
-                if (!isFinishing() && !isDestroyed()) {
-                    Log.e(TAG, "Firebase verification failed: " + e.getMessage(), e);
-                    String errorMessage = "Verification failed. Please check your internet connection and try again.";
-                    Toast.makeText(Rescuer_Registration.this, errorMessage, Toast.LENGTH_LONG).show();
-                }
-            }
-
-            @Override
-            public void onCodeSent(@NonNull String verificationId, @NonNull PhoneAuthProvider.ForceResendingToken token) {
-                mVerificationId = verificationId;
-                mResendToken = token;
-
-                if (!isFinishing() && !isDestroyed()) {
-                    Toast.makeText(Rescuer_Registration.this, getString(R.string.verification_code_sent), Toast.LENGTH_SHORT).show();
-                    showVerificationCodeInputDialog();
-                }
-            }
-        };
+        });
     }
 
     private void verifyPhoneNumber(String phoneNumber) {
-        // Remove leading 0 if present and format as +63XXXXXXXXXX
-        String formattedNumber = phoneNumber.startsWith("0") ? phoneNumber.substring(1) : phoneNumber;
-        if (!formattedNumber.startsWith("+")) {
-            formattedNumber = "+63" + formattedNumber;
-        }
+        try {
+            // Ensure proper formatting
+            String formattedNumber = phoneNumber.trim();
+            if (formattedNumber.startsWith("0")) {
+                formattedNumber = formattedNumber.substring(1);
+            }
+            if (!formattedNumber.startsWith("+")) {
+                formattedNumber = "+63" + formattedNumber;
+            }
+            
+            Log.d(TAG, "Verifying phone number: " + formattedNumber);
+            
+            // Show loading dialog
+            ProgressDialog progressDialog = new ProgressDialog(this);
+            progressDialog.setMessage("Sending verification code...");
+            progressDialog.setCancelable(false);
+            progressDialog.show();
+            
+            PhoneAuthOptions options = PhoneAuthOptions.newBuilder(mAuth)
+                    .setPhoneNumber(formattedNumber)
+                    .setTimeout(60L, TimeUnit.SECONDS)
+                    .setActivity(this)
+                    .setCallbacks(new PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+                        @Override
+                        public void onVerificationCompleted(@NonNull PhoneAuthCredential credential) {
+                            if (progressDialog.isShowing()) {
+                                progressDialog.dismiss();
+                            }
+                            if (!isFinishing() && !isDestroyed()) {
+                                Toast.makeText(Rescuer_Registration.this, "Verification completed", Toast.LENGTH_SHORT).show();
+                                linkPhoneWithCurrentUser(credential);
+                            }
+                        }
 
-        PhoneAuthOptions options =
-                PhoneAuthOptions.newBuilder(mAuth)
-                        .setPhoneNumber(formattedNumber)
-                        .setTimeout(60L, TimeUnit.SECONDS)
-                        .setActivity(this)
-                        .setCallbacks(mCallbacks)
-                        .build();
-        PhoneAuthProvider.verifyPhoneNumber(options);
+                        @Override
+                        public void onVerificationFailed(@NonNull FirebaseException e) {
+                            if (progressDialog.isShowing()) {
+                                progressDialog.dismiss();
+                            }
+                            handleVerificationError(e);
+                        }
+
+                        @Override
+                        public void onCodeSent(@NonNull String verificationId,
+                                             @NonNull PhoneAuthProvider.ForceResendingToken token) {
+                            if (progressDialog.isShowing()) {
+                                progressDialog.dismiss();
+                            }
+                            mVerificationId = verificationId;
+                            mResendToken = token;
+                            
+
+                            if (!isFinishing() && !isDestroyed()) {
+                                showVerificationCodeInputDialog();
+                            }
+                        }
+                    })
+                    .build();
+                    
+            PhoneAuthProvider.verifyPhoneNumber(options);
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error verifying phone number", e);
+            if (!isFinishing() && !isDestroyed()) {
+                Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        }
     }
 
     private void showVerificationCodeInputDialog() {
