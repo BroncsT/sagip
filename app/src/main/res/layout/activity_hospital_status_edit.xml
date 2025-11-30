@@ -279,16 +279,6 @@
                         android:textColor="@color/black"
                         android:textSize="16sp" />
 
-                    <Button
-                        android:id="@+id/minus_button"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:text="–"
-                        android:layout_marginEnd="5dp"
-                        android:textColor="@color/white"
-                        android:backgroundTint="@color/emergency_red"
-                        android:layout_gravity="center"/>
-
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="60dp"
                         android:layout_height="wrap_content"
@@ -307,15 +297,6 @@
 
                     </com.google.android.material.textfield.TextInputLayout>
 
-                    <Button
-                        android:id="@+id/plus_button"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:layout_marginStart="5dp"
-                        android:text="+"
-                        android:textColor="@color/white"
-                        android:backgroundTint="@color/emergency_red"
-                        android:layout_gravity="center" />
                 </LinearLayout>
 
                 <View
@@ -339,17 +320,6 @@
                         android:textColor="@color/black"
                         android:textSize="16sp" />
 
-                    <Button
-                        android:id="@+id/minus_button"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:text="–"
-                        android:layout_marginEnd="5dp"
-                        android:textColor="@color/white"
-                        android:backgroundTint="@color/emergency_red"
-                        android:layout_gravity="center"
-                        tools:ignore="DuplicateIds" />
-
                     <!-- ER Medical Staff On-Duty -->
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="60dp"
@@ -369,16 +339,6 @@
 
                 </com.google.android.material.textfield.TextInputLayout>
 
-                    <Button
-                        android:id="@+id/plus_button"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:layout_marginStart="5dp"
-                        android:text="+"
-                        android:textColor="@color/white"
-                        android:backgroundTint="@color/emergency_red"
-                        android:layout_gravity="center"
-                        tools:ignore="DuplicateIds" />
                 </LinearLayout>
             </LinearLayout>
         </androidx.cardview.widget.CardView>

@@ -75,6 +75,7 @@ dependencies {
     implementation(libs.firebase.messaging)
     implementation("com.google.firebase:firebase-appcheck:17.1.2")
     implementation("com.google.firebase:firebase-appcheck-playintegrity:17.1.2")
+    implementation(libs.firebase.functions)
     debugImplementation("com.google.firebase:firebase-appcheck-debug:17.1.2")
     implementation (libs.picasso)
     implementation(libs.material.v190)
@@ -99,10 +100,8 @@ dependencies {
     implementation("androidx.camera:camera-camera2:1.3.1")
     implementation("androidx.camera:camera-lifecycle:1.3.1")
     implementation("androidx.camera:camera-view:1.3.1")
-    
     // ML Kit Face Detection - Updated for 16 KB compatibility
     implementation("com.google.mlkit:face-detection:16.1.5")
-    
     // Google Guava for ListenableFuture
     implementation("com.google.guava:guava:32.1.3-android")
     
@@ -111,8 +110,6 @@ dependencies {
     
     implementation(libs.firebase.crashlytics.buildtools)
     implementation(libs.swiperefreshlayout)
-
-
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)

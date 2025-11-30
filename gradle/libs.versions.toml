@@ -19,6 +19,7 @@ playServicesMaps = "19.0.0"
 playServicesNavigation = "3.0.0"
 firebaseCrashlyticsBuildtools = "3.0.6"
 swiperefreshlayout = "1.1.0"
+firebaseFunctions = "22.1.0"
 
 [libraries]
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -39,6 +40,7 @@ play-services-maps = { module = "com.google.android.gms:play-services-maps", ver
 play-services-navigation = { module = "com.google.android.libraries.navigation:navigation", version.ref = "playServicesNavigation" }
 firebase-crashlytics-buildtools = { group = "com.google.firebase", name = "firebase-crashlytics-buildtools", version.ref = "firebaseCrashlyticsBuildtools" }
 swiperefreshlayout = { group = "androidx.swiperefreshlayout", name = "swiperefreshlayout", version.ref = "swiperefreshlayout" }
+firebase-functions = { group = "com.google.firebase", name = "firebase-functions", version.ref = "firebaseFunctions" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

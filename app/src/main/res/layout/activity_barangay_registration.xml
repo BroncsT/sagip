@@ -217,7 +217,7 @@
                 android:layout_marginBottom="16dp"
                 />
         </LinearLayout>
-    </ScrollView>
+    </androidx.core.widget.NestedScrollView>
 
     <!--GRID GUIDELINE-->
     <androidx.constraintlayout.widget.Guideline

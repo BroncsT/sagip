@@ -12,6 +12,7 @@ import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
+import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -162,7 +163,14 @@ public class Senior_Dashboard extends AppCompatActivity {
         btnSOS = findViewById(R.id.sosButton);
         
         // Add test button for debugging senior notifications
-        btnSOS.setOnClickListener(v -> showSOSConfirmationDialog());
+        btnSOS.setOnClickListener(v -> {
+            // Check if location services are enabled before allowing SOS
+            if (!isLocationEnabled()) {
+                showLocationRequiredDialog();
+            } else {
+                showSOSConfirmationDialog();
+            }
+        });
         
     }
 
@@ -211,6 +219,48 @@ public class Senior_Dashboard extends AppCompatActivity {
         }
     }
 
+    private boolean isLocationEnabled() {
+        LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        boolean gpsEnabled = false;
+        boolean networkEnabled = false;
+        
+        try {
+            gpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking GPS provider", e);
+        }
+        
+        try {
+            networkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking network provider", e);
+        }
+        
+        return gpsEnabled || networkEnabled;
+    }
+    
+    private void showLocationRequiredDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(getString(R.string.location_required_title));
+        builder.setMessage(getString(R.string.location_required_message_sos));
+        builder.setIcon(android.R.drawable.ic_dialog_alert);
+        
+        builder.setPositiveButton(getString(R.string.button_enable_location), (dialog, which) -> {
+            dialog.dismiss();
+            // Open location settings
+            Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+            startActivity(intent);
+        });
+        
+        builder.setNegativeButton(getString(R.string.button_cancel), (dialog, which) -> {
+            dialog.dismiss();
+            Toast.makeText(Senior_Dashboard.this, getString(R.string.toast_location_required_for_sos), Toast.LENGTH_LONG).show();
+        });
+        
+        builder.setCancelable(false);
+        builder.show();
+    }
+    
     private void showSOSConfirmationDialog() {
         // Get senior information
         String seniorName = tvFullName.getText().toString();
@@ -808,76 +858,113 @@ public class Senior_Dashboard extends AppCompatActivity {
                 });
     }
 
+    private int sessionRestoreRetryCount = 0;
+    private static final int MAX_SESSION_RESTORE_RETRIES = 3;
+    private static final long SESSION_RESTORE_DELAY_MS = 2000; // 2 seconds between retries
+
     private void setupAuthStateListener() {
-        // Use AuthStateListener to wait for Firebase Auth to restore the session
-        // This prevents premature logout when app reopens
-        authStateListener = new AuthStateListener() {
-            @Override
-            public void onAuthStateChanged(@NonNull FirebaseAuth firebaseAuth) {
-                // Only check once to prevent multiple checks
-                if (authStateChecked) {
-                    return;
-                }
-                
-                // Check if we have stored credentials - if yes, wait a bit more for session restore
-                boolean hasStoredCredentials = sharedPreferences.getBoolean(KEY_IS_LOGGED_IN, false);
-                FirebaseUser currentUser = firebaseAuth.getCurrentUser();
-                
-                if (hasStoredCredentials && currentUser == null) {
-                    // We have stored credentials but Firebase Auth hasn't restored session yet
-                    // Wait a bit more before checking
-                    Log.d(TAG, "Stored credentials found but Firebase Auth not ready, waiting...");
-                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                        if (!authStateChecked) {
-                            authStateChecked = true;
-                            mAuth.removeAuthStateListener(this);
-                            checkAuthStateWithPersistence();
-                        }
-                    }, 1000); // Wait 1 second for Firebase Auth to restore session
-                    return;
-                }
-                
-                // Auth state is ready, proceed with check
-                authStateChecked = true;
-                mAuth.removeAuthStateListener(this);
-                checkAuthStateWithPersistence();
+    // Use AuthStateListener to wait for Firebase Auth to restore the session
+    // This prevents premature logout when app reopens
+    authStateListener = new AuthStateListener() {
+        @Override
+        public void onAuthStateChanged(@NonNull FirebaseAuth firebaseAuth) {
+            // Only check once to prevent multiple checks
+            if (authStateChecked) {
+                return;
             }
-        };
-        
-        // Add the listener - it will fire when Firebase Auth state is ready
-        mAuth.addAuthStateListener(authStateListener);
-        
-        // Also check after a delay in case auth state is already ready
-        // This handles the case where Firebase Auth has already restored the session
+            
+            // Check if we have stored credentials - if yes, wait a bit more for session restore
+            boolean hasStoredCredentials = sharedPreferences.getBoolean(KEY_IS_LOGGED_IN, false);
+            FirebaseUser currentUser = firebaseAuth.getCurrentUser();
+            
+            if (hasStoredCredentials && currentUser == null) {
+                // We have stored credentials but Firebase Auth hasn't restored session yet
+                // Wait longer before checking - Firebase session restoration can take time
+                Log.d(TAG, "Stored credentials found but Firebase Auth not ready, waiting longer...");
+                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                    if (!authStateChecked) {
+                        // Don't immediately mark as checked - try to restore with retries
+                        attemptSessionRestore();
+                    }
+                }, SESSION_RESTORE_DELAY_MS);
+                return;
+            }
+            
+            // Auth state is ready, proceed with check
+            authStateChecked = true;
+            mAuth.removeAuthStateListener(this);
+            checkAuthStateWithPersistence();
+        }
+    };
+    
+    // Add the listener - it will fire when Firebase Auth state is ready
+    mAuth.addAuthStateListener(authStateListener);
+    
+    // Also check after a delay in case auth state is already ready
+    // This handles the case where Firebase Auth has already restored the session
+    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+        if (!authStateChecked) {
+            // If listener hasn't fired yet, check manually
+            FirebaseUser currentUser = mAuth.getCurrentUser();
+            boolean hasStoredCredentials = sharedPreferences.getBoolean(KEY_IS_LOGGED_IN, false);
+            
+            if (currentUser != null || !hasStoredCredentials) {
+                // User is logged in OR no stored credentials - safe to check
+                authStateChecked = true;
+                if (authStateListener != null) {
+                    mAuth.removeAuthStateListener(authStateListener);
+                }
+                checkAuthStateWithPersistence();
+            } else {
+                // Has stored credentials but no Firebase user - use retry mechanism
+                Log.d(TAG, "Delayed check: stored credentials but no Firebase user, starting retry mechanism...");
+                attemptSessionRestore();
+            }
+        }
+    }, 1000); // Initial delay of 1 second
+}
+
+private void attemptSessionRestore() {
+    FirebaseUser currentUser = mAuth.getCurrentUser();
+    boolean hasStoredCredentials = sharedPreferences.getBoolean(KEY_IS_LOGGED_IN, false);
+    String storedUserId = sharedPreferences.getString(KEY_USER_ID, null);
+    
+    Log.d(TAG, "Session restore attempt " + (sessionRestoreRetryCount + 1) + "/" + MAX_SESSION_RESTORE_RETRIES + 
+               " - Firebase user: " + (currentUser != null ? currentUser.getUid() : "null") +
+               ", hasStoredCredentials: " + hasStoredCredentials);
+    
+    if (currentUser != null) {
+        // Firebase session restored successfully
+        Log.d(TAG, "Firebase session restored successfully!");
+        authStateChecked = true;
+        if (authStateListener != null) {
+            mAuth.removeAuthStateListener(authStateListener);
+        }
+        checkAuthStateWithPersistence();
+        return;
+    }
+    
+    sessionRestoreRetryCount++;
+    
+    if (sessionRestoreRetryCount < MAX_SESSION_RESTORE_RETRIES && hasStoredCredentials && storedUserId != null) {
+        // Still have retries left and have stored credentials - wait and retry
+        Log.d(TAG, "Firebase session not yet restored, retrying in " + SESSION_RESTORE_DELAY_MS + "ms...");
         new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
             if (!authStateChecked) {
-                // If listener hasn't fired yet, check manually
-                FirebaseUser currentUser = mAuth.getCurrentUser();
-                boolean hasStoredCredentials = sharedPreferences.getBoolean(KEY_IS_LOGGED_IN, false);
-                
-                if (currentUser != null || !hasStoredCredentials) {
-                    // User is logged in OR no stored credentials - safe to check
-                    authStateChecked = true;
-                    if (authStateListener != null) {
-                        mAuth.removeAuthStateListener(authStateListener);
-                    }
-                    checkAuthStateWithPersistence();
-                } else {
-                    // Has stored credentials but no Firebase user - wait a bit more
-                    Log.d(TAG, "Delayed check: stored credentials but no Firebase user, waiting more...");
-                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                        if (!authStateChecked) {
-                            authStateChecked = true;
-                            if (authStateListener != null) {
-                                mAuth.removeAuthStateListener(authStateListener);
-                            }
-                            checkAuthStateWithPersistence();
-                        }
-                    }, 1500); // Wait another 1.5 seconds
-                }
+                attemptSessionRestore();
             }
-        }, 500); // Initial delay of 500ms
+        }, SESSION_RESTORE_DELAY_MS);
+    } else {
+        // Max retries reached or no stored credentials
+        Log.d(TAG, "Session restore failed after " + sessionRestoreRetryCount + " attempts, checking persistence...");
+        authStateChecked = true;
+        if (authStateListener != null) {
+            mAuth.removeAuthStateListener(authStateListener);
+        }
+        // Use the persistence-aware check which will handle stored credentials properly
+        checkAuthStateWithPersistence();
     }
+}
 
     private void checkAuthStateWithPersistence() {
         // Check if user was previously logged in
@@ -885,25 +972,37 @@ public class Senior_Dashboard extends AppCompatActivity {
         String userId = sharedPreferences.getString(KEY_USER_ID, null);
         String storedUserType = sharedPreferences.getString(KEY_USER_TYPE, null);
 
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        
+        Log.d(TAG, "checkAuthStateWithPersistence - isLoggedIn: " + isLoggedIn + 
+                   ", userId: " + userId + 
+                   ", storedUserType: " + storedUserType +
+                   ", Firebase user: " + (currentUser != null ? currentUser.getUid() : "null"));
+
         if (isLoggedIn && userId != null && storedUserType != null) {
-            // User was previously logged in, verify Firebase Auth state
-            FirebaseUser currentUser = mAuth.getCurrentUser();
+            // User was previously logged in
             if (currentUser != null && currentUser.getUid().equals(userId)) {
                 // Firebase user is still authenticated and matches stored ID, check status
                 Log.d(TAG, "User session restored successfully, checking status");
                 checkUserStatus();
+            } else if (currentUser != null) {
+                // Firebase user exists but ID doesn't match - this shouldn't happen normally
+                Log.w(TAG, "Firebase user ID mismatch - stored: " + userId + ", current: " + currentUser.getUid());
+                // Update stored credentials with current Firebase user
+                saveUserCredentials(currentUser.getUid(), storedUserType, currentUser.getPhoneNumber());
+                checkUserStatus();
             } else {
-                // Firebase session expired or user ID doesn't match
-                Log.d(TAG, "Firebase session expired or user ID mismatch, clearing credentials");
-                clearStoredCredentials();
-                navigateToLogin();
+                // Firebase session is null but we have stored credentials
+                // This can happen if Firebase Auth hasn't fully restored yet
+                // Trust the stored credentials and verify by checking user data in Firestore
+                Log.d(TAG, "Firebase user is null but have stored credentials, verifying via Firestore...");
+                verifyStoredCredentialsViaFirestore(userId, storedUserType);
             }
         } else {
             // No stored login, check Firebase Auth
-            FirebaseUser currentUser = mAuth.getCurrentUser();
             if (currentUser == null) {
                 // User is not logged in, redirect to login
-                Log.d(TAG, "No Firebase user found, redirecting to login");
+                Log.d(TAG, "No Firebase user found and no stored credentials, redirecting to login");
                 navigateToLogin();
             } else {
                 // User is logged in but not stored in SharedPreferences
@@ -914,12 +1013,45 @@ public class Senior_Dashboard extends AppCompatActivity {
         }
     }
 
-    private void saveUserCredentials(String userId, String userType, String phoneNumber) {
-        Log.d(TAG, "Saving user credentials: " + userId + ", " + userType);
+    private void verifyStoredCredentialsViaFirestore(String storedUserId, String storedUserType) {
+        // Verify that the stored user exists in Firestore before proceeding
+        // This allows the app to work even if Firebase Auth session is temporarily unavailable
+        Log.d(TAG, "Verifying stored credentials via Firestore for user: " + storedUserId);
+        
+        db.collection("Sagip")
+                .document("users")
+                .collection(storedUserType)
+                .document(storedUserId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        // User exists in Firestore - trust the stored credentials
+                        Log.d(TAG, "User verified in Firestore, proceeding with stored credentials");
+                        // Continue with the dashboard - user data will be loaded
+                        loadUserData();
+                    } else {
+                        // User doesn't exist in Firestore - credentials are invalid
+                        Log.w(TAG, "User not found in Firestore, clearing stored credentials");
+                        clearStoredCredentials();
+                        navigateToLogin();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    // Network error - don't immediately logout, give benefit of doubt
+                    Log.e(TAG, "Error verifying credentials via Firestore: " + e.getMessage());
+                    // If we have stored credentials and just can't verify, proceed cautiously
+                    // This prevents logout due to temporary network issues
+                    Log.d(TAG, "Network error during verification, proceeding with stored credentials");
+                    loadUserData();
+                });
+    }
+
+    private void saveUserCredentials(String usrId, String usrType, String phoneNumber) {
+        Log.d(TAG, "Saving user credentials: " + usrId + ", " + usrType);
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putBoolean(KEY_IS_LOGGED_IN, true);
-        editor.putString(KEY_USER_ID, userId);
-        editor.putString(KEY_USER_TYPE, userType);
+        editor.putString(KEY_USER_ID, usrId);
+        editor.putString(KEY_USER_TYPE, usrType);
         if (phoneNumber != null) {
             editor.putString(KEY_USER_PHONE, phoneNumber);
         }
@@ -999,7 +1131,21 @@ public class Senior_Dashboard extends AppCompatActivity {
     }
 
     private void loadUserData() {
-        String uid = mAuth.getCurrentUser().getUid();
+        // Try to get UID from Firebase Auth first, fallback to stored credentials
+        String uid;
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser != null) {
+            uid = currentUser.getUid();
+        } else {
+            // Firebase Auth user is null - use stored credentials
+            uid = sharedPreferences.getString(KEY_USER_ID, null);
+            if (uid == null) {
+                Log.e(TAG, "Cannot load user data - no Firebase user and no stored user ID");
+                navigateToLogin();
+                return;
+            }
+            Log.d(TAG, "Using stored user ID for data loading: " + uid);
+        }
         String userType = "seniors"; // Use consistent collection name
 
         // Load cached name immediately for instant display

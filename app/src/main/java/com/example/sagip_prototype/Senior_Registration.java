@@ -2,8 +2,6 @@ package com.example.sagip_prototype;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.text.Editable;
-import android.text.TextWatcher;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -24,6 +22,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -85,7 +84,9 @@ public class Senior_Registration extends AppCompatActivity {
         setContentView(R.layout.activity_senior_registration);
 
         // View references
-        EditText birthdayEditText = findViewById(R.id.birthday);
+        EditText birthdayMonth = findViewById(R.id.birthdayMonth);
+        EditText birthdayDay = findViewById(R.id.birthdayDay);
+        EditText birthdayYear = findViewById(R.id.birthdayYear);
         EditText getFirstName = findViewById(R.id.firstName);
         EditText getMiddleName = findViewById(R.id.middleName);
         EditText getLastName = findViewById(R.id.lastName);
@@ -113,12 +114,39 @@ public class Senior_Registration extends AppCompatActivity {
                 String firstName = getFirstName.getText().toString().trim();
                 String middleName = getMiddleName.getText().toString().trim();
                 String lastName = getLastName.getText().toString().trim();
-                String birthday = birthdayEditText.getText().toString().trim();
+                String month = birthdayMonth.getText().toString().trim();
+                String day = birthdayDay.getText().toString().trim();
+                String year = birthdayYear.getText().toString().trim();
+                String birthday = month + " - " + day + " - " + year;
                 String emailAddress = getEmailAddress.getText().toString().trim();
                 String mobileNumber = getMobileNumber.getText().toString().trim();
 
-                if (firstName.isEmpty() || lastName.isEmpty() || birthday.isEmpty() || selectedBarangay.isEmpty() || selectedBarangay.equals("BARANGAY")) {
+                if (firstName.isEmpty() || lastName.isEmpty() || month.isEmpty() || day.isEmpty() || year.isEmpty() || selectedBarangay.isEmpty() || selectedBarangay.equals("BARANGAY")) {
                     Toast.makeText(Senior_Registration.this, getString(R.string.error_fill_all_fields_barangay), Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                // Validate age - must be 60 years old or above
+                try {
+                    int birthYear = Integer.parseInt(year);
+                    int birthMonth = Integer.parseInt(month);
+                    int birthDay = Integer.parseInt(day);
+
+                    Calendar today = Calendar.getInstance();
+                    Calendar birthDate = Calendar.getInstance();
+                    birthDate.set(birthYear, birthMonth - 1, birthDay);
+
+                    int age = today.get(Calendar.YEAR) - birthDate.get(Calendar.YEAR);
+                    if (today.get(Calendar.DAY_OF_YEAR) < birthDate.get(Calendar.DAY_OF_YEAR)) {
+                        age--;
+                    }
+
+                    if (age < 60) {
+                        Toast.makeText(Senior_Registration.this, "You must be 60 years old or above to register as a senior.", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                } catch (NumberFormatException e) {
+                    Toast.makeText(Senior_Registration.this, "Please enter a valid date of birth.", Toast.LENGTH_SHORT).show();
                     return;
                 }
 
@@ -189,36 +217,6 @@ public class Senior_Registration extends AppCompatActivity {
             }
         });
 
-        // Auto-format birthday input as DD - MM - YYYY
-        birthdayEditText.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {}
-
-            @Override
-            public void afterTextChanged(Editable editable) {
-                birthdayEditText.removeTextChangedListener(this);
-
-                String text = editable.toString().replaceAll("[^\\d]", "");
-                StringBuilder formatted = new StringBuilder();
-
-                if (text.length() > 0) {
-                    formatted.append(text.substring(0, Math.min(2, text.length()))); // DD
-                    if (text.length() > 2) {
-                        formatted.append(" - ").append(text.substring(2, Math.min(4, text.length()))); // MM
-                        if (text.length() > 4) {
-                            formatted.append(" - ").append(text.substring(4, Math.min(8, text.length()))); // YYYY
-                        }
-                    }
-                }
-
-                birthdayEditText.setText(formatted.toString());
-                birthdayEditText.setSelection(formatted.length());
-                birthdayEditText.addTextChangedListener(this);
-            }
-        });
     }
     
     private void setupBarangaySpinner() {

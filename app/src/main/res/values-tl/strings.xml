@@ -370,6 +370,12 @@
     <string name="address_hint">Tirahan</string>
     <string name="delete">Tanggalin</string>
     
+    <!-- Location Required for SOS -->
+    <string name="location_required_title">Kailangan ang Lokasyon</string>
+    <string name="location_required_message_sos">Ang iyong location services ay naka-off. Para makapag-padala ng SOS emergency request, kailangang naka-on ang lokasyon para mahanap ka ng mga rescuer.\n\nMangyaring i-enable ang location services para magpatuloy.</string>
+    <string name="button_enable_location">I-enable ang Lokasyon</string>
+    <string name="toast_location_required_for_sos">Hindi maaaring magpadala ng SOS kung naka-off ang lokasyon. Kailangan ng mga rescuer malaman ang iyong lokasyon.</string>
+
     <!-- Senior Dashboard -->
     <string name="current_location_label_senior">Kasalukuyang Lokasyon: </string>
     <string name="locate_nearest_hospital">hanapin ang pinakamalapit na Hospital</string>
@@ -1037,6 +1043,27 @@
     <!-- Authentication and Login -->
     <string name="email_verification_required_title">Kailangan ang Email Verification</string>
     <string name="email_verification_required_message">Kailangan mong i-verify ang iyong email address bago ka maka-access sa iyong account. Naipadala na ang verification email sa %1$s. Mangyaring tingnan ang iyong email at i-click ang verification link, pagkatapos ay subukang mag-login muli.</string>
+    <string name="mfa_enrollment_title">I-setup ang Two-Factor Authentication</string>
+    <string name="mfa_enrollment_message">Para sa iyong seguridad, mangyaring magdagdag ng numero ng telepono para sa two-factor authentication. Makakatanggap ka ng SMS code sa bawat pag-login.</string>
+    <string name="mfa_enter_phone_hint">Ilagay ang numero ng telepono</string>
+    <string name="mfa_enroll_button">I-enroll</string>
+    <string name="mfa_phone_required">Kailangan ang numero ng telepono</string>
+    <string name="mfa_required_message">Kailangan ang two-factor authentication para gamitin ang app na ito.</string>
+    <string name="mfa_verification_failed">Nabigo ang verification</string>
+    <string name="mfa_session_failed">Nabigo ang pagsisimula ng verification session</string>
+    <string name="mfa_enter_code_title">Ilagay ang Verification Code</string>
+    <string name="mfa_code_sent_message">Naipadala na ang verification code sa %1$s</string>
+    <string name="mfa_code_hint">6-digit na code</string>
+    <string name="mfa_invalid_code">Mangyaring maglagay ng wastong 6-digit na code</string>
+    <string name="mfa_enrollment_success">Naka-enable na ang two-factor authentication!</string>
+    <string name="mfa_enrollment_failed">Nabigo ang pag-enable ng two-factor authentication</string>
+    <string name="mfa_verify_login_title">I-verify ang Iyong Login</string>
+    <string name="mfa_verify_login_message">Naipadala na ang verification code sa %1$s. Ilagay ang code para magpatuloy.</string>
+    <string name="mfa_signin_failed">Nabigo ang login verification. Subukan ulit.</string>
+    <string name="mfa_no_phone_factor">Walang nahanap na numero ng telepono para sa verification.</string>
+    <string name="verification_successful">Matagumpay ang verification!</string>
+    <string name="verify">I-verify</string>
+    
     <string name="error_checking_user_status">Error sa pagsuri ng user status</string>
     <string name="senior_account_pending_approval_title">Naghihintay ng Pag-apruba ang Senior Citizen Account</string>
     <string name="senior_account_pending_approval_message">Ang iyong Senior Citizen account ay nakarehist ro na ngunit naghihintay ng administrator approval. Hindi ka maaaring mag-access ng app hanggang ma-approve ang iyong account. Mangyaring makipag-ugnayan sa isang administrator o subukan muli mamaya.</string>
@@ -1118,6 +1145,7 @@
     <string name="available_beds_cannot_exceed_total_format">Ang available na kama (%1$d) ay hindi maaaring lumampas sa kabuuang nakarehistrong kama (%2$d)</string>
     <string name="available_doctors_cannot_exceed_total_format">Ang available na doktor (%1$d) ay hindi maaaring lumampas sa kabuuang nakarehistrong doktor (%2$d)</string>
     <string name="please_enter_otp">Mangyaring ilagay ang OTP</string>
+    <string name="sending_otp">Ipinapadala ang OTP...</string>
     <string name="resending_otp">Muling ipinapadala ang OTP...</string>
     <string name="verification_failed_format">Nabigo ang verification: %1$s</string>
     <string name="new_otp_sent_successfully">Matagumpay na naipadala ang bagong OTP</string>

@@ -1,8 +1,264 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
+const nodemailer = require('nodemailer');
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
+
+// Configure email transporter
+// IMPORTANT: You need to set these environment variables using:
+// firebase functions:config:set email.user="your-email@gmail.com" email.pass="your-app-password"
+// For Gmail, use an App Password (not your regular password): https://support.google.com/accounts/answer/185833
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: functions.config().email?.user || process.env.EMAIL_USER,
+        pass: functions.config().email?.pass || process.env.EMAIL_PASS
+    }
+});
+
+// Generate a unique verification token
+function generateToken() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let token = '';
+    for (let i = 0; i < 32; i++) {
+        token += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return token;
+}
+
+// Send Login Verification Link via Email
+exports.sendLoginVerificationLink = functions.https.onCall(async (data, context) => {
+    const { email, uid } = data;
+    
+    if (!email || !uid) {
+        throw new functions.https.HttpsError('invalid-argument', 'Email and UID are required');
+    }
+    
+    // Generate unique token
+    const token = generateToken();
+    const expiresAt = Date.now() + (10 * 60 * 1000); // 10 minutes expiry
+    
+    try {
+        // Store token in Firestore
+        await admin.firestore()
+            .collection('Sagip')
+            .doc('loginVerification')
+            .collection('tokens')
+            .doc(uid)
+            .set({
+                token: token,
+                email: email,
+                expiresAt: expiresAt,
+                createdAt: Date.now(),
+                verified: false
+            });
+        
+        // Get the project ID for the verification URL
+        const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || 'sagip-app';
+        const verificationUrl = `https://us-central1-${projectId}.cloudfunctions.net/verifyLoginLink?token=${token}&uid=${uid}`;
+        
+        // Send email with verification link
+        const mailOptions = {
+            from: `SAGIP App <${functions.config().email?.user || process.env.EMAIL_USER}>`,
+            to: email,
+            subject: 'SAGIP Login Verification',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <div style="text-align: center; padding: 20px; background-color: #2196F3; color: white; border-radius: 10px 10px 0 0;">
+                        <h1 style="margin: 0;">SAGIP</h1>
+                        <p style="margin: 5px 0 0 0;">Emergency Response System</p>
+                    </div>
+                    <div style="padding: 30px; background-color: #f9f9f9; border: 1px solid #ddd; border-top: none; border-radius: 0 0 10px 10px;">
+                        <h2 style="color: #333;">Verify Your Login</h2>
+                        <p style="color: #666; font-size: 16px;">You are attempting to log in to your SAGIP account. Please click the button below to verify your login:</p>
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="${verificationUrl}" style="display: inline-block; padding: 15px 40px; background-color: #2196F3; color: white; font-size: 18px; font-weight: bold; text-decoration: none; border-radius: 10px;">
+                                ✓ Verify My Login
+                            </a>
+                        </div>
+                        <p style="color: #666; font-size: 14px;">This link will expire in <strong>10 minutes</strong>.</p>
+                        <p style="color: #999; font-size: 12px;">If the button doesn't work, copy and paste this link in your browser:</p>
+                        <p style="color: #2196F3; font-size: 12px; word-break: break-all;">${verificationUrl}</p>
+                        <p style="color: #999; font-size: 12px; margin-top: 30px;">If you did not attempt to log in, please ignore this email or contact support if you have concerns about your account security.</p>
+                    </div>
+                    <div style="text-align: center; padding: 15px; color: #999; font-size: 12px;">
+                        <p>&copy; 2024 SAGIP Emergency Response System</p>
+                    </div>
+                </div>
+            `
+        };
+        
+        await transporter.sendMail(mailOptions);
+        
+        console.log(`Login verification link sent to ${email} for user ${uid}`);
+        
+        return { success: true, message: 'Verification link sent to your email' };
+        
+    } catch (error) {
+        console.error('Error sending login verification link:', error);
+        throw new functions.https.HttpsError('internal', 'Failed to send verification link');
+    }
+});
+
+// HTTP endpoint to verify login link (called when user clicks the link)
+exports.verifyLoginLink = functions.https.onRequest(async (req, res) => {
+    const { token, uid } = req.query;
+    
+    if (!token || !uid) {
+        return res.status(400).send(getVerificationPage(false, 'Invalid verification link.'));
+    }
+    
+    try {
+        const tokenDoc = await admin.firestore()
+            .collection('Sagip')
+            .doc('loginVerification')
+            .collection('tokens')
+            .doc(uid)
+            .get();
+        
+        if (!tokenDoc.exists) {
+            return res.status(404).send(getVerificationPage(false, 'Verification link not found or already used.'));
+        }
+        
+        const tokenData = tokenDoc.data();
+        
+        // Check if token has expired
+        if (Date.now() > tokenData.expiresAt) {
+            await tokenDoc.ref.delete();
+            return res.status(410).send(getVerificationPage(false, 'Verification link has expired. Please request a new one from the app.'));
+        }
+        
+        // Check if token matches
+        if (tokenData.token !== token) {
+            return res.status(403).send(getVerificationPage(false, 'Invalid verification link.'));
+        }
+        
+        // Mark as verified
+        await tokenDoc.ref.update({ verified: true, verifiedAt: Date.now() });
+        
+        console.log(`Login verified successfully for user ${uid}`);
+        
+        return res.status(200).send(getVerificationPage(true, 'Your login has been verified! You can now return to the SAGIP app.'));
+        
+    } catch (error) {
+        console.error('Error verifying login link:', error);
+        return res.status(500).send(getVerificationPage(false, 'An error occurred. Please try again.'));
+    }
+});
+
+// Check if login has been verified (called by Android app)
+exports.checkLoginVerification = functions.https.onCall(async (data, context) => {
+    const { uid } = data;
+    
+    if (!uid) {
+        throw new functions.https.HttpsError('invalid-argument', 'UID is required');
+    }
+    
+    try {
+        const tokenDoc = await admin.firestore()
+            .collection('Sagip')
+            .doc('loginVerification')
+            .collection('tokens')
+            .doc(uid)
+            .get();
+        
+        if (!tokenDoc.exists) {
+            return { verified: false, expired: true };
+        }
+        
+        const tokenData = tokenDoc.data();
+        
+        // Check if expired
+        if (Date.now() > tokenData.expiresAt) {
+            await tokenDoc.ref.delete();
+            return { verified: false, expired: true };
+        }
+        
+        if (tokenData.verified) {
+            // Clean up the token after successful verification check
+            await tokenDoc.ref.delete();
+            return { verified: true, expired: false };
+        }
+        
+        return { verified: false, expired: false };
+        
+    } catch (error) {
+        console.error('Error checking login verification:', error);
+        throw new functions.https.HttpsError('internal', 'Failed to check verification status');
+    }
+});
+
+// Helper function to generate verification result HTML page
+function getVerificationPage(success, message) {
+    const bgColor = success ? '#4CAF50' : '#f44336';
+    const icon = success ? '✓' : '✗';
+    
+    return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>SAGIP - Login Verification</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    min-height: 100vh;
+                    margin: 0;
+                    background-color: #f5f5f5;
+                }
+                .container {
+                    text-align: center;
+                    padding: 40px;
+                    background: white;
+                    border-radius: 20px;
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+                    max-width: 400px;
+                    margin: 20px;
+                }
+                .icon {
+                    width: 80px;
+                    height: 80px;
+                    border-radius: 50%;
+                    background-color: ${bgColor};
+                    color: white;
+                    font-size: 40px;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    margin: 0 auto 20px;
+                }
+                h1 {
+                    color: #333;
+                    margin-bottom: 10px;
+                }
+                p {
+                    color: #666;
+                    font-size: 16px;
+                    line-height: 1.5;
+                }
+                .logo {
+                    color: #2196F3;
+                    font-size: 24px;
+                    font-weight: bold;
+                    margin-bottom: 30px;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="logo">🚨 SAGIP</div>
+                <div class="icon">${icon}</div>
+                <h1>${success ? 'Verified!' : 'Verification Failed'}</h1>
+                <p>${message}</p>
+            </div>
+        </body>
+        </html>
+    `;
+}
 
 // Function to send FCM notifications to all rescuers when hospital status updates
 exports.sendHospitalUpdateNotification = functions.firestore

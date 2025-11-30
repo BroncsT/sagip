@@ -394,6 +394,12 @@
     <string name="phone_number_label">Phone Number</string>
     <string name="delete">Delete</string>
 
+    <!-- Location Required for SOS -->
+    <string name="location_required_title">Location Required</string>
+    <string name="location_required_message_sos">Your location services are turned off. To send an SOS emergency request, location must be enabled so rescuers can find you.\n\nPlease enable location services to continue.</string>
+    <string name="button_enable_location">Enable Location</string>
+    <string name="toast_location_required_for_sos">SOS cannot be sent without location enabled. Rescuers need to know your location.</string>
+
     <!-- Senior Dashboard -->
     <string name="current_location_label_senior">Current Location: </string>
     <string name="locate_nearest_hospital">locate nearest Hospital</string>
@@ -1100,6 +1106,29 @@
     <!-- Authentication and Login -->
     <string name="email_verification_required_title">Email Verification Required</string>
     <string name="email_verification_required_message">Your email address needs to be verified before you can access your account. A verification email has been sent to %1$s. Please check your email and click the verification link, then try logging in again.</string>
+    
+    <!-- Multi-Factor Authentication (MFA) -->
+    <string name="mfa_enrollment_title">Set Up Two-Factor Authentication</string>
+    <string name="mfa_enrollment_message">For your security, please add a phone number for two-factor authentication. You will receive an SMS code each time you log in.</string>
+    <string name="mfa_enter_phone_hint">Enter phone number</string>
+    <string name="mfa_enroll_button">Enroll</string>
+    <string name="mfa_phone_required">Phone number is required</string>
+    <string name="mfa_required_message">Two-factor authentication is required to use this app.</string>
+    <string name="mfa_verification_failed">Verification failed</string>
+    <string name="mfa_session_failed">Failed to start verification session</string>
+    <string name="mfa_enter_code_title">Enter Verification Code</string>
+    <string name="mfa_code_sent_message">A verification code has been sent to %1$s</string>
+    <string name="mfa_code_hint">6-digit code</string>
+    <string name="mfa_invalid_code">Please enter a valid 6-digit code</string>
+    <string name="mfa_enrollment_success">Two-factor authentication enabled!</string>
+    <string name="mfa_enrollment_failed">Failed to enable two-factor authentication</string>
+    <string name="mfa_verify_login_title">Verify Your Login</string>
+    <string name="mfa_verify_login_message">A verification code has been sent to %1$s. Please enter the code to continue.</string>
+    <string name="mfa_signin_failed">Login verification failed. Please try again.</string>
+    <string name="mfa_no_phone_factor">No phone number found for verification.</string>
+    <string name="verification_successful">Verification successful!</string>
+    <string name="verify">Verify</string>
+    
     <string name="error_checking_user_status">Error checking user status</string>
     <string name="senior_account_pending_approval_title">Senior Citizen Account Pending Approval</string>
     <string name="senior_account_pending_approval_message">Your Senior Citizen account is registered but pending administrator approval. You cannot access the app until your account is approved. Please contact an administrator or try again later.</string>
@@ -1181,6 +1210,7 @@
     <string name="available_beds_cannot_exceed_total_format">Available beds (%1$d) cannot exceed registered total beds (%2$d)</string>
     <string name="available_doctors_cannot_exceed_total_format">Available doctors (%1$d) cannot exceed registered total doctors (%2$d)</string>
     <string name="please_enter_otp">Please enter OTP</string>
+    <string name="sending_otp">Sending OTP...</string>
     <string name="resending_otp">Resending OTP...</string>
     <string name="verification_failed_format">Verification failed: %1$s</string>
     <string name="new_otp_sent_successfully">New OTP sent successfully</string>

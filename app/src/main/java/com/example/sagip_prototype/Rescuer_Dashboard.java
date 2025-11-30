@@ -4973,11 +4973,114 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         }
         
         if (!found) {
-            Log.w(TAG, "⚠️ [ASSIGN_BY_DETAILS] No matching emergency found for assignment");
-            Toast.makeText(this, getString(R.string.emergency_not_found_in_queue), Toast.LENGTH_SHORT).show();
-            // Clear assignment status since no emergency was found
-            setRescuerOnAssignmentStatus(rescuerId, false);
+            Log.w(TAG, "⚠️ [ASSIGN_BY_DETAILS] No matching emergency found in local queue, trying database...");
+            // FALLBACK: Try to find emergency in database when local queue is empty (app was in background)
+            loadEmergencyFromDatabaseByDetails(seniorName, locationAddress, timestamp, rescuerId);
         }
+    }
+    
+    /**
+     * Fallback method to load emergency from database when local queue is empty.
+     * This handles the case when rescuer app was in background and clicked notification.
+     */
+    private void loadEmergencyFromDatabaseByDetails(String seniorName, String locationAddress, Long timestamp, String rescuerId) {
+        Log.d(TAG, "🔍 [LOAD_FROM_DB_DETAILS] Searching database for emergency - Senior: " + seniorName);
+        
+        // Search in activeRequests collection by senior name
+        db.collection("Sagip")
+                .document("emergencyRequests")
+                .collection("activeRequests")
+                .whereEqualTo("seniorName", seniorName)
+                .whereEqualTo("status", "pending")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    if (!querySnapshot.isEmpty()) {
+                        // Find the matching emergency by timestamp (within 5 minutes to allow for delays)
+                        for (com.google.firebase.firestore.QueryDocumentSnapshot doc : querySnapshot) {
+                            Long docTimestamp = doc.getLong("timestamp");
+                            String docLocation = doc.getString("locationAddress");
+                            
+                            // Match by location OR timestamp proximity
+                            boolean locationMatch = docLocation != null && docLocation.equals(locationAddress);
+                            boolean timestampMatch = docTimestamp != null && Math.abs(docTimestamp - timestamp) < 300000; // 5 minutes
+                            
+                            if (locationMatch || timestampMatch) {
+                                String requestId = doc.getString("requestId");
+                                if (requestId != null) {
+                                    Log.d(TAG, "✅ [LOAD_FROM_DB_DETAILS] Found matching emergency in database: " + requestId);
+                                    
+                                    // Load into local queue and assign
+                                    EmergencyQueueManager.getInstance(this).loadEmergencyByIdFromDatabase(requestId, 
+                                        new EmergencyQueueManager.EmergencyLoadCallback() {
+                                            @Override
+                                            public void onEmergencyLoaded(EmergencyQueueManager.EmergencyRequest emergency) {
+                                                if (emergency != null) {
+                                                    Log.d(TAG, "✅ [LOAD_FROM_DB_DETAILS] Emergency loaded, assigning rescuer...");
+                                                    EmergencyQueueManager.getInstance(Rescuer_Dashboard.this).assignRescuer(requestId, rescuerId);
+                                                    showRescuerAssignmentPopup(seniorName, locationAddress, rescuerId, requestId);
+                                                    Log.d(TAG, "👤 [LOAD_FROM_DB_DETAILS] Rescuer assigned to emergency: " + requestId);
+                                                } else {
+                                                    handleEmergencyNotFoundInDatabase(rescuerId, seniorName);
+                                                }
+                                            }
+                                        });
+                                    return;
+                                }
+                            }
+                        }
+                        // No matching emergency found
+                        Log.w(TAG, "⚠️ [LOAD_FROM_DB_DETAILS] No matching emergency found in activeRequests");
+                        checkIfEmergencyAlreadyAssigned(seniorName, rescuerId);
+                    } else {
+                        // No active emergency found - might be already assigned
+                        Log.w(TAG, "⚠️ [LOAD_FROM_DB_DETAILS] No active emergencies found for: " + seniorName);
+                        checkIfEmergencyAlreadyAssigned(seniorName, rescuerId);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ [LOAD_FROM_DB_DETAILS] Error searching database: " + e.getMessage());
+                    handleEmergencyNotFoundInDatabase(rescuerId, seniorName);
+                });
+    }
+    
+    /**
+     * Check if emergency was already assigned to another rescuer
+     */
+    private void checkIfEmergencyAlreadyAssigned(String seniorName, String rescuerId) {
+        Log.d(TAG, "🔍 [CHECK_ASSIGNED] Checking if emergency was already assigned...");
+        
+        db.collection("Sagip")
+                .document("emergencyRequests")
+                .collection("assignedRequests")
+                .whereEqualTo("seniorName", seniorName)
+                .orderBy("assignedAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .limit(1)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    if (!querySnapshot.isEmpty()) {
+                        Log.d(TAG, "ℹ️ [CHECK_ASSIGNED] Emergency was already assigned to another rescuer");
+                        Toast.makeText(this, getString(R.string.another_rescuer_responded), Toast.LENGTH_LONG).show();
+                    } else {
+                        Log.w(TAG, "⚠️ [CHECK_ASSIGNED] Emergency not found in assigned collection either");
+                        Toast.makeText(this, getString(R.string.emergency_not_found_in_database), Toast.LENGTH_SHORT).show();
+                    }
+                    // Clear assignment status since no emergency was found/assigned
+                    setRescuerOnAssignmentStatus(rescuerId, false);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ [CHECK_ASSIGNED] Error checking assigned requests: " + e.getMessage());
+                    handleEmergencyNotFoundInDatabase(rescuerId, seniorName);
+                });
+    }
+    
+    /**
+     * Handle case when emergency cannot be found in database
+     */
+    private void handleEmergencyNotFoundInDatabase(String rescuerId, String seniorName) {
+        Log.w(TAG, "⚠️ Emergency not found for: " + seniorName);
+        Toast.makeText(this, getString(R.string.emergency_not_found_in_database), Toast.LENGTH_SHORT).show();
+        // Clear assignment status since no emergency was found
+        setRescuerOnAssignmentStatus(rescuerId, false);
     }
     
     private void assignRescuerToEmergencyById(String requestId) {

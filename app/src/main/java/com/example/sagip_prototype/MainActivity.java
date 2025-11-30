@@ -37,10 +37,23 @@ import com.google.firebase.appcheck.FirebaseAppCheck;
 import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory;
 import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory;
 import com.google.firebase.auth.PhoneAuthProvider;
+import com.google.firebase.auth.PhoneAuthCredential;
+import com.google.firebase.auth.MultiFactorAssertion;
+import com.google.firebase.auth.MultiFactorResolver;
+import com.google.firebase.auth.MultiFactorSession;
+import com.google.firebase.auth.MultiFactorInfo;
+import com.google.firebase.auth.PhoneMultiFactorGenerator;
+import com.google.firebase.auth.PhoneMultiFactorInfo;
+import com.google.firebase.auth.FirebaseAuthMultiFactorException;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.QuerySnapshot;
+import com.google.firebase.functions.FirebaseFunctions;
+import com.google.firebase.functions.HttpsCallableResult;
 import com.google.firebase.messaging.FirebaseMessaging;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import java.util.concurrent.TimeUnit;
 
@@ -54,12 +67,18 @@ public class MainActivity extends AppCompatActivity {
 
     private FirebaseAuth auth;
     private FirebaseFirestore db;
+    private FirebaseFunctions functions;
     private final Long timeout = 60L;
     private SharedPreferences sharedPreferences;
     private FirebaseAuth.AuthStateListener sessionRestoreListener;
     private Handler sessionRestoreHandler;
     private Runnable sessionRestoreTimeoutRunnable;
     private boolean waitingForSessionRestore = false;
+    
+    // MFA verification
+    private String mfaVerificationId;
+    private PhoneAuthProvider.ForceResendingToken mfaResendToken;
+    private MultiFactorResolver multiFactorResolver;
 
     // UI Components for Phone Login
     private View phoneLoginLayout;
@@ -98,7 +117,11 @@ public class MainActivity extends AppCompatActivity {
 
         auth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
+        functions = FirebaseFunctions.getInstance();
         sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        
+        // Handle fresh install - must be done before any other auth checks
+        handleFreshInstall();
         
         // Initialize Firebase App Check
         try {
@@ -151,28 +174,39 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        // If we have a Firebase email user that is not verified, force logout and clear stored credentials
+        // First, check if this is a fresh install
+        boolean isFreshInstall = sharedPreferences.getBoolean("FRESH_INSTALL_FLAG", true);
+        if (isFreshInstall) {
+            Log.d(TAG, "Fresh install detected in onCreate, forcing clean state");
+            auth.signOut();
+            clearStoredCredentials();
+            sharedPreferences.edit().putBoolean("FRESH_INSTALL_FLAG", false).apply();
+            showLoginScreen();
+            return;
+        }
+
+        // Check for unverified email users
         FirebaseUser storedUser = auth.getCurrentUser();
         if (storedUser != null && storedUser.getEmail() != null && !storedUser.isEmailVerified()) {
             Log.d(TAG, "Stored Firebase email user not verified, forcing logout and clearing credentials");
             auth.signOut();
             clearStoredCredentials();
-        }
-
-        boolean storedCredentialsAvailable = hasStoredCredentials();
-
-        if (storedCredentialsAvailable && auth.getCurrentUser() == null) {
-            Log.d(TAG, "Stored credentials found but Firebase Auth session not ready yet. Waiting for restore.");
             showLoginScreen();
-            waitForFirebaseSessionRestore();
             return;
         }
 
-        // Check if user is already logged in (only if we have stored credentials)
-        if (isUserLoggedIn()) {
-            Log.d(TAG, "User already logged in with stored credentials, redirecting to dashboard");
-            redirectToStoredUserDashboard();
-            return;
+        // Only proceed with auto-login if we have valid stored credentials
+        if (hasStoredCredentials()) {
+            if (storedUser == null) {
+                Log.d(TAG, "Stored credentials found but no Firebase user, waiting for restore");
+                showLoginScreen();
+                waitForFirebaseSessionRestore();
+                return;
+            } else if (isUserLoggedIn()) {
+                Log.d(TAG, "User already logged in with stored credentials, redirecting to dashboard");
+                redirectToStoredUserDashboard();
+                return;
+            }
         }
 
         // For fresh installs, always show login screen first
@@ -206,6 +240,18 @@ public class MainActivity extends AppCompatActivity {
         setupEmailLogin();
     }
 
+    private void handleFreshInstall() {
+        boolean isFreshInstall = sharedPreferences.getBoolean("FRESH_INSTALL_FLAG", true);
+        if (isFreshInstall) {
+            Log.d(TAG, "Fresh install detected: resetting auth state before showing login screen");
+            if (auth != null) {
+                auth.signOut();
+            }
+            clearStoredCredentials();
+            sharedPreferences.edit().putBoolean("FRESH_INSTALL_FLAG", false).apply();
+        }
+    }
+
     private boolean hasStoredCredentials() {
         boolean isLoggedIn = sharedPreferences.getBoolean(KEY_IS_LOGGED_IN, false);
         String userId = sharedPreferences.getString(KEY_USER_ID, null);
@@ -214,6 +260,19 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean isUserLoggedIn() {
+        // Always check for fresh install first
+        boolean isFreshInstall = sharedPreferences.getBoolean("FRESH_INSTALL_FLAG", true);
+        if (isFreshInstall) {
+            Log.d(TAG, "Fresh install detected in isUserLoggedIn(), forcing login screen");
+            // Clear any potential cached credentials
+            if (auth != null) {
+                auth.signOut();
+            }
+            clearStoredCredentials();
+            sharedPreferences.edit().putBoolean("FRESH_INSTALL_FLAG", false).apply();
+            return false;
+        }
+
         boolean isLoggedIn = sharedPreferences.getBoolean(KEY_IS_LOGGED_IN, false);
         String userId = sharedPreferences.getString(KEY_USER_ID, null);
         String userType = sharedPreferences.getString(KEY_USER_TYPE, null);
@@ -223,24 +282,22 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "  - userId: " + userId);
         Log.d(TAG, "  - userType: " + userType);
 
-        // Check if this is a fresh install by looking for a fresh install flag
-        boolean isFreshInstall = sharedPreferences.getBoolean("FRESH_INSTALL_FLAG", true);
-        Log.d(TAG, "  - isFreshInstall: " + isFreshInstall);
-
         FirebaseUser currentUser = auth.getCurrentUser();
         boolean hasStoredData = isLoggedIn && userId != null && userType != null;
         boolean hasFirebaseUser = currentUser != null;
         
         Log.d(TAG, "  - hasStoredData: " + hasStoredData);
         Log.d(TAG, "  - hasFirebaseUser: " + hasFirebaseUser);
+        Log.d(TAG, "  - Current Firebase user: " + (currentUser != null ? currentUser.getUid() : "null"));
 
-        if (isFreshInstall) {
-            Log.d(TAG, "  - Fresh install detected, forcing login screen");
-            sharedPreferences.edit().putBoolean("FRESH_INSTALL_FLAG", false).apply();
+        // If no Firebase user is authenticated, force login screen
+        if (currentUser == null) {
+            Log.d(TAG, "No authenticated Firebase user, forcing login screen");
+            clearStoredCredentials();
             return false;
         }
 
-        boolean result = isLoggedIn && userId != null && userType != null;
+        boolean result = hasStoredData && hasFirebaseUser;
         Log.d(TAG, "  - Result: " + result);
         
         return result;
@@ -786,32 +843,318 @@ public class MainActivity extends AppCompatActivity {
         }
 
         auth.signInWithEmailAndPassword(email, password)
-                .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
-                    @Override
-                    public void onComplete(@NonNull Task<AuthResult> task) {
-                        showProgressBar(false);
-
-                        if (task.isSuccessful()) {
-                            FirebaseUser user = auth.getCurrentUser();
-                            if (user != null) {
-                                Log.d(TAG, "Email login successful for: " + email);
-                                
-                                // Check if user is verified - REQUIRE verification for admin-provided accounts
-                                if (user.isEmailVerified()) {
-                                    checkUserTypeAndRedirect(user.getUid(), false);
-                                } else {
-                                    // Email not verified - require verification before proceeding
-                                    Log.d(TAG, "User email not verified, requiring verification for admin-provided account");
-                                    showEmailVerificationRequiredDialog(user);
+                .addOnCompleteListener(this, task -> {
+                    if (task.isSuccessful()) {
+                        FirebaseUser user = auth.getCurrentUser();
+                        if (user != null) {
+                            Log.d(TAG, "Email login successful for: " + email);
+                            
+                            // Check if user has MFA enrolled
+                            if (user.getMultiFactor().getEnrolledFactors().isEmpty()) {
+                                // No MFA enrolled, prompt to enroll
+                                Log.d(TAG, "No MFA enrolled, prompting enrollment");
+                                showMfaEnrollmentDialog(user);
+                            } else {
+                                // MFA already enrolled but login succeeded (shouldn't happen normally)
+                                // This means verification was already done
+                                showProgressBar(false);
+                                checkUserTypeAndRedirect(user.getUid(), false);
+                            }
+                        }
+                    } else {
+                        // Check if this is an MFA challenge
+                        if (task.getException() instanceof FirebaseAuthMultiFactorException) {
+                            FirebaseAuthMultiFactorException mfaException = 
+                                (FirebaseAuthMultiFactorException) task.getException();
+                            multiFactorResolver = mfaException.getResolver();
+                            
+                            Log.d(TAG, "MFA required, showing verification dialog");
+                            
+                            // Get the first phone factor hint
+                            for (MultiFactorInfo info : multiFactorResolver.getHints()) {
+                                if (info instanceof PhoneMultiFactorInfo) {
+                                    PhoneMultiFactorInfo phoneInfo = (PhoneMultiFactorInfo) info;
+                                    startMfaVerification(phoneInfo);
+                                    return;
                                 }
                             }
+                            
+                            showProgressBar(false);
+                            Toast.makeText(MainActivity.this, 
+                                getString(R.string.mfa_no_phone_factor), 
+                                Toast.LENGTH_LONG).show();
                         } else {
+                            showProgressBar(false);
                             Log.e(TAG, "Email login failed", task.getException());
                             String errorMessage = getLoginErrorMessage(task.getException());
                             Toast.makeText(MainActivity.this, errorMessage, Toast.LENGTH_LONG).show();
                         }
                     }
                 });
+    }
+
+    // Show MFA enrollment dialog for first-time setup
+    private void showMfaEnrollmentDialog(FirebaseUser user) {
+        showProgressBar(false);
+        
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(getString(R.string.mfa_enrollment_title));
+        builder.setMessage(getString(R.string.mfa_enrollment_message));
+        builder.setIcon(android.R.drawable.ic_dialog_info);
+
+        // Create phone number input
+        final EditText phoneInput = new EditText(this);
+        phoneInput.setHint(getString(R.string.mfa_enter_phone_hint));
+        phoneInput.setInputType(android.text.InputType.TYPE_CLASS_PHONE);
+        int padding = (int) (16 * getResources().getDisplayMetrics().density);
+        phoneInput.setPadding(padding, padding, padding, padding);
+        builder.setView(phoneInput);
+
+        builder.setPositiveButton(getString(R.string.mfa_enroll_button), (dialog, which) -> {
+            String phoneNumber = phoneInput.getText().toString().trim();
+            if (!phoneNumber.isEmpty()) {
+                // Format phone number if needed
+                if (!phoneNumber.startsWith("+")) {
+                    phoneNumber = "+63" + phoneNumber.replaceFirst("^0+", "");
+                }
+                startMfaEnrollment(user, phoneNumber);
+            } else {
+                Toast.makeText(MainActivity.this, 
+                    getString(R.string.mfa_phone_required), 
+                    Toast.LENGTH_SHORT).show();
+                // Sign out since they cancelled enrollment
+                auth.signOut();
+            }
+        });
+
+        builder.setNegativeButton(getString(R.string.cancel), (dialog, which) -> {
+            // Sign out since MFA is required
+            auth.signOut();
+            Toast.makeText(MainActivity.this, 
+                getString(R.string.mfa_required_message), 
+                Toast.LENGTH_LONG).show();
+        });
+
+        builder.setCancelable(false);
+        builder.show();
+    }
+
+    // Start MFA enrollment process
+    private void startMfaEnrollment(FirebaseUser user, String phoneNumber) {
+        showProgressBar(true);
+        Log.d(TAG, "Starting MFA enrollment for phone: " + phoneNumber);
+        
+        user.getMultiFactor().getSession()
+            .addOnCompleteListener(task -> {
+                if (task.isSuccessful()) {
+                    MultiFactorSession session = task.getResult();
+                    
+                    PhoneAuthOptions options = PhoneAuthOptions.newBuilder(auth)
+                        .setPhoneNumber(phoneNumber)
+                        .setTimeout(timeout, TimeUnit.SECONDS)
+                        .setActivity(this)
+                        .setMultiFactorSession(session)
+                        .setCallbacks(new PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+                            @Override
+                            public void onVerificationCompleted(@NonNull PhoneAuthCredential credential) {
+                                Log.d(TAG, "MFA enrollment auto-verified");
+                                completeMfaEnrollment(credential);
+                            }
+
+                            @Override
+                            public void onVerificationFailed(@NonNull com.google.firebase.FirebaseException e) {
+                                showProgressBar(false);
+                                Log.e(TAG, "MFA enrollment verification failed", e);
+                                Toast.makeText(MainActivity.this, 
+                                    getString(R.string.mfa_verification_failed) + ": " + e.getMessage(), 
+                                    Toast.LENGTH_LONG).show();
+                                auth.signOut();
+                            }
+
+                            @Override
+                            public void onCodeSent(@NonNull String verificationId, 
+                                    @NonNull PhoneAuthProvider.ForceResendingToken token) {
+                                showProgressBar(false);
+                                Log.d(TAG, "MFA enrollment code sent");
+                                mfaVerificationId = verificationId;
+                                mfaResendToken = token;
+                                showMfaEnrollmentCodeDialog(phoneNumber);
+                            }
+                        })
+                        .build();
+                    
+                    PhoneAuthProvider.verifyPhoneNumber(options);
+                } else {
+                    showProgressBar(false);
+                    Log.e(TAG, "Failed to get MFA session", task.getException());
+                    Toast.makeText(MainActivity.this, 
+                        getString(R.string.mfa_session_failed), 
+                        Toast.LENGTH_LONG).show();
+                    auth.signOut();
+                }
+            });
+    }
+
+    // Show dialog to enter enrollment verification code
+    private void showMfaEnrollmentCodeDialog(String phoneNumber) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(getString(R.string.mfa_enter_code_title));
+        builder.setMessage(String.format(getString(R.string.mfa_code_sent_message), phoneNumber));
+        builder.setIcon(android.R.drawable.ic_dialog_info);
+
+        final EditText codeInput = new EditText(this);
+        codeInput.setHint(getString(R.string.mfa_code_hint));
+        codeInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        int padding = (int) (16 * getResources().getDisplayMetrics().density);
+        codeInput.setPadding(padding, padding, padding, padding);
+        builder.setView(codeInput);
+
+        builder.setPositiveButton(getString(R.string.verify), (dialog, which) -> {
+            String code = codeInput.getText().toString().trim();
+            if (code.length() == 6) {
+                PhoneAuthCredential credential = PhoneAuthProvider.getCredential(mfaVerificationId, code);
+                completeMfaEnrollment(credential);
+            } else {
+                Toast.makeText(MainActivity.this, 
+                    getString(R.string.mfa_invalid_code), 
+                    Toast.LENGTH_SHORT).show();
+                auth.signOut();
+            }
+        });
+
+        builder.setNegativeButton(getString(R.string.cancel), (dialog, which) -> {
+            auth.signOut();
+        });
+
+        builder.setCancelable(false);
+        builder.show();
+    }
+
+    // Complete MFA enrollment
+    private void completeMfaEnrollment(PhoneAuthCredential credential) {
+        showProgressBar(true);
+        
+        MultiFactorAssertion assertion = PhoneMultiFactorGenerator.getAssertion(credential);
+        FirebaseUser user = auth.getCurrentUser();
+        
+        if (user != null) {
+            user.getMultiFactor().enroll(assertion, "Phone Number")
+                .addOnCompleteListener(task -> {
+                    showProgressBar(false);
+                    if (task.isSuccessful()) {
+                        Log.d(TAG, "MFA enrollment successful");
+                        Toast.makeText(MainActivity.this, 
+                            getString(R.string.mfa_enrollment_success), 
+                            Toast.LENGTH_SHORT).show();
+                        checkUserTypeAndRedirect(user.getUid(), false);
+                    } else {
+                        Log.e(TAG, "MFA enrollment failed", task.getException());
+                        Toast.makeText(MainActivity.this, 
+                            getString(R.string.mfa_enrollment_failed), 
+                            Toast.LENGTH_LONG).show();
+                        auth.signOut();
+                    }
+                });
+        }
+    }
+
+    // Start MFA verification for login
+    private void startMfaVerification(PhoneMultiFactorInfo phoneInfo) {
+        Log.d(TAG, "Starting MFA verification for: " + phoneInfo.getPhoneNumber());
+        
+        PhoneAuthOptions options = PhoneAuthOptions.newBuilder(auth)
+            .setMultiFactorHint(phoneInfo)
+            .setTimeout(timeout, TimeUnit.SECONDS)
+            .setActivity(this)
+            .setMultiFactorSession(multiFactorResolver.getSession())
+            .setCallbacks(new PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+                @Override
+                public void onVerificationCompleted(@NonNull PhoneAuthCredential credential) {
+                    Log.d(TAG, "MFA verification auto-completed");
+                    completeMfaSignIn(credential);
+                }
+
+                @Override
+                public void onVerificationFailed(@NonNull com.google.firebase.FirebaseException e) {
+                    showProgressBar(false);
+                    Log.e(TAG, "MFA verification failed", e);
+                    Toast.makeText(MainActivity.this, 
+                        getString(R.string.mfa_verification_failed) + ": " + e.getMessage(), 
+                        Toast.LENGTH_LONG).show();
+                }
+
+                @Override
+                public void onCodeSent(@NonNull String verificationId, 
+                        @NonNull PhoneAuthProvider.ForceResendingToken token) {
+                    showProgressBar(false);
+                    Log.d(TAG, "MFA verification code sent");
+                    mfaVerificationId = verificationId;
+                    mfaResendToken = token;
+                    showMfaVerificationDialog(phoneInfo.getPhoneNumber());
+                }
+            })
+            .build();
+        
+        PhoneAuthProvider.verifyPhoneNumber(options);
+    }
+
+    // Show MFA verification dialog
+    private void showMfaVerificationDialog(String phoneNumber) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(getString(R.string.mfa_verify_login_title));
+        builder.setMessage(String.format(getString(R.string.mfa_verify_login_message), phoneNumber));
+        builder.setIcon(android.R.drawable.ic_dialog_info);
+
+        final EditText codeInput = new EditText(this);
+        codeInput.setHint(getString(R.string.mfa_code_hint));
+        codeInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        int padding = (int) (16 * getResources().getDisplayMetrics().density);
+        codeInput.setPadding(padding, padding, padding, padding);
+        builder.setView(codeInput);
+
+        builder.setPositiveButton(getString(R.string.verify), (dialog, which) -> {
+            String code = codeInput.getText().toString().trim();
+            if (code.length() == 6) {
+                PhoneAuthCredential credential = PhoneAuthProvider.getCredential(mfaVerificationId, code);
+                completeMfaSignIn(credential);
+            } else {
+                Toast.makeText(MainActivity.this, 
+                    getString(R.string.mfa_invalid_code), 
+                    Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        builder.setNegativeButton(getString(R.string.cancel), (dialog, which) -> {
+            dialog.dismiss();
+        });
+
+        builder.setCancelable(false);
+        builder.show();
+    }
+
+    // Complete MFA sign-in
+    private void completeMfaSignIn(PhoneAuthCredential credential) {
+        showProgressBar(true);
+        
+        MultiFactorAssertion assertion = PhoneMultiFactorGenerator.getAssertion(credential);
+        
+        multiFactorResolver.resolveSignIn(assertion)
+            .addOnCompleteListener(task -> {
+                showProgressBar(false);
+                if (task.isSuccessful()) {
+                    Log.d(TAG, "MFA sign-in successful");
+                    FirebaseUser user = task.getResult().getUser();
+                    Toast.makeText(MainActivity.this, 
+                        getString(R.string.verification_successful), 
+                        Toast.LENGTH_SHORT).show();
+                    checkUserTypeAndRedirect(user.getUid(), false);
+                } else {
+                    Log.e(TAG, "MFA sign-in failed", task.getException());
+                    Toast.makeText(MainActivity.this, 
+                        getString(R.string.mfa_signin_failed), 
+                        Toast.LENGTH_LONG).show();
+                }
+            });
     }
 
     private void showEmailVerificationRequiredDialog(FirebaseUser user) {
@@ -1248,6 +1591,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void sendOtp(String number, boolean isNewUser) {
+        // Show loading indicator while waiting for OTP
+        showProgressBar(true);
+        Toast.makeText(this, getString(R.string.sending_otp), Toast.LENGTH_SHORT).show();
+        
         PhoneAuthOptions options = PhoneAuthOptions.newBuilder(auth)
                 .setPhoneNumber("+63" + number)
                 .setTimeout(timeout, TimeUnit.SECONDS)
@@ -1262,6 +1609,9 @@ public class MainActivity extends AppCompatActivity {
 
                     @Override
                     public void onVerificationFailed(com.google.firebase.FirebaseException e) {
+                        // Hide loading indicator on failure
+                        showProgressBar(false);
+                        
                         Log.e(TAG, "OTP verification failed: " + e.getMessage());
                         Log.e(TAG, "Error class: " + e.getClass().getSimpleName());
                         Log.e(TAG, "Error cause: " + (e.getCause() != null ? e.getCause().getMessage() : "null"));
@@ -1308,6 +1658,9 @@ public class MainActivity extends AppCompatActivity {
 
                     @Override
                     public void onCodeSent(String verificationId, PhoneAuthProvider.ForceResendingToken token) {
+                        // Hide loading indicator on success
+                        showProgressBar(false);
+                        
                         Log.d(TAG, "OTP code sent successfully");
                         Intent intent = new Intent(MainActivity.this, OTP_PAGE.class);
                         intent.putExtra("VERIFICATION_ID", verificationId);
