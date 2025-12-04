@@ -328,18 +328,8 @@
         </com.google.android.material.textfield.TextInputLayout>
 
         <!-- Terms and Conditions -->
-        <com.google.android.material.checkbox.MaterialCheckBox
-            android:id="@+id/termsConditionsCheckbox"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/spacing_small"
-            android:padding="5dp"
-            android:text="@string/terms_conditions"
-            android:textColor="#666666"
-            android:textSize="@dimen/text_size_medium"
-            app:buttonTint="@color/info_blue"/>
 
-<!--        <com.google.android.material.checkbox.MaterialCheckBox-->
+        <!--        <com.google.android.material.checkbox.MaterialCheckBox-->
 <!--            android:id="@+id/privacyPolicyCheckbox"-->
 <!--            android:layout_width="match_parent"-->
 <!--            android:layout_height="wrap_content"-->

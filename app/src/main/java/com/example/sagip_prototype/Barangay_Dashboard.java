@@ -1190,9 +1190,9 @@ public class Barangay_Dashboard extends AppCompatActivity {
                     Intent callIntent = new Intent(Intent.ACTION_DIAL);
                     callIntent.setData(Uri.parse("tel:" + seniorPhone));
                     startActivity(callIntent);
-                    Log.d("Barangay_Dashboard", "📞 Opening dialer for: " + seniorPhone);
+                    Log.d("Barangay_Dashboard", " Opening dialer for: " + seniorPhone);
                 } catch (Exception e) {
-                    Log.e("Barangay_Dashboard", "❌ Error opening dialer: " + e.getMessage());
+                    Log.e("Barangay_Dashboard", " Error opening dialer: " + e.getMessage());
                     Toast.makeText(this, getString(R.string.unable_to_open_dialer, seniorPhone), Toast.LENGTH_LONG).show();
                 }
             } else {
@@ -1200,28 +1200,26 @@ public class Barangay_Dashboard extends AppCompatActivity {
             }
         });
         
-        // Navigate button
-        builder.setNeutralButton(getString(R.string.barangay_emergency_action_navigate), (dialog, which) -> {
-            if (seniorLatitude != null && seniorLongitude != null) {
-                // Use coordinates for more accurate navigation
-                String addressForFallback = (currentLocation != null && !currentLocation.isEmpty()) ? currentLocation : locationAddress;
-                openGoogleMapsNavigationWithCoordinates(seniorLatitude, seniorLongitude, addressForFallback);
-            } else if (currentLocation != null && !currentLocation.isEmpty()) {
-                // Use currentLocation if available
-                openGoogleMapsNavigation(currentLocation);
-            } else if (locationAddress != null && !locationAddress.isEmpty()) {
-                // Fallback to locationAddress
-                openGoogleMapsNavigation(locationAddress);
-            } else {
-                Toast.makeText(this, getString(R.string.location_info_not_available), Toast.LENGTH_SHORT).show();
-            }
-        });
-        
-        // View Details button
+        // View Details button - opens SeniorSOSDetailsActivity with navigation
         builder.setNegativeButton(getString(R.string.barangay_emergency_action_view), (dialog, which) -> {
-            // Navigate to senior list or emergency details
-            Intent detailsIntent = new Intent(this, Barangay_List.class);
+            // Open Senior SOS Details Activity with all emergency information
+            Intent detailsIntent = new Intent(this, SeniorSOSDetailsActivity.class);
+            detailsIntent.putExtra(SeniorSOSDetailsActivity.EXTRA_SENIOR_NAME, seniorName);
+            detailsIntent.putExtra(SeniorSOSDetailsActivity.EXTRA_SENIOR_PHONE, seniorPhone);
+            detailsIntent.putExtra(SeniorSOSDetailsActivity.EXTRA_LOCATION_ADDRESS, locationAddress);
+            detailsIntent.putExtra(SeniorSOSDetailsActivity.EXTRA_CURRENT_LOCATION, currentLocation);
+            detailsIntent.putExtra(SeniorSOSDetailsActivity.EXTRA_BARANGAY, barangay);
+            detailsIntent.putExtra(SeniorSOSDetailsActivity.EXTRA_REQUEST_ID, requestId);
+            detailsIntent.putExtra(SeniorSOSDetailsActivity.EXTRA_EMERGENCY_TYPE, emergencyType);
+            detailsIntent.putExtra(SeniorSOSDetailsActivity.EXTRA_TIMESTAMP, System.currentTimeMillis());
+            if (seniorLatitude != null) {
+                detailsIntent.putExtra(SeniorSOSDetailsActivity.EXTRA_LATITUDE, seniorLatitude);
+            }
+            if (seniorLongitude != null) {
+                detailsIntent.putExtra(SeniorSOSDetailsActivity.EXTRA_LONGITUDE, seniorLongitude);
+            }
             startActivity(detailsIntent);
+            Log.d("Barangay_Dashboard", " Opening SOS details for: " + seniorName);
         });
         
         AlertDialog dialog = builder.create();
@@ -1229,15 +1227,12 @@ public class Barangay_Dashboard extends AppCompatActivity {
         // Style the buttons
         dialog.setOnShowListener(dialogInterface -> {
             try {
-                // Make the positive button red to indicate emergency
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
                     dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark, null));
-                    dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setTextColor(getResources().getColor(android.R.color.holo_blue_dark, null));
-                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.darker_gray, null));
+                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.holo_blue_dark, null));
                 } else {
                     dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
-                    dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setTextColor(getResources().getColor(android.R.color.holo_blue_dark));
-                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.darker_gray));
+                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.holo_blue_dark));
                 }
                 dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextSize(16);
             } catch (Exception e) {
@@ -1245,124 +1240,15 @@ public class Barangay_Dashboard extends AppCompatActivity {
             }
         });
         
-        // Add dismiss listener to clean up when dialog is dismissed
         dialog.setOnDismissListener(dialogInterface -> {
-            Log.d("Barangay_Dashboard", "🚨 Emergency alert dialog dismissed");
+            Log.d("Barangay_Dashboard", " Emergency alert dialog dismissed");
             currentEmergencyDialog = null;
         });
         
         dialog.show();
-        
-        // Store reference to current emergency dialog
         currentEmergencyDialog = dialog;
         
-        Log.d("Barangay_Dashboard", "🚨 Emergency alert dialog shown for: " + seniorName);
-    }
-    
-    /**
-     * Open Google Maps navigation to emergency location using coordinates
-     */
-    private void openGoogleMapsNavigationWithCoordinates(Double latitude, Double longitude, String locationAddress) {
-        try {
-            Log.d("Barangay_Dashboard", "🗺️ Opening navigation with coordinates: " + latitude + ", " + longitude);
-            
-            // First try to open Google Maps app with coordinates
-            String navigationUri = String.format("google.navigation:q=%.6f,%.6f&mode=d", latitude, longitude);
-            Intent navIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(navigationUri));
-            navIntent.setPackage("com.google.android.apps.maps");
-            
-            // Check if Google Maps app is available
-            if (navIntent.resolveActivity(getPackageManager()) != null) {
-                startActivity(navIntent);
-                Toast.makeText(this, "🗺️ Opening Google Maps navigation to coordinates", Toast.LENGTH_SHORT).show();
-            } else {
-                // Fallback to web-based Google Maps navigation with coordinates
-                String webUrl = String.format("https://www.google.com/maps/dir/?api=1&destination=%.6f,%.6f&travelmode=driving", latitude, longitude);
-                Intent webIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(webUrl));
-                startActivity(webIntent);
-                Toast.makeText(this, "🗺️ Opening web navigation to coordinates", Toast.LENGTH_SHORT).show();
-            }
-        } catch (Exception e) {
-            Log.e("Barangay_Dashboard", "Error opening navigation with coordinates: " + e.getMessage());
-            // Fallback to address-based navigation
-            if (locationAddress != null && !locationAddress.isEmpty()) {
-                openGoogleMapsNavigation(locationAddress);
-            } else {
-                Toast.makeText(this, "Unable to open navigation. Please contact emergency services.", Toast.LENGTH_LONG).show();
-            }
-        }
-    }
-
-    /**
-     * Open Google Maps navigation to emergency location
-     */
-    private void openGoogleMapsNavigation(String locationAddress) {
-        try {
-            // First try to open Google Maps app with navigation
-            String navigationUri = "google.navigation:q=" + Uri.encode(locationAddress) + "&mode=d";
-            Intent navIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(navigationUri));
-            navIntent.setPackage("com.google.android.apps.maps");
-            
-            // Check if Google Maps app is available
-            if (navIntent.resolveActivity(getPackageManager()) != null) {
-                startActivity(navIntent);
-                Toast.makeText(this, "🗺️ Opening Google Maps navigation", Toast.LENGTH_SHORT).show();
-            } else {
-                // Fallback to web-based Google Maps navigation
-                String webUrl = "https://www.google.com/maps/dir/?api=1&destination=" + Uri.encode(locationAddress) + "&travelmode=driving";
-                Intent webIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(webUrl));
-                startActivity(webIntent);
-                Toast.makeText(this, "🗺️ Opening web navigation", Toast.LENGTH_SHORT).show();
-            }
-        } catch (Exception e) {
-            Log.e("Barangay_Dashboard", "Error opening navigation: " + e.getMessage());
-            Toast.makeText(this, "Unable to open navigation. Please contact emergency services.", Toast.LENGTH_LONG).show();
-        }
-    }
-    
-    /**
-     * Mark notification as read in the database
-     */
-    private void markNotificationAsRead(String notificationId) {
-        if (mAuth.getCurrentUser() == null) {
-            Log.w("Barangay_Dashboard", "No authenticated user, cannot mark notification as read");
-            return;
-        }
-        
-        if (notificationId == null || notificationId.isEmpty()) {
-            Log.w("Barangay_Dashboard", "Invalid notification ID, cannot mark as read");
-            return;
-        }
-        
-        String userId = mAuth.getCurrentUser().getUid();
-        String notificationPath = "Sagip/users/barangay/" + userId + "/notifications/" + notificationId;
-        
-        // First check if the document exists before trying to update it
-        db.document(notificationPath)
-                .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    if (documentSnapshot.exists()) {
-                        // Document exists, proceed with update
-                        Map<String, Object> updates = new HashMap<>();
-                        updates.put("isRead", true);
-                        updates.put("readTimestamp", System.currentTimeMillis());
-                        
-                        db.document(notificationPath)
-                                .update(updates)
-                                .addOnSuccessListener(aVoid -> {
-                                    Log.d("Barangay_Dashboard", "✅ Notification marked as read: " + notificationId);
-                                })
-                                .addOnFailureListener(e -> {
-                                    Log.e("Barangay_Dashboard", "❌ Failed to mark notification as read: " + notificationId, e);
-                                });
-                    } else {
-                        Log.w("Barangay_Dashboard", "⚠️ Notification document does not exist: " + notificationId + " (path: " + notificationPath + ")");
-                        // Don't treat this as an error since the notification might have been processed already
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    Log.e("Barangay_Dashboard", "❌ Failed to check notification existence: " + notificationId, e);
-                });
+        Log.d("Barangay_Dashboard", " Emergency alert dialog shown for: " + seniorName);
     }
     
     /**
@@ -1392,8 +1278,9 @@ public class Barangay_Dashboard extends AppCompatActivity {
               if (error != null) {
                   Log.e("Barangay_Dashboard", "Error listening to emergency notifications: " + error.getMessage(), error);
                   return;
+
               }
-              
+
               if (querySnapshot != null && !querySnapshot.isEmpty()) {
                   for (QueryDocumentSnapshot document : querySnapshot) {
                       handleEmergencyPopupNotification(document);
@@ -1401,15 +1288,10 @@ public class Barangay_Dashboard extends AppCompatActivity {
               }
           });
     }
-    
-    /**
-     * Handle emergency popup notification
-     */
+
     private void handleEmergencyPopupNotification(QueryDocumentSnapshot document) {
         try {
             String type = document.getString("type");
-            String title = document.getString("title");
-            String message = document.getString("message");
             String seniorName = document.getString("seniorName");
             String seniorPhone = document.getString("seniorPhone");
             String locationAddress = document.getString("locationAddress");
@@ -1418,172 +1300,90 @@ public class Barangay_Dashboard extends AppCompatActivity {
             String emergencyType = document.getString("emergencyType");
             Long timestamp = document.getLong("timestamp");
             Boolean isRead = document.getBoolean("isRead");
-            
-            // Get senior coordinates for navigation
-            Double seniorLatitude = null;
-            Double seniorLongitude = null;
-            if (document.getDouble("seniorLatitude") != null) {
-                seniorLatitude = document.getDouble("seniorLatitude");
-            }
-            if (document.getDouble("seniorLongitude") != null) {
-                seniorLongitude = document.getDouble("seniorLongitude");
-            }
-            
-            // Get currentLocation field with proper error handling
+            Double seniorLatitude = document.getDouble("seniorLatitude");
+            Double seniorLongitude = document.getDouble("seniorLongitude");
+
             String currentLocation = null;
             try {
-                com.google.firebase.firestore.GeoPoint currentLocationGeoPoint = document.getGeoPoint("currentLocation");
-                if (currentLocationGeoPoint != null) {
-                    currentLocation = currentLocationGeoPoint.getLatitude() + ", " + currentLocationGeoPoint.getLongitude();
+                com.google.firebase.firestore.GeoPoint geoPoint = document.getGeoPoint("currentLocation");
+                if (geoPoint != null) {
+                    currentLocation = geoPoint.getLatitude() + ", " + geoPoint.getLongitude();
                 }
             } catch (Exception e) {
-                Log.w("Barangay_Dashboard", "currentLocation field is not a GeoPoint, trying as String: " + e.getMessage());
-                // Fallback: try to get as String
-                try {
-                    currentLocation = document.getString("currentLocation");
-                } catch (Exception e2) {
-                    Log.w("Barangay_Dashboard", "currentLocation field is neither GeoPoint nor String: " + e2.getMessage());
-                    currentLocation = null;
-                }
+                currentLocation = document.getString("currentLocation");
             }
-            
-            // Only process unread emergency notifications that haven't been shown yet
+
             String notificationId = document.getId();
             if ("EMERGENCY_ALERT".equals(type) && (isRead == null || !isRead) && !shownNotificationIds.contains(notificationId)) {
-                Log.d("Barangay_Dashboard", "🚨 Received emergency popup notification: " + seniorName + " (Request ID: " + requestId + ")");
-                Log.d("Barangay_Dashboard", "🚨 Senior coordinates - Lat: " + seniorLatitude + ", Long: " + seniorLongitude);
-                Log.d("Barangay_Dashboard", "🚨 Current location: " + currentLocation);
-                
-                // Mark this notification as shown to prevent duplicates
                 shownNotificationIds.add(notificationId);
-                
-                // Show emergency alert dialog
                 showEmergencyPopupAlert(seniorName, seniorPhone, locationAddress, barangay, requestId, emergencyType, timestamp, seniorLatitude, seniorLongitude, currentLocation);
-                
-                // Mark notification as read
                 document.getReference().update("isRead", true);
             }
-            
         } catch (Exception e) {
-            Log.e("Barangay_Dashboard", "Error handling emergency popup notification: " + e.getMessage());
+            Log.e("Barangay_Dashboard", "Error handling popup: " + e.getMessage());
         }
+    }
+
+    private void showEmergencyPopupAlert(String seniorName, String seniorPhone, String locationAddress,
+                                         String barangay, String requestId, String emergencyType, Long timestamp,
+                                         Double seniorLatitude, Double seniorLongitude, String currentLocation) {
+        if (isFinishing() || isDestroyed()) return;
+        if (currentEmergencyDialog != null && currentEmergencyDialog.isShowing()) currentEmergencyDialog.dismiss();
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(String.format(getString(R.string.emergency_alert_barangay_title), barangay));
+        builder.setMessage(getString(R.string.barangay_emergency_message_urgent) + "\n\n" +
+                getString(R.string.senior_label_colon) + " " + seniorName + "\n" +
+                getString(R.string.phone_label_colon) + " " + (seniorPhone != null ? seniorPhone : getString(R.string.not_provided)) + "\n" +
+                getString(R.string.location_label_colon) + " " + (locationAddress != null ? locationAddress : getString(R.string.not_provided)) + "\n" +
+                getString(R.string.barangay_label_colon) + " " + barangay + "\n" +
+                getString(R.string.please_respond_immediately));
+        builder.setIcon(android.R.drawable.ic_dialog_alert);
+        builder.setCancelable(false);
+
+        builder.setPositiveButton(getString(R.string.barangay_emergency_action_call), (d, w) -> {
+            if (seniorPhone != null && !seniorPhone.isEmpty()) {
+                startActivity(new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + seniorPhone)));
+            }
+        });
+
+        final Double lat = seniorLatitude, lng = seniorLongitude;
+        final String loc = currentLocation;
+        builder.setNegativeButton(getString(R.string.barangay_emergency_action_view), (d, w) -> {
+            Intent i = new Intent(this, SeniorSOSDetailsActivity.class);
+            i.putExtra(SeniorSOSDetailsActivity.EXTRA_SENIOR_NAME, seniorName);
+            i.putExtra(SeniorSOSDetailsActivity.EXTRA_SENIOR_PHONE, seniorPhone);
+            i.putExtra(SeniorSOSDetailsActivity.EXTRA_LOCATION_ADDRESS, locationAddress);
+            i.putExtra(SeniorSOSDetailsActivity.EXTRA_CURRENT_LOCATION, loc);
+            i.putExtra(SeniorSOSDetailsActivity.EXTRA_BARANGAY, barangay);
+            i.putExtra(SeniorSOSDetailsActivity.EXTRA_REQUEST_ID, requestId);
+            i.putExtra(SeniorSOSDetailsActivity.EXTRA_EMERGENCY_TYPE, emergencyType);
+            i.putExtra(SeniorSOSDetailsActivity.EXTRA_TIMESTAMP, timestamp != null ? timestamp : System.currentTimeMillis());
+            if (lat != null) i.putExtra(SeniorSOSDetailsActivity.EXTRA_LATITUDE, lat);
+            if (lng != null) i.putExtra(SeniorSOSDetailsActivity.EXTRA_LONGITUDE, lng);
+            startActivity(i);
+        });
+
+        AlertDialog dialog = builder.create();
+        dialog.setOnDismissListener(di -> currentEmergencyDialog = null);
+        dialog.show();
+        currentEmergencyDialog = dialog;
     }
     
     /**
-     * Show emergency popup alert dialog
+     * Mark a notification as read in Firestore
      */
-    private void showEmergencyPopupAlert(String seniorName, String seniorPhone, String locationAddress,
-                                       String barangay, String requestId, String emergencyType, Long timestamp,
-                                       Double seniorLatitude, Double seniorLongitude, String currentLocation) {
-        // Enhanced activity state check
-        if (isFinishing() || isDestroyed()) {
-            Log.w("Barangay_Dashboard", "Cannot show emergency popup dialog - activity is not in valid state (finishing: " + isFinishing() + ", destroyed: " + isDestroyed() + ")");
-            return;
-        }
+    private void markNotificationAsRead(String notificationId) {
+        if (userId == null || notificationId == null) return;
         
-        // Dismiss any existing emergency dialog
-        if (currentEmergencyDialog != null && currentEmergencyDialog.isShowing()) {
-            currentEmergencyDialog.dismiss();
-            currentEmergencyDialog = null;
-        }
-        
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle(String.format(getString(R.string.emergency_alert_barangay_title), barangay));
-        
-        String timeStr = getString(R.string.unknown_time);
-        if (timestamp != null) {
-            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("MMM dd, yyyy HH:mm:ss", Locale.getDefault());
-            timeStr = sdf.format(new java.util.Date(timestamp));
-        }
-        
-        String message = getString(R.string.barangay_emergency_message_urgent) + "\n\n" +
-                        getString(R.string.senior_label_colon) + " " + seniorName + "\n" +
-                        getString(R.string.phone_label_colon) + " " + (seniorPhone != null ? seniorPhone : getString(R.string.not_provided)) + "\n" +
-                        getString(R.string.location_label_colon) + " " + (locationAddress != null ? locationAddress : getString(R.string.not_provided)) + "\n" +
-                        (currentLocation != null && !currentLocation.isEmpty() ? 
-                            getString(R.string.full_address_label_colon) + " " + currentLocation + "\n" : "") +
-                        getString(R.string.barangay_label_colon) + " " + barangay + "\n" +
-                        getString(R.string.time_label_colon) + " " + timeStr + "\n\n" +
-                        getString(R.string.please_respond_immediately);
-        
-        builder.setMessage(message);
-        builder.setIcon(android.R.drawable.ic_dialog_alert);
-        builder.setCancelable(false);
-        
-        // Call Senior button
-        builder.setPositiveButton(getString(R.string.barangay_emergency_action_call), (dialog, which) -> {
-            if (seniorPhone != null && !seniorPhone.isEmpty()) {
-                try {
-                    Intent callIntent = new Intent(Intent.ACTION_DIAL);
-                    callIntent.setData(Uri.parse("tel:" + seniorPhone));
-                    startActivity(callIntent);
-                    Log.d("Barangay_Dashboard", "📞 Opening dialer for: " + seniorPhone);
-                } catch (Exception e) {
-                    Log.e("Barangay_Dashboard", "❌ Error opening dialer: " + e.getMessage());
-                    Toast.makeText(this, getString(R.string.unable_to_open_dialer, seniorPhone), Toast.LENGTH_LONG).show();
-                }
-            } else {
-                Toast.makeText(this, getString(R.string.senior_phone_not_available), Toast.LENGTH_SHORT).show();
-            }
-        });
-        
-        // Navigate button
-        builder.setNeutralButton(getString(R.string.barangay_emergency_action_navigate), (dialog, which) -> {
-            if (seniorLatitude != null && seniorLongitude != null) {
-                // Use coordinates for more accurate navigation
-                String addressForFallback = (currentLocation != null && !currentLocation.isEmpty()) ? currentLocation : locationAddress;
-                openGoogleMapsNavigationWithCoordinates(seniorLatitude, seniorLongitude, addressForFallback);
-            } else if (currentLocation != null && !currentLocation.isEmpty()) {
-                // Use currentLocation if available
-                openGoogleMapsNavigation(currentLocation);
-            } else if (locationAddress != null && !locationAddress.isEmpty()) {
-                // Fallback to locationAddress
-                openGoogleMapsNavigation(locationAddress);
-            } else {
-                Toast.makeText(this, getString(R.string.location_info_not_available), Toast.LENGTH_SHORT).show();
-            }
-        });
-        
-        // View Details button
-        builder.setNegativeButton(getString(R.string.barangay_emergency_action_view), (dialog, which) -> {
-            // Navigate to senior list or emergency details
-            Intent detailsIntent = new Intent(this, Barangay_List.class);
-            startActivity(detailsIntent);
-        });
-        
-        AlertDialog dialog = builder.create();
-        
-        // Style the buttons
-        dialog.setOnShowListener(dialogInterface -> {
-            try {
-                // Make the positive button red to indicate emergency
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark, null));
-                    dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setTextColor(getResources().getColor(android.R.color.holo_blue_dark, null));
-                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.darker_gray, null));
-                } else {
-                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
-                    dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setTextColor(getResources().getColor(android.R.color.holo_blue_dark));
-                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.darker_gray));
-                }
-                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextSize(16);
-            } catch (Exception e) {
-                 
-            }
-        });
-        
-        // Add dismiss listener to clean up when dialog is dismissed
-        dialog.setOnDismissListener(dialogInterface -> {
-            Log.d("Barangay_Dashboard", "🚨 Emergency popup dialog dismissed");
-            currentEmergencyDialog = null;
-        });
-        
-        dialog.show();
-        
-        // Store reference to current emergency dialog
-        currentEmergencyDialog = dialog;
-        
-        Log.d("Barangay_Dashboard", "🚨 Emergency popup dialog shown for: " + seniorName);
+        db.collection("Sagip")
+          .document("users")
+          .collection("barangay")
+          .document(userId)
+          .collection("notifications")
+          .document(notificationId)
+          .update("isRead", true)
+          .addOnSuccessListener(aVoid -> Log.d("Barangay_Dashboard", "Notification marked as read: " + notificationId))
+          .addOnFailureListener(e -> Log.e("Barangay_Dashboard", "Error marking notification as read: " + e.getMessage()));
     }
-
 }

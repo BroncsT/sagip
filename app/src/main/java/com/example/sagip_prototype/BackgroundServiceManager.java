@@ -67,6 +67,10 @@ public class BackgroundServiceManager {
             Intent barangayForegroundIntent = new Intent(context, BarangayForegroundService.class);
             context.stopService(barangayForegroundIntent);
             
+            // CRITICAL FIX: Stop SeniorForegroundService
+            Intent seniorForegroundIntent = new Intent(context, SeniorForegroundService.class);
+            context.stopService(seniorForegroundIntent);
+            
             // Stop EmergencySOSBackgroundService
             Intent emergencySOSIntent = new Intent(context, EmergencySOSBackgroundService.class);
             context.stopService(emergencySOSIntent);
@@ -94,7 +98,10 @@ public class BackgroundServiceManager {
             // Stop WorkManager
             NotificationWorkManager.stopNotificationMonitoring(context);
             
-            Log.d(TAG, "✅ All background services stopped - including barangay foreground service");
+            // Cancel service restart alarm
+            ServiceRestartAlarmReceiver.cancelAlarm(context);
+            
+            Log.d(TAG, "✅ All background services stopped - including WorkManager and alarms");
             
         } catch (Exception e) {
             Log.e(TAG, "Error stopping background services: " + e.getMessage(), e);
@@ -105,7 +112,7 @@ public class BackgroundServiceManager {
      * Starts services specific to rescuers
      */
     private static void startRescuerServices(Context context) {
-        Log.d(TAG, "Starting rescuer-specific services");
+        Log.d(TAG, "🚨 Starting rescuer-specific services");
         
         // Start rescuer foreground service for reliable notifications
         startService(context, RescuerForegroundService.class);
@@ -121,6 +128,18 @@ public class BackgroundServiceManager {
         
         // Start hospital status notification service
         startService(context, HospitalStatusNotificationService.class);
+        
+        // Start WorkManager for emergency monitoring (backup mechanism)
+        NotificationWorkManager.startNotificationMonitoring(context);
+        NotificationWorkManager.startEmergencyMonitoring(context);
+        Log.d(TAG, "✅ WorkManager emergency monitoring started for rescuer");
+        
+        // Schedule periodic service restart alarm (bypasses Doze mode)
+        ServiceRestartAlarmReceiver.scheduleAlarm(context);
+        Log.d(TAG, "✅ Service restart alarm scheduled for rescuer");
+        
+        // Check and request battery optimization whitelist
+        BatteryOptimizationHelper.logBatteryOptimizationStatus(context);
     }
     
     /**
@@ -140,7 +159,7 @@ public class BackgroundServiceManager {
      * Starts services specific to barangay
      */
     private static void startBarangayServices(Context context) {
-        Log.d(TAG, "Starting barangay-specific services");
+        Log.d(TAG, "🏢 Starting barangay-specific services");
         
         // CRITICAL FIX: Start dedicated barangay foreground service for reliable notifications
         // This ensures barangay officials receive emergency alerts even when app is closed
@@ -149,20 +168,46 @@ public class BackgroundServiceManager {
         // Start background notification service as backup
         startService(context, BackgroundNotificationService.class);
         
-        // Start WorkManager for additional reliability
+        // Start WorkManager for notification and emergency monitoring
         NotificationWorkManager.startNotificationMonitoring(context);
+        NotificationWorkManager.startEmergencyMonitoring(context);
+        Log.d(TAG, "✅ WorkManager emergency monitoring started for barangay");
         
-        Log.d(TAG, "✅ Barangay services started - includes foreground service for reliability");
+        // Schedule periodic service restart alarm (bypasses Doze mode)
+        ServiceRestartAlarmReceiver.scheduleAlarm(context);
+        Log.d(TAG, "✅ Service restart alarm scheduled for barangay");
+        
+        // Check and request battery optimization whitelist
+        BatteryOptimizationHelper.logBatteryOptimizationStatus(context);
+        
+        Log.d(TAG, "✅ Barangay services started - includes foreground service, WorkManager, and alarm for reliability");
     }
     
     /**
      * Starts services specific to seniors
      */
     private static void startSeniorServices(Context context) {
-        Log.d(TAG, "Starting senior-specific services");
+        Log.d(TAG, "👴 Starting senior-specific services");
         
-        // Start background notification service
+        // CRITICAL FIX: Start dedicated senior foreground service for reliable notifications
+        // This ensures seniors receive rescuer response notifications even when app is closed
+        startService(context, SeniorForegroundService.class);
+        
+        // Start background notification service as backup
         startService(context, BackgroundNotificationService.class);
+        
+        // Start WorkManager for notification monitoring
+        NotificationWorkManager.startNotificationMonitoring(context);
+        Log.d(TAG, "✅ WorkManager notification monitoring started for senior");
+        
+        // Schedule periodic service restart alarm (bypasses Doze mode)
+        ServiceRestartAlarmReceiver.scheduleAlarm(context);
+        Log.d(TAG, "✅ Service restart alarm scheduled for senior");
+        
+        // Check and request battery optimization whitelist
+        BatteryOptimizationHelper.logBatteryOptimizationStatus(context);
+        
+        Log.d(TAG, "✅ Senior services started - includes foreground service, WorkManager, and alarm for reliability");
     }
     
     /**

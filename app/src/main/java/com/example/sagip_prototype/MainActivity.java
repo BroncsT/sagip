@@ -158,6 +158,13 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "3. See FIREBASE_APP_CHECK_SETUP.md for complete setup guide");
         }
 
+        // CRITICAL: Check if this activity was opened from an FCM notification click
+        // When app is closed and user clicks notification, Android opens the launcher activity (MainActivity)
+        // We need to forward to the appropriate dashboard with the notification data
+        if (handleFCMNotificationClick()) {
+            return; // Activity will finish and forward to the correct dashboard
+        }
+
         // Check if this is a logout action
         Bundle extras = getIntent().getExtras();
         boolean isLogoutAction = false;
@@ -344,12 +351,19 @@ public class MainActivity extends AppCompatActivity {
                 // Use BackgroundServiceManager to start appropriate services based on user type
                 BackgroundServiceManager.startBackgroundServicesForUser(this, userType);
                 
-                // CRITICAL FIX: Request battery optimization whitelist for emergency users
+                // CRITICAL FIX: Request battery optimization whitelist for all users who need notifications
                 // This ensures background services aren't killed by Android battery optimization
-                if ("rescuer".equals(userType) || "barangay".equals(userType)) {
-                    Log.d(TAG, "🔋 Emergency user detected - requesting battery optimization whitelist");
+                if ("rescuer".equals(userType) || "barangay".equals(userType) || 
+                    "seniors".equals(userType) || "senior".equals(userType)) {
+                    Log.d(TAG, "🔋 User detected (" + userType + ") - requesting battery optimization whitelist");
                     BatteryOptimizationHelper.logBatteryOptimizationStatus(this);
-                    BatteryOptimizationHelper.showBatteryOptimizationDialog(this, null);
+                    runOnUiThread(() -> {
+                        if ("seniors".equals(userType) || "senior".equals(userType)) {
+                            BatteryOptimizationHelper.showBatteryOptimizationForSenior(this);
+                        } else {
+                            BatteryOptimizationHelper.showBatteryOptimizationDialog(this, null);
+                        }
+                    });
                 }
                 
                 // Also start WorkManager for reliable background notifications (FCM alternative)
@@ -406,6 +420,112 @@ public class MainActivity extends AppCompatActivity {
         Intent serviceIntent = new Intent(this, BackgroundNotificationService.class);
         startForegroundService(serviceIntent);
     }
+    
+    /**
+     * Handles FCM notification clicks when app was closed
+     * When app is killed and user clicks an FCM notification, Android opens the launcher activity (MainActivity)
+     * This method checks for notification data and forwards to the appropriate dashboard
+     * 
+     * @return true if notification was handled and activity should finish, false otherwise
+     */
+    private boolean handleFCMNotificationClick() {
+        Intent intent = getIntent();
+        if (intent == null || intent.getExtras() == null) {
+            return false;
+        }
+        
+        Bundle extras = intent.getExtras();
+        String notificationType = extras.getString("type");
+        
+        // Check for emergency SOS notification (for rescuers)
+        if ("emergency_sos".equals(notificationType) || 
+            "true".equals(extras.getString("emergency_sos_clicked")) ||
+            "true".equals(extras.getString("from_emergency_notification"))) {
+            
+            Log.d(TAG, "🚨 FCM notification click detected - Emergency SOS for rescuer");
+            Log.d(TAG, "📋 Notification extras: " + extras);
+            
+            // Forward to Rescuer_Dashboard with all the notification data
+            Intent rescuerIntent = new Intent(this, Rescuer_Dashboard.class);
+            rescuerIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            
+            // Copy all extras to the new intent
+            rescuerIntent.putExtra("emergency_sos_clicked", true);
+            rescuerIntent.putExtra("from_emergency_notification", true);
+            rescuerIntent.putExtra("senior_name", extras.getString("senior_name"));
+            rescuerIntent.putExtra("senior_phone", extras.getString("senior_phone"));
+            rescuerIntent.putExtra("location_address", extras.getString("location_address"));
+            rescuerIntent.putExtra("emergency_type", extras.getString("emergency_type"));
+            rescuerIntent.putExtra("request_id", extras.getString("request_id"));
+            
+            // Parse GPS coordinates
+            String seniorLat = extras.getString("senior_lat");
+            String seniorLng = extras.getString("senior_lng");
+            if (seniorLat != null && !seniorLat.isEmpty() && !"0".equals(seniorLat)) {
+                try {
+                    rescuerIntent.putExtra("senior_lat", Double.parseDouble(seniorLat));
+                } catch (NumberFormatException e) {
+                    Log.w(TAG, "Invalid senior_lat: " + seniorLat);
+                }
+            }
+            if (seniorLng != null && !seniorLng.isEmpty() && !"0".equals(seniorLng)) {
+                try {
+                    rescuerIntent.putExtra("senior_lng", Double.parseDouble(seniorLng));
+                } catch (NumberFormatException e) {
+                    Log.w(TAG, "Invalid senior_lng: " + seniorLng);
+                }
+            }
+            
+            Log.d(TAG, "✅ Forwarding to Rescuer_Dashboard with emergency data");
+            startActivity(rescuerIntent);
+            finish();
+            return true;
+        }
+        
+        // Check for rescuer response notification (for seniors)
+        if ("RESCUER_RESPONSE".equals(notificationType)) {
+            Log.d(TAG, "🚑 FCM notification click detected - Rescuer response for senior");
+            
+            // Forward to Senior_Dashboard with notification data
+            Intent seniorIntent = new Intent(this, Senior_Dashboard.class);
+            seniorIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            
+            seniorIntent.putExtra("notification_id", extras.getString("notification_id", "fcm_" + System.currentTimeMillis()));
+            seniorIntent.putExtra("rescuer_name", extras.getString("rescuerName", extras.getString("rescuer_name")));
+            seniorIntent.putExtra("rescuer_phone", extras.getString("rescuerPhone", extras.getString("rescuer_phone")));
+            seniorIntent.putExtra("rescuer_team", extras.getString("rescuerTeam", extras.getString("rescuer_team")));
+            seniorIntent.putExtra("request_id", extras.getString("requestId", extras.getString("request_id")));
+            
+            Log.d(TAG, "✅ Forwarding to Senior_Dashboard with rescuer response data");
+            startActivity(seniorIntent);
+            finish();
+            return true;
+        }
+        
+        // Check for barangay emergency alert
+        if ("EMERGENCY_ALERT".equals(notificationType)) {
+            Log.d(TAG, "🏢 FCM notification click detected - Emergency alert for barangay");
+            
+            // Forward to Barangay_Dashboard with notification data
+            Intent barangayIntent = new Intent(this, Barangay_Dashboard.class);
+            barangayIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            
+            barangayIntent.putExtra("emergency_alert_clicked", true);
+            barangayIntent.putExtra("senior_name", extras.getString("seniorName", extras.getString("senior_name")));
+            barangayIntent.putExtra("senior_phone", extras.getString("seniorPhone", extras.getString("senior_phone")));
+            barangayIntent.putExtra("location_address", extras.getString("locationAddress", extras.getString("location_address")));
+            barangayIntent.putExtra("barangay", extras.getString("barangay"));
+            barangayIntent.putExtra("emergency_type", extras.getString("emergencyType", extras.getString("emergency_type")));
+            barangayIntent.putExtra("request_id", extras.getString("requestId", extras.getString("request_id")));
+            
+            Log.d(TAG, "✅ Forwarding to Barangay_Dashboard with emergency alert data");
+            startActivity(barangayIntent);
+            finish();
+            return true;
+        }
+        
+        return false;
+    }
 
     private void clearStoredCredentials() {
         Log.d(TAG, "Clearing stored credentials");
@@ -414,8 +534,9 @@ public class MainActivity extends AppCompatActivity {
         editor.remove(KEY_USER_ID);
         editor.remove(KEY_USER_TYPE);
         editor.remove(KEY_USER_PHONE);
-        // Reset fresh install flag so next launch will be treated as fresh
-        editor.putBoolean("FRESH_INSTALL_FLAG", true);
+        // NOTE: Do NOT reset FRESH_INSTALL_FLAG here - it should only be true on actual fresh install
+        // Setting it to true here caused a bug where session restore timeout would trigger
+        // endless logout loop on next app launch
         editor.apply();
         
         // Set logout flag to prevent services from restarting
@@ -851,9 +972,15 @@ public class MainActivity extends AppCompatActivity {
                             
                             // Check if user has MFA enrolled
                             if (user.getMultiFactor().getEnrolledFactors().isEmpty()) {
-                                // No MFA enrolled, prompt to enroll
-                                Log.d(TAG, "No MFA enrolled, prompting enrollment");
-                                showMfaEnrollmentDialog(user);
+                                // No MFA enrolled, check if email is verified first
+                                Log.d(TAG, "No MFA enrolled, checking email verification");
+                                if (user.isEmailVerified()) {
+                                    Log.d(TAG, "Email verified, prompting MFA enrollment");
+                                    showMfaEnrollmentDialog(user);
+                                } else {
+                                    Log.d(TAG, "Email not verified, sending verification email");
+                                    showEmailVerificationDialog(user, true); // true = send email on first show
+                                }
                             } else {
                                 // MFA already enrolled but login succeeded (shouldn't happen normally)
                                 // This means verification was already done
@@ -893,9 +1020,118 @@ public class MainActivity extends AppCompatActivity {
                 });
     }
 
+    // Show email verification dialog before MFA enrollment
+    private void showEmailVerificationDialog(FirebaseUser user, boolean sendEmail) {
+        showProgressBar(false);
+        
+        // Only send verification email if requested (first time showing dialog)
+        if (sendEmail) {
+            user.sendEmailVerification()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        Log.d(TAG, "Verification email sent to: " + user.getEmail());
+                        Toast.makeText(MainActivity.this, 
+                            getString(R.string.email_verification_sent), 
+                            Toast.LENGTH_SHORT).show();
+                    } else {
+                        Log.e(TAG, "Failed to send verification email", task.getException());
+                        // Handle rate limiting
+                        if (task.getException() instanceof com.google.firebase.FirebaseTooManyRequestsException) {
+                            Toast.makeText(MainActivity.this, 
+                                getString(R.string.too_many_requests_try_later), 
+                                Toast.LENGTH_LONG).show();
+                        }
+                    }
+                });
+        }
+        
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(getString(R.string.email_verification_required_title));
+        builder.setMessage(getString(R.string.email_verification_required_message));
+        builder.setIcon(android.R.drawable.ic_dialog_alert);
+        
+        builder.setPositiveButton(getString(R.string.email_verification_check), (dialog, which) -> {
+            // Refresh user to check verification status
+            showProgressBar(true);
+            user.reload().addOnCompleteListener(reloadTask -> {
+                showProgressBar(false);
+                if (reloadTask.isSuccessful()) {
+                    FirebaseUser refreshedUser = auth.getCurrentUser();
+                    if (refreshedUser != null && refreshedUser.isEmailVerified()) {
+                        Log.d(TAG, "Email now verified, proceeding to MFA enrollment");
+                        Toast.makeText(MainActivity.this, 
+                            getString(R.string.email_verified_success), 
+                            Toast.LENGTH_SHORT).show();
+                        showMfaEnrollmentDialog(refreshedUser);
+                    } else {
+                        Toast.makeText(MainActivity.this, 
+                            getString(R.string.email_not_verified_yet), 
+                            Toast.LENGTH_LONG).show();
+                        showEmailVerificationDialog(refreshedUser != null ? refreshedUser : user, false); // Don't resend
+                    }
+                } else {
+                    Log.e(TAG, "Failed to reload user", reloadTask.getException());
+                    auth.signOut();
+                }
+            });
+        });
+        
+        builder.setNeutralButton(getString(R.string.email_verification_resend), (dialog, which) -> {
+            user.sendEmailVerification()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        Toast.makeText(MainActivity.this, 
+                            getString(R.string.email_verification_sent), 
+                            Toast.LENGTH_SHORT).show();
+                    } else {
+                        // Handle rate limiting error
+                        if (task.getException() instanceof com.google.firebase.FirebaseTooManyRequestsException) {
+                            Toast.makeText(MainActivity.this, 
+                                getString(R.string.too_many_requests_try_later), 
+                                Toast.LENGTH_LONG).show();
+                        } else {
+                            Toast.makeText(MainActivity.this, 
+                                getString(R.string.email_verification_send_failed), 
+                                Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                    showEmailVerificationDialog(user, false); // Don't auto-send again
+                });
+        });
+        
+        builder.setNegativeButton(getString(R.string.cancel), (dialog, which) -> {
+            auth.signOut();
+            Toast.makeText(MainActivity.this, 
+                getString(R.string.email_verification_required_login), 
+                Toast.LENGTH_LONG).show();
+        });
+        
+        builder.setCancelable(false);
+        builder.show();
+    }
+
     // Show MFA enrollment dialog for first-time setup
     private void showMfaEnrollmentDialog(FirebaseUser user) {
         showProgressBar(false);
+        
+        // Check if user's first factor is phone-based - SMS MFA is not compatible with phone auth
+        boolean hasPhoneProvider = false;
+        for (com.google.firebase.auth.UserInfo providerData : user.getProviderData()) {
+            if ("phone".equals(providerData.getProviderId())) {
+                hasPhoneProvider = true;
+                break;
+            }
+        }
+        
+        if (hasPhoneProvider) {
+            // User signed in with phone - skip SMS MFA enrollment (phone auth already provides 2FA-like security)
+            Log.d(TAG, "User has phone provider, skipping SMS MFA enrollment (not compatible)");
+            Toast.makeText(MainActivity.this, 
+                getString(R.string.phone_auth_no_mfa_needed), 
+                Toast.LENGTH_SHORT).show();
+            checkUserTypeAndRedirect(user.getUid(), false);
+            return;
+        }
         
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle(getString(R.string.mfa_enrollment_title));
@@ -965,6 +1201,31 @@ public class MainActivity extends AppCompatActivity {
                             public void onVerificationFailed(@NonNull com.google.firebase.FirebaseException e) {
                                 showProgressBar(false);
                                 Log.e(TAG, "MFA enrollment verification failed", e);
+                                
+                                // Check if phone is already used for MFA or if first factor is phone
+                                String errMsg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+                                
+                                // Check for "phone cannot be first factor" error - skip MFA for phone-authenticated users
+                                if (errMsg.contains("first factor") || errMsg.contains("sms based mfa") ||
+                                    errMsg.contains("phone number cannot be set")) {
+                                    Log.d(TAG, "SMS MFA not compatible with phone auth, proceeding without MFA");
+                                    Toast.makeText(MainActivity.this, 
+                                        getString(R.string.phone_auth_no_mfa_needed), 
+                                        Toast.LENGTH_SHORT).show();
+                                    checkUserTypeAndRedirect(user.getUid(), false);
+                                    return;
+                                }
+                                
+                                if (errMsg.contains("already") || errMsg.contains("in use") || 
+                                    errMsg.contains("second factor") || errMsg.contains("credential")) {
+                                    Toast.makeText(MainActivity.this, 
+                                        getString(R.string.mfa_phone_already_used), 
+                                        Toast.LENGTH_LONG).show();
+                                    // Let user try a different phone number
+                                    showMfaEnrollmentDialog(user);
+                                    return;
+                                }
+                                
                                 Toast.makeText(MainActivity.this, 
                                     getString(R.string.mfa_verification_failed) + ": " + e.getMessage(), 
                                     Toast.LENGTH_LONG).show();
@@ -1049,9 +1310,23 @@ public class MainActivity extends AppCompatActivity {
                         checkUserTypeAndRedirect(user.getUid(), false);
                     } else {
                         Log.e(TAG, "MFA enrollment failed", task.getException());
-                        Toast.makeText(MainActivity.this, 
-                            getString(R.string.mfa_enrollment_failed), 
-                            Toast.LENGTH_LONG).show();
+                        String errorMessage = getString(R.string.mfa_enrollment_failed);
+                        
+                        // Check if phone is already used for MFA on another account
+                        Exception exception = task.getException();
+                        if (exception != null && exception.getMessage() != null) {
+                            String msg = exception.getMessage().toLowerCase();
+                            if (msg.contains("already") || msg.contains("in use") || 
+                                msg.contains("second factor") || msg.contains("credential")) {
+                                errorMessage = getString(R.string.mfa_phone_already_used);
+                                // Let user try a different phone number instead of signing out
+                                Toast.makeText(MainActivity.this, errorMessage, Toast.LENGTH_LONG).show();
+                                showMfaEnrollmentDialog(user);
+                                return;
+                            }
+                        }
+                        
+                        Toast.makeText(MainActivity.this, errorMessage, Toast.LENGTH_LONG).show();
                         auth.signOut();
                     }
                 });
@@ -1446,12 +1721,17 @@ public class MainActivity extends AppCompatActivity {
                 break;
         }
 
-        // CRITICAL FIX: Request battery optimization whitelist for emergency users
+        // CRITICAL FIX: Request battery optimization whitelist for all users who need notifications
         // This ensures background services aren't killed by Android battery optimization
-        if ("rescuer".equals(userType) || "barangay".equals(userType)) {
-            Log.d(TAG, "🔋 Emergency user detected - requesting battery optimization whitelist");
+        if ("rescuer".equals(userType) || "barangay".equals(userType) || 
+            "seniors".equals(userType) || "senior".equals(userType)) {
+            Log.d(TAG, "🔋 User detected (" + userType + ") - requesting battery optimization whitelist");
             BatteryOptimizationHelper.logBatteryOptimizationStatus(this);
-            BatteryOptimizationHelper.showBatteryOptimizationDialog(this, null);
+            if ("seniors".equals(userType) || "senior".equals(userType)) {
+                BatteryOptimizationHelper.showBatteryOptimizationForSenior(this);
+            } else {
+                BatteryOptimizationHelper.showBatteryOptimizationDialog(this, null);
+            }
         }
 
         startActivity(dashboardIntent);
@@ -1705,15 +1985,16 @@ public class MainActivity extends AppCompatActivity {
 
         sessionRestoreTimeoutRunnable = () -> {
             if (waitingForSessionRestore) {
-                Log.w(TAG, "Firebase session restore timed out, clearing stored credentials");
+                Log.w(TAG, "Firebase session restore timed out, trying Firestore verification as fallback");
                 stopSessionRestoreWait();
-                showProgressBar(false);
-                setLoginButtonsEnabled(true);
-                clearStoredCredentials();
-                Toast.makeText(MainActivity.this, getString(R.string.session_restore_failed), Toast.LENGTH_SHORT).show();
+                // Instead of immediately clearing credentials, try to verify via Firestore
+                // This allows session to persist even if Firebase Auth has issues
+                verifyStoredCredentialsViaFirestore();
             }
         };
-        sessionRestoreHandler.postDelayed(sessionRestoreTimeoutRunnable, 2500);
+        // Increase timeout to 8 seconds to give Firebase more time to restore session
+        // This is especially important for seniors on slower devices/networks
+        sessionRestoreHandler.postDelayed(sessionRestoreTimeoutRunnable, 8000);
     }
 
     private void stopSessionRestoreWait() {
@@ -1726,6 +2007,58 @@ public class MainActivity extends AppCompatActivity {
             sessionRestoreHandler.removeCallbacks(sessionRestoreTimeoutRunnable);
             sessionRestoreTimeoutRunnable = null;
         }
+    }
+
+    /**
+     * Verify stored credentials via Firestore when Firebase Auth session restore fails.
+     * This allows seniors to stay logged in even if Firebase Auth has issues.
+     */
+    private void verifyStoredCredentialsViaFirestore() {
+        String storedUserId = sharedPreferences.getString(KEY_USER_ID, null);
+        String storedUserType = sharedPreferences.getString(KEY_USER_TYPE, null);
+        
+        if (storedUserId == null || storedUserType == null) {
+            Log.d(TAG, "No stored credentials to verify, showing login screen");
+            showProgressBar(false);
+            setLoginButtonsEnabled(true);
+            return;
+        }
+        
+        Log.d(TAG, "Verifying stored credentials via Firestore for user: " + storedUserId + ", type: " + storedUserType);
+        
+        db.collection("Sagip")
+                .document("users")
+                .collection(storedUserType)
+                .document(storedUserId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    showProgressBar(false);
+                    setLoginButtonsEnabled(true);
+                    
+                    if (documentSnapshot.exists()) {
+                        // User exists in Firestore - trust the stored credentials
+                        Log.d(TAG, "User verified in Firestore, redirecting to dashboard");
+                        Toast.makeText(this, getString(R.string.session_restored), Toast.LENGTH_SHORT).show();
+                        redirectToStoredUserDashboard();
+                    } else {
+                        // User doesn't exist in Firestore - credentials are invalid
+                        Log.w(TAG, "User not found in Firestore, clearing stored credentials");
+                        clearStoredCredentials();
+                        Toast.makeText(this, getString(R.string.session_restore_failed), Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    showProgressBar(false);
+                    setLoginButtonsEnabled(true);
+                    
+                    // Network error - don't immediately logout, give benefit of doubt
+                    Log.e(TAG, "Error verifying credentials via Firestore: " + e.getMessage());
+                    // If we have stored credentials and just can't verify, proceed cautiously
+                    // This prevents logout due to temporary network issues
+                    Log.d(TAG, "Network error during verification, proceeding with stored credentials");
+                    Toast.makeText(this, getString(R.string.session_restored), Toast.LENGTH_SHORT).show();
+                    redirectToStoredUserDashboard();
+                });
     }
 
     private void setLoginButtonsEnabled(boolean enabled) {

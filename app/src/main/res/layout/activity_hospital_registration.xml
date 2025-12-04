@@ -216,25 +216,6 @@
         </com.google.android.material.textfield.TextInputLayout>
 
         <!-- Terms and Conditions -->
-        <com.google.android.material.checkbox.MaterialCheckBox
-            android:id="@+id/termsConditionsCheckbox"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
-            android:text="@string/terms_conditions"
-            android:textColor="#666666"
-            android:textSize="14sp"
-            app:buttonTint="#3E69E0" />
-
-        <com.google.android.material.checkbox.MaterialCheckBox
-            android:id="@+id/privacyPolicyCheckbox"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp"
-            android:text="@string/privacy_policy"
-            android:textColor="#666666"
-            android:textSize="14sp"
-            app:buttonTint="#3E69E0" />
 
         <!-- Submit Button -->
         <com.google.android.material.button.MaterialButton

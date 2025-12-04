@@ -298,13 +298,13 @@ exports.sendHospitalUpdateNotification = functions.firestore
             
             const statusEmoji = getStatusEmoji(hospitalStatus);
             
+            // Use DATA-ONLY message (no notification payload) to ensure onMessageReceived is called
+            // even when the app is closed or in background
             const message = {
-                notification: {
-                    title: '🏥 Hospital Status Updated',
-                    body: `${hospitalName} is now ${statusEmoji} ${hospitalStatus.toUpperCase()}`
-                },
                 data: {
                     type: 'hospital_status_update',
+                    title: '🏥 Hospital Status Updated',
+                    body: `${hospitalName} is now ${statusEmoji} ${hospitalStatus.toUpperCase()}`,
                     hospitalName: hospitalName,
                     hospitalStatus: hospitalStatus,
                     availableBeds: availableBeds.toString(),
@@ -312,20 +312,7 @@ exports.sendHospitalUpdateNotification = functions.firestore
                     timestamp: notificationData.timestamp.toString()
                 },
                 android: {
-                    priority: 'high',
-                    notification: {
-                        sound: 'default',
-                        vibrateTimingsMillis: [0, 500, 200, 500],
-                        lightSettings: {
-                            color: {
-                                red: 0.13,
-                                green: 0.59,
-                                blue: 0.95
-                            },
-                            lightOnDurationMillis: 1000,
-                            lightOffDurationMillis: 1000
-                        }
-                    }
+                    priority: 'high'
                 },
                 tokens: tokens
             };
@@ -410,18 +397,21 @@ exports.sendEmergencyNotification = functions.firestore
             
             const emergencyEmoji = getEmergencyEmoji(emergencyType);
             
+            // Use DATA-ONLY message (no notification payload) to ensure onMessageReceived is called
+            // even when the app is closed or in background
             const message = {
-                notification: {
-                    title: '🚨 EMERGENCY HELP REQUEST',
-                    body: `${seniorName} needs ${emergencyEmoji} ${emergencyType}`
-                },
                 data: {
                     type: 'emergency_help_request',
+                    title: '🚨 EMERGENCY HELP REQUEST',
+                    body: `${seniorName} needs ${emergencyEmoji} ${emergencyType}`,
                     seniorName: seniorName,
                     emergencyType: emergencyType,
                     location: location,
                     phoneNumber: phoneNumber,
                     timestamp: notificationData.timestamp.toString()
+                },
+                android: {
+                    priority: 'high'
                 },
                 tokens: tokens
             };
@@ -526,6 +516,10 @@ exports.sendEmergencySOSNotification = functions.firestore
         
         const emergencyEmoji = getEmergencyEmoji(emergencyType);
         
+        // Use BOTH notification and data payloads for guaranteed delivery
+        // Notification payload ensures delivery even when app is force-closed
+        // Data payload provides context when app handles the notification
+        // IMPORTANT: Key names must match what the Android app expects (snake_case)
         const message = {
             notification: {
                 title: '🚨 EMERGENCY SOS ALERT',
@@ -533,31 +527,29 @@ exports.sendEmergencySOSNotification = functions.firestore
             },
             data: {
                 type: 'emergency_sos',
-                seniorName: seniorName,
-                seniorPhone: notificationData.seniorPhone || '',
-                locationAddress: locationAddress,
-                emergencyType: emergencyType,
-                requestId: notificationData.requestId || '',
+                title: '🚨 EMERGENCY SOS ALERT',
+                body: `${seniorName} needs ${emergencyEmoji} ${emergencyType} help at ${locationAddress}`,
+                // Use snake_case keys to match Android app expectations
+                senior_name: seniorName,
+                senior_phone: notificationData.seniorPhone || '',
+                location_address: locationAddress,
+                emergency_type: emergencyType,
+                request_id: notificationData.requestId || '',
                 timestamp: notificationData.timestamp ? notificationData.timestamp.toString() : Date.now().toString(),
-                seniorLat: notificationData.seniorLat ? notificationData.seniorLat.toString() : '0',
-                seniorLng: notificationData.seniorLng ? notificationData.seniorLng.toString() : '0'
+                senior_lat: notificationData.seniorLat ? notificationData.seniorLat.toString() : '0',
+                senior_lng: notificationData.seniorLng ? notificationData.seniorLng.toString() : '0',
+                // Flags for the app to recognize this is an emergency notification
+                emergency_sos_clicked: 'true',
+                from_emergency_notification: 'true'
             },
             android: {
                 priority: 'high',
                 notification: {
-                    sound: 'default',
                     channelId: 'emergency_sos_channel',
                     priority: 'max',
-                    vibrateTimingsMillis: [0, 1000, 500, 1000],
-                    lightSettings: {
-                        color: {
-                            red: 1.0,
-                            green: 0.0,
-                            blue: 0.0
-                        },
-                        lightOnDurationMillis: 1000,
-                        lightOffDurationMillis: 1000
-                    }
+                    defaultSound: true,
+                    defaultVibrateTimings: true,
+                    visibility: 'public'
                 }
             },
             token: fcmToken
@@ -576,6 +568,220 @@ exports.sendEmergencySOSNotification = functions.firestore
             }
         }
     });
+
+// Function to send FCM notifications for rescuer responses to seniors
+exports.sendRescuerResponseNotification = functions.firestore
+    .document('Sagip/users/seniors/{seniorId}/notifications/{notificationId}')
+    .onCreate(async (snap, context) => {
+        const notificationData = snap.data();
+        const seniorId = context.params.seniorId;
+        
+        // Check if this is a rescuer response notification
+        if (notificationData.type !== 'RESCUER_RESPONSE') {
+            return;
+        }
+        
+        console.log('Rescuer response notification detected for senior:', seniorId);
+        console.log('Notification data:', notificationData);
+        
+        // Get the senior's FCM token
+        const seniorDoc = await admin.firestore()
+            .collection('Sagip/users/seniors')
+            .doc(seniorId)
+            .get();
+        
+        if (!seniorDoc.exists) {
+            console.log('Senior document not found:', seniorId);
+            return;
+        }
+        
+        const fcmToken = seniorDoc.data().fcmToken;
+        if (!fcmToken) {
+            console.log('No FCM token found for senior:', seniorId);
+            return;
+        }
+        
+        // Prepare the FCM message
+        const rescuerName = notificationData.rescuerName || 'A rescuer';
+        const rescuerPhone = notificationData.rescuerPhone || '';
+        const rescuerTeam = notificationData.rescuerTeam || 'Rescue Team';
+        const requestId = notificationData.requestId || '';
+        
+        // Use BOTH notification and data payloads for guaranteed delivery
+        const message = {
+            notification: {
+                title: '🚑 Help is on the way!',
+                body: `${rescuerName} from ${rescuerTeam} is responding to your emergency`
+            },
+            data: {
+                type: 'RESCUER_RESPONSE',
+                title: '🚑 Help is on the way!',
+                message: `${rescuerName} from ${rescuerTeam} is responding to your emergency`,
+                rescuerName: rescuerName,
+                rescuerPhone: rescuerPhone,
+                rescuerTeam: rescuerTeam,
+                requestId: requestId,
+                timestamp: notificationData.timestamp ? notificationData.timestamp.toString() : Date.now().toString(),
+                click_action: 'FLUTTER_NOTIFICATION_CLICK'
+            },
+            android: {
+                priority: 'high',
+                notification: {
+                    channelId: 'senior_emergency_channel',
+                    priority: 'max',
+                    defaultSound: true,
+                    defaultVibrateTimings: true,
+                    visibility: 'public'
+                }
+            },
+            token: fcmToken
+        };
+        
+        try {
+            const response = await admin.messaging().send(message);
+            console.log(`Rescuer response notification sent successfully to senior ${seniorId}:`, response);
+        } catch (error) {
+            console.error(`Failed to send rescuer response notification to senior ${seniorId}:`, error);
+            
+            // If token is invalid, clean it up
+            if (error.code === 'messaging/invalid-registration-token' ||
+                error.code === 'messaging/registration-token-not-registered') {
+                await cleanupInvalidSeniorTokens([fcmToken]);
+            }
+        }
+    });
+
+// Function to send FCM notifications for emergency alerts to barangay officials
+exports.sendBarangayEmergencyAlertNotification = functions.firestore
+    .document('Sagip/users/barangay/{barangayId}/notifications/{notificationId}')
+    .onCreate(async (snap, context) => {
+        const notificationData = snap.data();
+        const barangayId = context.params.barangayId;
+        
+        // Check if this is an emergency alert notification
+        if (notificationData.type !== 'EMERGENCY_ALERT') {
+            return;
+        }
+        
+        console.log('Emergency alert notification detected for barangay:', barangayId);
+        console.log('Notification data:', notificationData);
+        
+        // Get the barangay official's FCM token
+        const barangayDoc = await admin.firestore()
+            .collection('Sagip/users/barangay')
+            .doc(barangayId)
+            .get();
+        
+        if (!barangayDoc.exists) {
+            console.log('Barangay document not found:', barangayId);
+            return;
+        }
+        
+        const fcmToken = barangayDoc.data().fcmToken;
+        if (!fcmToken) {
+            console.log('No FCM token found for barangay:', barangayId);
+            return;
+        }
+        
+        // Prepare the FCM message
+        const seniorName = notificationData.seniorName || 'A senior';
+        const seniorPhone = notificationData.seniorPhone || '';
+        const locationAddress = notificationData.locationAddress || 'Unknown location';
+        const barangay = notificationData.barangay || '';
+        const emergencyType = notificationData.emergencyType || 'medical';
+        const requestId = notificationData.requestId || '';
+        
+        const emergencyEmoji = getEmergencyEmoji(emergencyType);
+        
+        // Use BOTH notification and data payloads for guaranteed delivery
+        const message = {
+            notification: {
+                title: `🚨 EMERGENCY ALERT - ${barangay.toUpperCase()}`,
+                body: `Senior ${seniorName} needs ${emergencyEmoji} ${emergencyType} assistance at ${locationAddress}`
+            },
+            data: {
+                type: 'EMERGENCY_ALERT',
+                title: `🚨 EMERGENCY ALERT - ${barangay.toUpperCase()}`,
+                message: `Senior ${seniorName} needs ${emergencyEmoji} ${emergencyType} assistance`,
+                seniorName: seniorName,
+                seniorPhone: seniorPhone,
+                locationAddress: locationAddress,
+                barangay: barangay,
+                emergencyType: emergencyType,
+                requestId: requestId,
+                timestamp: notificationData.timestamp ? notificationData.timestamp.toString() : Date.now().toString(),
+                click_action: 'FLUTTER_NOTIFICATION_CLICK'
+            },
+            android: {
+                priority: 'high',
+                notification: {
+                    channelId: 'barangay_emergency_channel',
+                    priority: 'max',
+                    defaultSound: true,
+                    defaultVibrateTimings: true,
+                    visibility: 'public'
+                }
+            },
+            token: fcmToken
+        };
+        
+        try {
+            const response = await admin.messaging().send(message);
+            console.log(`Emergency alert notification sent successfully to barangay ${barangayId}:`, response);
+        } catch (error) {
+            console.error(`Failed to send emergency alert notification to barangay ${barangayId}:`, error);
+            
+            // If token is invalid, clean it up
+            if (error.code === 'messaging/invalid-registration-token' ||
+                error.code === 'messaging/registration-token-not-registered') {
+                await cleanupInvalidBarangayTokens([fcmToken]);
+            }
+        }
+    });
+
+// Helper function to clean up invalid senior FCM tokens
+async function cleanupInvalidSeniorTokens(invalidTokens) {
+    const batch = admin.firestore().batch();
+    
+    for (const token of invalidTokens) {
+        const seniorsSnapshot = await admin.firestore()
+            .collection('Sagip/users/seniors')
+            .where('fcmToken', '==', token)
+            .get();
+        
+        seniorsSnapshot.forEach(doc => {
+            batch.update(doc.ref, {
+                fcmToken: admin.firestore.FieldValue.delete(),
+                tokenUpdatedAt: admin.firestore.FieldValue.delete()
+            });
+        });
+    }
+    
+    await batch.commit();
+    console.log('Cleaned up invalid senior FCM tokens');
+}
+
+// Helper function to clean up invalid barangay FCM tokens
+async function cleanupInvalidBarangayTokens(invalidTokens) {
+    const batch = admin.firestore().batch();
+    
+    for (const token of invalidTokens) {
+        const barangaySnapshot = await admin.firestore()
+            .collection('Sagip/users/barangay')
+            .where('fcmToken', '==', token)
+            .get();
+        
+        barangaySnapshot.forEach(doc => {
+            batch.update(doc.ref, {
+                fcmToken: admin.firestore.FieldValue.delete(),
+                tokenUpdatedAt: admin.firestore.FieldValue.delete()
+            });
+        });
+    }
+    
+    await batch.commit();
+    console.log('Cleaned up invalid barangay FCM tokens');
+}
 
 // Helper function to clean up invalid FCM tokens
 async function cleanupInvalidTokens(invalidTokens) {

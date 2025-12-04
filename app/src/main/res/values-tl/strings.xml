@@ -1057,10 +1057,12 @@
     <string name="mfa_invalid_code">Mangyaring maglagay ng wastong 6-digit na code</string>
     <string name="mfa_enrollment_success">Naka-enable na ang two-factor authentication!</string>
     <string name="mfa_enrollment_failed">Nabigo ang pag-enable ng two-factor authentication</string>
+    <string name="mfa_phone_already_used">Ang numerong ito ay nakarehistro na sa two-factor authentication ng ibang account. Mangyaring gumamit ng ibang numero ng telepono.</string>
     <string name="mfa_verify_login_title">I-verify ang Iyong Login</string>
     <string name="mfa_verify_login_message">Naipadala na ang verification code sa %1$s. Ilagay ang code para magpatuloy.</string>
     <string name="mfa_signin_failed">Nabigo ang login verification. Subukan ulit.</string>
     <string name="mfa_no_phone_factor">Walang nahanap na numero ng telepono para sa verification.</string>
+    <string name="phone_auth_no_mfa_needed">Ang phone authentication ay nagbibigay na ng secure na login.</string>
     <string name="verification_successful">Matagumpay ang verification!</string>
     <string name="verify">I-verify</string>
     

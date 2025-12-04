@@ -66,6 +66,11 @@
         <activity
             android:name=".Senior_Details_Activity"
             android:exported="false" />
+        <activity
+            android:name=".SeniorSOSDetailsActivity"
+            android:exported="false"
+            android:label="@string/sos_emergency_details_title"
+            android:screenOrientation="portrait" />
         <!-- Google Maps API Key -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
@@ -237,6 +242,13 @@
             android:name=".BarangayForegroundService"
             android:enabled="true"
             android:exported="false"
+            android:foregroundServiceType="dataSync" />
+            
+        <!-- Senior Foreground Service for reliable rescuer response notifications -->
+        <service
+            android:name=".SeniorForegroundService"
+            android:enabled="true"
+            android:exported="false"
             android:foregroundServiceType="dataSync" />         <!-- Firebase Cloud Messaging Service -->
         <service
             android:name=".FCMNotificationService"
@@ -246,23 +258,11 @@
             </intent-filter>
         </service>
         
-        <!-- Barangay FCM Service for background notifications -->
-        <service
-            android:name=".BarangayFCMService"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.google.firebase.MESSAGING_EVENT" />
-            </intent-filter>
-        </service>
-        
-        <!-- Senior FCM Service for background notifications -->
-        <service
-            android:name=".SeniorFCMService"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.google.firebase.MESSAGING_EVENT" />
-            </intent-filter>
-        </service> <!-- Background Notification Listener Service -->
+        <!-- 
+        NOTE: Only ONE FCM Service can be active at a time.
+        FCMNotificationService handles all notification types for all user types.
+        BarangayFCMService and SeniorFCMService are kept as helper classes but not registered as FCM receivers.
+        --> <!-- Background Notification Listener Service -->
         <service
             android:name=".BackgroundNotificationListener"
             android:enabled="true"
@@ -314,6 +314,17 @@
                 <action android:name="android.intent.action.PACKAGE_REPLACED" />
 
                 <data android:scheme="package" />
+            </intent-filter>
+        </receiver>
+        
+        <!-- Service Restart Alarm Receiver for periodic service health checks -->
+        <!-- This ensures services are restarted even if killed by Android -->
+        <receiver
+            android:name=".ServiceRestartAlarmReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.example.sagip_prototype.RESTART_SERVICES" />
             </intent-filter>
         </receiver>
 

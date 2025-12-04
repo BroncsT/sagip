@@ -142,6 +142,7 @@
     <string name="please_wait">Please wait...</string>
     <string name="restoring_session">Restoring your session...</string>
     <string name="session_restore_failed">Session expired. Please log in again.</string>
+    <string name="session_restored">Session restored successfully</string>
 
     <!-- Image Source Dialog -->
     <string name="select_image_source">Select Image Source</string>
@@ -1105,7 +1106,15 @@
     
     <!-- Authentication and Login -->
     <string name="email_verification_required_title">Email Verification Required</string>
-    <string name="email_verification_required_message">Your email address needs to be verified before you can access your account. A verification email has been sent to %1$s. Please check your email and click the verification link, then try logging in again.</string>
+    <string name="email_verification_required_message">Your email needs to be verified before setting up two-factor authentication. A verification email has been sent. Please check your inbox and click the verification link.</string>
+    <string name="email_verification_check">I\'ve Verified</string>
+    <string name="email_verification_resend">Resend Email</string>
+    <string name="email_verified_success">Email verified successfully!</string>
+    <string name="email_not_verified_yet">Email not verified yet. Please check your inbox and click the verification link.</string>
+    <string name="email_verification_sent">Verification email sent!</string>
+    <string name="email_verification_send_failed">Failed to send verification email. Please try again.</string>
+    <string name="email_verification_required_login">Email verification is required. Please verify your email and log in again.</string>
+    <string name="too_many_requests_try_later">Too many requests. Please try again later.</string>
     
     <!-- Multi-Factor Authentication (MFA) -->
     <string name="mfa_enrollment_title">Set Up Two-Factor Authentication</string>
@@ -1122,10 +1131,12 @@
     <string name="mfa_invalid_code">Please enter a valid 6-digit code</string>
     <string name="mfa_enrollment_success">Two-factor authentication enabled!</string>
     <string name="mfa_enrollment_failed">Failed to enable two-factor authentication</string>
+    <string name="mfa_phone_already_used">This phone number is already registered for two-factor authentication on another account. Please use a different phone number.</string>
     <string name="mfa_verify_login_title">Verify Your Login</string>
     <string name="mfa_verify_login_message">A verification code has been sent to %1$s. Please enter the code to continue.</string>
     <string name="mfa_signin_failed">Login verification failed. Please try again.</string>
     <string name="mfa_no_phone_factor">No phone number found for verification.</string>
+    <string name="phone_auth_no_mfa_needed">Phone authentication already provides secure login.</string>
     <string name="verification_successful">Verification successful!</string>
     <string name="verify">Verify</string>
     
@@ -1257,4 +1268,13 @@
     <string name="barangay_emergency_action_call">📞 CALL SENIOR</string>
     <string name="barangay_emergency_action_navigate">🗺️ NAVIGATE</string>
     <string name="barangay_emergency_action_view">👁️ VIEW DETAILS</string>
+    
+    <!-- Senior SOS Details Activity -->
+    <string name="sos_emergency_details_title">🚨 SOS Emergency Details</string>
+    <string name="emergency_sos">EMERGENCY SOS</string>
+    <string name="senior_information_title">👤 Senior Information</string>
+    <string name="location_information_title">📍 Location Information</string>
+    <string name="request_information_title">📋 Request Information</string>
+    <string name="coordinates_label">📌 Coordinates:</string>
+    <string name="request_id_label">🆔 Request ID:</string>
 </resources>

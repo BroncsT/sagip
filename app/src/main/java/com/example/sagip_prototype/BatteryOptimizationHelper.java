@@ -123,24 +123,48 @@ public class BatteryOptimizationHelper {
     /**
      * Checks and shows battery optimization dialog if needed for emergency users
      * @param context Activity context
-     * @param userType Type of user (rescuer, barangay, etc.)
+     * @param userType Type of user (rescuer, barangay, seniors, etc.)
      */
     public static void checkAndShowBatteryOptimization(Context context, String userType) {
-        // Only show for emergency users (rescuers and barangay)
-        if ("rescuer".equals(userType) || "barangay".equals(userType)) {
-            Log.d(TAG, "🔋 Emergency user detected (" + userType + ") - checking battery optimization");
+        // Show for all users who need reliable notifications (rescuers, barangay, and seniors)
+        if ("rescuer".equals(userType) || "barangay".equals(userType) || 
+            "seniors".equals(userType) || "senior".equals(userType)) {
+            Log.d(TAG, "🔋 User detected (" + userType + ") - checking battery optimization");
             logBatteryOptimizationStatus(context);
             
             // Only show the dialog if not already whitelisted
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !isIgnoringBatteryOptimizations(context)) {
                 // Show dialog after a short delay to ensure UI is ready
-                new  Handler(Looper.getMainLooper()).postDelayed(() -> {
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
                     showBatteryOptimizationDialog(context, () -> {
                         // This runs when user clicks 'Enable' on the dialog
                         Log.d(TAG, "User agreed to enable battery optimization whitelist");
                         requestBatteryOptimizationWhitelist(context);
                     });
                 }, 1000); // 1 second delay
+            }
+        }
+    }
+    
+    /**
+     * Shows battery optimization dialog specifically for seniors
+     * @param context Activity context
+     */
+    public static void showBatteryOptimizationForSenior(Context context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (!isIgnoringBatteryOptimizations(context)) {
+                androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(context);
+                builder.setTitle("🛡️ Enable Emergency Notifications")
+                       .setMessage("To receive notifications when a rescuer responds to your emergency, please allow SAGIP to run in the background. This ensures you won't miss important updates even when the app is closed.")
+                       .setPositiveButton("Enable", (dialog, which) -> {
+                           Log.d(TAG, "Senior agreed to enable battery optimization whitelist");
+                           requestBatteryOptimizationWhitelist(context);
+                       })
+                       .setNegativeButton("Not Now", (dialog, which) -> {
+                           Log.w(TAG, "Senior declined battery optimization whitelist - notifications may be unreliable");
+                       })
+                       .setCancelable(false)
+                       .show();
             }
         }
     }

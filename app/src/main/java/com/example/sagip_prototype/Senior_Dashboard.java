@@ -66,6 +66,7 @@ public class Senior_Dashboard extends AppCompatActivity {
     private static final String KEY_USER_PHONE = "userPhone";
     private static final String KEY_CACHED_FULL_NAME = "cachedFullName";
     private static final String KEY_NOTIFICATION_TOAST_SHOWN = "notificationToastShown";
+    private static final String KEY_LOGIN_TIMESTAMP = "loginTimestamp";
     
     FirebaseAuth mAuth;
     FirebaseFirestore db;
@@ -137,6 +138,8 @@ public class Senior_Dashboard extends AppCompatActivity {
         // Start listening for rescuer response notifications immediately
         SeniorNotificationService.getInstance(this).startListening();
         
+        // CRITICAL FIX: Start senior foreground service for reliable notifications when app is closed
+        startSeniorForegroundService();
         
         // Test functionality removed - notification system is working
         
@@ -145,6 +148,9 @@ public class Senior_Dashboard extends AppCompatActivity {
         
         // Register for FCM notifications
         registerForFCMNotifications();
+        
+        // Check battery optimization for reliable notifications
+        BatteryOptimizationHelper.checkAndShowBatteryOptimization(this, "seniors");
         
         // Register broadcast receiver for immediate popup
         registerRescuerAcceptedReceiver();
@@ -363,13 +369,12 @@ public class Senior_Dashboard extends AppCompatActivity {
                         currentLong = location.getLongitude();
                         createEmergencyWithLocation(seniorName, phoneNumber, location.getLatitude(), location.getLongitude());
                     } else {
-                        Log.w(TAG, "⚠️ No last known location, requesting fresh location update...");
+                        Log.w(TAG, "📍 No last known location available");
                         requestFreshLocationAndSendSOS(seniorName, phoneNumber);
                     }
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "❌ Error getting last known location: " + e.getMessage());
-                    Log.w(TAG, "⚠️ Requesting fresh location update...");
                     requestFreshLocationAndSendSOS(seniorName, phoneNumber);
                 });
     }
@@ -1052,10 +1057,12 @@ private void attemptSessionRestore() {
         editor.putBoolean(KEY_IS_LOGGED_IN, true);
         editor.putString(KEY_USER_ID, usrId);
         editor.putString(KEY_USER_TYPE, usrType);
+        editor.putLong(KEY_LOGIN_TIMESTAMP, System.currentTimeMillis());
         if (phoneNumber != null) {
             editor.putString(KEY_USER_PHONE, phoneNumber);
         }
-        editor.apply();
+        // Use commit() instead of apply() for immediate persistence
+        editor.commit();
     }
 
     private void clearStoredCredentials() {
@@ -1069,8 +1076,10 @@ private void attemptSessionRestore() {
         editor.remove(KEY_USER_ID);
         editor.remove(KEY_USER_TYPE);
         editor.remove(KEY_USER_PHONE);
+        editor.remove(KEY_LOGIN_TIMESTAMP);
         editor.remove(KEY_NOTIFICATION_TOAST_SHOWN); // Reset notification toast flag
-        editor.apply();
+        // Use commit() instead of apply() for immediate persistence
+        editor.commit();
     }
 
     private void navigateToLogin() {
@@ -1816,6 +1825,24 @@ private void attemptSessionRestore() {
         } catch (Exception e) {
             Log.e(TAG, "Error opening notification settings", e);
             Toast.makeText(this, getString(R.string.toast_could_not_open_settings), Toast.LENGTH_LONG).show();
+        }
+    }
+    
+    /**
+     * Starts the senior foreground service for reliable notifications when app is closed
+     */
+    private void startSeniorForegroundService() {
+        Log.d(TAG, "🛡️ Starting senior foreground service for reliable notifications");
+        try {
+            Intent serviceIntent = new Intent(this, SeniorForegroundService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent);
+            } else {
+                startService(serviceIntent);
+            }
+            Log.d(TAG, "✅ Senior foreground service started");
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Failed to start senior foreground service: " + e.getMessage(), e);
         }
     }
     

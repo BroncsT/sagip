@@ -147,6 +147,65 @@ public class FCMNotificationService extends FirebaseMessagingService {
             } else {
                 Log.w(TAG, "⚠️ Emergency SOS notification missing required data - seniorName: " + seniorName + ", locationAddress: " + locationAddress);
             }
+        } else if ("RESCUER_RESPONSE".equals(type)) {
+            // Handle rescuer response notifications for seniors
+            SharedPreferences sharedPreferences = getSharedPreferences("SagipAppPrefs", MODE_PRIVATE);
+            String userType = sharedPreferences.getString("userType", null);
+            
+            if (!"seniors".equals(userType) && !"senior".equals(userType)) {
+                Log.d(TAG, "🚫 Skipping rescuer response notification - user is not a senior (userType: " + userType + ")");
+                return;
+            }
+            
+            String title = data.get("title");
+            String message = data.get("message");
+            String rescuerName = data.get("rescuerName");
+            String rescuerPhone = data.get("rescuerPhone");
+            String rescuerTeam = data.get("rescuerTeam");
+            String requestId = data.get("requestId");
+            
+            Log.d(TAG, "🚑 Rescuer response notification received for senior - Rescuer: " + rescuerName);
+            
+            showRescuerResponseNotification(
+                title != null ? title : "🚑 Help is on the way!",
+                message != null ? message : rescuerName + " is responding to your emergency",
+                rescuerName, rescuerPhone, rescuerTeam, requestId
+            );
+        } else if ("EMERGENCY_ALERT".equals(type)) {
+            // Handle emergency alert notifications for barangay users
+            SharedPreferences sharedPreferences = getSharedPreferences("SagipAppPrefs", MODE_PRIVATE);
+            String userType = sharedPreferences.getString("userType", null);
+            
+            if (!"barangay".equals(userType)) {
+                Log.d(TAG, "🚫 Skipping emergency alert notification - user is not barangay (userType: " + userType + ")");
+                return;
+            }
+            
+            String title = data.get("title");
+            String message = data.get("message");
+            String seniorName = data.get("seniorName");
+            String seniorPhone = data.get("seniorPhone");
+            String locationAddress = data.get("locationAddress");
+            String barangay = data.get("barangay");
+            String requestId = data.get("requestId");
+            String emergencyType = data.get("emergencyType");
+            
+            Log.d(TAG, "🚨 Emergency alert notification received for barangay - Senior: " + seniorName);
+            
+            showBarangayEmergencyAlertNotification(
+                title != null ? title : "🚨 Emergency Alert in " + barangay,
+                message != null ? message : "Senior " + seniorName + " needs emergency assistance",
+                seniorName, seniorPhone, locationAddress, barangay, requestId, emergencyType
+            );
+        } else {
+            // Handle generic data messages with title and body
+            String title = data.get("title");
+            String body = data.get("body");
+            
+            if (title != null && body != null) {
+                Log.d(TAG, "📱 Generic data message received: " + title);
+                showSimpleNotification(title, body);
+            }
         }
     }
     
@@ -423,6 +482,195 @@ public class FCMNotificationService extends FirebaseMessagingService {
             Log.d(TAG, "✅ Emergency SOS notification shown for: " + seniorName);
         } else {
             Log.e(TAG, "❌ NotificationManager is null, cannot show emergency SOS notification");
+        }
+    }
+    
+    /**
+     * Shows rescuer response notification for seniors
+     * Called when a rescuer accepts an emergency request
+     */
+    private void showRescuerResponseNotification(String title, String message, String rescuerName,
+                                                 String rescuerPhone, String rescuerTeam, String requestId) {
+        Log.d(TAG, "🚑 Showing rescuer response notification from: " + rescuerName);
+        createSeniorNotificationChannel();
+        
+        Intent intent = new Intent(this, Senior_Dashboard.class);
+        intent.putExtra("notification_id", "fcm_" + System.currentTimeMillis());
+        intent.putExtra("rescuer_name", rescuerName);
+        intent.putExtra("rescuer_phone", rescuerPhone);
+        intent.putExtra("rescuer_team", rescuerTeam);
+        intent.putExtra("request_id", requestId);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this,
+                (int) System.currentTimeMillis(),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        
+        String channelId = "senior_emergency_channel";
+        Notification notification = new NotificationCompat.Builder(this, channelId)
+                .setSmallIcon(R.drawable.baseline_notifications_active_24)
+                .setContentTitle(title)
+                .setContentText(message)
+                .setStyle(new NotificationCompat.BigTextStyle()
+                        .bigText("🚑 HELP IS ON THE WAY! 🚑\n\n" +
+                                "Rescuer: " + rescuerName + "\n" +
+                                "Phone: " + rescuerPhone + "\n" +
+                                "Team: " + (rescuerTeam != null ? rescuerTeam : "Rescue Team") + "\n" +
+                                (requestId != null ? "Request ID: " + requestId : "") +
+                                "\n\nStay calm, help is coming!"))
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+                .setSound(getCustomAlarmSound())
+                .setVibrate(new long[]{0, 1000, 500, 1000})
+                .setLights(0xFF00FF00, 1000, 1000) // Green light for positive news
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setFullScreenIntent(pendingIntent, true)
+                .build();
+        
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (notificationManager != null) {
+            notificationManager.notify((int) System.currentTimeMillis(), notification);
+            Log.d(TAG, "📤 Rescuer response notification sent to senior");
+        }
+    }
+    
+    /**
+     * Shows emergency alert notification for barangay officials
+     * Called when a senior triggers an emergency SOS in the barangay's area
+     */
+    private void showBarangayEmergencyAlertNotification(String title, String message, String seniorName,
+                                                        String seniorPhone, String locationAddress,
+                                                        String barangay, String requestId, String emergencyType) {
+        Log.d(TAG, "🚨 Showing barangay emergency alert notification for: " + seniorName);
+        createBarangayNotificationChannel();
+        
+        Intent intent = new Intent(this, Barangay_Dashboard.class);
+        intent.putExtra("notification_id", "fcm_" + System.currentTimeMillis());
+        intent.putExtra("senior_name", seniorName);
+        intent.putExtra("senior_phone", seniorPhone);
+        intent.putExtra("location_address", locationAddress);
+        intent.putExtra("barangay", barangay);
+        intent.putExtra("request_id", requestId);
+        intent.putExtra("emergency_type", emergencyType);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this,
+                (int) System.currentTimeMillis(),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        
+        // Add call action button
+        Intent callIntent = new Intent(Intent.ACTION_DIAL);
+        callIntent.setData(Uri.parse("tel:" + seniorPhone));
+        PendingIntent callPendingIntent = PendingIntent.getActivity(
+                this,
+                (int) System.currentTimeMillis() + 1,
+                callIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        
+        String emergencyEmoji = getEmergencyEmoji(emergencyType != null ? emergencyType : "medical");
+        
+        String channelId = "barangay_emergency_channel";
+        Notification notification = new NotificationCompat.Builder(this, channelId)
+                .setSmallIcon(R.drawable.baseline_notifications_active_24)
+                .setContentTitle("🚨 EMERGENCY ALERT - " + (barangay != null ? barangay.toUpperCase() : "BARANGAY"))
+                .setContentText(message)
+                .setStyle(new NotificationCompat.BigTextStyle()
+                        .bigText("🚨 EMERGENCY ALERT 🚨\n\n" +
+                                "SENIOR: " + (seniorName != null ? seniorName.toUpperCase() : "Unknown") + "\n" +
+                                "PHONE: " + (seniorPhone != null ? seniorPhone : "N/A") + "\n" +
+                                "LOCATION: " + (locationAddress != null ? locationAddress : "Unknown") + "\n" +
+                                "BARANGAY: " + (barangay != null ? barangay.toUpperCase() : "Unknown") + "\n" +
+                                "EMERGENCY TYPE: " + emergencyEmoji + " " + (emergencyType != null ? emergencyType : "Unknown") + "\n\n" +
+                                "IMMEDIATE ACTION REQUIRED!"))
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setAutoCancel(false) // Don't auto-cancel - user must manually dismiss
+                .setOngoing(true) // Make it ongoing so it can't be swiped away
+                .setContentIntent(pendingIntent)
+                .setSound(getCustomAlarmSound())
+                .setVibrate(new long[]{0, 1000, 200, 1000, 200, 1000, 200, 1000, 200, 1000})
+                .setLights(0xFFFF0000, 500, 500) // Red light, faster blinking
+                .setColor(0xFFFF0000) // Red color
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setFullScreenIntent(pendingIntent, true)
+                .addAction(R.drawable.baseline_notifications_active_24, "CALL SENIOR", callPendingIntent)
+                .addAction(R.drawable.baseline_notifications_active_24, "VIEW DETAILS", pendingIntent)
+                .build();
+        
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (notificationManager != null) {
+            notificationManager.notify(8888, notification); // Use fixed ID for barangay emergency
+            Log.d(TAG, "🚨 Barangay emergency alert notification sent");
+        }
+    }
+    
+    /**
+     * Creates notification channel for senior users
+     */
+    private void createSeniorNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            String channelId = "senior_emergency_channel";
+            NotificationChannel channel = new NotificationChannel(
+                channelId,
+                "Senior Emergency Updates",
+                NotificationManager.IMPORTANCE_HIGH
+            );
+            channel.setDescription("Emergency notifications for senior users");
+            channel.enableVibration(true);
+            channel.setShowBadge(true);
+            channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+            channel.enableLights(true);
+            channel.setLightColor(0xFF00FF00);
+            channel.setSound(getCustomAlarmSound(), new android.media.AudioAttributes.Builder()
+                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                .build());
+            
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            if (notificationManager != null) {
+                notificationManager.createNotificationChannel(channel);
+                Log.d(TAG, "✅ Senior notification channel created");
+            }
+        }
+    }
+    
+    /**
+     * Creates notification channel for barangay officials
+     */
+    private void createBarangayNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            String channelId = "barangay_emergency_channel";
+            NotificationChannel channel = new NotificationChannel(
+                channelId,
+                "🚨 EMERGENCY ALERTS",
+                NotificationManager.IMPORTANCE_HIGH
+            );
+            channel.setDescription("Critical emergency notifications for barangay officials - Maximum priority alerts");
+            channel.enableVibration(true);
+            channel.setShowBadge(true);
+            channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+            channel.enableLights(true);
+            channel.setLightColor(0xFFFF0000); // Red light
+            channel.setBypassDnd(true); // Bypass Do Not Disturb
+            channel.setSound(getCustomAlarmSound(), new android.media.AudioAttributes.Builder()
+                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                .build());
+            
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            if (notificationManager != null) {
+                notificationManager.createNotificationChannel(channel);
+                Log.d(TAG, "✅ Barangay notification channel created");
+            }
         }
     }
     

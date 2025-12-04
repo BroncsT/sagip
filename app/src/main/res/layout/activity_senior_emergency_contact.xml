@@ -48,18 +48,6 @@
                     android:textSize="24sp"
                     android:textStyle="bold" />
 
-                <TextView
-                    android:id="@+id/contactCount"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:background="@color/light_blue"
-                    android:paddingHorizontal="12dp"
-                    android:paddingVertical="6dp"
-                    android:text="@string/contact_count_format"
-                    android:textColor="@color/gray"
-                    android:textSize="14sp" />
-
             </LinearLayout>
 
             <TextView

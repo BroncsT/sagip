@@ -326,8 +326,21 @@ public class Hospital_Registration extends AppCompatActivity {
             public void onVerificationFailed(@NonNull FirebaseException e) {
                 if (!isFinishing() && !isDestroyed()) {
                     Log.e("Hospital_Registration", "Firebase verification failed: " + e.getMessage(), e);
-                    String errorMessage = "Verification failed. Please check your internet connection and try again.";
-                    Toast.makeText(Hospital_Registration.this, errorMessage, Toast.LENGTH_LONG).show();
+                    String errorMsg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+                    
+                    // Check if error is due to MFA incompatibility
+                    if (errorMsg.contains("first factor") || 
+                        errorMsg.contains("sms based mfa") ||
+                        errorMsg.contains("multi-factor") ||
+                        errorMsg.contains("second factor")) {
+                        // MFA conflict - skip phone verification and save data without linking phone
+                        Log.d("Hospital_Registration", "Phone verification failed due to MFA. Saving data without phone linking.");
+                        Toast.makeText(Hospital_Registration.this, getString(R.string.phone_auth_no_mfa_needed), Toast.LENGTH_SHORT).show();
+                        saveUserData(pendingHospitalName, pendingAddress, pendingPhoneNumber, pendingErBeds, pendingErDoctors, pendingUid, pendingUserEmail);
+                    } else {
+                        String errorMessage = "Verification failed. Please check your internet connection and try again.";
+                        Toast.makeText(Hospital_Registration.this, errorMessage, Toast.LENGTH_LONG).show();
+                    }
                 }
             }
 
@@ -424,7 +437,20 @@ public class Hospital_Registration extends AppCompatActivity {
                                 Toast.makeText(Hospital_Registration.this, getString(R.string.phone_verified), Toast.LENGTH_SHORT).show();
                                 saveUserData(pendingHospitalName, pendingAddress, pendingPhoneNumber, pendingErBeds, pendingErDoctors, pendingUid, pendingUserEmail);
                             } else {
-                                Toast.makeText(Hospital_Registration.this, String.format(getString(R.string.phone_verification_failed_format), task.getException().getMessage()), Toast.LENGTH_SHORT).show();
+                                // Check if error is due to MFA incompatibility
+                                String errorMsg = task.getException() != null ? task.getException().getMessage() : "";
+                                if (errorMsg.toLowerCase().contains("first factor") || 
+                                    errorMsg.toLowerCase().contains("sms based mfa") ||
+                                    errorMsg.toLowerCase().contains("multi-factor") ||
+                                    errorMsg.toLowerCase().contains("second factor")) {
+                                    // MFA conflict - phone verified but can't link to email account
+                                    // Save phone number to Firestore anyway (for contact purposes)
+                                    Log.d("Hospital_Registration", "Phone verified but can't link due to MFA. Saving to Firestore only.");
+                                    Toast.makeText(Hospital_Registration.this, getString(R.string.phone_verified), Toast.LENGTH_SHORT).show();
+                                    saveUserData(pendingHospitalName, pendingAddress, pendingPhoneNumber, pendingErBeds, pendingErDoctors, pendingUid, pendingUserEmail);
+                                } else {
+                                    Toast.makeText(Hospital_Registration.this, String.format(getString(R.string.phone_verification_failed_format), task.getException().getMessage()), Toast.LENGTH_SHORT).show();
+                                }
                             }
                         }
                     });

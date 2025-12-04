@@ -137,6 +137,24 @@ public class Rescuer_Registration extends BaseRescuerActivity {
     private void handleVerificationError(FirebaseException e) {
         if (isFinishing() || isDestroyed()) return;
         
+        String errorMsg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+        
+        // Check if error is due to MFA incompatibility
+        if (errorMsg.contains("first factor") || 
+            errorMsg.contains("sms based mfa") ||
+            errorMsg.contains("multi-factor") ||
+            errorMsg.contains("second factor")) {
+            // MFA conflict - skip phone verification and save data without linking phone
+            Log.d(TAG, "Phone verification failed due to MFA. Saving data without phone linking.");
+            runOnUiThread(() -> {
+                if (!isFinishing() && !isDestroyed()) {
+                    Toast.makeText(Rescuer_Registration.this, getString(R.string.phone_auth_no_mfa_needed), Toast.LENGTH_SHORT).show();
+                    saveUserDataToFirestore();
+                }
+            });
+            return;
+        }
+        
         String errorMessage;
         if (e instanceof FirebaseTooManyRequestsException) {
             errorMessage = "Too many attempts. Please try again in 30 minutes.";
@@ -275,7 +293,20 @@ public class Rescuer_Registration extends BaseRescuerActivity {
                                 Toast.makeText(Rescuer_Registration.this, getString(R.string.phone_verified), Toast.LENGTH_SHORT).show();
                                 saveUserDataToFirestore();
                             } else {
-                                Toast.makeText(Rescuer_Registration.this, String.format(getString(R.string.phone_verification_failed_format), task.getException().getMessage()), Toast.LENGTH_SHORT).show();
+                                // Check if error is due to MFA incompatibility
+                                String errorMsg = task.getException() != null ? task.getException().getMessage() : "";
+                                if (errorMsg.toLowerCase().contains("first factor") || 
+                                    errorMsg.toLowerCase().contains("sms based mfa") ||
+                                    errorMsg.toLowerCase().contains("multi-factor") ||
+                                    errorMsg.toLowerCase().contains("second factor")) {
+                                    // MFA conflict - phone verified but can't link to email account
+                                    // Save phone number to Firestore anyway (for contact purposes)
+                                    Log.d("Rescuer_Registration", "Phone verified but can't link due to MFA. Saving to Firestore only.");
+                                    Toast.makeText(Rescuer_Registration.this, getString(R.string.phone_verified), Toast.LENGTH_SHORT).show();
+                                    saveUserDataToFirestore();
+                                } else {
+                                    Toast.makeText(Rescuer_Registration.this, String.format(getString(R.string.phone_verification_failed_format), task.getException().getMessage()), Toast.LENGTH_SHORT).show();
+                                }
                             }
                         }
                     });
