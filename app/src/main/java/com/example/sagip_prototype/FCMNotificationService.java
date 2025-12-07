@@ -124,13 +124,14 @@ public class FCMNotificationService extends FirebaseMessagingService {
                 return;
             }
             
-            String seniorName = data.get("seniorName");
-            String seniorPhone = data.get("seniorPhone");
-            String locationAddress = data.get("locationAddress");
-            String emergencyType = data.get("emergencyType");
-            String requestId = data.get("requestId");
-            String seniorLat = data.get("seniorLat");
-            String seniorLng = data.get("seniorLng");
+            // Support both snake_case (from Firebase Functions) and camelCase (legacy) keys
+            String seniorName = data.get("senior_name") != null ? data.get("senior_name") : data.get("seniorName");
+            String seniorPhone = data.get("senior_phone") != null ? data.get("senior_phone") : data.get("seniorPhone");
+            String locationAddress = data.get("location_address") != null ? data.get("location_address") : data.get("locationAddress");
+            String emergencyType = data.get("emergency_type") != null ? data.get("emergency_type") : data.get("emergencyType");
+            String requestId = data.get("request_id") != null ? data.get("request_id") : data.get("requestId");
+            String seniorLat = data.get("senior_lat") != null ? data.get("senior_lat") : data.get("seniorLat");
+            String seniorLng = data.get("senior_lng") != null ? data.get("senior_lng") : data.get("seniorLng");
             
             Log.d(TAG, "🚨 Emergency SOS notification received for rescuer - Senior: " + seniorName);
             

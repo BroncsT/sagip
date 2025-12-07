@@ -187,7 +187,7 @@ public class MainActivity extends AppCompatActivity {
             Log.d(TAG, "Fresh install detected in onCreate, forcing clean state");
             auth.signOut();
             clearStoredCredentials();
-            sharedPreferences.edit().putBoolean("FRESH_INSTALL_FLAG", false).apply();
+            sharedPreferences.edit().putBoolean("FRESH_INSTALL_FLAG", false).commit();
             showLoginScreen();
             return;
         }
@@ -255,7 +255,7 @@ public class MainActivity extends AppCompatActivity {
                 auth.signOut();
             }
             clearStoredCredentials();
-            sharedPreferences.edit().putBoolean("FRESH_INSTALL_FLAG", false).apply();
+            sharedPreferences.edit().putBoolean("FRESH_INSTALL_FLAG", false).commit();
         }
     }
 
@@ -276,7 +276,7 @@ public class MainActivity extends AppCompatActivity {
                 auth.signOut();
             }
             clearStoredCredentials();
-            sharedPreferences.edit().putBoolean("FRESH_INSTALL_FLAG", false).apply();
+            sharedPreferences.edit().putBoolean("FRESH_INSTALL_FLAG", false).commit();
             return false;
         }
 
@@ -297,10 +297,12 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "  - hasFirebaseUser: " + hasFirebaseUser);
         Log.d(TAG, "  - Current Firebase user: " + (currentUser != null ? currentUser.getUid() : "null"));
 
-        // If no Firebase user is authenticated, force login screen
+        // If no Firebase user is authenticated, don't immediately clear credentials
+        // Firebase Auth session restoration can take time when app reopens
+        // Let the session restore mechanism handle this instead of clearing immediately
         if (currentUser == null) {
-            Log.d(TAG, "No authenticated Firebase user, forcing login screen");
-            clearStoredCredentials();
+            Log.d(TAG, "No authenticated Firebase user yet, returning false but NOT clearing credentials");
+            Log.d(TAG, "Session restore will be attempted separately");
             return false;
         }
 
@@ -331,7 +333,9 @@ public class MainActivity extends AppCompatActivity {
         }
         // Clear fresh install flag since user has now logged in
         editor.putBoolean("FRESH_INSTALL_FLAG", false);
-        editor.apply();
+        // Use commit() instead of apply() for immediate, synchronous persistence
+        // This is critical for seniors to prevent session loss when app is closed
+        editor.commit();
         
         // Also save to user_prefs for notification services
         SharedPreferences userPrefs = getSharedPreferences("user_prefs", MODE_PRIVATE);
@@ -343,7 +347,8 @@ public class MainActivity extends AppCompatActivity {
         }
         // Clear logout flag since user is now logged in
         userEditor.putBoolean("user_logged_out", false);
-        userEditor.apply();
+        // Use commit() for immediate persistence
+        userEditor.commit();
         
         // Start notification services in background thread to prevent ANR
         new Thread(() -> {
@@ -537,7 +542,8 @@ public class MainActivity extends AppCompatActivity {
         // NOTE: Do NOT reset FRESH_INSTALL_FLAG here - it should only be true on actual fresh install
         // Setting it to true here caused a bug where session restore timeout would trigger
         // endless logout loop on next app launch
-        editor.apply();
+        // Use commit() for immediate synchronous persistence
+        editor.commit();
         
         // Set logout flag to prevent services from restarting
         SharedPreferences userPrefs = getSharedPreferences("user_prefs", MODE_PRIVATE);
@@ -546,7 +552,8 @@ public class MainActivity extends AppCompatActivity {
         userEditor.remove("user_id");
         userEditor.remove("user_type");
         userEditor.remove("user_phone");
-        userEditor.apply();
+        // Use commit() for immediate synchronous persistence
+        userEditor.commit();
         
         // Stop all background services and clear notifications
         BackgroundServiceManager.stopAllBackgroundServices(this);

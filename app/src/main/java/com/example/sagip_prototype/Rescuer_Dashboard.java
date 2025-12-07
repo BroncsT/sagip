@@ -94,8 +94,8 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
 
     private static final String TAG = "RescuerDashboard";
     
-    // MediaPlayer for emergency sound playback
-    private MediaPlayer currentEmergencySoundPlayer = null;
+    // MediaPlayer for emergency sound playback - STATIC so it can be stopped even after activity recreation
+    private static MediaPlayer currentEmergencySoundPlayer = null;
     
     // Emergency item class for FIFO queue management
     private static class EmergencyItem {
@@ -675,6 +675,10 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     private AlertDialog currentEmergencyDialog; // Track current emergency popup
     private String currentEmergencyRequestId; // Track which emergency the dialog is showing
     
+    // CRITICAL FIX: Static flag to indicate if dashboard is active
+    // This is used by EmergencySOSBackgroundService to defer to dashboard for in-app alerts
+    public static volatile boolean isDashboardActive = false;
+    
     // SOS Emergency List - REMOVED
     private androidx.recyclerview.widget.RecyclerView sosEmergencyRecyclerView;
     private SOSEmergencyAdapter sosEmergencyAdapter;
@@ -768,12 +772,19 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
+        // CRITICAL: Set dashboard active flag EARLY in onCreate to prevent race conditions
+        isDashboardActive = true;
+        Log.d(TAG, "📱 [ON_CREATE] Dashboard active flag set to TRUE early in onCreate");
+        
         // STOP ALL EMERGENCY SOUNDS AND DISMISS NOTIFICATIONS IMMEDIATELY
         Intent intent = getIntent();
         if (intent != null) {
             boolean isFromNotification = intent.getBooleanExtra("emergency_sos_clicked", false) || 
                                        intent.getBooleanExtra("from_emergency_notification", false);
+            Log.d(TAG, "🔍 [ON_CREATE] isFromNotification: " + isFromNotification);
             if (isFromNotification) {
+                Log.d(TAG, "🔇🔇🔇 [ON_CREATE] NOTIFICATION CLICKED - STOPPING ALL SOUNDS NOW! 🔇🔇🔇");
+                
                 // Cancel ALL notifications immediately to stop the notification sound
                 NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
                 if (notificationManager != null) {
@@ -781,7 +792,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                     Log.d(TAG, "🔕 [ON_CREATE] Canceled all notifications to stop sound");
                 }
                 
-                // Stop MediaPlayer sounds
+                // Stop MediaPlayer sounds from both dashboard and background service
                 stopEmergencySound();
                 EmergencySOSBackgroundService.dismissAllEmergencyNotifications();
                 Log.d(TAG, "🔇 [ON_CREATE] All emergency sounds stopped immediately in onCreate");
@@ -912,9 +923,19 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         setIntent(intent);
         
         // STOP ALL EMERGENCY SOUNDS IMMEDIATELY when notification is clicked
+        // Stop both dashboard MediaPlayer and background service MediaPlayer
         stopEmergencySound(); // Stop dashboard sound (with volume muting + buffer clearing)
         EmergencySOSBackgroundService.dismissAllEmergencyNotifications(); // Stop background service sound AND dismiss notifications
         cancelAllSystemNotifications(); // Cancel all system notifications to stop notification channel sounds
+        
+        // Also reset the emergency dialog state to prevent stuck dialogs
+        synchronized (dialogLock) {
+            if (currentEmergencyDialog != null && currentEmergencyDialog.isShowing()) {
+                // Don't dismiss here - let handleNotificationClick handle it
+                Log.d(TAG, "🔇 [ON_NEW_INTENT] Emergency dialog is showing, will be handled by handleNotificationClick");
+            }
+        }
+        
         Log.d(TAG, "🔇 [ON_NEW_INTENT] All emergency sounds stopped immediately (dashboard + background + notifications)");
         
         handleNotificationClick();
@@ -923,6 +944,12 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     @Override
     protected void onResume() {
         super.onResume();
+        
+        // CRITICAL FIX: Mark dashboard as active so background service doesn't steal notifications
+        isDashboardActive = true;
+        SharedPreferences prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+        prefs.edit().putBoolean("dashboard_active", true).apply();
+        Log.d(TAG, "📱 Dashboard is now ACTIVE - background service will defer to dashboard for alerts");
 
         // Load cached display name immediately when returning to dashboard
         loadCachedDisplayName();
@@ -962,7 +989,6 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         }
 
         // Check if user is still logged in before starting emergency listener
-        SharedPreferences prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
         boolean isLoggedOut = prefs.getBoolean("user_logged_out", false);
         if (executorService != null) {
             executorService.shutdown();
@@ -988,10 +1014,14 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         
         // CRITICAL FIX: Start emergency listeners after cleanup
         // This ensures rescuers receive notifications when app is active
+        Log.d(TAG, "🔍 [ONRESUME] Checking if listeners should start - userId: " + userId + ", userType: " + userType);
         if (userId != null && userType != null && "rescuer".equals(userType)) {
-            Log.d(TAG, "🚨 Starting emergency listeners in onResume()");
+            Log.d(TAG, "🚨 [ONRESUME] Starting emergency listeners in onResume()");
             startEmergencyListener(); // Listen to global activeEmergencies collection
             startEmergencySOSListener(); // Listen to user-specific emergencyNotifications collection
+            Log.d(TAG, "✅ [ONRESUME] Emergency listeners started successfully");
+        } else {
+            Log.w(TAG, "⚠️ [ONRESUME] NOT starting emergency listeners - userId or userType is invalid");
         }
         
         // NOTE: Do NOT stop notification services here - they should continue running when app is closed
@@ -1254,11 +1284,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             }
         }
     }
-    
-    /**
-     * Helper method to show dialog from intent data
-     * Used as fallback when notification document is not found in database
-     */
+
     private void showDialogFromIntentData(String seniorName, String seniorPhone, String locationAddress, 
                                          String requestId, Double seniorLat, Double seniorLng) {
         new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
@@ -2167,11 +2193,12 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 currentEmergencySoundPlayer.setVolume(1.0f, 1.0f);
                 Log.d(TAG, "🔊 MediaPlayer volume set to maximum");
                 
-                currentEmergencySoundPlayer.setOnPreparedListener(mp -> {
-                    Log.d(TAG, "🔊 Emergency MediaPlayer prepared, starting playback");
-                    mp.start();
-                    Log.d(TAG, "🔊 Emergency sound started successfully");
-                });
+                // CRITICAL FIX: MediaPlayer.create() returns an already-prepared player
+                // OnPreparedListener will NOT be called because it's already prepared
+                // We must call start() directly
+                Log.d(TAG, "🔊 MediaPlayer is already prepared (from create()), starting playback directly");
+                currentEmergencySoundPlayer.start();
+                Log.d(TAG, "🔊 Emergency sound started successfully");
                 
                 currentEmergencySoundPlayer.setOnErrorListener((mp, what, extra) -> {
                     Log.e(TAG, "❌ Emergency MediaPlayer error: what=" + what + ", extra=" + extra);
@@ -2810,8 +2837,8 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         // Listen for emergency SOS notifications in real-time
         // This shows IN-APP ALERTS when the app is open
         // The background service handles SYSTEM NOTIFICATIONS when app is closed
-        // CRITICAL: Only listen for notifications created AFTER listener start time (REALTIME ONLY)
-        // Note: Using whereGreaterThan to filter old notifications, but will catch all new ones
+        // SIMPLIFIED: No timestamp filter to avoid Firestore index requirements
+        // We'll filter old notifications in the handler using isRead flag
         String listenerPath = "Sagip/users/rescuer/" + userId + "/emergencyNotifications";
         Log.d(TAG, "📡 Setting up Firestore listener on: " + listenerPath);
         
@@ -2820,8 +2847,6 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
           .collection("rescuer")
           .document(userId)
           .collection("emergencyNotifications")
-          .whereGreaterThan("timestamp", lastLoginTime - 60000)  // Allow 1 minute buffer for timing issues
-          .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
           .addSnapshotListener((querySnapshot, error) -> {
               if (error != null) {
                   Log.e(TAG, "❌ Error listening to emergency SOS notifications: " + error.getMessage(), error);
@@ -2834,7 +2859,8 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                   return;
               }
               
-              Log.d(TAG, "📡 Listener triggered - snapshot size: " + (querySnapshot != null ? querySnapshot.size() : "null"));
+              Log.d(TAG, "📡 [DASHBOARD] Listener triggered - snapshot size: " + (querySnapshot != null ? querySnapshot.size() : "null"));
+              Log.d(TAG, "📡 [DASHBOARD] isDashboardActive: " + isDashboardActive);
               
               if (querySnapshot != null) {
                   // Track document changes to handle new notifications and deletions
@@ -2922,6 +2948,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     
     private void handleEmergencySOSNotification(QueryDocumentSnapshot document) {
         try {
+            Log.d(TAG, "🚨🚨🚨 [DASHBOARD_HANDLER] handleEmergencySOSNotification CALLED 🚨🚨🚨");
+            Log.d(TAG, "🔍 [DASHBOARD_HANDLER] Document ID: " + document.getId());
+            
             String type = document.getString("type");
             String title = document.getString("title");
             String message = document.getString("message");
@@ -2937,12 +2966,17 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             Double seniorLat = document.getDouble("seniorLat");
             Double seniorLng = document.getDouble("seniorLng");
             
-            Log.d(TAG, "📱 [DASHBOARD_HANDLER] Processing notification - Type: " + type + ", IsRead: " + isRead + ", Status: " + notificationStatus);
+            Log.d(TAG, "📱 [DASHBOARD_HANDLER] Type: " + type);
+            Log.d(TAG, "📱 [DASHBOARD_HANDLER] IsRead: " + isRead);
+            Log.d(TAG, "📱 [DASHBOARD_HANDLER] SeniorName: " + seniorName);
+            Log.d(TAG, "📱 [DASHBOARD_HANDLER] RequestId: " + requestId);
+            Log.d(TAG, "📱 [DASHBOARD_HANDLER] isDashboardActive: " + isDashboardActive);
             
             // Process emergency SOS notifications
             // Note: We rely on the isRead flag to prevent duplicate processing
             // Old notifications should already be marked as read
             if ("EMERGENCY_SOS".equals(type) && (isRead == null || !isRead)) {
+                Log.d(TAG, "✅ [DASHBOARD_HANDLER] Notification is UNREAD and type is EMERGENCY_SOS - WILL PROCESS");
                 // Only process unread emergency SOS notifications that are NOT assigned
                 Log.d(TAG, "🚨 [DASHBOARD] Received emergency SOS notification: " + seniorName + " (Request ID: " + requestId + ")");
                 
@@ -2955,8 +2989,10 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 // Play emergency sound IMMEDIATELY (don't wait for database update)
                 playEmergencySound();
                 
-                // Show Android system notification IMMEDIATELY
-                showEmergencySystemNotification(seniorName, seniorPhone, locationAddress, requestId);
+                // NOTE: Do NOT show system notification when dashboard is active
+                // The in-app alert dialog is sufficient and avoids duplicate notifications
+                // System notifications are only shown by background service when app is closed
+                Log.d(TAG, "📱 [DASHBOARD] Skipping system notification - will show in-app alert instead");
                 
                 // Mark as read to prevent race condition with background service
                 // Use atomic update to ensure only one process marks it as read
@@ -5516,6 +5552,38 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     // OLD SYSTEM REMOVED - Assignment popup now handled by EmergencyQueueManager
 
 
+    @Override
+    protected void onPause() {
+        super.onPause();
+        
+        // CRITICAL FIX: Mark dashboard as inactive so background service can take over
+        isDashboardActive = false;
+        SharedPreferences prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+        prefs.edit().putBoolean("dashboard_active", false).apply();
+        Log.d(TAG, "📱 Dashboard is now INACTIVE - background service will handle alerts");
+    }
+    
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        
+        // Ensure dashboard_active is cleared on destroy
+        isDashboardActive = false;
+        SharedPreferences prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+        prefs.edit().putBoolean("dashboard_active", false).apply();
+        Log.d(TAG, "📱 Dashboard destroyed - dashboard_active flag cleared");
+        
+        // Remove emergency listeners
+        if (emergencyListener != null) {
+            emergencyListener.remove();
+            emergencyListener = null;
+        }
+        if (emergencySOSListener != null) {
+            emergencySOSListener.remove();
+            emergencySOSListener = null;
+        }
+    }
+    
     private void saveLocationToFirestore(double latitude, double longitude) {
         if (mAuth.getCurrentUser() != null) {
             String userId = mAuth.getCurrentUser().getUid();

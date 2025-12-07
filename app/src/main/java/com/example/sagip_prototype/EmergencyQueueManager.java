@@ -467,27 +467,39 @@ public class EmergencyQueueManager {
         Log.d(TAG, "🏘️ [BARANGAY_NOTIFICATION] Emergency details - Senior: " + request.seniorName + ", Request ID: " + request.requestId);
         Log.d(TAG, "🏘️ [BARANGAY_NOTIFICATION] Senior UID to exclude: " + request.seniorUid);
         
-        // Find all barangay users in the same barangay
-        Log.d(TAG, "🏘️ [BARANGAY_NOTIFICATION] Querying for barangay users with barangayName = '" + request.barangay + "'");
+        // Normalize the barangay name for matching
+        String normalizedRequestBarangay = normalizeBarangayName(request.barangay);
+        Log.d(TAG, "🏘️ [BARANGAY_NOTIFICATION] Normalized barangay name: '" + normalizedRequestBarangay + "'");
+        
+        // Fetch ALL barangay users and filter client-side for case-insensitive matching
+        // This is necessary because Firestore doesn't support case-insensitive queries
+        Log.d(TAG, "🏘️ [BARANGAY_NOTIFICATION] Fetching all barangay users for client-side matching...");
         db.collection("Sagip")
                 .document("users")
                 .collection("barangay")
-                .whereEqualTo("barangayName", request.barangay)
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
-                    Log.d(TAG, "🏘️ [BARANGAY_NOTIFICATION] Query successful - Found " + querySnapshot.size() + " barangay users in " + request.barangay);
+                    Log.d(TAG, "🏘️ [BARANGAY_NOTIFICATION] Fetched " + querySnapshot.size() + " total barangay users from database");
                     
-                    if (querySnapshot.isEmpty()) {
-                        Log.e(TAG, "❌ [BARANGAY_NOTIFICATION] CRITICAL: No barangay users found for barangay: " + request.barangay);
-                        Log.e(TAG, "❌ [BARANGAY_NOTIFICATION] This means no barangay officials are registered for this barangay!");
-                        Log.e(TAG, "❌ [BARANGAY_NOTIFICATION] Query was: whereEqualTo('barangayName', '" + request.barangay + "')");
-                        Log.e(TAG, "❌ [BARANGAY_NOTIFICATION] Check if barangay users are properly registered in the database");
-                    }
-                    
+                    int matchedCount = 0;
                     for (QueryDocumentSnapshot document : querySnapshot) {
                         String barangayUserId = document.getId();
                         String barangayName = document.getString("barangayName");
                         String contactPerson = document.getString("contactPerson");
+                        
+                        // Normalize the barangay name from the database for comparison
+                        String normalizedDbBarangay = normalizeBarangayName(barangayName);
+                        
+                        // Check if barangay names match (case-insensitive, handles "Barangay X" vs "X" variations)
+                        boolean isMatch = isBarangayMatch(normalizedRequestBarangay, normalizedDbBarangay);
+                        
+                        Log.d(TAG, "🏘️ [BARANGAY_NOTIFICATION] Comparing: '" + normalizedRequestBarangay + "' vs '" + normalizedDbBarangay + "' -> " + (isMatch ? "MATCH" : "no match"));
+                        
+                        if (!isMatch) {
+                            continue;
+                        }
+                        
+                        matchedCount++;
                         
                         // Skip notification if this is the senior who made the emergency call
                         if (barangayUserId.equals(request.seniorUid)) {
@@ -545,10 +557,65 @@ public class EmergencyQueueManager {
                                     Log.e(TAG, "❌ [BARANGAY_NOTIFICATION] Notification path: " + notificationPath);
                                 });
                     }
+                    
+                    if (matchedCount == 0) {
+                        Log.e(TAG, "❌ [BARANGAY_NOTIFICATION] CRITICAL: No barangay users found matching barangay: " + request.barangay);
+                        Log.e(TAG, "❌ [BARANGAY_NOTIFICATION] Normalized search term was: '" + normalizedRequestBarangay + "'");
+                        Log.e(TAG, "❌ [BARANGAY_NOTIFICATION] Total barangay users in database: " + querySnapshot.size());
+                        Log.e(TAG, "❌ [BARANGAY_NOTIFICATION] Check if barangay officials are registered with matching barangay name");
+                    } else {
+                        Log.d(TAG, "✅ [BARANGAY_NOTIFICATION] Found " + matchedCount + " matching barangay users for: " + request.barangay);
+                    }
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "❌ Error finding barangay users for: " + request.barangay, e);
+                    Log.e(TAG, "❌ Error fetching barangay users: " + e.getMessage(), e);
                 });
+    }
+    
+    /**
+     * Normalizes barangay name for comparison by:
+     * - Converting to lowercase
+     * - Removing common prefixes like "Barangay", "Brgy", "Brgy."
+     * - Trimming whitespace
+     */
+    private String normalizeBarangayName(String barangay) {
+        if (barangay == null || barangay.isEmpty()) {
+            return "";
+        }
+        
+        String normalized = barangay.toLowerCase().trim();
+        
+        // Remove common barangay prefixes
+        String[] prefixes = {"barangay ", "brgy. ", "brgy ", "bgy. ", "bgy "};
+        for (String prefix : prefixes) {
+            if (normalized.startsWith(prefix)) {
+                normalized = normalized.substring(prefix.length()).trim();
+                break;
+            }
+        }
+        
+        return normalized;
+    }
+    
+    /**
+     * Checks if two barangay names match (case-insensitive, handles variations)
+     */
+    private boolean isBarangayMatch(String barangay1, String barangay2) {
+        if (barangay1 == null || barangay2 == null) {
+            return false;
+        }
+        
+        // Exact match after normalization
+        if (barangay1.equals(barangay2)) {
+            return true;
+        }
+        
+        // Check if one contains the other (for partial matches like "Amsic" matching "Amsic, Angeles City")
+        if (barangay1.contains(barangay2) || barangay2.contains(barangay1)) {
+            return true;
+        }
+        
+        return false;
     }
     
     // Test method to debug barangay notifications

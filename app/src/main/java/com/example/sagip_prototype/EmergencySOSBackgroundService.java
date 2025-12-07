@@ -164,6 +164,12 @@ public class EmergencySOSBackgroundService extends Service {
         
         Log.d(TAG, "EmergencySOSBackgroundService created");
         
+        // CRITICAL: Clear stale dashboard_active flag when service starts
+        // This ensures the service doesn't think dashboard is active when app was force-closed
+        SharedPreferences prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+        prefs.edit().putBoolean("dashboard_active", false).apply();
+        Log.d(TAG, "🧹 Cleared stale dashboard_active flag on service start");
+        
         // Store application context for static methods
         if (appContext == null) {
             appContext = getApplicationContext();
@@ -399,14 +405,13 @@ public class EmergencySOSBackgroundService extends Service {
         isListening = true;
         
         // Listen for emergency SOS notifications in real-time
-        // CRITICAL: Only listen for notifications created AFTER service start time (REALTIME ONLY)
+        // SIMPLIFIED: No timestamp filter to avoid Firestore index requirements
+        // We'll filter old notifications in the handler using isRead flag
         emergencyListener = db.collection("Sagip")
           .document("users")
           .collection("rescuer")
           .document(userId)
           .collection("emergencyNotifications")
-          .whereGreaterThan("timestamp", listenerStartTime)  // Only get notifications created AFTER service start
-          .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
           .addSnapshotListener((querySnapshot, error) -> {
               if (error != null) {
                   Log.e(TAG, "Error listening to emergency SOS notifications: " + error.getMessage(), error);
@@ -487,12 +492,27 @@ public class EmergencySOSBackgroundService extends Service {
             Log.d(TAG, "🔍 [HANDLE_NOTIFICATION] RequestId: " + requestId);
             Log.d(TAG, "🔍 [HANDLE_NOTIFICATION] SeniorName: " + seniorName);
             
+            // CRITICAL FIX: Check if dashboard is currently active
+            // ONLY use the static flag - SharedPrefs can be stale if app was force-closed
+            // Static flag is automatically reset to false when app process restarts
+            boolean isDashboardActive = Rescuer_Dashboard.isDashboardActive;
+            Log.d(TAG, "📱 [HANDLE_NOTIFICATION] Dashboard active check - isDashboardActive: " + isDashboardActive);
+            
             // Process emergency SOS notifications
             // Note: We rely on the isRead flag to prevent duplicate processing
             // Old notifications should already be marked as read
             if ("EMERGENCY_SOS".equals(type) && (isRead == null || !isRead)) {
                 // Only process unread emergency SOS notifications that are NOT assigned
                 Log.d(TAG, "🚨 Received emergency SOS notification: " + seniorName + " (Request ID: " + requestId + ")");
+                
+                // CRITICAL FIX: If dashboard is active, defer to dashboard for in-app alert
+                if (isDashboardActive) {
+                    Log.d(TAG, "📱 [BACKGROUND] Dashboard is ACTIVE - deferring to dashboard for in-app alert");
+                    Log.d(TAG, "📱 [BACKGROUND] NOT marking as read - dashboard will handle this notification");
+                    return; // Let dashboard handle it
+                }
+                
+                Log.d(TAG, "📱 [BACKGROUND] Dashboard is INACTIVE - background service will show system notification");
                 
                 // Mark as read FIRST to prevent race condition with dashboard
                 // Use atomic update to ensure only one process marks it as read
@@ -718,11 +738,12 @@ public class EmergencySOSBackgroundService extends Service {
                     currentMediaPlayer.setVolume(1.0f, 1.0f);
                     Log.d(TAG, "🔊 MediaPlayer volume set to maximum");
                     
-                    currentMediaPlayer.setOnPreparedListener(mp -> {
-                        Log.d(TAG, "🔊 MediaPlayer prepared, starting playback");
-                        mp.start();
-                        Log.d(TAG, "🔊 MediaPlayer started successfully");
-                    });
+                    // CRITICAL FIX: MediaPlayer.create() returns an already-prepared player
+                    // OnPreparedListener will NOT be called because it's already prepared
+                    // We must call start() directly
+                    Log.d(TAG, "🔊 MediaPlayer is already prepared (from create()), starting playback directly");
+                    currentMediaPlayer.start();
+                    Log.d(TAG, "🔊 MediaPlayer started successfully");
                     
                     currentMediaPlayer.setOnErrorListener((mp, what, extra) -> {
                         Log.e(TAG, "❌ MediaPlayer error: what=" + what + ", extra=" + extra);
@@ -752,7 +773,9 @@ public class EmergencySOSBackgroundService extends Service {
                     }
                 }
             } else {
-                Log.w(TAG, "⚠️ Audio focus not granted for emergency sound");
+                Log.w(TAG, "⚠️ Audio focus not granted - but will play emergency sound anyway!");
+                // For emergency sounds, play anyway even without audio focus
+                playEmergencySoundWithoutFocus(soundUri);
             }
         } catch (Exception e) {
             Log.e(TAG, "❌ Error testing sound playback: " + e.getMessage(), e);
@@ -760,6 +783,38 @@ public class EmergencySOSBackgroundService extends Service {
             if (audioManager != null) {
                 audioManager.abandonAudioFocus(audioFocusChangeListener);
             }
+        }
+    }
+    
+    /**
+     * Play emergency sound even without audio focus (for critical emergencies)
+     */
+    private void playEmergencySoundWithoutFocus(Uri soundUri) {
+        try {
+            Log.d(TAG, "🔊 Playing emergency sound WITHOUT audio focus...");
+            currentMediaPlayer = MediaPlayer.create(this, soundUri);
+            if (currentMediaPlayer != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .setFlags(AudioAttributes.FLAG_AUDIBILITY_ENFORCED)
+                        .build();
+                    currentMediaPlayer.setAudioAttributes(audioAttributes);
+                } else {
+                    currentMediaPlayer.setAudioStreamType(AudioManager.STREAM_ALARM);
+                }
+                currentMediaPlayer.setVolume(1.0f, 1.0f);
+                currentMediaPlayer.start();
+                Log.d(TAG, "🔊 Emergency sound playing without audio focus");
+                
+                currentMediaPlayer.setOnCompletionListener(mp -> {
+                    mp.release();
+                    currentMediaPlayer = null;
+                });
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error playing emergency sound without focus: " + e.getMessage(), e);
         }
     }
     
