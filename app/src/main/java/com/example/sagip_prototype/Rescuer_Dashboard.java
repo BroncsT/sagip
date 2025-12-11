@@ -1765,6 +1765,14 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 emergencyListener.remove();
                 emergencyListener = null;
             }
+            
+            // CRITICAL FIX: Set lastLoginTime if not already set
+            // This ensures old emergencies are filtered out when listener starts
+            if (lastLoginTime == 0) {
+                lastLoginTime = System.currentTimeMillis();
+                Log.d(TAG, "⏰ [START_EMERGENCY_LISTENER] Set lastLoginTime: " + lastLoginTime);
+            }
+            
             // Clean up old emergencies first (older than 1 hour)
             cleanupOldEmergencies();
     
@@ -1851,12 +1859,20 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         Double latitude = emergency.getDouble("latitude");
         Double longitude = emergency.getDouble("longitude");
         String helpRequestId = emergency.getString("helpRequestId");
+        Long timestamp = emergency.getLong("timestamp");
 
-        Log.d(TAG, "�� NEW EMERGENCY: " + seniorName + " at " + locationAddress);
+        Log.d(TAG, "🚨 NEW EMERGENCY: " + seniorName + " at " + locationAddress);
+        Log.d(TAG, "📱 [HANDLE_NEW_EMERGENCY] Timestamp: " + timestamp + ", lastLoginTime: " + lastLoginTime);
+
+        // CRITICAL FIX: Skip notifications that were created BEFORE the rescuer logged in
+        // This prevents old emergencies from flooding in when rescuer logs in
+        if (timestamp != null && timestamp < lastLoginTime) {
+            Log.d(TAG, "🔇 [HANDLE_NEW_EMERGENCY] Emergency timestamp (" + timestamp + ") is BEFORE login time (" + lastLoginTime + ") - SKIPPING old emergency");
+            return;
+        }
 
         // Check if this is a truly new emergency (created within the last 5 minutes)
-        // This prevents old emergencies from triggering sounds when rescuer logs in
-        Long timestamp = emergency.getLong("timestamp");
+        // This is a secondary check for emergencies without proper timestamp filtering
         boolean isNewEmergency = false;
         if (timestamp != null) {
             long currentTime = System.currentTimeMillis();
@@ -2970,7 +2986,16 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             Log.d(TAG, "📱 [DASHBOARD_HANDLER] IsRead: " + isRead);
             Log.d(TAG, "📱 [DASHBOARD_HANDLER] SeniorName: " + seniorName);
             Log.d(TAG, "📱 [DASHBOARD_HANDLER] RequestId: " + requestId);
+            Log.d(TAG, "📱 [DASHBOARD_HANDLER] Timestamp: " + timestamp);
+            Log.d(TAG, "📱 [DASHBOARD_HANDLER] lastLoginTime: " + lastLoginTime);
             Log.d(TAG, "📱 [DASHBOARD_HANDLER] isDashboardActive: " + isDashboardActive);
+            
+            // CRITICAL FIX: Skip notifications that were created BEFORE the listener started
+            // This prevents old notifications from triggering alerts on login
+            if (timestamp != null && timestamp < lastLoginTime) {
+                Log.d(TAG, "🔇 [DASHBOARD] Notification timestamp (" + timestamp + ") is BEFORE listener start time (" + lastLoginTime + ") - SKIPPING old notification");
+                return;
+            }
             
             // Process emergency SOS notifications
             // Note: We rely on the isRead flag to prevent duplicate processing
@@ -5344,6 +5369,30 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 .get()
                         .addOnSuccessListener(documentSnapshot -> {
                             if (documentSnapshot.exists()) {
+                                // Check if phone is missing/invalid, load from Firestore as fallback
+                                String currentPhone = intent.getStringExtra("senior_phone");
+                                if (currentPhone == null || currentPhone.isEmpty() || 
+                                    currentPhone.equals("Not available") || currentPhone.equals("Not Provided")) {
+                                    // Load phone number from senior's Firestore profile (try different field names)
+                                    String phoneFromFirestore = documentSnapshot.getString("mobileNumber");
+                                    if (phoneFromFirestore == null || phoneFromFirestore.isEmpty()) {
+                                        phoneFromFirestore = documentSnapshot.getString("phoneNumber");
+                                    }
+                                    if (phoneFromFirestore == null || phoneFromFirestore.isEmpty()) {
+                                        phoneFromFirestore = documentSnapshot.getString("phone");
+                                    }
+                                    if (phoneFromFirestore == null || phoneFromFirestore.isEmpty()) {
+                                        phoneFromFirestore = documentSnapshot.getString("mobile");
+                                    }
+                                    if (phoneFromFirestore == null || phoneFromFirestore.isEmpty()) {
+                                        phoneFromFirestore = documentSnapshot.getString("contactNumber");
+                                    }
+                                    if (phoneFromFirestore != null && !phoneFromFirestore.isEmpty()) {
+                                        intent.putExtra("senior_phone", phoneFromFirestore);
+                                        Log.d(TAG, "📱 Loaded phone number from Firestore (fallback): " + phoneFromFirestore);
+                                    }
+                                }
+                                
                                 // Get senior's current location from latitude/longitude fields (not currentLocation string)
                                 Double seniorLat = documentSnapshot.getDouble("latitude");
                                 Double seniorLng = documentSnapshot.getDouble("longitude");
@@ -5461,6 +5510,27 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             .get()
                     .addOnSuccessListener(documentSnapshot -> {
                         if (documentSnapshot.exists()) {
+                            // Load phone number from senior's Firestore profile (try different field names)
+                            String phoneFromFirestore = documentSnapshot.getString("mobileNumber");
+                            if (phoneFromFirestore == null || phoneFromFirestore.isEmpty()) {
+                                phoneFromFirestore = documentSnapshot.getString("phoneNumber");
+                            }
+                            if (phoneFromFirestore == null || phoneFromFirestore.isEmpty()) {
+                                phoneFromFirestore = documentSnapshot.getString("phone");
+                            }
+                            if (phoneFromFirestore == null || phoneFromFirestore.isEmpty()) {
+                                phoneFromFirestore = documentSnapshot.getString("mobile");
+                            }
+                            if (phoneFromFirestore == null || phoneFromFirestore.isEmpty()) {
+                                phoneFromFirestore = documentSnapshot.getString("contactNumber");
+                            }
+                            if (phoneFromFirestore != null && !phoneFromFirestore.isEmpty()) {
+                                intent.putExtra("senior_phone", phoneFromFirestore);
+                                Log.d(TAG, "📱 Loaded phone number from Firestore: " + phoneFromFirestore);
+                            } else {
+                                Log.w(TAG, "📱 No phone number found in senior profile");
+                            }
+                            
                             // Get senior's current location from latitude/longitude fields (not currentLocation string)
                             Double seniorLat = documentSnapshot.getDouble("latitude");
                             Double seniorLng = documentSnapshot.getDouble("longitude");

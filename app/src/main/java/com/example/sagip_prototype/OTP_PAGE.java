@@ -206,10 +206,17 @@ public class OTP_PAGE extends AppCompatActivity {
         String currentType = userTypes.get(currentUserTypeIndex);
         Log.d(TAG, "Checking user type: " + currentType + " for mobile: " + mobileNumber);
         
-        // Try both with and without +63 prefix
+        // Try multiple formats for backward compatibility
+        // New correct format: +639XXXXXXXXX
+        // Old wrong format: +6309XXXXXXXXX or 09XXXXXXXXX
         final String searchNumber = mobileNumber.startsWith("+63") ? mobileNumber.substring(3) : mobileNumber;
         final String finalMobileNumber = mobileNumber;
-        Log.d(TAG, "Searching for phone number: " + searchNumber + " in collection: " + currentType + " (original: " + finalMobileNumber + ")");
+        // Generate legacy formats for backward compatibility (with leading 0)
+        final String legacyLocalFormat = "0" + searchNumber; // e.g., "09123456789"
+        final String legacyInternationalFormat = "+630" + searchNumber; // e.g., "+6309123456789"
+        Log.d(TAG, "Searching for phone number: " + searchNumber + " in collection: " + currentType + 
+            " (original: " + finalMobileNumber + ", legacyLocal: " + legacyLocalFormat + 
+            ", legacyIntl: " + legacyInternationalFormat + ")");
         
         db.collection("Sagip")
                 .document("users")
@@ -311,21 +318,21 @@ public class OTP_PAGE extends AppCompatActivity {
                                                                 }
                                                             }
                                                         } else {
-                                                            Log.d(TAG, "User not found in collection: " + currentType + " with either format, checking next type");
-                                                            currentUserTypeIndex++;
-                                                            findUserTypeByMobileNumber(); // Check next type
+                                                            // Try legacy formats for backward compatibility
+                                                            Log.d(TAG, "User not found in collection: " + currentType + " with new formats, trying legacy formats");
+                                                            tryLegacyFormatSearchOTP(currentType, legacyInternationalFormat, legacyLocalFormat);
                                                         }
                                                     } else {
                                                         Log.e(TAG, "Error checking user type with full format: " + task2.getException());
-                                                        currentUserTypeIndex++;
-                                                        findUserTypeByMobileNumber(); // Check next type
+                                                        // Try legacy formats as fallback
+                                                        tryLegacyFormatSearchOTP(currentType, legacyInternationalFormat, legacyLocalFormat);
                                                     }
                                                 }
                                             });
                                 } else {
-                                    Log.d(TAG, "User not found in collection: " + currentType);
-                                    currentUserTypeIndex++;
-                                    findUserTypeByMobileNumber(); // Check next type
+                                    // Try legacy formats for backward compatibility
+                                    Log.d(TAG, "User not found in collection: " + currentType + ", trying legacy formats");
+                                    tryLegacyFormatSearchOTP(currentType, legacyInternationalFormat, legacyLocalFormat);
                                 }
                             }
                         } else {
@@ -334,6 +341,79 @@ public class OTP_PAGE extends AppCompatActivity {
                         }
                     }
                 });
+    }
+
+    /**
+     * Try searching with legacy phone number formats for backward compatibility.
+     */
+    private void tryLegacyFormatSearchOTP(String currentType, String legacyInternationalFormat, String legacyLocalFormat) {
+        // First try the legacy international format (+6309XXXXXXXXX)
+        db.collection("Sagip")
+                .document("users")
+                .collection(currentType)
+                .whereEqualTo("mobileNumber", legacyInternationalFormat)
+                .get()
+                .addOnCompleteListener(task -> {
+                    if (!isFinishing() && !isDestroyed()) {
+                        if (task.isSuccessful() && !task.getResult().isEmpty()) {
+                            Log.d(TAG, "User found with legacy international format: " + legacyInternationalFormat);
+                            handleFoundUserOTP(task.getResult(), currentType);
+                        } else {
+                            // Try the legacy local format (09XXXXXXXXX)
+                            db.collection("Sagip")
+                                    .document("users")
+                                    .collection(currentType)
+                                    .whereEqualTo("mobileNumber", legacyLocalFormat)
+                                    .get()
+                                    .addOnCompleteListener(task2 -> {
+                                        if (!isFinishing() && !isDestroyed()) {
+                                            if (task2.isSuccessful() && !task2.getResult().isEmpty()) {
+                                                Log.d(TAG, "User found with legacy local format: " + legacyLocalFormat);
+                                                handleFoundUserOTP(task2.getResult(), currentType);
+                                            } else {
+                                                Log.d(TAG, "User not found with any format in collection: " + currentType + ", checking next type");
+                                                currentUserTypeIndex++;
+                                                findUserTypeByMobileNumber();
+                                            }
+                                        }
+                                    });
+                        }
+                    }
+                });
+    }
+
+    /**
+     * Handle a found user from any of the search formats in OTP flow.
+     */
+    private void handleFoundUserOTP(QuerySnapshot querySnapshot, String currentType) {
+        for (QueryDocumentSnapshot document : querySnapshot) {
+            String status = document.getString("status");
+            String documentId = document.getId();
+            Log.d(TAG, "Found user in " + currentType + " collection. Document ID: " + documentId + ", Status: " + status);
+            
+            if (currentType.equals("seniors")) {
+                if (status != null && status.equals("approved")) {
+                    Log.d(TAG, "Senior user found with approved status, proceeding to dashboard");
+                    goToHomeScreen(currentType);
+                } else if (status != null && status.equals("pending")) {
+                    Log.d(TAG, "Senior user found but status is pending - BLOCKING ACCESS");
+                    showPendingApprovalMessage();
+                } else {
+                    Log.d(TAG, "Senior user found but status not approved/pending: " + status);
+                    showPendingApprovalMessage();
+                }
+            } else {
+                // For non-senior users, check status
+                if ("new".equals(status)) {
+                    Log.d(TAG, "User status is 'new', redirecting to registration");
+                    goToRegistrationByType(currentType);
+                } else {
+                    Log.d(TAG, "User is registered, proceeding to dashboard");
+                    goToHomeScreen(currentType);
+                }
+            }
+            return;
+        }
     }
 
     private void goToHomeScreen(String userType) {

@@ -516,6 +516,7 @@ public class MainActivity extends AppCompatActivity {
             barangayIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             
             barangayIntent.putExtra("emergency_alert_clicked", true);
+            barangayIntent.putExtra("notification_id", "fcm_mainactivity_" + System.currentTimeMillis());
             barangayIntent.putExtra("senior_name", extras.getString("seniorName", extras.getString("senior_name")));
             barangayIntent.putExtra("senior_phone", extras.getString("seniorPhone", extras.getString("senior_phone")));
             barangayIntent.putExtra("location_address", extras.getString("locationAddress", extras.getString("location_address")));
@@ -661,8 +662,10 @@ public class MainActivity extends AppCompatActivity {
 
                     if (isValidPhoneNumber(number)) {
                         phoneErrorTextView.setVisibility(View.GONE);
-                        Log.d(TAG, "Checking registration status for: +63" + number);
-                        checkUserExistsByPhoneNumber("+63" + number);
+                        // Remove leading "0" for correct international format (+639XXXXXXXXX)
+                        String formattedNumber = number.startsWith("0") ? number.substring(1) : number;
+                        Log.d(TAG, "Checking registration status for: +63" + formattedNumber);
+                        checkUserExistsByPhoneNumber("+63" + formattedNumber);
                     } else {
                         phoneErrorTextView.setVisibility(View.VISIBLE);
                         phoneErrorTextView.setText(getString(R.string.valid_mobile_error));
@@ -677,8 +680,10 @@ public class MainActivity extends AppCompatActivity {
                         // Check if it's a phone number
                         if (isValidPhoneNumber(email)) {
                             // Phone number login - skip password requirement
-                            Log.d(TAG, "Phone number detected in email field: " + email);
-                            checkUserExistsByPhoneNumber("+63" + email);
+                            // Remove leading "0" for correct international format (+639XXXXXXXXX)
+                            String formattedEmail = email.startsWith("0") ? email.substring(1) : email;
+                            Log.d(TAG, "Phone number detected in email field: +63" + formattedEmail);
+                            checkUserExistsByPhoneNumber("+63" + formattedEmail);
                         } else {
                             // Email login - always require password for admin emails
                             if (password.isEmpty()) {
@@ -1758,10 +1763,17 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        // Try both with and without +63 prefix
+        // Try multiple formats for backward compatibility
+        // New correct format: +639XXXXXXXXX (e.g., +639123456789)
+        // Old wrong format: +6309XXXXXXXXX (e.g., +6309123456789) or 09XXXXXXXXX
         final String searchNumber = formattedNumber.startsWith("+63") ? formattedNumber.substring(3) : formattedNumber;
         final String finalFormattedNumber = formattedNumber;
-        Log.d(TAG, "Searching for phone number: " + searchNumber + " in collection: " + userTypes[index] + " (original: " + finalFormattedNumber + ")");
+        // Generate legacy formats for backward compatibility
+        final String legacyLocalFormat = "0" + searchNumber; // e.g., "09123456789"
+        final String legacyInternationalFormat = "+630" + searchNumber; // e.g., "+6309123456789"
+        Log.d(TAG, "Searching for phone number: " + searchNumber + " in collection: " + userTypes[index] + 
+            " (original: " + finalFormattedNumber + ", legacyLocal: " + legacyLocalFormat + 
+            ", legacyIntl: " + legacyInternationalFormat + ")");
         
         // Try searching with the number without +63 prefix first
         db.collection("Sagip")
@@ -1842,14 +1854,16 @@ public class MainActivity extends AppCompatActivity {
                                                             return;
                                                         }
                                                     } else {
-                                                        Log.d(TAG, "User not found in collection: " + userTypes[index] + " with either format, checking next collection");
-                                                        checkPhoneNumberInCollections(finalFormattedNumber, userTypes, index + 1);
+                                                        // Try legacy format for backward compatibility with old wrong format
+                                                        Log.d(TAG, "User not found in collection: " + userTypes[index] + " with new formats, trying legacy format: " + legacyInternationalFormat);
+                                                        tryLegacyFormatSearch(legacyInternationalFormat, legacyLocalFormat, userTypes, index, finalFormattedNumber);
                                                     }
                                                 }
                                             });
                                 } else {
-                                    Log.d(TAG, "User not found in collection: " + userTypes[index] + ", checking next collection");
-                                    checkPhoneNumberInCollections(formattedNumber, userTypes, index + 1);
+                                    // Try legacy format for backward compatibility
+                                    Log.d(TAG, "User not found in collection: " + userTypes[index] + ", trying legacy format: " + legacyInternationalFormat);
+                                    tryLegacyFormatSearch(legacyInternationalFormat, legacyLocalFormat, userTypes, index, formattedNumber);
                                 }
                             }
                         } else {
@@ -1858,6 +1872,73 @@ public class MainActivity extends AppCompatActivity {
                         }
                     }
                 });
+    }
+
+    /**
+     * Try searching with legacy phone number formats for backward compatibility.
+     * This handles cases where existing database entries have the old wrong format (+6309XXXXXXXXX or 09XXXXXXXXX).
+     */
+    private void tryLegacyFormatSearch(String legacyInternationalFormat, String legacyLocalFormat, 
+                                       String[] userTypes, int index, String originalFormattedNumber) {
+        // First try the legacy international format (+6309XXXXXXXXX)
+        db.collection("Sagip")
+                .document("users")
+                .collection(userTypes[index])
+                .whereEqualTo("mobileNumber", legacyInternationalFormat)
+                .get()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful() && !task.getResult().isEmpty()) {
+                        Log.d(TAG, "User found with legacy international format: " + legacyInternationalFormat);
+                        handleFoundUser(task.getResult(), userTypes[index], originalFormattedNumber);
+                    } else {
+                        // Try the legacy local format (09XXXXXXXXX)
+                        db.collection("Sagip")
+                                .document("users")
+                                .collection(userTypes[index])
+                                .whereEqualTo("mobileNumber", legacyLocalFormat)
+                                .get()
+                                .addOnCompleteListener(task2 -> {
+                                    if (task2.isSuccessful() && !task2.getResult().isEmpty()) {
+                                        Log.d(TAG, "User found with legacy local format: " + legacyLocalFormat);
+                                        handleFoundUser(task2.getResult(), userTypes[index], originalFormattedNumber);
+                                    } else {
+                                        Log.d(TAG, "User not found with any format in collection: " + userTypes[index] + ", checking next collection");
+                                        checkPhoneNumberInCollections(originalFormattedNumber, userTypes, index + 1);
+                                    }
+                                });
+                    }
+                });
+    }
+
+    /**
+     * Handle a found user from any of the search formats.
+     */
+    private void handleFoundUser(QuerySnapshot querySnapshot, String userType, String formattedNumber) {
+        for (QueryDocumentSnapshot document : querySnapshot) {
+            String status = document.getString("status");
+            String documentId = document.getId();
+            Log.d(TAG, "Found user in " + userType + " collection. Document ID: " + documentId + ", Status: " + status);
+            
+            if (userType.equals("seniors")) {
+                if (status != null && status.equals("approved")) {
+                    Log.d(TAG, "Senior user found with approved status, sending OTP for existing user");
+                    String plainNumber = formattedNumber.substring(3);
+                    sendOtp(plainNumber, false);
+                } else if (status != null && status.equals("pending")) {
+                    Log.d(TAG, "Senior user found but status is pending - BLOCKING ACCESS");
+                    showPendingApprovalMessage();
+                } else {
+                    Log.d(TAG, "Senior user found but status not approved/pending: " + status);
+                    showPendingApprovalMessage();
+                }
+            } else {
+                // For non-senior users, allow login regardless of status
+                Log.d(TAG, "Non-senior user found, sending OTP for existing user");
+                String plainNumber = formattedNumber.substring(3);
+                sendOtp(plainNumber, false);
+            }
+            return;
+        }
     }
 
     private void showPendingApprovalMessage() {
@@ -1882,8 +1963,12 @@ public class MainActivity extends AppCompatActivity {
         showProgressBar(true);
         Toast.makeText(this, getString(R.string.sending_otp), Toast.LENGTH_SHORT).show();
         
+        // Remove leading "0" from Philippine mobile numbers for correct international format
+        // e.g., "09123456789" becomes "9123456789", then "+639123456789"
+        String formattedForInternational = number.startsWith("0") ? number.substring(1) : number;
+        
         PhoneAuthOptions options = PhoneAuthOptions.newBuilder(auth)
-                .setPhoneNumber("+63" + number)
+                .setPhoneNumber("+63" + formattedForInternational)
                 .setTimeout(timeout, TimeUnit.SECONDS)
                 .setActivity(this)
                 .setCallbacks(new PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
@@ -1951,7 +2036,7 @@ public class MainActivity extends AppCompatActivity {
                         Log.d(TAG, "OTP code sent successfully");
                         Intent intent = new Intent(MainActivity.this, OTP_PAGE.class);
                         intent.putExtra("VERIFICATION_ID", verificationId);
-                        intent.putExtra("MOBILE_NUMBER", "+63" + number);
+                        intent.putExtra("MOBILE_NUMBER", "+63" + formattedForInternational);
                         intent.putExtra("IS_NEW_USER", isNewUser);
                         startActivity(intent);
                         // Finish MainActivity to prevent it from interfering with OTP flow

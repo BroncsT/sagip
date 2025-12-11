@@ -59,6 +59,10 @@ import java.util.Map;
 
 public class Barangay_Dashboard extends AppCompatActivity {
 
+    public static volatile boolean isDashboardActive = false;
+    private android.media.MediaPlayer emergencyMediaPlayer;
+    private android.os.Vibrator vibrator;
+
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1001;
     private static final String PREF_NAME = "SagipAppPrefs";
     private static final String KEY_USER_ID = "userId";
@@ -134,7 +138,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
         currentLocationText = findViewById(R.id.currentLocationValue);
         totalSeniorsCount = findViewById(R.id.totalSeniorsCount);
         hospitalsCount = findViewById(R.id.hospitalsCount);
-        hospitalRecyclerView = findViewById(R.id.   hospitalRecyclerView);
+        hospitalRecyclerView = findViewById(R.id.hospitalRecyclerView);
 
         // Initialize location services
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
@@ -163,6 +167,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        isDashboardActive = true;
         
         // Load cached barangay name immediately when returning to dashboard
         loadCachedBarangayName();
@@ -185,9 +190,9 @@ public class Barangay_Dashboard extends AppCompatActivity {
         verifyLoginState();
         
         // Check notification permission status
-        Log.d("Barangay_Dashboard", "🔔 App resumed, checking notification status");
+        Log.d("Barangay_Dashboard", " App resumed, checking notification status");
         if (areNotificationsEnabled()) {
-            Log.d("Barangay_Dashboard", "🔔 Notifications are now enabled!");
+            Log.d("Barangay_Dashboard", " Notifications are now enabled!");
             // Only show toast once per session
             if (!sharedPreferences.getBoolean(KEY_NOTIFICATION_TOAST_SHOWN, false)) {
                 Toast.makeText(this, getString(R.string.toast_notifications_enabled_barangay), Toast.LENGTH_SHORT).show();
@@ -195,6 +200,15 @@ public class Barangay_Dashboard extends AppCompatActivity {
                 sharedPreferences.edit().putBoolean(KEY_NOTIFICATION_TOAST_SHOWN, true).apply();
             }
         }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        isDashboardActive = false;
+        if (emergencyMediaPlayer != null) { try { emergencyMediaPlayer.stop(); emergencyMediaPlayer.release(); } catch (Exception e) {} emergencyMediaPlayer = null; }
+        if (vibrator != null) { vibrator.cancel(); }
+        stopLocationUpdates();
     }
 
     @Override
@@ -219,11 +233,38 @@ public class Barangay_Dashboard extends AppCompatActivity {
     }
 
     @Override
-    protected void onPause() {
-        super.onPause();
+    protected void onDestroy() {
+        super.onDestroy();
+        
+        // Dismiss any active emergency dialog
+        if (currentEmergencyDialog != null && currentEmergencyDialog.isShowing()) {
+            currentEmergencyDialog.dismiss();
+            currentEmergencyDialog = null;
+            Log.d("Barangay_Dashboard", "Dismissed emergency dialog on destroy");
+        }
+        
+        // Clear shown notification IDs to prevent memory leaks
+        shownNotificationIds.clear();
+        
+        // Stop location updates
         stopLocationUpdates();
+        
+        // Stop listening for emergency notifications when activity is destroyed
+        BarangayNotificationService.getInstance(this).stopListening();
+        
+        // Reset notification service to prevent cross-user notifications
+        BarangayNotificationService.resetInstance();
+        
+        // Unregister language change receiver
+        unregisterLanguageChangeReceiver();
     }
 
+    @Override
+    public void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleEmergencyNotificationIntent();
+    }
 
     private void checkAuthStateWithPersistence() {
         // Check if user was previously logged in
@@ -902,22 +943,22 @@ public class Barangay_Dashboard extends AppCompatActivity {
         
         // Build hospital information message
         StringBuilder hospitalInfo = new StringBuilder();
-        hospitalInfo.append("🏥 ").append(hospital.getHospitalName()).append("\n\n");
+        hospitalInfo.append(" ").append(hospital.getHospitalName()).append("\n\n");
         
         // Add available beds
-        hospitalInfo.append("🛏️ ").append(getString(R.string.hospital_info_available_beds, hospital.getAvailableBeds())).append("\n\n");
+        hospitalInfo.append(" ").append(getString(R.string.hospital_info_available_beds, hospital.getAvailableBeds())).append("\n\n");
         
         // Add doctors available
         if (hospital.getDoctorsAvailable() != null) {
-            hospitalInfo.append("⚕️ ").append(getString(R.string.hospital_info_doctors_available, hospital.getDoctorsAvailable())).append("\n\n");
+            hospitalInfo.append(" ").append(getString(R.string.hospital_info_doctors_available, hospital.getDoctorsAvailable())).append("\n\n");
         }
         
         // Add emergency status
         String erStatus = hospital.getErStatus();
         if (erStatus != null && !erStatus.isEmpty()) {
-            hospitalInfo.append("🚨 ").append(getString(R.string.hospital_info_emergency_status, erStatus));
+            hospitalInfo.append(" ").append(getString(R.string.hospital_info_emergency_status, erStatus));
         } else {
-            hospitalInfo.append("🚨 ").append(getString(R.string.hospital_info_emergency_status, hospital.getCalculatedStatus()));
+            hospitalInfo.append(" ").append(getString(R.string.hospital_info_emergency_status, hospital.getCalculatedStatus()));
         }
         
         builder.setMessage(hospitalInfo.toString());
@@ -935,14 +976,14 @@ public class Barangay_Dashboard extends AppCompatActivity {
     
     // Notification permission request methods
     private void checkAndRequestNotificationPermission() {
-        Log.d("Barangay_Dashboard", "🔔 Checking notification permissions");
+        Log.d("Barangay_Dashboard", " Checking notification permissions");
         
         // Check if notifications are enabled
         if (!areNotificationsEnabled()) {
-            Log.d("Barangay_Dashboard", "🔔 Notifications are disabled, requesting permission");
+            Log.d("Barangay_Dashboard", " Notifications are disabled, requesting permission");
             showNotificationPermissionDialog();
         } else {
-            Log.d("Barangay_Dashboard", "🔔 Notifications are enabled");
+            Log.d("Barangay_Dashboard", " Notifications are enabled");
         }
     }
     
@@ -968,7 +1009,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
                     openNotificationSettings();
                 })
                 .setNegativeButton(getString(R.string.button_later), (dialog, which) -> {
-                    Log.d("Barangay_Dashboard", "🔔 User chose to enable notifications later");
+                    Log.d("Barangay_Dashboard", " User chose to enable notifications later");
                     // Show a reminder toast
                     Toast.makeText(this, getString(R.string.toast_notifications_later), Toast.LENGTH_LONG).show();
                 })
@@ -977,7 +1018,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
     }
     
     private void openNotificationSettings() {
-        Log.d("Barangay_Dashboard", "🔔 Opening notification settings");
+        Log.d("Barangay_Dashboard", " Opening notification settings");
         
         Intent intent;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -1001,18 +1042,18 @@ public class Barangay_Dashboard extends AppCompatActivity {
     
     // FCM Token Registration
     private void registerForFCMNotifications() {
-        Log.d("Barangay_Dashboard", "🔔 Registering for FCM notifications");
+        Log.d("Barangay_Dashboard", " Registering for FCM notifications");
         
         FirebaseMessaging.getInstance().getToken()
                 .addOnCompleteListener(task -> {
                     if (!task.isSuccessful()) {
-                        Log.w("Barangay_Dashboard", "❌ Fetching FCM registration token failed", task.getException());
+                        Log.w("Barangay_Dashboard", " Fetching FCM registration token failed", task.getException());
                         return;
                     }
 
                     // Get new FCM registration token
                     String token = task.getResult();
-                    Log.d("Barangay_Dashboard", "🔔 FCM Token: " + token);
+                    Log.d("Barangay_Dashboard", " FCM Token: " + token);
 
                     // Save token to Firestore
                     saveFCMTokenToDatabase(token);
@@ -1022,12 +1063,12 @@ public class Barangay_Dashboard extends AppCompatActivity {
     private void saveFCMTokenToDatabase(String fcmToken) {
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser == null) {
-            Log.w("Barangay_Dashboard", "❌ No authenticated user for FCM token");
+            Log.w("Barangay_Dashboard", " No authenticated user for FCM token");
             return;
         }
         
         String userId = currentUser.getUid();
-        Log.d("Barangay_Dashboard", "💾 Saving FCM token for user: " + userId);
+        Log.d("Barangay_Dashboard", " Saving FCM token for user: " + userId);
         
         Map<String, Object> tokenData = new HashMap<>();
         tokenData.put("fcmToken", fcmToken);
@@ -1039,38 +1080,11 @@ public class Barangay_Dashboard extends AppCompatActivity {
                 .document(userId)
                 .set(tokenData, SetOptions.merge())
                 .addOnSuccessListener(aVoid -> {
-                    Log.d("Barangay_Dashboard", "✅ FCM token saved successfully");
+                    Log.d("Barangay_Dashboard", " FCM token saved successfully");
                 })
                 .addOnFailureListener(e -> {
-                    Log.e("Barangay_Dashboard", "❌ Failed to save FCM token", e);
+                    Log.e("Barangay_Dashboard", " Failed to save FCM token", e);
                 });
-    }
-    
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        
-        // Dismiss any active emergency dialog
-        if (currentEmergencyDialog != null && currentEmergencyDialog.isShowing()) {
-            currentEmergencyDialog.dismiss();
-            currentEmergencyDialog = null;
-            Log.d("Barangay_Dashboard", "Dismissed emergency dialog on destroy");
-        }
-        
-        // Clear shown notification IDs to prevent memory leaks
-        shownNotificationIds.clear();
-        
-        // Stop location updates
-        stopLocationUpdates();
-        
-        // Stop listening for emergency notifications when activity is destroyed
-        BarangayNotificationService.getInstance(this).stopListening();
-        
-        // Reset notification service to prevent cross-user notifications
-        BarangayNotificationService.resetInstance();
-        
-        // Unregister language change receiver
-        unregisterLanguageChangeReceiver();
     }
     
     private void updateUILanguage() {
@@ -1124,9 +1138,9 @@ public class Barangay_Dashboard extends AppCompatActivity {
             String currentLocation = intent.getStringExtra("current_location");
             
             if (notificationId != null && seniorName != null) {
-                Log.d("Barangay_Dashboard", "🚨 Received emergency notification - Senior: " + seniorName);
-                Log.d("Barangay_Dashboard", "🚨 Senior coordinates - Lat: " + seniorLatitude + ", Long: " + seniorLongitude);
-                Log.d("Barangay_Dashboard", "🚨 Current location: " + currentLocation);
+                Log.d("Barangay_Dashboard", " Received emergency notification - Senior: " + seniorName);
+                Log.d("Barangay_Dashboard", " Senior coordinates - Lat: " + seniorLatitude + ", Long: " + seniorLongitude);
+                Log.d("Barangay_Dashboard", " Current location: " + currentLocation);
                 
                 // Show emergency alert dialog
                 showEmergencyAlert(seniorName, seniorPhone, locationAddress, barangay, requestId, emergencyType, seniorLatitude, seniorLongitude, currentLocation);
@@ -1243,12 +1257,34 @@ public class Barangay_Dashboard extends AppCompatActivity {
         dialog.setOnDismissListener(dialogInterface -> {
             Log.d("Barangay_Dashboard", " Emergency alert dialog dismissed");
             currentEmergencyDialog = null;
+            if (emergencyMediaPlayer != null) { try { emergencyMediaPlayer.stop(); emergencyMediaPlayer.release(); } catch (Exception e) {} emergencyMediaPlayer = null; }
+            if (vibrator != null) { vibrator.cancel(); }
         });
         
         dialog.show();
         currentEmergencyDialog = dialog;
         
         Log.d("Barangay_Dashboard", " Emergency alert dialog shown for: " + seniorName);
+        
+        // Play emergency sound
+        try {
+            if (emergencyMediaPlayer != null) { emergencyMediaPlayer.release(); }
+            emergencyMediaPlayer = android.media.MediaPlayer.create(this, R.raw.emergency_alarm);
+            if (emergencyMediaPlayer != null) { emergencyMediaPlayer.setLooping(true); emergencyMediaPlayer.start(); }
+        } catch (Exception e) { Log.e("Barangay_Dashboard", "Sound error: " + e.getMessage()); }
+        
+        // Vibrate
+        try {
+            if (vibrator == null) vibrator = (android.os.Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+            if (vibrator != null && vibrator.hasVibrator()) {
+                long[] pattern = {0, 1000, 500, 1000};
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator.vibrate(android.os.VibrationEffect.createWaveform(pattern, 0));
+                } else {
+                    vibrator.vibrate(pattern, 0);
+                }
+            }
+        } catch (Exception e) { Log.e("Barangay_Dashboard", "Vibrate error: " + e.getMessage()); }
     }
     
     /**
@@ -1260,11 +1296,11 @@ public class Barangay_Dashboard extends AppCompatActivity {
             return;
         }
         
-        Log.d("Barangay_Dashboard", "🚨 Starting emergency popup listener for barangay: " + userId);
+        Log.d("Barangay_Dashboard", " Starting emergency popup listener for barangay: " + userId);
         
         // Listen for emergency notifications in real-time (only from current session)
         long sessionStartTime = System.currentTimeMillis();
-        Log.d("Barangay_Dashboard", "🚨 Starting emergency popup listener with session start time: " + sessionStartTime);
+        Log.d("Barangay_Dashboard", " Starting emergency popup listener with session start time: " + sessionStartTime);
         
         db.collection("Sagip")
           .document("users")
@@ -1368,6 +1404,26 @@ public class Barangay_Dashboard extends AppCompatActivity {
         dialog.setOnDismissListener(di -> currentEmergencyDialog = null);
         dialog.show();
         currentEmergencyDialog = dialog;
+        
+        // Play emergency sound
+        try {
+            if (emergencyMediaPlayer != null) { emergencyMediaPlayer.release(); }
+            emergencyMediaPlayer = android.media.MediaPlayer.create(this, R.raw.emergency_alarm);
+            if (emergencyMediaPlayer != null) { emergencyMediaPlayer.setLooping(true); emergencyMediaPlayer.start(); }
+        } catch (Exception e) { Log.e("Barangay_Dashboard", "Sound error: " + e.getMessage()); }
+        
+        // Vibrate
+        try {
+            if (vibrator == null) vibrator = (android.os.Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+            if (vibrator != null && vibrator.hasVibrator()) {
+                long[] pattern = {0, 1000, 500, 1000};
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator.vibrate(android.os.VibrationEffect.createWaveform(pattern, 0));
+                } else {
+                    vibrator.vibrate(pattern, 0);
+                }
+            }
+        } catch (Exception e) { Log.e("Barangay_Dashboard", "Vibrate error: " + e.getMessage()); }
     }
     
     /**

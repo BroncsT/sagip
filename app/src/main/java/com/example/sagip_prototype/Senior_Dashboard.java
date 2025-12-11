@@ -90,6 +90,7 @@ public class Senior_Dashboard extends AppCompatActivity {
     private double currentLong = 0.0;
     private String currentLocationAddress = "";
     private String currentBarangay = "";
+    private String seniorPhoneNumber = ""; // Phone number from Firestore profile
 
     // Broadcast receiver for immediate popup
     private BroadcastReceiver rescuerAcceptedReceiver;
@@ -272,13 +273,15 @@ public class Senior_Dashboard extends AppCompatActivity {
         String seniorName = tvFullName.getText().toString();
         String currentLocation = tvCurrentLocation.getText().toString();
         
-        // Get phone number from Firebase Auth
-        FirebaseUser currentUser = mAuth.getCurrentUser();
-        String phoneNumber = getString(R.string.text_not_available);
-        
-        if (currentUser != null) {
-            phoneNumber = currentUser.getPhoneNumber();
-            if (phoneNumber == null || phoneNumber.isEmpty()) {
+        // Use phone number from Firestore profile (loaded in loadUserData)
+        // Firebase Auth getPhoneNumber() only works for phone-based login, not email login
+        String phoneNumber = seniorPhoneNumber;
+        if (phoneNumber == null || phoneNumber.isEmpty()) {
+            // Fallback to Firebase Auth phone number if Firestore didn't have one
+            FirebaseUser currentUser = mAuth.getCurrentUser();
+            if (currentUser != null && currentUser.getPhoneNumber() != null && !currentUser.getPhoneNumber().isEmpty()) {
+                phoneNumber = currentUser.getPhoneNumber();
+            } else {
                 phoneNumber = getString(R.string.text_not_provided);
             }
         }
@@ -826,7 +829,21 @@ public class Senior_Dashboard extends AppCompatActivity {
     }
 
     private void checkUserStatus() {
-        String uid = mAuth.getCurrentUser().getUid();
+        // Try to get UID from Firebase Auth first, fallback to stored credentials
+        String uid;
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser != null) {
+            uid = currentUser.getUid();
+        } else {
+            // Firebase Auth user is null - use stored credentials
+            uid = sharedPreferences.getString(KEY_USER_ID, null);
+            if (uid == null) {
+                Log.e(TAG, "Cannot check user status - no Firebase user and no stored user ID");
+                navigateToLogin();
+                return;
+            }
+            Log.d(TAG, "Using stored user ID for status check: " + uid);
+        }
         String userType = "seniors"; // Use consistent collection name
         
         db.collection("Sagip")
@@ -837,19 +854,21 @@ public class Senior_Dashboard extends AppCompatActivity {
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists()) {
                         String status = documentSnapshot.getString("status");
-                        if (status != null && !status.equals("approved")) {
-                            // Account not approved - sign out and redirect to login
-                            Log.d(TAG, "Senior account not approved during status check, status: " + status);
-                            mAuth.signOut();
-                            clearStoredCredentials();
-                            Toast.makeText(Senior_Dashboard.this, 
-                                getString(R.string.account_not_approved_message), 
-                                Toast.LENGTH_LONG).show();
-                            navigateToLogin();
+                        Log.d(TAG, "Senior account status check, status: " + status);
+                        
+                        if ("new".equals(status)) {
+                            // User needs to complete registration
+                            Log.d(TAG, "Senior status is 'new', redirecting to registration");
+                            Intent intent = new Intent(Senior_Dashboard.this, Senior_Registration.class);
+                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                            startActivity(intent);
+                            finish();
                             return;
                         }
-                        // Status is approved, continue with normal flow
-                        Log.d(TAG, "Senior account status verified as approved");
+                        
+                        // For any other status (approved, pending, etc.), stay logged in
+                        // This matches behavior of other user types like Barangay
+                        Log.d(TAG, "Senior account status verified, proceeding with dashboard");
                     } else {
                         Log.e(TAG, "User document not found during status check, trying alternative search");
                         // Try to find user by phone number as fallback
@@ -1091,14 +1110,34 @@ private void attemptSessionRestore() {
 
     private void tryAlternativeUserSearch() {
         FirebaseUser currentUser = mAuth.getCurrentUser();
-        if (currentUser == null) {
-            mAuth.signOut();
+        String phoneNumber = null;
+        
+        // Try to get phone number from Firebase Auth first
+        if (currentUser != null) {
+            phoneNumber = currentUser.getPhoneNumber();
+        }
+        
+        // Fallback to stored phone number if Firebase user is null or has no phone
+        if (phoneNumber == null || phoneNumber.isEmpty()) {
+            phoneNumber = sharedPreferences.getString(KEY_USER_PHONE, null);
+            Log.d(TAG, "Using stored phone number for alternative search: " + phoneNumber);
+        }
+        
+        // If still no phone number, check if we have stored user ID and just load data
+        if (phoneNumber == null || phoneNumber.isEmpty()) {
+            String storedUserId = sharedPreferences.getString(KEY_USER_ID, null);
+            if (storedUserId != null) {
+                Log.d(TAG, "No phone number but have stored user ID, loading user data directly");
+                loadUserData();
+                return;
+            }
+            // No Firebase user, no stored phone, no stored user ID - must login
+            Log.e(TAG, "No authentication available for alternative search");
             clearStoredCredentials();
             navigateToLogin();
             return;
         }
 
-        String phoneNumber = currentUser.getPhoneNumber();
         if (phoneNumber != null) {
             // Try searching by phone number
             String searchNumber = phoneNumber.startsWith("+63") ? phoneNumber.substring(3) : phoneNumber;
@@ -1209,6 +1248,27 @@ private void attemptSessionRestore() {
                             Log.d(TAG, "Current barangay: " + currentBarangay);
                         } else {
                             Log.w(TAG, "No barangay information found for senior");
+                        }
+
+                        // Load phone number from Firestore profile (try different field names)
+                        String phoneFromFirestore = documentSnapshot.getString("mobileNumber");
+                        if (phoneFromFirestore == null || phoneFromFirestore.isEmpty()) {
+                            phoneFromFirestore = documentSnapshot.getString("phoneNumber");
+                        }
+                        if (phoneFromFirestore == null || phoneFromFirestore.isEmpty()) {
+                            phoneFromFirestore = documentSnapshot.getString("phone");
+                        }
+                        if (phoneFromFirestore == null || phoneFromFirestore.isEmpty()) {
+                            phoneFromFirestore = documentSnapshot.getString("mobile");
+                        }
+                        if (phoneFromFirestore == null || phoneFromFirestore.isEmpty()) {
+                            phoneFromFirestore = documentSnapshot.getString("contactNumber");
+                        }
+                        if (phoneFromFirestore != null && !phoneFromFirestore.isEmpty()) {
+                            seniorPhoneNumber = phoneFromFirestore;
+                            Log.d(TAG, "📱 Loaded phone number from Firestore: " + seniorPhoneNumber);
+                        } else {
+                            Log.w(TAG, "📱 No phone number found in senior profile");
                         }
 
                         if (currentLocation != null && !currentLocation.isEmpty()) {

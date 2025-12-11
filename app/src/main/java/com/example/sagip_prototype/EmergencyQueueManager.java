@@ -402,7 +402,7 @@ public class EmergencyQueueManager {
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists()) {
-                        String name = documentSnapshot.getString("rescuegroup");
+                        String name = documentSnapshot.getString("contactPerson");
                         String phone = documentSnapshot.getString("mobileNumber");
                         String team = documentSnapshot.getString("rescuegroup");
                         

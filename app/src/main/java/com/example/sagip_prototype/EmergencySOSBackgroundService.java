@@ -15,6 +15,7 @@ import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.PowerManager;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.util.Log;
@@ -45,6 +46,10 @@ public class EmergencySOSBackgroundService extends Service {
     // Static MediaPlayer to track current playing sound
     private static MediaPlayer currentMediaPlayer = null;
     private static AudioManager audioManager = null;
+    
+    // WakeLock to ensure emergency sound plays even in Doze mode
+    private static PowerManager.WakeLock emergencySoundWakeLock = null;
+    private static PowerManager powerManager = null;
     
     // Track notification IDs to dismiss them when user responds
     private static java.util.Set<Integer> activeNotificationIds = new java.util.HashSet<>();
@@ -491,6 +496,15 @@ public class EmergencySOSBackgroundService extends Service {
             Log.d(TAG, "🔍 [HANDLE_NOTIFICATION] NotificationStatus: " + notificationStatus);
             Log.d(TAG, "🔍 [HANDLE_NOTIFICATION] RequestId: " + requestId);
             Log.d(TAG, "🔍 [HANDLE_NOTIFICATION] SeniorName: " + seniorName);
+            Log.d(TAG, "🔍 [HANDLE_NOTIFICATION] Timestamp: " + timestamp);
+            Log.d(TAG, "🔍 [HANDLE_NOTIFICATION] listenerStartTime: " + listenerStartTime);
+            
+            // CRITICAL FIX: Skip notifications that were created BEFORE the listener started
+            // This prevents old notifications from triggering alerts on login/service start
+            if (timestamp != null && timestamp < listenerStartTime) {
+                Log.d(TAG, "🔇 [BACKGROUND] Notification timestamp (" + timestamp + ") is BEFORE listener start time (" + listenerStartTime + ") - SKIPPING old notification");
+                return;
+            }
             
             // CRITICAL FIX: Check if dashboard is currently active
             // ONLY use the static flag - SharedPrefs can be stale if app was force-closed
@@ -678,6 +692,54 @@ public class EmergencySOSBackgroundService extends Service {
         }
     }
     
+    /**
+     * Acquire a WakeLock to ensure CPU stays awake during emergency sound playback.
+     * This is critical for playing sounds when the device is in Doze mode.
+     */
+    private void acquireEmergencyWakeLock() {
+        try {
+            // Initialize PowerManager if not already done
+            if (powerManager == null) {
+                powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            }
+            
+            // Release any existing wake lock first
+            releaseEmergencyWakeLock();
+            
+            if (powerManager != null) {
+                // Use PARTIAL_WAKE_LOCK to keep CPU running for audio playback
+                emergencySoundWakeLock = powerManager.newWakeLock(
+                    PowerManager.PARTIAL_WAKE_LOCK,
+                    "SAGIP:EmergencySoundWakeLock"
+                );
+                
+                // Acquire with a 60-second timeout to prevent battery drain if something goes wrong
+                emergencySoundWakeLock.acquire(60 * 1000L);
+                Log.d(TAG, "🔓 Emergency WakeLock ACQUIRED - CPU will stay awake for sound playback");
+            } else {
+                Log.e(TAG, "❌ PowerManager is null, cannot acquire WakeLock");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error acquiring emergency WakeLock: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Release the emergency sound WakeLock
+     */
+    private static void releaseEmergencyWakeLock() {
+        try {
+            if (emergencySoundWakeLock != null && emergencySoundWakeLock.isHeld()) {
+                emergencySoundWakeLock.release();
+                Log.d(TAG, "🔒 Emergency WakeLock RELEASED");
+            }
+            emergencySoundWakeLock = null;
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error releasing emergency WakeLock: " + e.getMessage(), e);
+            emergencySoundWakeLock = null;
+        }
+    }
+    
     private void testSoundPlayback() {
         Log.d(TAG, "🔊 Testing sound playback directly...");
         try {
@@ -686,6 +748,9 @@ public class EmergencySOSBackgroundService extends Service {
             
             // Stop any currently playing sound
             stopEmergencySound();
+            
+            // CRITICAL: Acquire WakeLock BEFORE playing sound to ensure CPU stays awake in Doze mode
+            acquireEmergencyWakeLock();
             
             // Initialize AudioManager if not already done
             if (audioManager == null) {
@@ -753,6 +818,8 @@ public class EmergencySOSBackgroundService extends Service {
                         if (audioManager != null) {
                             audioManager.abandonAudioFocus(audioFocusChangeListener);
                         }
+                        // Release WakeLock on error
+                        releaseEmergencyWakeLock();
                         return true;
                     });
                     
@@ -764,6 +831,8 @@ public class EmergencySOSBackgroundService extends Service {
                         if (audioManager != null) {
                             audioManager.abandonAudioFocus(audioFocusChangeListener);
                         }
+                        // Release WakeLock when done
+                        releaseEmergencyWakeLock();
                     });
                 } else {
                     Log.e(TAG, "❌ Failed to create MediaPlayer");
@@ -771,6 +840,8 @@ public class EmergencySOSBackgroundService extends Service {
                     if (audioManager != null) {
                         audioManager.abandonAudioFocus(audioFocusChangeListener);
                     }
+                    // Release WakeLock if MediaPlayer creation failed
+                    releaseEmergencyWakeLock();
                 }
             } else {
                 Log.w(TAG, "⚠️ Audio focus not granted - but will play emergency sound anyway!");
@@ -783,6 +854,8 @@ public class EmergencySOSBackgroundService extends Service {
             if (audioManager != null) {
                 audioManager.abandonAudioFocus(audioFocusChangeListener);
             }
+            // Release WakeLock on error
+            releaseEmergencyWakeLock();
         }
     }
     
@@ -811,10 +884,23 @@ public class EmergencySOSBackgroundService extends Service {
                 currentMediaPlayer.setOnCompletionListener(mp -> {
                     mp.release();
                     currentMediaPlayer = null;
+                    // Release WakeLock when done
+                    releaseEmergencyWakeLock();
+                });
+                
+                currentMediaPlayer.setOnErrorListener((mp, what, extra) -> {
+                    Log.e(TAG, "❌ MediaPlayer error (no focus): what=" + what + ", extra=" + extra);
+                    mp.release();
+                    currentMediaPlayer = null;
+                    // Release WakeLock on error
+                    releaseEmergencyWakeLock();
+                    return true;
                 });
             }
         } catch (Exception e) {
             Log.e(TAG, "❌ Error playing emergency sound without focus: " + e.getMessage(), e);
+            // Release WakeLock on error
+            releaseEmergencyWakeLock();
         }
     }
     
@@ -870,6 +956,9 @@ public class EmergencySOSBackgroundService extends Service {
             audioManager.abandonAudioFocus(audioFocusChangeListener);
             Log.d(TAG, "🔇 Audio focus abandoned");
         }
+        
+        // Release WakeLock when stopping sound
+        releaseEmergencyWakeLock();
     }
     
     /**

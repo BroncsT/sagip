@@ -187,7 +187,6 @@ public class EmergencyContactSMSService {
         message.append("🚨 EMERGENCY ALERT 🚨\n\n");
         message.append("Dear ").append(contactName).append(",\n\n");
         message.append("This is an automated message from SAGIP Emergency Response System.\n\n");
-        message.append("Your ").append(relationship != null ? relationship.toLowerCase() : "family member");
         message.append(" ").append(seniorName).append(" has activated an emergency SOS call.\n\n");
         message.append("📋 EMERGENCY DETAILS:\n");
         message.append("• Type: ").append(emergencyType != null ? emergencyType.toUpperCase() : "MEDICAL EMERGENCY").append("\n");
@@ -201,8 +200,6 @@ public class EmergencyContactSMSService {
         message.append("Please stay calm and contact the rescuer if you need more information.\n\n");
         message.append("---\n");
         message.append("SAGIP Emergency Response System\n");
-        message.append("This is an automated message. Do not reply to this number.");
-        
         return message.toString();
     }
 

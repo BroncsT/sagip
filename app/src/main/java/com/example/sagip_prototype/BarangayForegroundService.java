@@ -8,8 +8,16 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.media.AudioAttributes;
+import android.media.AudioManager;
+import android.media.MediaPlayer;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.PowerManager;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -29,6 +37,7 @@ public class BarangayForegroundService extends Service {
     
     private static final String TAG = "BarangayForegroundService";
     private static final String CHANNEL_ID = "barangay_foreground_service";
+    private static final String EMERGENCY_CHANNEL_ID = "barangay_emergency_channel";
     private static final String CHANNEL_NAME = "Barangay Emergency Service";
     private static final String CHANNEL_DESCRIPTION = "Ensures barangay officials receive emergency alerts when app is closed";
     private static final int FOREGROUND_NOTIFICATION_ID = 6001;
@@ -38,6 +47,19 @@ public class BarangayForegroundService extends Service {
     private String userId;
     private ListenerRegistration emergencyListener;
     private long listenerStartTime = 0;
+    
+    // MediaPlayer for emergency alarm sound - similar to rescuer service
+    private static MediaPlayer currentMediaPlayer = null;
+    private static AudioManager audioManager = null;
+    
+    // WakeLock to ensure emergency sound plays even in Doze mode
+    private static PowerManager.WakeLock emergencySoundWakeLock = null;
+    private static PowerManager powerManager = null;
+    
+    // Audio focus change listener
+    private static AudioManager.OnAudioFocusChangeListener audioFocusChangeListener = focusChange -> {
+        Log.d(TAG, "🔊 Audio focus changed: " + focusChange);
+    };
     
     @Override
     public void onCreate() {
@@ -49,6 +71,7 @@ public class BarangayForegroundService extends Service {
         mAuth = FirebaseAuth.getInstance();
         
         createNotificationChannel();
+        createEmergencyNotificationChannel();
         
         // CRITICAL: Start foreground IMMEDIATELY to prevent crash
         try {
@@ -250,27 +273,51 @@ public class BarangayForegroundService extends Service {
      */
     private void handleEmergencyNotification(QueryDocumentSnapshot document) {
         try {
+            String notificationId = document.getId();
             String type = document.getString("type");
             String seniorName = document.getString("seniorName");
             String seniorPhone = document.getString("seniorPhone");
             String locationAddress = document.getString("locationAddress");
+            String barangay = document.getString("barangay");
             String requestId = document.getString("requestId");
             String emergencyType = document.getString("emergencyType");
+            Boolean isRead = document.getBoolean("isRead");
+            Double seniorLatitude = document.getDouble("seniorLatitude");
+            Double seniorLongitude = document.getDouble("seniorLongitude");
+            String currentLocation = document.getString("currentLocation");
             
             Log.d(TAG, "🚨 Processing emergency notification: " + seniorName + " (Request ID: " + requestId + ")");
+            Log.d(TAG, "🔍 [HANDLE_NOTIFICATION] IsRead: " + isRead);
             
-            if ("EMERGENCY_ALERT".equals(type) && seniorName != null) {
-                // Show high-priority emergency notification
-                showEmergencyNotification(seniorName, seniorPhone, locationAddress, requestId, emergencyType);
+            // CRITICAL FIX: Check if dashboard is currently active - same as rescuer service
+            // If dashboard is active, defer to dashboard for in-app alert
+            boolean isDashboardActive = Barangay_Dashboard.isDashboardActive;
+            Log.d(TAG, "📱 [HANDLE_NOTIFICATION] Dashboard active check - isDashboardActive: " + isDashboardActive);
+            
+            if ("EMERGENCY_ALERT".equals(type) && seniorName != null && (isRead == null || !isRead)) {
+                // CRITICAL FIX: If dashboard is active, defer to dashboard for in-app alert
+                if (isDashboardActive) {
+                    Log.d(TAG, "📱 [BACKGROUND] Dashboard is ACTIVE - deferring to dashboard for in-app alert");
+                    Log.d(TAG, "📱 [BACKGROUND] NOT processing - dashboard will handle this notification");
+                    return; // Let dashboard handle it
+                }
                 
-                // Mark notification as processed
-                document.getReference().update("processedByForegroundService", true)
+                Log.d(TAG, "📱 [BACKGROUND] Dashboard is INACTIVE - background service will show system notification");
+                
+                // CRITICAL FIX: Mark as read FIRST to prevent duplicates - same as rescuer
+                // Show notification ONLY in success callback
+                document.getReference().update("isRead", true, "processedBy", "backgroundService")
                         .addOnSuccessListener(aVoid -> {
-                            Log.d(TAG, "✅ Emergency notification marked as processed");
+                            Log.d(TAG, "✅ [BACKGROUND] Marked notification as read and processing");
+                            
+                            // Show high-priority emergency notification with alarm sound
+                            showEmergencyNotification(notificationId, seniorName, seniorPhone, locationAddress, barangay, requestId, emergencyType, seniorLatitude, seniorLongitude, currentLocation);
                         })
                         .addOnFailureListener(e -> {
-                            Log.w(TAG, "⚠️ Failed to mark notification as processed: " + e.getMessage());
+                            Log.w(TAG, "⚠️ [BACKGROUND] Failed to mark as read (might already be processed): " + e.getMessage());
                         });
+            } else if ("EMERGENCY_ALERT".equals(type) && isRead != null && isRead) {
+                Log.d(TAG, "🔇 Ignoring already read emergency notification: " + seniorName + " (Request ID: " + requestId + ")");
             }
             
         } catch (Exception e) {
@@ -281,16 +328,27 @@ public class BarangayForegroundService extends Service {
     /**
      * Shows emergency notification to barangay official
      */
-    private void showEmergencyNotification(String seniorName, String seniorPhone, String locationAddress, String requestId, String emergencyType) {
+    private void showEmergencyNotification(String notificationId, String seniorName, String seniorPhone, 
+                                           String locationAddress, String barangay, String requestId, 
+                                           String emergencyType, Double seniorLatitude, Double seniorLongitude, 
+                                           String currentLocation) {
         Log.d(TAG, "🔔 Showing emergency notification for barangay official: " + seniorName);
         
         // Check notification permission on Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 Log.e(TAG, "❌ Notification permission denied - cannot show notification");
+                // Still play sound even if notifications are blocked
+                playEmergencyAlarmSound();
                 return;
             }
         }
+        
+        // CRITICAL: Play emergency alarm sound - same as rescuer
+        playEmergencyAlarmSound();
+        
+        // Vibrate device for emergency
+        vibrateDevice();
         
         NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         
@@ -298,12 +356,23 @@ public class BarangayForegroundService extends Service {
         Intent notificationIntent = new Intent(this, Barangay_Dashboard.class);
         notificationIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         notificationIntent.putExtra("emergency_notification", true);
+        notificationIntent.putExtra("notification_id", notificationId);
         notificationIntent.putExtra("senior_name", seniorName);
         notificationIntent.putExtra("senior_phone", seniorPhone);
         notificationIntent.putExtra("location_address", locationAddress);
+        notificationIntent.putExtra("barangay", barangay);
         notificationIntent.putExtra("request_id", requestId);
         notificationIntent.putExtra("emergency_type", emergencyType);
         notificationIntent.putExtra("from_foreground_service", true);
+        if (seniorLatitude != null) {
+            notificationIntent.putExtra("senior_latitude", seniorLatitude);
+        }
+        if (seniorLongitude != null) {
+            notificationIntent.putExtra("senior_longitude", seniorLongitude);
+        }
+        if (currentLocation != null) {
+            notificationIntent.putExtra("current_location", currentLocation);
+        }
         
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 this,
@@ -322,14 +391,38 @@ public class BarangayForegroundService extends Service {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
         
+        // Create navigation intent - same as rescuer
+        Intent navIntent = new Intent(Intent.ACTION_VIEW);
+        navIntent.setData(android.net.Uri.parse("https://www.google.com/maps/dir/?api=1&destination=" + 
+            android.net.Uri.encode(locationAddress != null ? locationAddress : "Angeles City, Pampanga") + "&travelmode=driving"));
+        PendingIntent navPendingIntent = PendingIntent.getActivity(
+                this,
+                (int) System.currentTimeMillis() + 2,
+                navIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        
+        // Create dismiss intent to stop sound - opens dashboard with dismiss flag
+        Intent dismissIntent = new Intent(this, Barangay_Dashboard.class);
+        dismissIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        dismissIntent.putExtra("dismiss_sound", true);
+        dismissIntent.putExtra("from_foreground_service", true);
+        PendingIntent dismissPendingIntent = PendingIntent.getActivity(
+                this,
+                (int) System.currentTimeMillis() + 3,
+                dismissIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        
         String bigText = "🚨 URGENT: Senior needs immediate help!\n\n" +
                         "👤 Senior: " + seniorName + "\n" +
-                        "📞 Phone: " + seniorPhone + "\n" +
-                        "📍 Location: " + locationAddress + "\n" +
-                        "🆘 Emergency: " + emergencyType + "\n\n" +
+                        "📞 Phone: " + (seniorPhone != null ? seniorPhone : "Not provided") + "\n" +
+                        "📍 Location: " + (locationAddress != null ? locationAddress : "Not provided") + "\n" +
+                        "🆘 Emergency: " + (emergencyType != null ? emergencyType : "SOS") + "\n\n" +
                         "⚠️ Please respond immediately!";
         
-        Notification notification = new NotificationCompat.Builder(this, "barangay_emergency_channel")
+        // Use emergency channel with alarm sound - same as rescuer
+        Notification notification = new NotificationCompat.Builder(this, EMERGENCY_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_emergency)
                 .setContentTitle("🚨 EMERGENCY ALERT 🚨")
                 .setContentText(seniorName + " needs immediate help!")
@@ -337,19 +430,24 @@ public class BarangayForegroundService extends Service {
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                .setAutoCancel(false)
-                .setOngoing(true)
+                .setAutoCancel(true)
+                .setOngoing(false)
                 .setContentIntent(pendingIntent)
+                .setSound(getCustomAlarmSound())
                 .setVibrate(new long[]{0, 1000, 500, 1000, 500, 1000})
                 .setLights(0xFFFF0000, 1000, 1000)
                 .setFullScreenIntent(pendingIntent, true)
                 .addAction(android.R.drawable.ic_menu_call, "📞 CALL", callPendingIntent)
+                .addAction(android.R.drawable.ic_menu_directions, "🗺️ NAVIGATE", navPendingIntent)
+                .addAction(android.R.drawable.ic_menu_close_clear_cancel, "🔇 DISMISS", dismissPendingIntent)
                 .setDefaults(NotificationCompat.DEFAULT_ALL)
                 .build();
         
-        notificationManager.notify(8001, notification);
+        int notifyId = (int) System.currentTimeMillis() % Integer.MAX_VALUE;
+        notificationManager.notify(notifyId, notification);
         
         Log.d(TAG, "🔔 Emergency notification sent to barangay official for: " + seniorName);
+        Log.d(TAG, "🔊 Emergency alarm sound triggered for barangay");
     }
     
     /**
@@ -370,6 +468,294 @@ public class BarangayForegroundService extends Service {
             notificationManager.createNotificationChannel(channel);
             
             Log.d(TAG, "✅ Barangay foreground service notification channel created");
+        }
+    }
+    
+    /**
+     * Creates high-priority emergency notification channel with alarm sound - same as rescuer
+     */
+    private void createEmergencyNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    EMERGENCY_CHANNEL_ID,
+                    "Barangay Emergency Alerts",
+                    NotificationManager.IMPORTANCE_HIGH
+            );
+            
+            // Configure custom alarm sound for emergency notifications - same as rescuer
+            Uri alarmSound = getCustomAlarmSound();
+            AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setFlags(AudioAttributes.FLAG_AUDIBILITY_ENFORCED)
+                .build();
+            
+            channel.setSound(alarmSound, audioAttributes);
+            channel.setVibrationPattern(new long[]{0, 1000, 500, 1000, 500, 1000});
+            channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+            channel.setShowBadge(true);
+            channel.enableLights(true);
+            channel.setLightColor(0xFFFF0000); // Red light
+            channel.enableVibration(true);
+            channel.setDescription("High-priority emergency alerts for barangay officials");
+            
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            if (notificationManager != null) {
+                notificationManager.createNotificationChannel(channel);
+                Log.d(TAG, "🔊 Barangay emergency notification channel created with alarm sound: " + alarmSound.toString());
+            }
+        }
+    }
+    
+    /**
+     * Gets custom alarm sound URI - same as rescuer service
+     */
+    private Uri getCustomAlarmSound() {
+        try {
+            // Try to use custom alarm sound from raw resources
+            Uri customSound = Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.emergency_alarm);
+            Log.d(TAG, "Custom alarm sound URI: " + customSound.toString());
+            return customSound;
+        } catch (Exception e) {
+            // Fallback to system alarm sound if custom file doesn't exist
+            Log.w(TAG, "Custom alarm sound not found, using system alarm sound. Error: " + e.getMessage());
+            return RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+        }
+    }
+    
+    /**
+     * Acquire a WakeLock to ensure CPU stays awake during emergency sound playback.
+     * This is critical for playing sounds when the device is in Doze mode.
+     */
+    private void acquireEmergencyWakeLock() {
+        try {
+            // Initialize PowerManager if not already done
+            if (powerManager == null) {
+                powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            }
+            
+            // Release any existing wake lock first
+            releaseEmergencyWakeLock();
+            
+            if (powerManager != null) {
+                // Use PARTIAL_WAKE_LOCK to keep CPU running for audio playback
+                emergencySoundWakeLock = powerManager.newWakeLock(
+                    PowerManager.PARTIAL_WAKE_LOCK,
+                    "SAGIP:BarangayEmergencySoundWakeLock"
+                );
+                
+                // Acquire with a 60-second timeout to prevent battery drain if something goes wrong
+                emergencySoundWakeLock.acquire(60 * 1000L);
+                Log.d(TAG, "🔓 Barangay Emergency WakeLock ACQUIRED - CPU will stay awake for sound playback");
+            } else {
+                Log.e(TAG, "❌ PowerManager is null, cannot acquire WakeLock");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error acquiring emergency WakeLock: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Release the emergency sound WakeLock
+     */
+    private static void releaseEmergencyWakeLock() {
+        try {
+            if (emergencySoundWakeLock != null && emergencySoundWakeLock.isHeld()) {
+                emergencySoundWakeLock.release();
+                Log.d(TAG, "🔒 Barangay Emergency WakeLock RELEASED");
+            }
+            emergencySoundWakeLock = null;
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error releasing emergency WakeLock: " + e.getMessage(), e);
+            emergencySoundWakeLock = null;
+        }
+    }
+    
+    /**
+     * Plays emergency alarm sound - same functionality as rescuer service
+     */
+    private void playEmergencyAlarmSound() {
+        Log.d(TAG, "🔊 Playing emergency alarm sound for barangay...");
+        try {
+            Uri soundUri = getCustomAlarmSound();
+            Log.d(TAG, "🔊 Testing with sound URI: " + soundUri.toString());
+            
+            // Stop any currently playing sound
+            stopEmergencySound();
+            
+            // CRITICAL: Acquire WakeLock BEFORE playing sound to ensure CPU stays awake in Doze mode
+            acquireEmergencyWakeLock();
+            
+            // Initialize AudioManager if not already done
+            if (audioManager == null) {
+                audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+            }
+            
+            // Check current ringer mode and log it
+            int ringerMode = audioManager.getRingerMode();
+            Log.d(TAG, "🔊 Current ringer mode: " + ringerMode + " (0=SILENT, 1=VIBRATE, 2=NORMAL)");
+            
+            // Ensure alarm volume is at maximum for emergency
+            int maxAlarmVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM);
+            int currentAlarmVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM);
+            Log.d(TAG, "🔊 Current alarm volume: " + currentAlarmVolume + "/" + maxAlarmVolume);
+            
+            audioManager.setStreamVolume(AudioManager.STREAM_ALARM, maxAlarmVolume, 0);
+            Log.d(TAG, "🔊 Set alarm volume to maximum: " + maxAlarmVolume);
+            
+            // Request audio focus for emergency sound
+            int result = audioManager.requestAudioFocus(
+                audioFocusChangeListener,
+                AudioManager.STREAM_ALARM,
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+            );
+            
+            Log.d(TAG, "🔊 Audio focus request result: " + result + " (1=GRANTED, 0=FAILED)");
+            
+            if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+                Log.d(TAG, "🔊 Audio focus granted for emergency sound");
+                playMediaPlayer(soundUri);
+            } else {
+                Log.w(TAG, "⚠️ Audio focus not granted - but will play emergency sound anyway!");
+                // For emergency sounds, play anyway even without audio focus
+                playMediaPlayer(soundUri);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error playing emergency alarm sound: " + e.getMessage(), e);
+            if (audioManager != null) {
+                audioManager.abandonAudioFocus(audioFocusChangeListener);
+            }
+        }
+    }
+    
+    /**
+     * Plays the MediaPlayer with the given sound URI
+     */
+    private void playMediaPlayer(Uri soundUri) {
+        try {
+            currentMediaPlayer = MediaPlayer.create(this, soundUri);
+            if (currentMediaPlayer != null) {
+                Log.d(TAG, "🔊 MediaPlayer created successfully");
+                
+                // Set audio attributes for emergency sound
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .setFlags(AudioAttributes.FLAG_AUDIBILITY_ENFORCED)
+                        .build();
+                    currentMediaPlayer.setAudioAttributes(audioAttributes);
+                    Log.d(TAG, "🔊 Audio attributes set for API " + Build.VERSION.SDK_INT);
+                } else {
+                    currentMediaPlayer.setAudioStreamType(AudioManager.STREAM_ALARM);
+                    Log.d(TAG, "🔊 Audio stream type set to ALARM for API " + Build.VERSION.SDK_INT);
+                }
+                
+                // Set volume to maximum for emergency
+                currentMediaPlayer.setVolume(1.0f, 1.0f);
+                Log.d(TAG, "🔊 MediaPlayer volume set to maximum");
+                
+                // Start playback
+                currentMediaPlayer.start();
+                Log.d(TAG, "🔊 MediaPlayer started successfully");
+                
+                currentMediaPlayer.setOnErrorListener((mp, what, extra) -> {
+                    Log.e(TAG, "❌ MediaPlayer error: what=" + what + ", extra=" + extra);
+                    mp.release();
+                    currentMediaPlayer = null;
+                    if (audioManager != null) {
+                        audioManager.abandonAudioFocus(audioFocusChangeListener);
+                    }
+                    // Release WakeLock on error
+                    releaseEmergencyWakeLock();
+                    return true;
+                });
+                
+                currentMediaPlayer.setOnCompletionListener(mp -> {
+                    Log.d(TAG, "🔊 Sound playback completed");
+                    mp.release();
+                    currentMediaPlayer = null;
+                    if (audioManager != null) {
+                        audioManager.abandonAudioFocus(audioFocusChangeListener);
+                    }
+                    // Release WakeLock when done
+                    releaseEmergencyWakeLock();
+                });
+            } else {
+                Log.e(TAG, "❌ Failed to create MediaPlayer");
+                if (audioManager != null) {
+                    audioManager.abandonAudioFocus(audioFocusChangeListener);
+                }
+                // Release WakeLock if MediaPlayer creation failed
+                releaseEmergencyWakeLock();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error playing MediaPlayer: " + e.getMessage(), e);
+            // Release WakeLock on error
+            releaseEmergencyWakeLock();
+        }
+    }
+    
+    /**
+     * Stops the emergency alarm sound
+     */
+    public static void stopEmergencySound() {
+        Log.d(TAG, "🔇 Stopping emergency sound");
+        if (currentMediaPlayer != null) {
+            try {
+                // Set volume to 0 immediately to mute any buffered audio
+                currentMediaPlayer.setVolume(0.0f, 0.0f);
+                Log.d(TAG, "🔇 Volume set to 0 (muted)");
+                
+                if (currentMediaPlayer.isPlaying()) {
+                    currentMediaPlayer.stop();
+                    Log.d(TAG, "🔇 Emergency sound stopped successfully");
+                }
+                
+                // Reset before releasing to clear any buffered audio
+                currentMediaPlayer.reset();
+                Log.d(TAG, "🔇 MediaPlayer reset (cleared buffers)");
+                
+                currentMediaPlayer.release();
+                Log.d(TAG, "🔇 MediaPlayer released and cleared");
+            } catch (Exception e) {
+                Log.e(TAG, "Error stopping MediaPlayer: " + e.getMessage());
+                try {
+                    if (currentMediaPlayer != null) {
+                        currentMediaPlayer.release();
+                    }
+                } catch (Exception e2) {
+                    Log.e(TAG, "Error releasing MediaPlayer: " + e2.getMessage());
+                }
+            }
+            currentMediaPlayer = null;
+        }
+        
+        if (audioManager != null) {
+            audioManager.abandonAudioFocus(audioFocusChangeListener);
+            Log.d(TAG, "🔇 Audio focus abandoned");
+        }
+        
+        // Release WakeLock when stopping sound
+        releaseEmergencyWakeLock();
+    }
+    
+    /**
+     * Vibrates the device for emergency alert - same as rescuer
+     */
+    private void vibrateDevice() {
+        Vibrator vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+        if (vibrator != null && vibrator.hasVibrator()) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                VibrationEffect effect = VibrationEffect.createWaveform(
+                    new long[]{0, 1000, 500, 1000, 500, 1000}, 
+                    -1 // Don't repeat
+                );
+                vibrator.vibrate(effect);
+            } else {
+                vibrator.vibrate(new long[]{0, 1000, 500, 1000, 500, 1000}, -1);
+            }
+            Log.d(TAG, "📳 Device vibration triggered");
         }
     }
 }

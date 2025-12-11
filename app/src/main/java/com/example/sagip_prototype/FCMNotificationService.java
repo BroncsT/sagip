@@ -547,6 +547,12 @@ public class FCMNotificationService extends FirebaseMessagingService {
     private void showBarangayEmergencyAlertNotification(String title, String message, String seniorName,
                                                         String seniorPhone, String locationAddress,
                                                         String barangay, String requestId, String emergencyType) {
+        // Skip system notification if dashboard is active - popup will show instead
+        if (Barangay_Dashboard.isDashboardActive) {
+            Log.d(TAG, "📱 Dashboard is ACTIVE - skipping system notification (popup will show)");
+            return;
+        }
+        
         Log.d(TAG, "🚨 Showing barangay emergency alert notification for: " + seniorName);
         createBarangayNotificationChannel();
         
@@ -594,8 +600,8 @@ public class FCMNotificationService extends FirebaseMessagingService {
                                 "IMMEDIATE ACTION REQUIRED!"))
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_ALARM)
-                .setAutoCancel(false) // Don't auto-cancel - user must manually dismiss
-                .setOngoing(true) // Make it ongoing so it can't be swiped away
+                .setAutoCancel(true) // Auto-dismiss when clicked
+                .setOngoing(false) // Allow user to swipe away
                 .setContentIntent(pendingIntent)
                 .setSound(getCustomAlarmSound())
                 .setVibrate(new long[]{0, 1000, 200, 1000, 200, 1000, 200, 1000, 200, 1000})

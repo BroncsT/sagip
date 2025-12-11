@@ -293,7 +293,13 @@ public class BarangayNotificationService {
     private void showEmergencyAlertNotification(String notificationId, String seniorName, String seniorPhone, 
                                              String locationAddress, String barangay, String requestId, String emergencyType, 
                                              Double seniorLatitude, Double seniorLongitude, String currentLocation) {
-        Log.d(TAG, "🚨 Showing EMERGENCY ALERT notification for: " + seniorName);
+        // DISABLED: BarangayForegroundService now handles all notifications to prevent duplicates
+        // This service is kept for backwards compatibility but notifications are handled by BarangayForegroundService
+        Log.d(TAG, "🔇 DISABLED - BarangayNotificationService notification skipped (using BarangayForegroundService instead)");
+        // Early return - BarangayForegroundService handles all notifications now
+        /*
+        // Original code below - kept for reference
+        // Log.d(TAG, "🚨 Showing EMERGENCY ALERT notification for: " + seniorName);
         
         // Create intent to open Barangay_Dashboard
         Intent intent = new Intent(context, Barangay_Dashboard.class);
@@ -385,6 +391,7 @@ public class BarangayNotificationService {
             // Also show as heads-up notification
             showHeadsUpNotification(seniorName, barangay, seniorPhone, seniorLatitude, seniorLongitude, currentLocation);
         }
+        */
     }
     
     private void markNotificationAsRead(String notificationId) {

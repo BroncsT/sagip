@@ -1322,9 +1322,17 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
     
     private void callSenior() {
         if (seniorPhone != null && !seniorPhone.isEmpty()) {
-            Intent callIntent = new Intent(Intent.ACTION_DIAL);
-            callIntent.setData(Uri.parse("tel:" + seniorPhone));
-            startActivity(callIntent);
+            // Use PhoneNumberUtils to get a valid callable number
+            String callableNumber = PhoneNumberUtils.getCallablePhoneNumber(seniorPhone);
+            if (callableNumber != null) {
+                Intent callIntent = new Intent(Intent.ACTION_DIAL);
+                callIntent.setData(Uri.parse("tel:" + callableNumber));
+                startActivity(callIntent);
+            } else {
+                // Phone number is invalid or incomplete
+                Log.w(TAG, "📱 Invalid phone number: " + seniorPhone);
+                Toast.makeText(this, "Invalid phone number: " + seniorPhone, Toast.LENGTH_LONG).show();
+            }
         } else {
             Toast.makeText(this, getString(R.string.senior_phone_not_available), Toast.LENGTH_SHORT).show();
         }
@@ -1527,6 +1535,15 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
     protected void onPause() {
         super.onPause();
         Log.d(TAG, "🚨🚨🚨 EmergencyAssignmentActivity PAUSED 🚨🚨🚨");
+    }
+    
+    @SuppressWarnings("deprecation")
+    @Override
+    public void onBackPressed() {
+        // Block back button - rescuer must complete the assignment first
+        Toast.makeText(this, "Please complete the emergency assignment before leaving", Toast.LENGTH_LONG).show();
+        Log.d(TAG, "⚠️ Back button pressed - blocked until assignment is complete");
+        // Do NOT call super.onBackPressed() to prevent going back
     }
     
     private void sendHospitalDetailsNotificationToSenior(DocumentSnapshot hospitalDoc, double distance) {
