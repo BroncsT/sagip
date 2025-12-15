@@ -4,6 +4,7 @@ import static android.content.ContentValues.TAG;
 
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.text.TextUtils;
@@ -31,6 +32,8 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.QuerySnapshot;
 
+import com.google.firebase.FirebaseTooManyRequestsException;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -48,7 +51,24 @@ public class OTP_PAGE extends AppCompatActivity {
     private CountDownTimer countDownTimer;
     private static final long TIMER_DURATION = 60000; // 60 seconds
 
-    private final List<String> userTypes = Arrays.asList("seniors", "rescuer", "barangay", "hospital");
+    // SharedPreferences for session persistence
+    private SharedPreferences sharedPreferences;
+    private static final String PREF_NAME = "SagipPrefs";
+    private static final String KEY_IS_LOGGED_IN = "isLoggedIn";
+    private static final String KEY_USER_ID = "userId";
+    private static final String KEY_USER_TYPE = "userType";
+    private static final String KEY_USER_PHONE = "userPhone";
+
+    private static final int MAX_OTP_RESENDS_PER_WINDOW = 2;
+    private static final long OTP_RESEND_WINDOW_MS = TimeUnit.MINUTES.toMillis(10);
+    private static final long OTP_RESEND_LOCKOUT_MS = TimeUnit.MINUTES.toMillis(15);
+    private static final String PREF_OTP_RESEND = "SagipOtpResendPrefs";
+    private static final String KEY_RESEND_WINDOW_START_PREFIX = "otpResendWindowStart_";
+    private static final String KEY_RESEND_COUNT_PREFIX = "otpResendCount_";
+    private static final String KEY_RESEND_LOCKOUT_UNTIL_PREFIX = "otpResendLockoutUntil_";
+
+    // Only seniors use phone number authentication
+    private final List<String> userTypes = Arrays.asList("seniors");
     private int currentUserTypeIndex = 0;
 
     @Override
@@ -63,6 +83,7 @@ public class OTP_PAGE extends AppCompatActivity {
 
         auth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
+        sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
 
         otpEditText = findViewById(R.id.otpInput);
         Button verifyButton = findViewById(R.id.verifyButton);
@@ -113,6 +134,44 @@ public class OTP_PAGE extends AppCompatActivity {
     }
 
     private void resendOtp() {
+        String otpKey = mobileNumber != null ? mobileNumber.trim() : "";
+        long now = System.currentTimeMillis();
+
+        if (!otpKey.isEmpty()) {
+            android.content.SharedPreferences prefs = getSharedPreferences(PREF_OTP_RESEND, MODE_PRIVATE);
+            long lockoutUntil = prefs.getLong(KEY_RESEND_LOCKOUT_UNTIL_PREFIX + otpKey, 0L);
+            if (lockoutUntil > now) {
+                long remainingMs = lockoutUntil - now;
+                long remainingMinutes = Math.max(1L, TimeUnit.MILLISECONDS.toMinutes(remainingMs));
+                Toast.makeText(OTP_PAGE.this,
+                        "Too many OTP requests. Try again in " + remainingMinutes + " minute(s).",
+                        Toast.LENGTH_LONG).show();
+                return;
+            }
+
+            long windowStart = prefs.getLong(KEY_RESEND_WINDOW_START_PREFIX + otpKey, 0L);
+            int resendCount = prefs.getInt(KEY_RESEND_COUNT_PREFIX + otpKey, 0);
+            if (windowStart <= 0L || now - windowStart > OTP_RESEND_WINDOW_MS) {
+                windowStart = now;
+                resendCount = 0;
+            }
+
+            if (resendCount >= MAX_OTP_RESENDS_PER_WINDOW) {
+                prefs.edit()
+                        .putLong(KEY_RESEND_LOCKOUT_UNTIL_PREFIX + otpKey, now + OTP_RESEND_LOCKOUT_MS)
+                        .apply();
+                Toast.makeText(OTP_PAGE.this,
+                        "Too many OTP requests. Please wait 15 minutes and try again.",
+                        Toast.LENGTH_LONG).show();
+                return;
+            }
+
+            prefs.edit()
+                    .putLong(KEY_RESEND_WINDOW_START_PREFIX + otpKey, windowStart)
+                    .putInt(KEY_RESEND_COUNT_PREFIX + otpKey, resendCount + 1)
+                    .apply();
+        }
+
         Toast.makeText(OTP_PAGE.this, getString(R.string.resending_otp), Toast.LENGTH_SHORT).show();
 
         PhoneAuthProvider.OnVerificationStateChangedCallbacks callbacks = new PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
@@ -123,6 +182,12 @@ public class OTP_PAGE extends AppCompatActivity {
 
             @Override
             public void onVerificationFailed(@NonNull FirebaseException e) {
+                if (e instanceof FirebaseTooManyRequestsException) {
+                    Toast.makeText(OTP_PAGE.this,
+                            "Too many OTP requests. Please wait 15 minutes and try again.",
+                            Toast.LENGTH_LONG).show();
+                    return;
+                }
                 Toast.makeText(OTP_PAGE.this, String.format(getString(R.string.verification_failed_format), e.getMessage()), Toast.LENGTH_SHORT).show();
             }
 
@@ -257,7 +322,7 @@ public class OTP_PAGE extends AppCompatActivity {
                                         if ("new".equals(status)) {
                                             // User needs to complete registration
                                             Log.d(TAG, "User status is 'new', redirecting to registration");
-                                            goToRegistrationByType(currentType);
+                                            goToRegistration();
                                         } else {
                                             // User is registered, proceed to dashboard
                                             Log.d(TAG, "User is registered, proceeding to dashboard");
@@ -308,7 +373,7 @@ public class OTP_PAGE extends AppCompatActivity {
                                                                     if ("new".equals(status)) {
                                                                         // User needs to complete registration
                                                                         Log.d(TAG, "User status is 'new', redirecting to registration");
-                                                                        goToRegistrationByType(currentType);
+                                                                        goToRegistration();
                                                                     } else {
                                                                         // User is registered, proceed to dashboard
                                                                         Log.d(TAG, "User is registered, proceeding to dashboard");
@@ -406,7 +471,7 @@ public class OTP_PAGE extends AppCompatActivity {
                 // For non-senior users, check status
                 if ("new".equals(status)) {
                     Log.d(TAG, "User status is 'new', redirecting to registration");
-                    goToRegistrationByType(currentType);
+                    goToRegistration();
                 } else {
                     Log.d(TAG, "User is registered, proceeding to dashboard");
                     goToHomeScreen(currentType);
@@ -417,6 +482,16 @@ public class OTP_PAGE extends AppCompatActivity {
     }
 
     private void goToHomeScreen(String userType) {
+        // CRITICAL: Save user credentials before navigating to dashboard
+        // This ensures the session persists when the app is closed
+        FirebaseUser currentUser = auth.getCurrentUser();
+        if (currentUser != null) {
+            saveUserCredentials(currentUser.getUid(), userType, mobileNumber);
+            Log.d(TAG, "Saved credentials for user: " + currentUser.getUid() + ", type: " + userType);
+        } else {
+            Log.w(TAG, "Warning: No Firebase user when navigating to home screen");
+        }
+        
         Intent intent;
         switch (userType) {
             case "seniors":
@@ -440,6 +515,32 @@ public class OTP_PAGE extends AppCompatActivity {
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
+    }
+    
+    private void saveUserCredentials(String userId, String userType, String phoneNumber) {
+        Log.d(TAG, "Saving user credentials: " + userId + ", " + userType);
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putBoolean(KEY_IS_LOGGED_IN, true);
+        editor.putString(KEY_USER_ID, userId);
+        editor.putString(KEY_USER_TYPE, userType);
+        if (phoneNumber != null) {
+            editor.putString(KEY_USER_PHONE, phoneNumber);
+        }
+        editor.putBoolean("FRESH_INSTALL_FLAG", false);
+        // Use commit() instead of apply() for immediate, synchronous persistence
+        // This is critical for seniors to prevent session loss when app is closed
+        editor.commit();
+        
+        // Also save to user_prefs for notification services
+        SharedPreferences userPrefs = getSharedPreferences("user_prefs", MODE_PRIVATE);
+        SharedPreferences.Editor userEditor = userPrefs.edit();
+        userEditor.putString("user_id", userId);
+        userEditor.putString("user_type", userType);
+        if (phoneNumber != null) {
+            userEditor.putString("user_phone", phoneNumber);
+        }
+        userEditor.putBoolean("user_logged_out", false);
+        userEditor.commit();
     }
 
     private void goToRegistration() {

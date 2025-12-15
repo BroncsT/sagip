@@ -20,15 +20,8 @@ public class MLRecommendationSystem {
     
     private void initializeFeatureWeights() {
         featureWeights = new HashMap<>();
-        featureWeights.put("distance", 0.25);
-        featureWeights.put("availability", 0.20);
-        featureWeights.put("specialization", 0.18);
-        featureWeights.put("response_time", 0.15);
-        featureWeights.put("capacity", 0.10);
-        featureWeights.put("time_of_day", 0.05);
-        featureWeights.put("day_of_week", 0.03);
-        featureWeights.put("weather", 0.02);
-        featureWeights.put("traffic", 0.02);
+        featureWeights.put("distance", 0.50);
+        featureWeights.put("er_availability", 0.50);
     }
     
     private void loadHistoricalData() {
@@ -115,11 +108,7 @@ public class MLRecommendationSystem {
         if (totalWeight > 0) {
             totalScore = totalScore / totalWeight;
         }
-        
-        // Apply historical success rate
-        double historicalRate = historicalSuccessRates.getOrDefault(hospital.hospitalId, 0.85);
-        totalScore = (totalScore * 0.7) + (historicalRate * 0.3);
-        
+
         return Math.min(1.0, Math.max(0.0, totalScore));
     }
     
@@ -134,105 +123,48 @@ public class MLRecommendationSystem {
             hospital.location.getLatitude(), hospital.location.getLongitude()
         );
         features.put("distance", 1.0 / (1.0 + distance / 5.0)); // Normalize to 5km
-        
-        // Availability feature
-        features.put("availability", hospital.getAvailabilityScore());
-        
-        // Specialization feature
-        features.put("specialization", calculateSpecializationMatch(hospital, emergency.emergencyType));
-        
-        // Response time feature
-        features.put("response_time", hospital.getResponseTimeScore());
-        
-        // Capacity feature
-        features.put("capacity", hospital.getCapacityScore());
-        
-        // Time-based features
-        Calendar calendar = Calendar.getInstance();
-        int hour = calendar.get(Calendar.HOUR_OF_DAY);
-        int dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
-        
-        // Time of day feature (0-1 scale)
-        double timeOfDayScore = calculateTimeOfDayScore(hour);
-        features.put("time_of_day", timeOfDayScore);
-        
-        // Day of week feature (0-1 scale)
-        double dayOfWeekScore = calculateDayOfWeekScore(dayOfWeek);
-        features.put("day_of_week", dayOfWeekScore);
-        
-        // Weather feature (simplified)
-        features.put("weather", 0.8); // Assume good weather
-        
-        // Traffic feature
-        features.put("traffic", 1.0 / (1.0 + hospital.trafficLevel));
+
+        // ER Availability feature (based on ER status and ER bed availability)
+        features.put("er_availability", getErAvailabilityScore(hospital));
         
         return features;
     }
-    
-    private double calculateSpecializationMatch(Hospital hospital, String emergencyType) {
-        if (hospital.specializations == null || emergencyType == null) {
-            return 0.5;
+
+    private double getErAvailabilityScore(Hospital hospital) {
+        // Prefer ER-specific beds if present
+        double erBedScore = 0.5;
+        if (hospital.emergencyBeds > 0) {
+            erBedScore = (double) hospital.availableEmergencyBeds / (double) hospital.emergencyBeds;
+        } else if (hospital.totalBeds > 0) {
+            erBedScore = hospital.getAvailabilityScore();
         }
-        
-        // Map emergency types to specializations
-        Map<String, String> emergencyToSpecialization = new HashMap<>();
-        emergencyToSpecialization.put("cardiac_arrest", "cardiology");
-        emergencyToSpecialization.put("heart_attack", "cardiology");
-        emergencyToSpecialization.put("stroke", "neurology");
-        emergencyToSpecialization.put("head_injury", "neurology");
-        emergencyToSpecialization.put("trauma", "trauma");
-        emergencyToSpecialization.put("accident", "trauma");
-        emergencyToSpecialization.put("respiratory", "pulmonology");
-        emergencyToSpecialization.put("breathing", "pulmonology");
-        emergencyToSpecialization.put("pediatric", "pediatrics");
-        
-        String requiredSpecialization = emergencyToSpecialization.getOrDefault(emergencyType, "emergency_medicine");
-        
-        if (hospital.hasSpecialization(requiredSpecialization)) {
-            return 1.0; // Perfect match
-        }
-        
-        // Check for related specializations
-        for (String specialization : hospital.specializations) {
-            if (isRelatedSpecialization(requiredSpecialization, specialization)) {
-                return 0.7; // Good match
+
+        double statusScore = 0.5;
+        if (hospital.operationalStatus != null) {
+            switch (hospital.operationalStatus.toLowerCase()) {
+                case "available":
+                case "operational":
+                    statusScore = 1.0;
+                    break;
+                case "busy":
+                    statusScore = 0.7;
+                    break;
+                case "crowded":
+                case "overcrowded":
+                    statusScore = 0.3;
+                    break;
+                case "full":
+                case "closed":
+                    statusScore = 0.0;
+                    break;
+                default:
+                    statusScore = 0.5;
+                    break;
             }
         }
-        
-        return 0.3; // Poor match
-    }
-    
-    private boolean isRelatedSpecialization(String required, String available) {
-        // Define related specializations
-        if (required.equals("cardiology") && available.equals("emergency_medicine")) return true;
-        if (required.equals("neurology") && available.equals("emergency_medicine")) return true;
-        if (required.equals("trauma") && available.equals("emergency_medicine")) return true;
-        if (required.equals("pulmonology") && available.equals("emergency_medicine")) return true;
-        return false;
-    }
-    
-    private double calculateTimeOfDayScore(int hour) {
-        // Peak hours have lower scores due to higher traffic and congestion
-        if (hour >= 7 && hour <= 9) { // Morning rush
-            return 0.6;
-        } else if (hour >= 17 && hour <= 19) { // Evening rush
-            return 0.6;
-        } else if (hour >= 12 && hour <= 14) { // Lunch time
-            return 0.7;
-        } else if (hour >= 22 || hour <= 5) { // Night time
-            return 0.9; // Better conditions at night
-        } else {
-            return 0.8; // Normal hours
-        }
-    }
-    
-    private double calculateDayOfWeekScore(int dayOfWeek) {
-        // Weekends generally have better conditions
-        if (dayOfWeek == Calendar.SATURDAY || dayOfWeek == Calendar.SUNDAY) {
-            return 0.9;
-        } else {
-            return 0.7; // Weekdays
-        }
+
+        // Combine bed availability and status.
+        return Math.min(1.0, Math.max(0.0, (0.5 * erBedScore) + (0.5 * statusScore)));
     }
     
     private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {

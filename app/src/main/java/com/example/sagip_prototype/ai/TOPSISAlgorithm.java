@@ -7,15 +7,10 @@ import java.util.ArrayList;
 
 public class TOPSISAlgorithm {
     
-    // Criteria weights for hospital evaluation
-    private static final double WEIGHT_DISTANCE = 0.20;
-    private static final double WEIGHT_ER_STATUS = 0.25;        // ER status is most important for emergencies
-    private static final double WEIGHT_AVAILABILITY = 0.15;
-    private static final double WEIGHT_SPECIALIZATION = 0.15;
-    private static final double WEIGHT_RESPONSE_TIME = 0.10;
-    private static final double WEIGHT_CAPACITY = 0.08;
-    private static final double WEIGHT_TRAFFIC = 0.04;
-    private static final double WEIGHT_WEATHER = 0.03;
+    // Criteria weights for hospital evaluation (3 criteria)
+    private static final double WEIGHT_DISTANCE = 0.35;         // Distance to hospital
+    private static final double WEIGHT_ER_STATUS = 0.40;         // ER status is most important for emergencies
+    private static final double WEIGHT_AVAILABILITY = 0.25;      // Bed availability
     
     public TOPSISResult evaluateHospitals(List<Hospital> hospitals, Emergency emergency, 
                                         double rescuerLat, double rescuerLon) {
@@ -31,8 +26,7 @@ public class TOPSISAlgorithm {
         double[][] normalizedMatrix = normalizeMatrix(decisionMatrix);
         
         // Step 3: Calculate weighted normalized matrix
-        double[] weights = {WEIGHT_DISTANCE, WEIGHT_ER_STATUS, WEIGHT_AVAILABILITY, WEIGHT_SPECIALIZATION, 
-                           WEIGHT_RESPONSE_TIME, WEIGHT_CAPACITY, WEIGHT_TRAFFIC, WEIGHT_WEATHER};
+        double[] weights = {WEIGHT_DISTANCE, WEIGHT_ER_STATUS, WEIGHT_AVAILABILITY};
         double[][] weightedMatrix = calculateWeightedMatrix(normalizedMatrix, weights);
         
         // Step 4: Determine ideal and negative ideal solutions
@@ -71,7 +65,7 @@ public class TOPSISAlgorithm {
                                           double rescuerLat, double rescuerLon) {
         
         int numHospitals = hospitals.size();
-        int numCriteria = 8; // distance, er_status, availability, specialization, response_time, capacity, traffic, weather
+        int numCriteria = 3; // distance, er_status, availability
         
         double[][] matrix = new double[numHospitals][numCriteria];
         
@@ -90,21 +84,6 @@ public class TOPSISAlgorithm {
             
             // Criterion 3: Availability (higher is better)
             matrix[i][2] = hospital.getAvailabilityScore();
-            
-            // Criterion 4: Specialization match (higher is better)
-            matrix[i][3] = calculateSpecializationScore(hospital, emergency.emergencyType);
-            
-            // Criterion 5: Response time (lower is better - inverse)
-            matrix[i][4] = hospital.getResponseTimeScore();
-            
-            // Criterion 6: Capacity utilization (higher is better)
-            matrix[i][5] = hospital.getCapacityScore();
-            
-            // Criterion 7: Traffic level (lower is better - inverse)
-            matrix[i][6] = 1.0 / (1.0 + hospital.trafficLevel);
-            
-            // Criterion 8: Weather impact (higher is better)
-            matrix[i][7] = calculateWeatherScore(hospital.location);
         }
         
         return matrix;
@@ -226,63 +205,6 @@ public class TOPSISAlgorithm {
         double distance = R * c;
         
         return distance;
-    }
-    
-    private double calculateSpecializationScore(Hospital hospital, String emergencyType) {
-        if (hospital.specializations == null || emergencyType == null) {
-            return 0.5; // Neutral score
-        }
-        
-        // Map emergency types to specializations
-        String requiredSpecialization = mapEmergencyTypeToSpecialization(emergencyType);
-        
-        if (hospital.hasSpecialization(requiredSpecialization)) {
-            return 1.0; // Perfect match
-        }
-        
-        // Check for related specializations
-        for (String specialization : hospital.specializations) {
-            if (isRelatedSpecialization(requiredSpecialization, specialization)) {
-                return 0.7; // Good match
-            }
-        }
-        
-        return 0.3; // Poor match
-    }
-    
-    private String mapEmergencyTypeToSpecialization(String emergencyType) {
-        switch (emergencyType.toLowerCase()) {
-            case "cardiac_arrest":
-            case "heart_attack":
-                return "cardiology";
-            case "stroke":
-            case "head_injury":
-                return "neurology";
-            case "trauma":
-            case "accident":
-                return "trauma";
-            case "respiratory":
-            case "breathing":
-                return "pulmonology";
-            case "pediatric":
-                return "pediatrics";
-            default:
-                return "emergency_medicine";
-        }
-    }
-    
-    private boolean isRelatedSpecialization(String required, String available) {
-        // Define related specializations
-        if (required.equals("cardiology") && available.equals("emergency_medicine")) return true;
-        if (required.equals("neurology") && available.equals("emergency_medicine")) return true;
-        if (required.equals("trauma") && available.equals("emergency_medicine")) return true;
-        return false;
-    }
-    
-    private double calculateWeatherScore(com.google.firebase.firestore.GeoPoint location) {
-        // Simplified weather score - in real implementation, you'd call a weather API
-        // For now, return a neutral score
-        return 0.8; // Assume good weather conditions
     }
     
     // Result classes

@@ -998,295 +998,311 @@ private void attemptSessionRestore() {
 
         FirebaseUser currentUser = mAuth.getCurrentUser();
         
-        Log.d(TAG, "checkAuthStateWithPersistence - isLoggedIn: " + isLoggedIn + 
-                   ", userId: " + userId + 
-                   ", storedUserType: " + storedUserType +
-                   ", Firebase user: " + (currentUser != null ? currentUser.getUid() : "null"));
+    Log.d(TAG, "checkAuthStateWithPersistence - isLoggedIn: " + isLoggedIn + 
+               ", userId: " + userId + 
+               ", storedUserType: " + storedUserType +
+               ", Firebase user: " + (currentUser != null ? currentUser.getUid() : "null"));
 
-        if (isLoggedIn && userId != null && storedUserType != null) {
-            // User was previously logged in
-            if (currentUser != null && currentUser.getUid().equals(userId)) {
-                // Firebase user is still authenticated and matches stored ID, check status
-                Log.d(TAG, "User session restored successfully, checking status");
-                checkUserStatus();
-            } else if (currentUser != null) {
-                // Firebase user exists but ID doesn't match - this shouldn't happen normally
-                Log.w(TAG, "Firebase user ID mismatch - stored: " + userId + ", current: " + currentUser.getUid());
-                // Update stored credentials with current Firebase user
-                saveUserCredentials(currentUser.getUid(), storedUserType, currentUser.getPhoneNumber());
-                checkUserStatus();
-            } else {
-                // Firebase session is null but we have stored credentials
-                // This can happen if Firebase Auth hasn't fully restored yet
-                // Trust the stored credentials and verify by checking user data in Firestore
-                Log.d(TAG, "Firebase user is null but have stored credentials, verifying via Firestore...");
-                verifyStoredCredentialsViaFirestore(userId, storedUserType);
-            }
+    if (isLoggedIn && userId != null && storedUserType != null) {
+        // User was previously logged in
+        if (currentUser != null && currentUser.getUid().equals(userId)) {
+            // Firebase user is still authenticated and matches stored ID, check status
+            Log.d(TAG, "User session restored successfully, checking status");
+            checkUserStatus();
+        } else if (currentUser != null) {
+            // Firebase user exists but ID doesn't match - this shouldn't happen normally
+            Log.w(TAG, "Firebase user ID mismatch - stored: " + userId + ", current: " + currentUser.getUid());
+            // Update stored credentials with current Firebase user
+            saveUserCredentials(currentUser.getUid(), storedUserType, currentUser.getPhoneNumber());
+            checkUserStatus();
         } else {
-            // No stored login, check Firebase Auth
-            if (currentUser == null) {
-                // User is not logged in, redirect to login
-                Log.d(TAG, "No Firebase user found and no stored credentials, redirecting to login");
-                navigateToLogin();
-            } else {
-                // User is logged in but not stored in SharedPreferences
-                Log.d(TAG, "Firebase user found but not in SharedPreferences, saving credentials");
-                saveUserCredentials(currentUser.getUid(), "seniors", currentUser.getPhoneNumber());
-                checkUserStatus();
-            }
+            // Firebase session is null but we have stored credentials
+            // This can happen if Firebase Auth hasn't fully restored yet
+            // Trust the stored credentials and verify by checking user data in Firestore
+            Log.d(TAG, "Firebase user is null but have stored credentials, verifying via Firestore...");
+            verifyStoredCredentialsViaFirestore(userId, storedUserType);
+        }
+    } else {
+        // No stored login, check Firebase Auth
+        if (currentUser == null) {
+            // User is not logged in, redirect to login
+            Log.d(TAG, "No Firebase user found and no stored credentials, redirecting to login");
+            navigateToLogin();
+        } else {
+            // User is logged in but not stored in SharedPreferences
+            Log.d(TAG, "Firebase user found but not in SharedPreferences, saving credentials");
+            saveUserCredentials(currentUser.getUid(), "seniors", currentUser.getPhoneNumber());
+            checkUserStatus();
         }
     }
+}
 
-    private void verifyStoredCredentialsViaFirestore(String storedUserId, String storedUserType) {
-        // Verify that the stored user exists in Firestore before proceeding
-        // This allows the app to work even if Firebase Auth session is temporarily unavailable
-        Log.d(TAG, "Verifying stored credentials via Firestore for user: " + storedUserId);
-        
-        db.collection("Sagip")
-                .document("users")
-                .collection(storedUserType)
-                .document(storedUserId)
-                .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    if (documentSnapshot.exists()) {
-                        // User exists in Firestore - trust the stored credentials
-                        Log.d(TAG, "User verified in Firestore, proceeding with stored credentials");
-                        // Continue with the dashboard - user data will be loaded
+private void verifyStoredCredentialsViaFirestore(String storedUserId, String storedUserType) {
+    // Verify that the stored user exists in Firestore before proceeding
+    // This allows the app to work even if Firebase Auth session is temporarily unavailable
+    Log.d(TAG, "Verifying stored credentials via Firestore for user: " + storedUserId);
+
+    String normalizedUserType = normalizeUserType(storedUserType);
+
+    db.collection("Sagip")
+            .document("users")
+            .collection(normalizedUserType)
+            .document(storedUserId)
+            .get()
+            .addOnSuccessListener(documentSnapshot -> {
+                if (documentSnapshot.exists()) {
+                    // User exists in Firestore - trust the stored credentials
+                    Log.d(TAG, "User verified in Firestore, proceeding with stored credentials");
+                    // Continue with the dashboard - user data will be loaded
+                    loadUserData();
+                } else {
+                    // User doesn't exist in Firestore - credentials are invalid
+                    Log.w(TAG, "User not found in Firestore, clearing stored credentials");
+                    clearStoredCredentials();
+                    navigateToLogin();
+                }
+            })
+            .addOnFailureListener(e -> {
+                // Network error - don't immediately logout, give benefit of doubt
+                Log.e(TAG, "Error verifying credentials via Firestore: " + e.getMessage());
+                // If we have stored credentials and just can't verify, proceed cautiously
+                // This prevents logout due to temporary network issues
+                Log.d(TAG, "Network error during verification, proceeding with stored credentials");
+                loadUserData();
+            });
+}
+
+private String normalizeUserType(String userType) {
+    if (userType == null) {
+        return null;
+    }
+    if ("senior".equals(userType)) {
+        return "seniors";
+    }
+    return userType;
+}
+
+private void saveUserCredentials(String usrId, String usrType, String phoneNumber) {
+    Log.d(TAG, "Saving user credentials: " + usrId + ", " + usrType);
+    String normalizedUserType = normalizeUserType(usrType);
+    SharedPreferences.Editor editor = sharedPreferences.edit();
+    editor.putBoolean(KEY_IS_LOGGED_IN, true);
+    editor.putString(KEY_USER_ID, usrId);
+    editor.putString(KEY_USER_TYPE, normalizedUserType);
+    editor.putLong(KEY_LOGIN_TIMESTAMP, System.currentTimeMillis());
+    if (phoneNumber != null) {
+        editor.putString(KEY_USER_PHONE, phoneNumber);
+    }
+    editor.putBoolean("FRESH_INSTALL_FLAG", false);
+    editor.commit();
+}
+
+private void clearStoredCredentials() {
+    Log.d(TAG, "Clearing stored credentials");
+    SeniorNotificationService.resetInstance();
+
+    SharedPreferences.Editor editor = sharedPreferences.edit();
+    editor.remove(KEY_IS_LOGGED_IN);
+    editor.remove(KEY_USER_ID);
+    editor.remove(KEY_USER_TYPE);
+    editor.remove(KEY_USER_PHONE);
+    editor.remove(KEY_LOGIN_TIMESTAMP);
+    editor.remove(KEY_NOTIFICATION_TOAST_SHOWN);
+    editor.commit();
+}
+
+private void navigateToLogin() {
+    Log.d(TAG, "Navigating to login screen...");
+    Intent intent = new Intent(Senior_Dashboard.this, MainActivity.class);
+    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+    startActivity(intent);
+    finish();
+}
+
+private void tryAlternativeUserSearch() {
+    FirebaseUser currentUser = mAuth.getCurrentUser();
+    String phoneNumber = null;
+
+    if (currentUser != null) {
+        phoneNumber = currentUser.getPhoneNumber();
+    }
+
+    if (phoneNumber == null || phoneNumber.isEmpty()) {
+        phoneNumber = sharedPreferences.getString(KEY_USER_PHONE, null);
+        Log.d(TAG, "Using stored phone number for alternative search: " + phoneNumber);
+    }
+
+    // CRITICAL FIX: Always check stored credentials first before any logout action
+    String storedUserId = sharedPreferences.getString(KEY_USER_ID, null);
+    boolean hasStoredCredentials = sharedPreferences.getBoolean(KEY_IS_LOGGED_IN, false);
+    
+    if (phoneNumber == null || phoneNumber.isEmpty()) {
+        if (storedUserId != null && hasStoredCredentials) {
+            Log.d(TAG, "No phone number but have stored credentials, proceeding with dashboard");
+            loadUserData();
+            return;
+        }
+        Log.w(TAG, "No phone number and no stored credentials, redirecting to login");
+        clearStoredCredentials();
+        navigateToLogin();
+        return;
+    }
+
+    String searchNumber = phoneNumber.startsWith("+63") ? phoneNumber.substring(3) : phoneNumber;
+
+    db.collection("Sagip")
+            .document("users")
+            .collection("seniors")
+            .whereEqualTo("mobileNumber", searchNumber)
+            .get()
+            .addOnSuccessListener(querySnapshot -> {
+                if (!querySnapshot.isEmpty()) {
+                    Log.d(TAG, "Found user by phone number alternative search");
+                    loadUserData();
+                } else {
+                    // CRITICAL FIX: Don't logout if we have stored credentials
+                    // The phone number search might fail due to format mismatch
+                    if (storedUserId != null && hasStoredCredentials) {
+                        Log.d(TAG, "Phone search found no match but have stored credentials, proceeding with dashboard");
                         loadUserData();
                     } else {
-                        // User doesn't exist in Firestore - credentials are invalid
-                        Log.w(TAG, "User not found in Firestore, clearing stored credentials");
+                        Log.w(TAG, "Phone search found no match and no stored credentials, redirecting to login");
+                        mAuth.signOut();
                         clearStoredCredentials();
+                        Toast.makeText(Senior_Dashboard.this,
+                                getString(R.string.user_profile_not_found_login_again),
+                                Toast.LENGTH_LONG).show();
                         navigateToLogin();
                     }
-                })
-                .addOnFailureListener(e -> {
-                    // Network error - don't immediately logout, give benefit of doubt
-                    Log.e(TAG, "Error verifying credentials via Firestore: " + e.getMessage());
-                    // If we have stored credentials and just can't verify, proceed cautiously
-                    // This prevents logout due to temporary network issues
-                    Log.d(TAG, "Network error during verification, proceeding with stored credentials");
+                }
+            })
+            .addOnFailureListener(e -> {
+                // Don't immediately logout on Firestore failure - this can happen due to:
+                // 1. Network issues
+                // 2. Firebase Auth session not yet restored (security rules require auth)
+                // Instead, proceed with stored credentials if available
+                Log.e(TAG, "Error in alternative user search: " + e.getMessage());
+                if (storedUserId != null && hasStoredCredentials) {
+                    Log.d(TAG, "Firestore query failed but have stored credentials, proceeding with dashboard");
                     loadUserData();
-                });
-    }
+                } else {
+                    // Only logout if we truly have no stored credentials
+                    Log.w(TAG, "Firestore query failed and no stored credentials, redirecting to login");
+                    mAuth.signOut();
+                    clearStoredCredentials();
+                    Toast.makeText(Senior_Dashboard.this,
+                            getString(R.string.error_finding_user_profile),
+                            Toast.LENGTH_LONG).show();
+                    navigateToLogin();
+                }
+            });
+}
 
-    private void saveUserCredentials(String usrId, String usrType, String phoneNumber) {
-        Log.d(TAG, "Saving user credentials: " + usrId + ", " + usrType);
-        SharedPreferences.Editor editor = sharedPreferences.edit();
-        editor.putBoolean(KEY_IS_LOGGED_IN, true);
-        editor.putString(KEY_USER_ID, usrId);
-        editor.putString(KEY_USER_TYPE, usrType);
-        editor.putLong(KEY_LOGIN_TIMESTAMP, System.currentTimeMillis());
-        if (phoneNumber != null) {
-            editor.putString(KEY_USER_PHONE, phoneNumber);
-        }
-        // Use commit() instead of apply() for immediate persistence
-        editor.commit();
-    }
-
-    private void clearStoredCredentials() {
-        Log.d(TAG, "Clearing stored credentials");
-        
-        // Reset notification service to prevent cross-user notifications
-        SeniorNotificationService.resetInstance();
-        
-        SharedPreferences.Editor editor = sharedPreferences.edit();
-        editor.remove(KEY_IS_LOGGED_IN);
-        editor.remove(KEY_USER_ID);
-        editor.remove(KEY_USER_TYPE);
-        editor.remove(KEY_USER_PHONE);
-        editor.remove(KEY_LOGIN_TIMESTAMP);
-        editor.remove(KEY_NOTIFICATION_TOAST_SHOWN); // Reset notification toast flag
-        // Use commit() instead of apply() for immediate persistence
-        editor.commit();
-    }
-
-    private void navigateToLogin() {
-        Intent intent = new Intent(Senior_Dashboard.this, MainActivity.class);
-        intent.putExtra("LOGOUT_ACTION", true);
-        startActivity(intent);
-        finish();
-    }
-
-    private void tryAlternativeUserSearch() {
-        FirebaseUser currentUser = mAuth.getCurrentUser();
-        String phoneNumber = null;
-        
-        // Try to get phone number from Firebase Auth first
-        if (currentUser != null) {
-            phoneNumber = currentUser.getPhoneNumber();
-        }
-        
-        // Fallback to stored phone number if Firebase user is null or has no phone
-        if (phoneNumber == null || phoneNumber.isEmpty()) {
-            phoneNumber = sharedPreferences.getString(KEY_USER_PHONE, null);
-            Log.d(TAG, "Using stored phone number for alternative search: " + phoneNumber);
-        }
-        
-        // If still no phone number, check if we have stored user ID and just load data
-        if (phoneNumber == null || phoneNumber.isEmpty()) {
-            String storedUserId = sharedPreferences.getString(KEY_USER_ID, null);
-            if (storedUserId != null) {
-                Log.d(TAG, "No phone number but have stored user ID, loading user data directly");
-                loadUserData();
-                return;
-            }
-            // No Firebase user, no stored phone, no stored user ID - must login
-            Log.e(TAG, "No authentication available for alternative search");
-            clearStoredCredentials();
+private void loadUserData() {
+    String uid;
+    FirebaseUser currentUser = mAuth.getCurrentUser();
+    if (currentUser != null) {
+        uid = currentUser.getUid();
+    } else {
+        uid = sharedPreferences.getString(KEY_USER_ID, null);
+        if (uid == null) {
+            Log.e(TAG, "Cannot load user data - no Firebase user and no stored user ID");
             navigateToLogin();
             return;
         }
-
-        if (phoneNumber != null) {
-            // Try searching by phone number
-            String searchNumber = phoneNumber.startsWith("+63") ? phoneNumber.substring(3) : phoneNumber;
-            
-            db.collection("Sagip")
-                    .document("users")
-                    .collection("seniors")
-                    .whereEqualTo("mobileNumber", searchNumber)
-                    .get()
-                    .addOnSuccessListener(querySnapshot -> {
-                        if (!querySnapshot.isEmpty()) {
-                            Log.d(TAG, "Found user by phone number alternative search");
-                            // User found, continue with normal flow
-                        } else {
-                            Log.e(TAG, "User not found even with alternative search");
-                            mAuth.signOut();
-                            clearStoredCredentials();
-                            Toast.makeText(Senior_Dashboard.this, 
-                                getString(R.string.user_profile_not_found_login_again), 
-                                Toast.LENGTH_LONG).show();
-                            navigateToLogin();
-                        }
-                    })
-                    .addOnFailureListener(e -> {
-                        Log.e(TAG, "Alternative search failed", e);
-                        mAuth.signOut();
-                        clearStoredCredentials();
-                            Toast.makeText(Senior_Dashboard.this, 
-                                getString(R.string.error_finding_user_profile), 
-                                Toast.LENGTH_LONG).show();
-                        navigateToLogin();
-                    });
-        } else {
-            Log.e(TAG, "No phone number available for alternative search");
-            mAuth.signOut();
-            clearStoredCredentials();
-            navigateToLogin();
-        }
+        Log.d(TAG, "Using stored user ID for data loading: " + uid);
     }
 
-    private void loadUserData() {
-        // Try to get UID from Firebase Auth first, fallback to stored credentials
-        String uid;
-        FirebaseUser currentUser = mAuth.getCurrentUser();
-        if (currentUser != null) {
-            uid = currentUser.getUid();
-        } else {
-            // Firebase Auth user is null - use stored credentials
-            uid = sharedPreferences.getString(KEY_USER_ID, null);
-            if (uid == null) {
-                Log.e(TAG, "Cannot load user data - no Firebase user and no stored user ID");
-                navigateToLogin();
-                return;
-            }
-            Log.d(TAG, "Using stored user ID for data loading: " + uid);
-        }
-        String userType = "seniors"; // Use consistent collection name
+    String userType = "seniors"; // Use consistent collection name
 
-        // Load cached name immediately for instant display
-        loadCachedName();
+    // Load cached name immediately for instant display
+    loadCachedName();
 
-        db.collection("Sagip")
-                .document("users")
-                .collection(userType)
-                .document(uid)
-                .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    if (documentSnapshot.exists()) {
-                        String firstName = documentSnapshot.getString("firstName");
-                        String middleName = documentSnapshot.getString("middleName");
-                        String lastName = documentSnapshot.getString("lastName");
-                        // Get currentLocation with proper error handling
-                        String currentLocation = null;
+    db.collection("Sagip")
+            .document("users")
+            .collection(userType)
+            .document(uid)
+            .get()
+            .addOnSuccessListener(documentSnapshot -> {
+                if (documentSnapshot.exists()) {
+                    String firstName = documentSnapshot.getString("firstName");
+                    String middleName = documentSnapshot.getString("middleName");
+                    String lastName = documentSnapshot.getString("lastName");
+
+                    String currentLocation = null;
+                    try {
+                        com.google.firebase.firestore.GeoPoint currentLocationGeoPoint = documentSnapshot.getGeoPoint("currentLocation");
+                        if (currentLocationGeoPoint != null) {
+                            currentLocation = currentLocationGeoPoint.getLatitude() + ", " + currentLocationGeoPoint.getLongitude();
+                        }
+                    } catch (Exception e) {
+                        Log.w(TAG, "currentLocation field is not a GeoPoint, trying as String: " + e.getMessage());
                         try {
-                            com.google.firebase.firestore.GeoPoint currentLocationGeoPoint = documentSnapshot.getGeoPoint("currentLocation");
-                            if (currentLocationGeoPoint != null) {
-                                currentLocation = currentLocationGeoPoint.getLatitude() + ", " + currentLocationGeoPoint.getLongitude();
-                            }
-                        } catch (Exception e) {
-                            Log.w(TAG, "currentLocation field is not a GeoPoint, trying as String: " + e.getMessage());
-                            // Fallback: try to get as String
-                            try {
-                                currentLocation = documentSnapshot.getString("currentLocation");
-                            } catch (Exception e2) {
-                                Log.w(TAG, "currentLocation field is neither GeoPoint nor String: " + e2.getMessage());
-                                currentLocation = null;
-                            }
+                            currentLocation = documentSnapshot.getString("currentLocation");
+                        } catch (Exception e2) {
+                            Log.w(TAG, "currentLocation field is neither GeoPoint nor String: " + e2.getMessage());
+                            currentLocation = null;
                         }
-                        String barangay = documentSnapshot.getString("barangay");
-
-                        if (documentSnapshot.getDouble("latitude") != null && documentSnapshot.getDouble("longitude") != null) {
-                            currentLat = documentSnapshot.getDouble("latitude");
-                            currentLong = documentSnapshot.getDouble("longitude");
-                        }
-
-                        if (firstName != null && middleName != null && lastName != null) {
-                            String fullName = firstName + " " + middleName + " " + lastName;
-                            tvFullName.setText(fullName);
-                            // Cache the name for future instant loading
-                            cacheFullName(fullName);
-                        } else {
-                            tvFullName.setText(getString(R.string.text_full_name_not_available));
-                        }
-                        
-                        // Store barangay information
-                        if (barangay != null && !barangay.isEmpty()) {
-                            currentBarangay = barangay;
-                            Log.d(TAG, "Current barangay: " + currentBarangay);
-                        } else {
-                            Log.w(TAG, "No barangay information found for senior");
-                        }
-
-                        // Load phone number from Firestore profile (try different field names)
-                        String phoneFromFirestore = documentSnapshot.getString("mobileNumber");
-                        if (phoneFromFirestore == null || phoneFromFirestore.isEmpty()) {
-                            phoneFromFirestore = documentSnapshot.getString("phoneNumber");
-                        }
-                        if (phoneFromFirestore == null || phoneFromFirestore.isEmpty()) {
-                            phoneFromFirestore = documentSnapshot.getString("phone");
-                        }
-                        if (phoneFromFirestore == null || phoneFromFirestore.isEmpty()) {
-                            phoneFromFirestore = documentSnapshot.getString("mobile");
-                        }
-                        if (phoneFromFirestore == null || phoneFromFirestore.isEmpty()) {
-                            phoneFromFirestore = documentSnapshot.getString("contactNumber");
-                        }
-                        if (phoneFromFirestore != null && !phoneFromFirestore.isEmpty()) {
-                            seniorPhoneNumber = phoneFromFirestore;
-                            Log.d(TAG, "📱 Loaded phone number from Firestore: " + seniorPhoneNumber);
-                        } else {
-                            Log.w(TAG, "📱 No phone number found in senior profile");
-                        }
-
-                        if (currentLocation != null && !currentLocation.isEmpty()) {
-                            currentLocationAddress = currentLocation;
-                            tvCurrentLocation.setText(currentLocation);
-                        } else {
-                            tvCurrentLocation.setText(getString(R.string.text_waiting_location_update));
-                        }
-                    } else {
-                        tvFullName.setText(getString(R.string.text_user_data_not_found));
-                        Log.d(TAG, "Document doesn't exist");
                     }
-                })
-                .addOnFailureListener(e -> {
-                    tvFullName.setText(getString(R.string.text_failed_load_data));
-                    Log.e(TAG, "Error fetching user data", e);
-                });
-    }
+
+                    String barangay = documentSnapshot.getString("barangay");
+
+                    if (documentSnapshot.getDouble("latitude") != null && documentSnapshot.getDouble("longitude") != null) {
+                        currentLat = documentSnapshot.getDouble("latitude");
+                        currentLong = documentSnapshot.getDouble("longitude");
+                    }
+
+                    if (firstName != null && middleName != null && lastName != null) {
+                        String fullName = firstName + " " + middleName + " " + lastName;
+                        tvFullName.setText(fullName);
+                        cacheFullName(fullName);
+                    } else {
+                        tvFullName.setText(getString(R.string.text_full_name_not_available));
+                    }
+
+                    if (barangay != null && !barangay.isEmpty()) {
+                        currentBarangay = barangay;
+                        Log.d(TAG, "Current barangay: " + currentBarangay);
+                    } else {
+                        Log.w(TAG, "No barangay information found for senior");
+                    }
+
+                    String phoneFromFirestore = documentSnapshot.getString("mobileNumber");
+                    if (phoneFromFirestore == null || phoneFromFirestore.isEmpty()) {
+                        phoneFromFirestore = documentSnapshot.getString("phoneNumber");
+                    }
+                    if (phoneFromFirestore == null || phoneFromFirestore.isEmpty()) {
+                        phoneFromFirestore = documentSnapshot.getString("phone");
+                    }
+                    if (phoneFromFirestore == null || phoneFromFirestore.isEmpty()) {
+                        phoneFromFirestore = documentSnapshot.getString("mobile");
+                    }
+                    if (phoneFromFirestore == null || phoneFromFirestore.isEmpty()) {
+                        phoneFromFirestore = documentSnapshot.getString("contactNumber");
+                    }
+                    if (phoneFromFirestore != null && !phoneFromFirestore.isEmpty()) {
+                        seniorPhoneNumber = phoneFromFirestore;
+                        Log.d(TAG, "📱 Loaded phone number from Firestore: " + seniorPhoneNumber);
+                    } else {
+                        Log.w(TAG, "📱 No phone number found in senior profile");
+                    }
+
+                    if (currentLocation != null && !currentLocation.isEmpty()) {
+                        currentLocationAddress = currentLocation;
+                        tvCurrentLocation.setText(currentLocation);
+                    } else {
+                        tvCurrentLocation.setText(getString(R.string.text_waiting_location_update));
+                    }
+                } else {
+                    tvFullName.setText(getString(R.string.text_user_data_not_found));
+                    Log.d(TAG, "Document doesn't exist");
+                }
+            })
+            .addOnFailureListener(e -> {
+                tvFullName.setText(getString(R.string.text_failed_load_data));
+                Log.e(TAG, "Error fetching user data", e);
+            });
+}
 
     private void loadCachedName() {
         // Ensure SharedPreferences is initialized

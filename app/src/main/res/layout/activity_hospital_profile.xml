@@ -15,6 +15,7 @@
         android:textColor="@color/black"
         android:textSize="28sp"
         android:textStyle="bold"
+        app:autoSizeTextType="none"
         app:layout_constraintBottom_toTopOf="@id/guidelineHorizontal2"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical1v2"
         app:layout_constraintTop_toBottomOf="@id/guidelineHorizontal1"/>
@@ -44,7 +45,8 @@
                 android:hint="Hospital Staff Name"
                 android:textSize="26sp"
                 android:textColor="@color/black"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                app:autoSizeTextType="none" />
 
             <TextView
                 android:id="@+id/profileEmail"
@@ -52,7 +54,8 @@
                 android:layout_height="wrap_content"
                 android:gravity="center"
                 android:hint="Email Address"
-                android:textSize="16sp" />
+                android:textSize="16sp"
+                app:autoSizeTextType="none" />
 
         </LinearLayout>
     </androidx.cardview.widget.CardView>
@@ -81,7 +84,8 @@
                 android:text="@string/account_settings"
                 android:textSize="16sp"
                 android:textColor="@color/backgroundRed"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                app:autoSizeTextType="none" />
 
             <LinearLayout
                 android:id="@+id/gotoupdate"
@@ -107,6 +111,7 @@
                     android:text="@string/change_Info"
                     android:textColor="@color/black"
                     android:textSize="16sp"
+                    app:autoSizeTextType="none"
                     app:drawableEndCompat="@drawable/baseline_keyboard_arrow_right_24"
                     app:drawableTint="@color/gray"/>
             </LinearLayout>
@@ -141,6 +146,7 @@
                     android:text="@string/notification_settings"
                     android:textColor="@color/black"
                     android:textSize="16sp"
+                    app:autoSizeTextType="none"
                     app:drawableEndCompat="@drawable/baseline_keyboard_arrow_right_24"
                     app:drawableTint="@color/gray"/>
             </LinearLayout>
@@ -174,6 +180,7 @@
                     android:text="@string/select_language"
                     android:textColor="@color/black"
                     android:textSize="16sp"
+                    app:autoSizeTextType="none"
                     app:drawableEndCompat="@drawable/baseline_keyboard_arrow_right_24"
                     app:drawableTint="@color/gray" />
             </LinearLayout>
@@ -207,6 +214,7 @@
                     android:text="@string/feedback_support"
                     android:textColor="@color/black"
                     android:textSize="16sp"
+                    app:autoSizeTextType="none"
                     app:drawableTint="@color/gray"
                     app:drawableEndCompat="@drawable/baseline_keyboard_arrow_right_24"/>
             </LinearLayout>
@@ -239,7 +247,8 @@
                 android:text="More info and support"
                 android:textSize="15sp"
                 android:textColor="@color/backgroundRed"
-                android:textStyle="bold"/>
+                android:textStyle="bold"
+                app:autoSizeTextType="none"/>
 
 
             <LinearLayout
@@ -265,7 +274,8 @@
                     android:layout_marginStart="16dp"
                     android:text="@string/delete_account"
                     android:textSize="16sp"
-                    android:textColor="#D32F2F"/>
+                    android:textColor="#D32F2F"
+                    app:autoSizeTextType="none"/>
             </LinearLayout>
 
             <View
@@ -294,7 +304,8 @@
                     android:layout_marginStart="16dp"
                     android:text="@string/logout"
                     android:textColor="@color/black"
-                    android:textSize="16sp" />
+                    android:textSize="16sp"
+                    app:autoSizeTextType="none" />
             </LinearLayout>
         </LinearLayout>
     </androidx.cardview.widget.CardView>

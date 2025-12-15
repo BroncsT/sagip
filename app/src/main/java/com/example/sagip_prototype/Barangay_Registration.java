@@ -31,6 +31,7 @@ import android.text.InputType;
 import android.text.TextUtils;
 import android.util.Log;
 import androidx.appcompat.app.AlertDialog;
+import android.app.ProgressDialog;
 
 public class Barangay_Registration extends AppCompatActivity {
 
@@ -43,6 +44,7 @@ public class Barangay_Registration extends AppCompatActivity {
     private String mVerificationId;
     private PhoneAuthProvider.ForceResendingToken mResendToken;
     private PhoneAuthProvider.OnVerificationStateChangedCallbacks mCallbacks;
+    private ProgressDialog progressDialog;
     
     // Broadcast receiver for language changes
     private android.content.BroadcastReceiver languageChangeReceiver = new android.content.BroadcastReceiver() {
@@ -429,19 +431,78 @@ public class Barangay_Registration extends AppCompatActivity {
         pendingUserEmail = userEmail;
         
         // Remove leading 0 if present and format as +63XXXXXXXXXX
-        String formattedNumber = phoneNumber.startsWith("0") ? phoneNumber.substring(1) : phoneNumber;
+        String formattedNumber = phoneNumber.trim();
+        if (formattedNumber.startsWith("0")) {
+            formattedNumber = formattedNumber.substring(1);
+        }
         if (!formattedNumber.startsWith("+")) {
             formattedNumber = "+63" + formattedNumber;
         }
+        
+        Log.d("Barangay_Registration", "Verifying phone number: " + formattedNumber);
+        
+        // Show loading dialog
+        progressDialog = new ProgressDialog(this);
+        progressDialog.setMessage("Sending verification code...");
+        progressDialog.setCancelable(false);
+        progressDialog.show();
 
-        PhoneAuthOptions options =
-                PhoneAuthOptions.newBuilder(mAuth)
-                        .setPhoneNumber(formattedNumber)
-                        .setTimeout(60L, TimeUnit.SECONDS)
-                        .setActivity(this)
-                        .setCallbacks(mCallbacks)
-                        .build();
+        PhoneAuthOptions options = PhoneAuthOptions.newBuilder(mAuth)
+                .setPhoneNumber(formattedNumber)
+                .setTimeout(60L, TimeUnit.SECONDS)
+                .setActivity(this)
+                .setCallbacks(new PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+                    @Override
+                    public void onVerificationCompleted(@NonNull PhoneAuthCredential credential) {
+                        Log.d("Barangay_Registration", "onVerificationCompleted called");
+                        dismissProgressDialog();
+                        if (!isFinishing() && !isDestroyed()) {
+                            Toast.makeText(Barangay_Registration.this, getString(R.string.verification_automatically_completed), Toast.LENGTH_SHORT).show();
+                            linkPhoneWithCurrentUser(credential);
+                        }
+                    }
+
+                    @Override
+                    public void onVerificationFailed(@NonNull FirebaseException e) {
+                        Log.e("Barangay_Registration", "onVerificationFailed: " + e.getMessage(), e);
+                        dismissProgressDialog();
+                        if (!isFinishing() && !isDestroyed()) {
+                            String errorMsg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+                            
+                            if (errorMsg.contains("first factor") || 
+                                errorMsg.contains("sms based mfa") ||
+                                errorMsg.contains("multi-factor") ||
+                                errorMsg.contains("second factor")) {
+                                Log.d("Barangay_Registration", "MFA conflict - saving data without phone linking");
+                                Toast.makeText(Barangay_Registration.this, getString(R.string.phone_auth_no_mfa_needed), Toast.LENGTH_SHORT).show();
+                                saveUserData(pendingBarangayName, pendingAddress, pendingContactPerson, pendingPhoneNumber, pendingUid, pendingUserEmail);
+                            } else {
+                                Toast.makeText(Barangay_Registration.this, "Verification failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void onCodeSent(@NonNull String verificationId, @NonNull PhoneAuthProvider.ForceResendingToken token) {
+                        Log.d("Barangay_Registration", "onCodeSent called - verificationId: " + verificationId);
+                        dismissProgressDialog();
+                        mVerificationId = verificationId;
+                        mResendToken = token;
+
+                        if (!isFinishing() && !isDestroyed()) {
+                            Toast.makeText(Barangay_Registration.this, getString(R.string.verification_code_sent), Toast.LENGTH_SHORT).show();
+                            showVerificationCodeInputDialog();
+                        }
+                    }
+                })
+                .build();
         PhoneAuthProvider.verifyPhoneNumber(options);
+    }
+    
+    private void dismissProgressDialog() {
+        if (progressDialog != null && progressDialog.isShowing()) {
+            progressDialog.dismiss();
+        }
     }
     
     private void showVerificationCodeInputDialog() {

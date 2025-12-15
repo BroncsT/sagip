@@ -624,20 +624,6 @@
                     android:layout_marginBottom="12dp"
                     android:drawablePadding="8dp" />
 
-                <!-- Update Location Button -->
-                <Button
-                    android:id="@+id/btn_update_location"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="📍 UPDATE LOCATION"
-                    android:background="@drawable/rounded_button_secondary"
-                    android:textColor="@color/white"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:padding="18dp"
-                    android:layout_marginBottom="12dp"
-                    android:drawablePadding="8dp" />
-
                 <!-- Complete Assignment Button -->
                 <Button
                     android:id="@+id/btn_mark_arrived"

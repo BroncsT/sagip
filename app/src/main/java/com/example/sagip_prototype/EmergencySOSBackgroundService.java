@@ -400,9 +400,11 @@ public class EmergencySOSBackgroundService extends Service {
             emergencyListener = null;
         }
         
-        // Set listener start time to filter out old notifications
-        // Only show emergencies that occur AFTER the service starts
-        listenerStartTime = System.currentTimeMillis();
+        // Use logout timestamp to filter out old notifications from previous sessions
+        // This ensures notifications from BEFORE logout are not shown on re-login
+        long lastLogoutTime = prefs.getLong("last_logout_time", 0);
+        listenerStartTime = Math.max(System.currentTimeMillis(), lastLogoutTime);
+        Log.d(TAG, "📌 Last logout time: " + lastLogoutTime + ", using filter time: " + listenerStartTime);
         
         Log.d(TAG, "🚨 Starting emergency SOS listener for rescuer: " + userId);
         Log.d(TAG, "🚨 Listener path: Sagip/users/rescuer/" + userId + "/emergencyNotifications");
@@ -410,13 +412,16 @@ public class EmergencySOSBackgroundService extends Service {
         isListening = true;
         
         // Listen for emergency SOS notifications in real-time
-        // SIMPLIFIED: No timestamp filter to avoid Firestore index requirements
-        // We'll filter old notifications in the handler using isRead flag
+        // CRITICAL FIX: Apply same pattern as BarangayForegroundService
+        // Filter at QUERY level to only get notifications created AFTER service start
+        // This prevents old notifications from flooding in on login
         emergencyListener = db.collection("Sagip")
           .document("users")
           .collection("rescuer")
           .document(userId)
           .collection("emergencyNotifications")
+          .whereGreaterThan("timestamp", listenerStartTime)
+          .orderBy("timestamp", Query.Direction.DESCENDING)
           .addSnapshotListener((querySnapshot, error) -> {
               if (error != null) {
                   Log.e(TAG, "Error listening to emergency SOS notifications: " + error.getMessage(), error);

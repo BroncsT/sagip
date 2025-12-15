@@ -274,7 +274,9 @@ exports.sendHospitalUpdateNotification = functions.firestore
             
             // Get all rescuer FCM tokens
             const rescuersSnapshot = await admin.firestore()
-                .collection('Sagip/users/rescuer')
+                .collection('Sagip')
+                .doc('users')
+                .collection('rescuer')
                 .get();
             
             const tokens = [];
@@ -355,6 +357,94 @@ exports.sendHospitalUpdateNotification = functions.firestore
         }
     });
 
+// Function to send FCM notifications to a hospital when an incoming emergency is created
+exports.sendHospitalIncomingEmergencyNotification = functions.firestore
+    .document('Sagip/users/hospital/{hospitalId}/notifications/{notificationId}')
+    .onCreate(async (snap, context) => {
+        const notificationData = snap.data();
+        const hospitalId = context.params.hospitalId;
+
+        // Only handle incoming emergency notifications
+        if (!notificationData || notificationData.type !== 'EMERGENCY_INCOMING') {
+            return;
+        }
+
+        console.log('Incoming emergency notification detected for hospital:', hospitalId);
+        console.log('Notification data:', notificationData);
+
+        // Get the hospital's FCM token
+        const hospitalDoc = await admin.firestore()
+            .collection('Sagip')
+            .doc('users')
+            .collection('hospital')
+            .doc(hospitalId)
+            .get();
+
+        if (!hospitalDoc.exists) {
+            console.log('Hospital document not found:', hospitalId);
+            return;
+        }
+
+        const fcmToken = hospitalDoc.data().fcmToken;
+        if (!fcmToken) {
+            console.log('No FCM token found for hospital:', hospitalId);
+            return;
+        }
+
+        const hospitalName = notificationData.hospitalName || hospitalDoc.data().hospitalName || 'Hospital';
+        const seniorName = notificationData.seniorName || 'Patient';
+        const emergencyType = notificationData.emergencyType || 'Medical Emergency';
+        const etaMinutes = notificationData.estimatedArrivalMinutes != null ? `${Math.round(notificationData.estimatedArrivalMinutes)}` : '';
+        const rescuerName = notificationData.rescuerName || 'Rescuer';
+        const emergencyId = notificationData.emergencyId || '';
+
+        const etaPart = etaMinutes ? ` (ETA ${etaMinutes} min)` : '';
+
+        // Use BOTH notification and data payloads for guaranteed delivery
+        const message = {
+            notification: {
+                title: '🚨 Emergency Patient Incoming',
+                body: `${seniorName} (${emergencyType}) incoming to ${hospitalName}${etaPart}`
+            },
+            data: {
+                type: 'EMERGENCY_INCOMING',
+                title: '🚨 Emergency Patient Incoming',
+                body: `${seniorName} (${emergencyType}) incoming to ${hospitalName}${etaPart}`,
+                hospital_id: hospitalId,
+                hospital_name: hospitalName,
+                senior_name: seniorName,
+                rescuer_name: rescuerName,
+                emergency_id: emergencyId,
+                emergency_type: emergencyType,
+                timestamp: notificationData.timestamp ? notificationData.timestamp.toString() : Date.now().toString()
+            },
+            android: {
+                priority: 'high',
+                notification: {
+                    channelId: 'hospital_emergency_channel',
+                    priority: 'max',
+                    defaultSound: true,
+                    defaultVibrateTimings: true,
+                    visibility: 'public'
+                }
+            },
+            token: fcmToken
+        };
+
+        try {
+            const response = await admin.messaging().send(message);
+            console.log(`Incoming emergency notification sent successfully to hospital ${hospitalId}:`, response);
+        } catch (error) {
+            console.error(`Failed to send incoming emergency notification to hospital ${hospitalId}:`, error);
+
+            // If token is invalid, clean it up
+            if (error.code === 'messaging/invalid-registration-token' ||
+                error.code === 'messaging/registration-token-not-registered') {
+                await cleanupInvalidHospitalTokens([fcmToken]);
+            }
+        }
+    });
+
 // Function to send FCM notifications for emergency help requests
 exports.sendEmergencyNotification = functions.firestore
     .document('Sagip/users/{userType}/{userId}/notifications/{notificationId}')
@@ -372,7 +462,9 @@ exports.sendEmergencyNotification = functions.firestore
             const userId = context.params.userId;
             
             const userDoc = await admin.firestore()
-                .collection('Sagip/users/' + userType)
+                .collection('Sagip')
+                .doc('users')
+                .collection(userType)
                 .doc(userId)
                 .get();
             
@@ -494,7 +586,9 @@ exports.sendEmergencySOSNotification = functions.firestore
         
         // Get the rescuer's FCM token
         const rescuerDoc = await admin.firestore()
-            .collection('Sagip/users/rescuer')
+            .collection('Sagip')
+            .doc('users')
+            .collection('rescuer')
             .doc(rescuerId)
             .get();
         
@@ -586,7 +680,9 @@ exports.sendRescuerResponseNotification = functions.firestore
         
         // Get the senior's FCM token
         const seniorDoc = await admin.firestore()
-            .collection('Sagip/users/seniors')
+            .collection('Sagip')
+            .doc('users')
+            .collection('seniors')
             .doc(seniorId)
             .get();
         
@@ -668,7 +764,9 @@ exports.sendBarangayEmergencyAlertNotification = functions.firestore
         
         // Get the barangay official's FCM token
         const barangayDoc = await admin.firestore()
-            .collection('Sagip/users/barangay')
+            .collection('Sagip')
+            .doc('users')
+            .collection('barangay')
             .doc(barangayId)
             .get();
         
@@ -715,9 +813,10 @@ exports.sendBarangayEmergencyAlertNotification = functions.firestore
             android: {
                 priority: 'high',
                 notification: {
-                    channelId: 'barangay_emergency_channel',
+                    channelId: 'barangay_emergency_channel_v2',
                     priority: 'max',
                     defaultSound: true,
+                    sound: 'default',
                     defaultVibrateTimings: true,
                     visibility: 'public'
                 }
@@ -745,7 +844,9 @@ async function cleanupInvalidSeniorTokens(invalidTokens) {
     
     for (const token of invalidTokens) {
         const seniorsSnapshot = await admin.firestore()
-            .collection('Sagip/users/seniors')
+            .collection('Sagip')
+            .doc('users')
+            .collection('seniors')
             .where('fcmToken', '==', token)
             .get();
         
@@ -758,7 +859,31 @@ async function cleanupInvalidSeniorTokens(invalidTokens) {
     }
     
     await batch.commit();
-    console.log('Cleaned up invalid senior FCM tokens');
+}
+
+async function cleanupInvalidHospitalTokens(invalidTokens) {
+    console.log('Cleaning up invalid hospital tokens:', invalidTokens.length);
+
+    const batch = admin.firestore().batch();
+
+    for (const token of invalidTokens) {
+        const hospitalsSnapshot = await admin.firestore()
+            .collection('Sagip')
+            .doc('users')
+            .collection('hospital')
+            .where('fcmToken', '==', token)
+            .get();
+
+        hospitalsSnapshot.forEach(doc => {
+            batch.update(doc.ref, {
+                fcmToken: admin.firestore.FieldValue.delete(),
+                tokenUpdatedAt: admin.firestore.FieldValue.delete()
+            });
+        });
+    }
+
+    await batch.commit();
+    console.log('Cleaned up invalid hospital FCM tokens');
 }
 
 // Helper function to clean up invalid barangay FCM tokens
@@ -767,7 +892,9 @@ async function cleanupInvalidBarangayTokens(invalidTokens) {
     
     for (const token of invalidTokens) {
         const barangaySnapshot = await admin.firestore()
-            .collection('Sagip/users/barangay')
+            .collection('Sagip')
+            .doc('users')
+            .collection('barangay')
             .where('fcmToken', '==', token)
             .get();
         
@@ -789,7 +916,9 @@ async function cleanupInvalidTokens(invalidTokens) {
     
     for (const token of invalidTokens) {
         const rescuersSnapshot = await admin.firestore()
-            .collection('Sagip/users/rescuer')
+            .collection('Sagip')
+            .doc('users')
+            .collection('rescuer')
             .where('fcmToken', '==', token)
             .get();
         

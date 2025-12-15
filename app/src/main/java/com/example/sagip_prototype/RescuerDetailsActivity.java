@@ -32,6 +32,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.GeoPoint;
+import com.google.firebase.firestore.ListenerRegistration;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -86,6 +87,10 @@ public class RescuerDetailsActivity extends AppCompatActivity {
     // Update handler
     private Handler updateHandler;
     private Runnable updateRunnable;
+    
+    // Firestore listener for emergency status changes
+    private ListenerRegistration emergencyStatusListener;
+    private ListenerRegistration assignedRequestsStatusListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -158,6 +163,9 @@ public class RescuerDetailsActivity extends AppCompatActivity {
         
         loadEmergencyDetails();
         setupUpdateRunnable();
+        
+        // Start listening for emergency status changes (when rescuer completes assignment)
+        setupEmergencyStatusListener();
         
         // Try to get current location for more accurate ETA
         getCurrentLocationForETA();
@@ -365,7 +373,7 @@ public class RescuerDetailsActivity extends AppCompatActivity {
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists()) {
-                        String name = documentSnapshot.getString("rescuegroup");
+                        String name = documentSnapshot.getString("contactPerson");
                         String team = documentSnapshot.getString("rescuegroup");
                         String phone = documentSnapshot.getString("mobileNumber");
                         
@@ -880,9 +888,110 @@ public class RescuerDetailsActivity extends AppCompatActivity {
         finish();
     }
 
+    @SuppressWarnings("deprecation")
+    @Override
+    public void onBackPressed() {
+        // Block back button - senior must wait for rescuer to complete assignment
+        Toast.makeText(this, "Please wait for the rescuer to complete the assignment", Toast.LENGTH_LONG).show();
+        Log.d(TAG, "⚠️ Back button pressed - blocked until rescuer completes assignment");
+        // Do NOT call super.onBackPressed() to prevent going back
+    }
+    
+    /**
+     * Setup Firestore listener to detect when emergency status changes to 'done'
+     * This will navigate senior to dashboard when rescuer completes assignment
+     */
+    private void setupEmergencyStatusListener() {
+        if (emergencyId == null) {
+            Log.w(TAG, "⚠️ Cannot setup emergency status listener - no emergency ID");
+            return;
+        }
+        
+        Log.d(TAG, "📡 Setting up emergency status listener for: " + emergencyId);
+        
+        // Listen to activeRequests collection for status changes
+        emergencyStatusListener = db.collection("Sagip")
+                .document("emergencyRequests")
+                .collection("activeRequests")
+                .document(emergencyId)
+                .addSnapshotListener((documentSnapshot, error) -> {
+                    if (error != null) {
+                        Log.e(TAG, "❌ Error listening to activeRequests status: " + error.getMessage());
+                        return;
+                    }
+                    
+                    if (documentSnapshot != null && documentSnapshot.exists()) {
+                        String status = documentSnapshot.getString("status");
+                        Log.d(TAG, "📡 activeRequests status update received: " + status);
+                        
+                        if ("done".equals(status)) {
+                            Log.d(TAG, "✅ Rescuer has completed the assignment (activeRequests)!");
+                            navigateToSeniorDashboard();
+                        }
+                    }
+                });
+        
+        // Also listen to assignedRequests collection for status changes
+        assignedRequestsStatusListener = db.collection("Sagip")
+                .document("emergencyRequests")
+                .collection("assignedRequests")
+                .document(emergencyId)
+                .addSnapshotListener((documentSnapshot, error) -> {
+                    if (error != null) {
+                        Log.e(TAG, "❌ Error listening to assignedRequests status: " + error.getMessage());
+                        return;
+                    }
+                    
+                    if (documentSnapshot != null && documentSnapshot.exists()) {
+                        String status = documentSnapshot.getString("status");
+                        Log.d(TAG, "📡 assignedRequests status update received: " + status);
+                        
+                        if ("done".equals(status)) {
+                            Log.d(TAG, "✅ Rescuer has completed the assignment (assignedRequests)!");
+                            navigateToSeniorDashboard();
+                        }
+                    }
+                });
+    }
+    
+    /**
+     * Navigate to Senior Dashboard when rescuer completes assignment
+     */
+    private void navigateToSeniorDashboard() {
+        Log.d(TAG, "🏠 Navigating to Senior Dashboard - assignment completed");
+        
+        // Stop the emergency sound if playing
+        EmergencySOSBackgroundService.stopEmergencySound();
+        
+        // Show completion message
+        Toast.makeText(this, "Emergency assignment completed! Returning to dashboard.", Toast.LENGTH_LONG).show();
+        
+        try {
+            Intent dashboardIntent = new Intent(this, Senior_Dashboard.class);
+            dashboardIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            dashboardIntent.putExtra("rescueCompleted", true);
+            startActivity(dashboardIntent);
+            finish();
+            Log.d(TAG, "✅ Successfully navigated to Senior Dashboard");
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Error navigating to Senior Dashboard: " + e.getMessage());
+            Toast.makeText(this, "Error navigating to dashboard", Toast.LENGTH_SHORT).show();
+        }
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        
+        // Clean up emergency status listeners
+        if (emergencyStatusListener != null) {
+            emergencyStatusListener.remove();
+            Log.d(TAG, "📡 activeRequests status listener removed");
+        }
+        if (assignedRequestsStatusListener != null) {
+            assignedRequestsStatusListener.remove();
+            Log.d(TAG, "📡 assignedRequests status listener removed");
+        }
         
         // Clean up handler
         if (updateHandler != null && updateRunnable != null) {

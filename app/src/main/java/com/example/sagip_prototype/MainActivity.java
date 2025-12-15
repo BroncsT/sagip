@@ -52,6 +52,8 @@ import com.google.firebase.functions.FirebaseFunctions;
 import com.google.firebase.functions.HttpsCallableResult;
 import com.google.firebase.messaging.FirebaseMessaging;
 
+import com.google.firebase.FirebaseTooManyRequestsException;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -64,6 +66,13 @@ public class MainActivity extends AppCompatActivity {
     private static final String KEY_USER_TYPE = "userType";
     private static final String KEY_IS_LOGGED_IN = "isLoggedIn";
     private static final String KEY_USER_PHONE = "userPhone";
+
+    private static final int MAX_OTP_REQUESTS_PER_WINDOW = 3;
+    private static final long OTP_REQUEST_WINDOW_MS = TimeUnit.MINUTES.toMillis(10);
+    private static final long OTP_LOCKOUT_MS = TimeUnit.MINUTES.toMillis(15);
+    private static final String KEY_OTP_WINDOW_START_PREFIX = "otpWindowStart_";
+    private static final String KEY_OTP_REQUEST_COUNT_PREFIX = "otpRequestCount_";
+    private static final String KEY_OTP_LOCKOUT_UNTIL_PREFIX = "otpLockoutUntil_";
 
     private FirebaseAuth auth;
     private FirebaseFirestore db;
@@ -79,6 +88,7 @@ public class MainActivity extends AppCompatActivity {
     private String mfaVerificationId;
     private PhoneAuthProvider.ForceResendingToken mfaResendToken;
     private MultiFactorResolver multiFactorResolver;
+    private MultiFactorSession cachedMfaSession;
 
     // UI Components for Phone Login
     private View phoneLoginLayout;
@@ -192,9 +202,12 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        // Check for unverified email users
+        // Check for unverified email users (skip for seniors - they use phone login only)
         FirebaseUser storedUser = auth.getCurrentUser();
-        if (storedUser != null && storedUser.getEmail() != null && !storedUser.isEmailVerified()) {
+        String storedUserType = sharedPreferences.getString(KEY_USER_TYPE, null);
+        boolean isSeniorUser = "seniors".equals(storedUserType) || "senior".equals(storedUserType);
+        
+        if (storedUser != null && storedUser.getEmail() != null && !storedUser.isEmailVerified() && !isSeniorUser) {
             Log.d(TAG, "Stored Firebase email user not verified, forcing logout and clearing credentials");
             auth.signOut();
             clearStoredCredentials();
@@ -324,10 +337,16 @@ public class MainActivity extends AppCompatActivity {
 
     private void saveUserCredentials(String userId, String userType, String phoneNumber) {
         Log.d(TAG, "Saving user credentials: " + userId + ", " + userType);
+        
+        // CRITICAL: Save login timestamp for filtering old notifications
+        long loginTimestamp = System.currentTimeMillis();
+        Log.d(TAG, "📌 Saving loginTimestamp: " + loginTimestamp);
+        
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putBoolean(KEY_IS_LOGGED_IN, true);
         editor.putString(KEY_USER_ID, userId);
         editor.putString(KEY_USER_TYPE, userType);
+        editor.putLong("loginTimestamp", loginTimestamp); // Save login time
         if (phoneNumber != null) {
             editor.putString(KEY_USER_PHONE, phoneNumber);
         }
@@ -342,6 +361,7 @@ public class MainActivity extends AppCompatActivity {
         SharedPreferences.Editor userEditor = userPrefs.edit();
         userEditor.putString("user_id", userId);
         userEditor.putString("user_type", userType);
+        userEditor.putLong("loginTimestamp", loginTimestamp); // Save login time here too
         if (phoneNumber != null) {
             userEditor.putString("user_phone", phoneNumber);
         }
@@ -1145,6 +1165,18 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         
+        // Pre-fetch MFA session in background while user enters phone number
+        cachedMfaSession = null;
+        user.getMultiFactor().getSession()
+            .addOnCompleteListener(task -> {
+                if (task.isSuccessful()) {
+                    cachedMfaSession = task.getResult();
+                    Log.d(TAG, "MFA session pre-fetched successfully");
+                } else {
+                    Log.w(TAG, "Failed to pre-fetch MFA session", task.getException());
+                }
+            });
+        
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle(getString(R.string.mfa_enrollment_title));
         builder.setMessage(getString(R.string.mfa_enrollment_message));
@@ -1192,80 +1224,90 @@ public class MainActivity extends AppCompatActivity {
         showProgressBar(true);
         Log.d(TAG, "Starting MFA enrollment for phone: " + phoneNumber);
         
-        user.getMultiFactor().getSession()
-            .addOnCompleteListener(task -> {
-                if (task.isSuccessful()) {
-                    MultiFactorSession session = task.getResult();
-                    
-                    PhoneAuthOptions options = PhoneAuthOptions.newBuilder(auth)
-                        .setPhoneNumber(phoneNumber)
-                        .setTimeout(timeout, TimeUnit.SECONDS)
-                        .setActivity(this)
-                        .setMultiFactorSession(session)
-                        .setCallbacks(new PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
-                            @Override
-                            public void onVerificationCompleted(@NonNull PhoneAuthCredential credential) {
-                                Log.d(TAG, "MFA enrollment auto-verified");
-                                completeMfaEnrollment(credential);
-                            }
+        // Use pre-fetched session if available, otherwise fetch now
+        if (cachedMfaSession != null) {
+            Log.d(TAG, "Using pre-fetched MFA session");
+            sendMfaVerificationCode(user, phoneNumber, cachedMfaSession);
+        } else {
+            Log.d(TAG, "No cached session, fetching MFA session now");
+            user.getMultiFactor().getSession()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        sendMfaVerificationCode(user, phoneNumber, task.getResult());
+                    } else {
+                        showProgressBar(false);
+                        Log.e(TAG, "Failed to get MFA session", task.getException());
+                        Toast.makeText(MainActivity.this, 
+                            getString(R.string.mfa_session_failed), 
+                            Toast.LENGTH_LONG).show();
+                        auth.signOut();
+                    }
+                });
+        }
+    }
+    
+    // Send MFA verification code using the provided session
+    private void sendMfaVerificationCode(FirebaseUser user, String phoneNumber, MultiFactorSession session) {
+        PhoneAuthOptions options = PhoneAuthOptions.newBuilder(auth)
+            .setPhoneNumber(phoneNumber)
+            .setTimeout(timeout, TimeUnit.SECONDS)
+            .setActivity(this)
+            .setMultiFactorSession(session)
+            .setCallbacks(new PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+                @Override
+                public void onVerificationCompleted(@NonNull PhoneAuthCredential credential) {
+                    Log.d(TAG, "MFA enrollment auto-verified");
+                    completeMfaEnrollment(credential);
+                }
 
-                            @Override
-                            public void onVerificationFailed(@NonNull com.google.firebase.FirebaseException e) {
-                                showProgressBar(false);
-                                Log.e(TAG, "MFA enrollment verification failed", e);
-                                
-                                // Check if phone is already used for MFA or if first factor is phone
-                                String errMsg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
-                                
-                                // Check for "phone cannot be first factor" error - skip MFA for phone-authenticated users
-                                if (errMsg.contains("first factor") || errMsg.contains("sms based mfa") ||
-                                    errMsg.contains("phone number cannot be set")) {
-                                    Log.d(TAG, "SMS MFA not compatible with phone auth, proceeding without MFA");
-                                    Toast.makeText(MainActivity.this, 
-                                        getString(R.string.phone_auth_no_mfa_needed), 
-                                        Toast.LENGTH_SHORT).show();
-                                    checkUserTypeAndRedirect(user.getUid(), false);
-                                    return;
-                                }
-                                
-                                if (errMsg.contains("already") || errMsg.contains("in use") || 
-                                    errMsg.contains("second factor") || errMsg.contains("credential")) {
-                                    Toast.makeText(MainActivity.this, 
-                                        getString(R.string.mfa_phone_already_used), 
-                                        Toast.LENGTH_LONG).show();
-                                    // Let user try a different phone number
-                                    showMfaEnrollmentDialog(user);
-                                    return;
-                                }
-                                
-                                Toast.makeText(MainActivity.this, 
-                                    getString(R.string.mfa_verification_failed) + ": " + e.getMessage(), 
-                                    Toast.LENGTH_LONG).show();
-                                auth.signOut();
-                            }
-
-                            @Override
-                            public void onCodeSent(@NonNull String verificationId, 
-                                    @NonNull PhoneAuthProvider.ForceResendingToken token) {
-                                showProgressBar(false);
-                                Log.d(TAG, "MFA enrollment code sent");
-                                mfaVerificationId = verificationId;
-                                mfaResendToken = token;
-                                showMfaEnrollmentCodeDialog(phoneNumber);
-                            }
-                        })
-                        .build();
-                    
-                    PhoneAuthProvider.verifyPhoneNumber(options);
-                } else {
+                @Override
+                public void onVerificationFailed(@NonNull com.google.firebase.FirebaseException e) {
                     showProgressBar(false);
-                    Log.e(TAG, "Failed to get MFA session", task.getException());
+                    Log.e(TAG, "MFA enrollment verification failed", e);
+                    
+                    // Check if phone is already used for MFA or if first factor is phone
+                    String errMsg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+                    
+                    // Check for "phone cannot be first factor" error - skip MFA for phone-authenticated users
+                    if (errMsg.contains("first factor") || errMsg.contains("sms based mfa") ||
+                        errMsg.contains("phone number cannot be set")) {
+                        Log.d(TAG, "SMS MFA not compatible with phone auth, proceeding without MFA");
+                        Toast.makeText(MainActivity.this, 
+                            getString(R.string.phone_auth_no_mfa_needed), 
+                            Toast.LENGTH_SHORT).show();
+                        checkUserTypeAndRedirect(user.getUid(), false);
+                        return;
+                    }
+                    
+                    if (errMsg.contains("already") || errMsg.contains("in use") || 
+                        errMsg.contains("second factor") || errMsg.contains("credential")) {
+                        Toast.makeText(MainActivity.this, 
+                            getString(R.string.mfa_phone_already_used), 
+                            Toast.LENGTH_LONG).show();
+                        // Let user try a different phone number
+                        showMfaEnrollmentDialog(user);
+                        return;
+                    }
+                    
                     Toast.makeText(MainActivity.this, 
-                        getString(R.string.mfa_session_failed), 
+                        getString(R.string.mfa_verification_failed) + ": " + e.getMessage(), 
                         Toast.LENGTH_LONG).show();
                     auth.signOut();
                 }
-            });
+
+                @Override
+                public void onCodeSent(@NonNull String verificationId, 
+                        @NonNull PhoneAuthProvider.ForceResendingToken token) {
+                    showProgressBar(false);
+                    Log.d(TAG, "MFA enrollment code sent");
+                    mfaVerificationId = verificationId;
+                    mfaResendToken = token;
+                    showMfaEnrollmentCodeDialog(phoneNumber);
+                }
+            })
+            .build();
+        
+        PhoneAuthProvider.verifyPhoneNumber(options);
     }
 
     // Show dialog to enter enrollment verification code
@@ -1733,25 +1775,13 @@ public class MainActivity extends AppCompatActivity {
                 break;
         }
 
-        // CRITICAL FIX: Request battery optimization whitelist for all users who need notifications
-        // This ensures background services aren't killed by Android battery optimization
-        if ("rescuer".equals(userType) || "barangay".equals(userType) || 
-            "seniors".equals(userType) || "senior".equals(userType)) {
-            Log.d(TAG, "🔋 User detected (" + userType + ") - requesting battery optimization whitelist");
-            BatteryOptimizationHelper.logBatteryOptimizationStatus(this);
-            if ("seniors".equals(userType) || "senior".equals(userType)) {
-                BatteryOptimizationHelper.showBatteryOptimizationForSenior(this);
-            } else {
-                BatteryOptimizationHelper.showBatteryOptimizationDialog(this, null);
-            }
-        }
-
         startActivity(dashboardIntent);
         finish();
     }
 
     private void checkUserExistsByPhoneNumber(String formattedNumber) {
-        String[] userTypes = {"barangay", "rescuer", "hospital", "seniors"};
+        // Only seniors use phone number authentication
+        String[] userTypes = {"seniors"};
         checkPhoneNumberInCollections(formattedNumber, userTypes, 0);
     }
 
@@ -1962,13 +1992,51 @@ public class MainActivity extends AppCompatActivity {
         // Show loading indicator while waiting for OTP
         showProgressBar(true);
         Toast.makeText(this, getString(R.string.sending_otp), Toast.LENGTH_SHORT).show();
-        
+
         // Remove leading "0" from Philippine mobile numbers for correct international format
         // e.g., "09123456789" becomes "9123456789", then "+639123456789"
         String formattedForInternational = number.startsWith("0") ? number.substring(1) : number;
-        
+
+        String fullPhoneNumber = "+63" + formattedForInternational;
+        String otpKey = fullPhoneNumber.trim();
+        long now = System.currentTimeMillis();
+
+        long lockoutUntil = sharedPreferences.getLong(KEY_OTP_LOCKOUT_UNTIL_PREFIX + otpKey, 0L);
+        if (lockoutUntil > now) {
+            showProgressBar(false);
+            long remainingMs = lockoutUntil - now;
+            long remainingMinutes = Math.max(1L, TimeUnit.MILLISECONDS.toMinutes(remainingMs));
+            Toast.makeText(this,
+                    "Too many OTP requests. Try again in " + remainingMinutes + " minute(s).",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        long windowStart = sharedPreferences.getLong(KEY_OTP_WINDOW_START_PREFIX + otpKey, 0L);
+        int requestCount = sharedPreferences.getInt(KEY_OTP_REQUEST_COUNT_PREFIX + otpKey, 0);
+        if (windowStart <= 0L || now - windowStart > OTP_REQUEST_WINDOW_MS) {
+            windowStart = now;
+            requestCount = 0;
+        }
+
+        if (requestCount >= MAX_OTP_REQUESTS_PER_WINDOW) {
+            sharedPreferences.edit()
+                    .putLong(KEY_OTP_LOCKOUT_UNTIL_PREFIX + otpKey, now + OTP_LOCKOUT_MS)
+                    .apply();
+            showProgressBar(false);
+            Toast.makeText(this,
+                    "Too many OTP requests. Please wait 15 minutes and try again.",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        sharedPreferences.edit()
+                .putLong(KEY_OTP_WINDOW_START_PREFIX + otpKey, windowStart)
+                .putInt(KEY_OTP_REQUEST_COUNT_PREFIX + otpKey, requestCount + 1)
+                .apply();
+
         PhoneAuthOptions options = PhoneAuthOptions.newBuilder(auth)
-                .setPhoneNumber("+63" + formattedForInternational)
+                .setPhoneNumber(fullPhoneNumber)
                 .setTimeout(timeout, TimeUnit.SECONDS)
                 .setActivity(this)
                 .setCallbacks(new PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
@@ -1983,18 +2051,25 @@ public class MainActivity extends AppCompatActivity {
                     public void onVerificationFailed(com.google.firebase.FirebaseException e) {
                         // Hide loading indicator on failure
                         showProgressBar(false);
-                        
+
                         Log.e(TAG, "OTP verification failed: " + e.getMessage());
                         Log.e(TAG, "Error class: " + e.getClass().getSimpleName());
                         Log.e(TAG, "Error cause: " + (e.getCause() != null ? e.getCause().getMessage() : "null"));
-                        
+
                         String errorMessage = "Failed to send OTP";
                         String detailedError = e.getMessage();
-                        
+
+                        if (e instanceof FirebaseTooManyRequestsException) {
+                            sharedPreferences.edit()
+                                    .putLong(KEY_OTP_LOCKOUT_UNTIL_PREFIX + otpKey, System.currentTimeMillis() + OTP_LOCKOUT_MS)
+                                    .apply();
+                            errorMessage = "Too many OTP requests. Please wait 15 minutes and try again.";
+                        }
+
                         // Check for specific error types
                         if (detailedError != null) {
-                            if (detailedError.contains("missing a valid app identifier") || 
-                                detailedError.contains("Play Integrity") || 
+                            if (detailedError.contains("missing a valid app identifier") ||
+                                detailedError.contains("Play Integrity") ||
                                 detailedError.contains("reCAPTCHA")) {
                                 errorMessage = "App verification failed. This may be due to:\n" +
                                               "1. Missing SHA-256 fingerprint in Firebase Console\n" +
@@ -2012,14 +2087,14 @@ public class MainActivity extends AppCompatActivity {
                                 errorMessage = "Too many requests. Please wait a few minutes and try again";
                             }
                         }
-                        
+
                         // Show user-friendly error dialog instead of just Toast
                         new AlertDialog.Builder(MainActivity.this)
                                 .setTitle("OTP Verification Failed")
                                 .setMessage(errorMessage + "\n\nTechnical details: " + detailedError)
                                 .setPositiveButton("OK", null)
                                 .setNeutralButton("Copy Error", (dialog, which) -> {
-                                    android.content.ClipboardManager clipboard = (android.content.ClipboardManager) 
+                                    android.content.ClipboardManager clipboard = (android.content.ClipboardManager)
                                             getSystemService(Context.CLIPBOARD_SERVICE);
                                     android.content.ClipData clip = android.content.ClipData.newPlainText("Error", detailedError);
                                     clipboard.setPrimaryClip(clip);
@@ -2032,11 +2107,11 @@ public class MainActivity extends AppCompatActivity {
                     public void onCodeSent(String verificationId, PhoneAuthProvider.ForceResendingToken token) {
                         // Hide loading indicator on success
                         showProgressBar(false);
-                        
+
                         Log.d(TAG, "OTP code sent successfully");
                         Intent intent = new Intent(MainActivity.this, OTP_PAGE.class);
                         intent.putExtra("VERIFICATION_ID", verificationId);
-                        intent.putExtra("MOBILE_NUMBER", "+63" + formattedForInternational);
+                        intent.putExtra("MOBILE_NUMBER", fullPhoneNumber);
                         intent.putExtra("IS_NEW_USER", isNewUser);
                         startActivity(intent);
                         // Finish MainActivity to prevent it from interfering with OTP flow
@@ -2430,12 +2505,11 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "MainActivity destroyed - cleaning up resources");
         stopSessionRestoreWait();
         
-        // Stop all background services when activity is destroyed
-        try {
-            BackgroundServiceManager.stopAllBackgroundServices(this);
-        } catch (Exception e) {
-            Log.e(TAG, "Error stopping background services in onDestroy: " + e.getMessage());
-        }
+        // NOTE: Do NOT stop background services here!
+        // MainActivity is destroyed when navigating to dashboard activities (Senior_Dashboard, etc.)
+        // If we stop services here, it kills services that the dashboard just started,
+        // causing "Context.startForegroundService() did not then call Service.startForeground()" crash.
+        // Services should only be stopped on explicit logout, not on activity destruction.
     }
 
 }

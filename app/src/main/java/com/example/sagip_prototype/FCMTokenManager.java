@@ -5,7 +5,6 @@ import android.content.SharedPreferences;
 import android.util.Log;
 
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.messaging.FirebaseMessaging;
 
 import java.util.HashMap;
@@ -73,16 +72,22 @@ public class FCMTokenManager {
         tokenData.put("lastTokenUpdate", System.currentTimeMillis());
         tokenData.put("tokenStatus", "active");
         
+        // Use update() instead of set() to avoid recreating deleted user documents
         db.collection("Sagip")
                 .document("users")
                 .collection(userType)
                 .document(userId)
-                .set(tokenData, SetOptions.merge())
+                .update(tokenData)
                 .addOnSuccessListener(aVoid -> {
                     Log.d(TAG, "✅ FCM token updated successfully in database for user: " + userId);
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "❌ Failed to update FCM token in database for user: " + userId, e);
+                    // NOT_FOUND means user document was deleted - don't try to recreate it
+                    if (e.getMessage() != null && e.getMessage().contains("NOT_FOUND")) {
+                        Log.w(TAG, "⚠️ User document not found (likely deleted) - skipping FCM token update");
+                    } else {
+                        Log.e(TAG, "❌ Failed to update FCM token in database for user: " + userId, e);
+                    }
                 });
     }
     

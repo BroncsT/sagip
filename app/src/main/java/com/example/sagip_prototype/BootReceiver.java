@@ -59,30 +59,35 @@ public class BootReceiver extends BroadcastReceiver {
             if ("rescuer".equals(userType)) {
                 Log.d(TAG, "🚨 Restarting rescuer services after boot");
                 
-                // Restart RescuerForegroundService
-                try {
-                    Intent rescuerIntent = new Intent(context, RescuerForegroundService.class);
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        context.startForegroundService(rescuerIntent);
-                    } else {
-                        context.startService(rescuerIntent);
+                // On Android 12+, skip foreground service start from boot (background restriction)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    Log.d(TAG, "Android 12+: Skipping foreground service start from boot, using WorkManager");
+                } else {
+                    // Restart RescuerForegroundService
+                    try {
+                        Intent rescuerIntent = new Intent(context, RescuerForegroundService.class);
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            context.startForegroundService(rescuerIntent);
+                        } else {
+                            context.startService(rescuerIntent);
+                        }
+                        Log.d(TAG, "✅ RescuerForegroundService restart requested");
+                    } catch (Exception e) {
+                        Log.e(TAG, "❌ Failed to restart RescuerForegroundService: " + e.getMessage());
                     }
-                    Log.d(TAG, "✅ RescuerForegroundService restart requested");
-                } catch (Exception e) {
-                    Log.e(TAG, "❌ Failed to restart RescuerForegroundService: " + e.getMessage());
-                }
-                
-                // Restart EmergencySOSBackgroundService
-                try {
-                    Intent emergencyIntent = new Intent(context, EmergencySOSBackgroundService.class);
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        context.startForegroundService(emergencyIntent);
-                    } else {
-                        context.startService(emergencyIntent);
+                    
+                    // Restart EmergencySOSBackgroundService
+                    try {
+                        Intent emergencyIntent = new Intent(context, EmergencySOSBackgroundService.class);
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            context.startForegroundService(emergencyIntent);
+                        } else {
+                            context.startService(emergencyIntent);
+                        }
+                        Log.d(TAG, "✅ EmergencySOSBackgroundService restart requested");
+                    } catch (Exception e) {
+                        Log.e(TAG, "❌ Failed to restart EmergencySOSBackgroundService: " + e.getMessage());
                     }
-                    Log.d(TAG, "✅ EmergencySOSBackgroundService restart requested");
-                } catch (Exception e) {
-                    Log.e(TAG, "❌ Failed to restart EmergencySOSBackgroundService: " + e.getMessage());
                 }
             }
             
@@ -90,16 +95,21 @@ public class BootReceiver extends BroadcastReceiver {
             if ("barangay".equals(userType)) {
                 Log.d(TAG, "🏢 Restarting barangay services after boot");
                 
-                try {
-                    Intent barangayIntent = new Intent(context, BarangayForegroundService.class);
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        context.startForegroundService(barangayIntent);
-                    } else {
-                        context.startService(barangayIntent);
+                // On Android 12+, skip foreground service start from boot (background restriction)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    Log.d(TAG, "Android 12+: Skipping BarangayForegroundService from boot, using WorkManager");
+                } else {
+                    try {
+                        Intent barangayIntent = new Intent(context, BarangayForegroundService.class);
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            context.startForegroundService(barangayIntent);
+                        } else {
+                            context.startService(barangayIntent);
+                        }
+                        Log.d(TAG, "✅ BarangayForegroundService restart requested");
+                    } catch (Exception e) {
+                        Log.e(TAG, "❌ Failed to restart BarangayForegroundService: " + e.getMessage());
                     }
-                    Log.d(TAG, "✅ BarangayForegroundService restart requested");
-                } catch (Exception e) {
-                    Log.e(TAG, "❌ Failed to restart BarangayForegroundService: " + e.getMessage());
                 }
             }
             
@@ -107,16 +117,23 @@ public class BootReceiver extends BroadcastReceiver {
             if ("seniors".equals(userType) || "senior".equals(userType)) {
                 Log.d(TAG, "👴 Restarting senior services after boot");
                 
-                try {
-                    Intent seniorIntent = new Intent(context, SeniorForegroundService.class);
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        context.startForegroundService(seniorIntent);
-                    } else {
-                        context.startService(seniorIntent);
+                // On Android 12+, we cannot start foreground services from background
+                // Use WorkManager instead which is allowed
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    Log.d(TAG, "Android 12+: Using WorkManager instead of direct foreground service start");
+                    // WorkManager is started below and will handle notifications
+                } else {
+                    try {
+                        Intent seniorIntent = new Intent(context, SeniorForegroundService.class);
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            context.startForegroundService(seniorIntent);
+                        } else {
+                            context.startService(seniorIntent);
+                        }
+                        Log.d(TAG, "✅ SeniorForegroundService restart requested");
+                    } catch (Exception e) {
+                        Log.e(TAG, "❌ Failed to restart SeniorForegroundService: " + e.getMessage());
                     }
-                    Log.d(TAG, "✅ SeniorForegroundService restart requested");
-                } catch (Exception e) {
-                    Log.e(TAG, "❌ Failed to restart SeniorForegroundService: " + e.getMessage());
                 }
             }
             

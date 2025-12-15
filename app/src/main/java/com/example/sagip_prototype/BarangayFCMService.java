@@ -20,7 +20,7 @@ import java.util.Map;
 
 public class BarangayFCMService extends FirebaseMessagingService {
     private static final String TAG = "BarangayFCMService";
-    private static final String CHANNEL_ID = "barangay_emergency_channel";
+    private static final String CHANNEL_ID = "barangay_emergency_channel_v2";
     private static final int NOTIFICATION_ID = 2000;
 
     @Override

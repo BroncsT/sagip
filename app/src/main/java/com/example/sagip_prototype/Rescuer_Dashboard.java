@@ -990,8 +990,10 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
 
         // Check if user is still logged in before starting emergency listener
         boolean isLoggedOut = prefs.getBoolean("user_logged_out", false);
-        if (executorService != null) {
-            executorService.shutdown();
+        
+        // Reinitialize executor service if it was shut down
+        if (executorService == null || executorService.isShutdown()) {
+            executorService = Executors.newSingleThreadExecutor();
         }
 
         // Remove emergency listener
@@ -1063,15 +1065,23 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
         // Check if this activity was opened from an emergency SOS notification
         Intent intent = getIntent();
         if (intent != null) {
-            boolean isEmergencySOS = intent.getBooleanExtra("emergency_sos_clicked", false) || 
+            boolean isEmergencySOS = intent.getBooleanExtra("emergency_sos_clicked", false) ||
                                    intent.getBooleanExtra("from_emergency_notification", false);
+            String requestId = intent.getStringExtra("request_id");
+            String emergencyType = intent.getStringExtra("emergency_type");
+            Double seniorLat = intent.hasExtra("senior_lat") ? intent.getDoubleExtra("senior_lat", 0.0) : null;
+            Double seniorLng = intent.hasExtra("senior_lng") ? intent.getDoubleExtra("senior_lng", 0.0) : null;
+
+            boolean isEmergencySOSFallback = !isEmergencySOS && requestId != null && emergencyType != null;
             
-            if (isEmergencySOS) {
+            if (isEmergencySOS || isEmergencySOSFallback) {
                 String seniorName = intent.getStringExtra("senior_name");
                 String seniorPhone = intent.getStringExtra("senior_phone");
                 String locationAddress = intent.getStringExtra("location_address");
                 
                 Log.d(TAG, "🚨 App opened from emergency SOS notification in onCreate - Senior: " + seniorName);
+                Log.d(TAG, "📋 [ON_CREATE] RequestId: " + requestId + ", EmergencyType: " + emergencyType);
+                Log.d(TAG, "📍 [ON_CREATE] GPS coordinates: " + seniorLat + ", " + seniorLng);
                 
                 // STOP ALL EMERGENCY SOUNDS IMMEDIATELY when notification is clicked
                 stopEmergencySound(); // Stop dashboard sound
@@ -1083,7 +1093,11 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                     new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
                         // Double-check activity is still valid before showing dialog
                         if (!isFinishing() && !isDestroyed()) {
-                            showEmergencySOSAlert(seniorName, seniorPhone, locationAddress, System.currentTimeMillis());
+                            if (seniorLat != null && seniorLng != null && seniorLat != 0.0 && seniorLng != 0.0) {
+                                showEmergencySOSAlertWithLocation(seniorName, seniorPhone, locationAddress, System.currentTimeMillis(), requestId, seniorLat, seniorLng);
+                            } else {
+                                showEmergencySOSAlert(seniorName, seniorPhone, locationAddress, System.currentTimeMillis(), requestId);
+                            }
                         } else {
                             Log.w(TAG, "Activity no longer valid, cannot show emergency dialog");
                         }
@@ -1096,6 +1110,10 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 intent.removeExtra("senior_name");
                 intent.removeExtra("senior_phone");
                 intent.removeExtra("location_address");
+                intent.removeExtra("request_id");
+                intent.removeExtra("emergency_type");
+                intent.removeExtra("senior_lat");
+                intent.removeExtra("senior_lng");
             } else if (handleStandardEmergencyNotification(intent, false)) {
                 Log.d(TAG, "🚨 App opened from standard emergency notification");
                 intent.removeExtra("emergency_notification");
@@ -1766,11 +1784,13 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 emergencyListener = null;
             }
             
-            // CRITICAL FIX: Set lastLoginTime if not already set
-            // This ensures old emergencies are filtered out when listener starts
+            // CRITICAL FIX: Use logout timestamp to filter old emergencies
+            // This ensures emergencies from BEFORE logout are not shown on re-login
             if (lastLoginTime == 0) {
-                lastLoginTime = System.currentTimeMillis();
-                Log.d(TAG, "⏰ [START_EMERGENCY_LISTENER] Set lastLoginTime: " + lastLoginTime);
+                SharedPreferences userPrefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+                long lastLogoutTime = userPrefs.getLong("last_logout_time", 0);
+                lastLoginTime = Math.max(System.currentTimeMillis(), lastLogoutTime);
+                Log.d(TAG, "⏰ [START_EMERGENCY_LISTENER] Last logout: " + lastLogoutTime + ", using filter time: " + lastLoginTime);
             }
             
             // Clean up old emergencies first (older than 1 hour)
@@ -2766,8 +2786,8 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
     }
     
     // Method to clear notifications for other rescuers when one rescuer accepts
-    private void clearNotificationsForOtherRescuers(String helpRequestId, String emergencyId) {
-        Log.d(TAG, "🔄 Clearing emergency notifications for other rescuers - Help Request: " + helpRequestId + ", Emergency: " + emergencyId);
+    private void clearNotificationsForOtherRescuers(String helpRequestId) {
+        Log.d(TAG, "🔄 Clearing emergency notifications for other rescuers - Help Request: " + helpRequestId);
         
         // Get all rescuers and clear their notifications for this specific emergency
         db.collection("Sagip")
@@ -2791,20 +2811,17 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                     .collection("rescuer")
                     .document(rescuerId)
                     .collection("emergencyNotifications")
-                    .whereEqualTo("helpRequestId", helpRequestId)
+                    .whereEqualTo("requestId", helpRequestId)
                     .get()
                     .addOnSuccessListener(notificationSnapshot -> {
                         for (QueryDocumentSnapshot notificationDoc : notificationSnapshot) {
-                            // Mark the notification as cleared/responded
-                            notificationDoc.getReference().update(
-                                "isActive", false,
-                                "respondedBy", userId,
-                                "respondedAt", System.currentTimeMillis(),
-                                "status", "responded_by_other"
-                            ).addOnSuccessListener(aVoid -> {
-                                Log.d(TAG, "✅ Cleared emergency notification for rescuer: " + rescuerId);
+                            // DELETE the notification so REMOVED event triggers on other rescuers' devices
+                            // This will dismiss their SOS dialog automatically via the snapshot listener
+                            notificationDoc.getReference().delete()
+                            .addOnSuccessListener(aVoid -> {
+                                Log.d(TAG, "✅ Deleted emergency notification for rescuer: " + rescuerId + " (SOS will be removed from their view)");
                             }).addOnFailureListener(e -> {
-                                Log.e(TAG, "❌ Failed to clear notification for rescuer " + rescuerId, e);
+                                Log.e(TAG, "❌ Failed to delete notification for rescuer " + rescuerId, e);
                             });
                         }
                     })
@@ -2818,6 +2835,33 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
           .addOnFailureListener(e -> {
               Log.e(TAG, "❌ Error getting rescuers list for notification clearing", e);
           });
+    }
+    
+    /**
+     * Show a popup informing the rescuer that another rescuer has already responded to the emergency
+     */
+    private void showRescuerRespondedPopup(String seniorName) {
+        runOnUiThread(() -> {
+            try {
+                String displayName = (seniorName != null && !seniorName.isEmpty()) ? seniorName : "the senior";
+                
+                AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                builder.setTitle("🚑 Emergency Already Handled");
+                builder.setMessage("Another rescuer has already responded to " + displayName + "'s emergency.\n\nThank you for being ready to help!");
+                builder.setIcon(android.R.drawable.ic_dialog_info);
+                builder.setPositiveButton("OK", (dialog, which) -> dialog.dismiss());
+                builder.setCancelable(true);
+                
+                AlertDialog dialog = builder.create();
+                dialog.show();
+                
+                Log.d(TAG, "✅ Showed 'Rescuer Already Responded' popup for: " + displayName);
+            } catch (Exception e) {
+                Log.e(TAG, "❌ Error showing rescuer responded popup: " + e.getMessage());
+                // Fallback to toast if dialog fails
+                Toast.makeText(this, "Another rescuer has already responded to this emergency", Toast.LENGTH_LONG).show();
+            }
+        });
     }
     
     private void startEmergencySOSListener() {
@@ -2841,9 +2885,12 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             emergencySOSListener = null;
         }
         
-        // Update login time to current time when starting listener
-        // This ensures only NEW emergencies (after this moment) will trigger alerts
-        lastLoginTime = System.currentTimeMillis();
+        // Use logout timestamp from previous session to filter old notifications
+        // This ensures notifications from BEFORE logout are not shown on re-login
+        SharedPreferences userPrefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+        long lastLogoutTime = userPrefs.getLong("last_logout_time", 0);
+        lastLoginTime = Math.max(System.currentTimeMillis(), lastLogoutTime);
+        Log.d(TAG, "📌 Last logout time: " + lastLogoutTime + ", using filter time: " + lastLoginTime);
         
         Log.d(TAG, "🚨 Starting emergency SOS listener for rescuer: " + userId);
         Log.d(TAG, "✅ [IN-APP_ALERTS] Dashboard listener ENABLED for in-app alerts when app is open");
@@ -2889,6 +2936,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                               break;
                           case REMOVED:
                               String removedRequestId = dc.getDocument().getString("requestId");
+                              String removedSeniorName = dc.getDocument().getString("seniorName");
                               Log.d(TAG, "🗑️ [DASHBOARD_LISTENER] Notification removed: " + dc.getDocument().getId() + " (RequestID: " + removedRequestId + ")");
                               
                               // Remove from emergency queue if present
@@ -2951,6 +2999,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                                       
                                       // Stop emergency sound
                                       stopEmergencySound();
+                                      
+                                      // Show "Another rescuer has responded" popup
+                                      showRescuerRespondedPopup(removedSeniorName);
                                       
                                       Log.d(TAG, "✅ [DASHBOARD_LISTENER] Emergency dialog dismissed and tracking cleared");
                                   }
@@ -3777,7 +3828,51 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 ActivityCompat.requestPermissions(this, 
                         new String[]{Manifest.permission.POST_NOTIFICATIONS}, 
                         NOTIFICATION_PERMISSION_REQUEST_CODE);
+            } else {
+                // Notification permission already granted, check SMS permission next
+                checkSMSPermissionOnFirstLaunch();
             }
+        } else {
+            // For Android < 13, no notification permission needed, check SMS permission
+            checkSMSPermissionOnFirstLaunch();
+        }
+    }
+
+    /**
+     * Check and request SMS permission on first launch
+     * Uses SharedPreferences to track if we've already asked
+     */
+    private void checkSMSPermissionOnFirstLaunch() {
+        SharedPreferences prefs = getSharedPreferences("sagip_permissions", MODE_PRIVATE);
+        boolean hasAskedSMSPermission = prefs.getBoolean("has_asked_sms_permission", false);
+        
+        // Only ask on first launch or if permission not granted yet
+        if (!hasAskedSMSPermission && !PermissionManager.hasSMSPermission(this)) {
+            Log.d(TAG, "📱 [FIRST_LAUNCH] Requesting SMS permission on first launch...");
+            
+            // Mark that we've asked (so we don't keep asking every launch)
+            prefs.edit().putBoolean("has_asked_sms_permission", true).apply();
+            
+            // Show explanation dialog and request permission
+            new AlertDialog.Builder(this)
+                .setTitle("📱 SMS Permission")
+                .setMessage("SAGIP can notify emergency contacts via SMS when you respond to an SOS call.\n\n" +
+                           "This ensures family members are immediately informed when help is on the way.\n\n" +
+                           "Would you like to enable SMS notifications?")
+                .setPositiveButton("Enable", (dialog, which) -> {
+                    Log.d(TAG, "📱 [FIRST_LAUNCH] User agreed to grant SMS permission");
+                    PermissionManager.requestSMSPermission(this);
+                })
+                .setNegativeButton("Not Now", (dialog, which) -> {
+                    Log.d(TAG, "📱 [FIRST_LAUNCH] User declined SMS permission");
+                    Toast.makeText(this, "You can enable SMS notifications later in Settings", Toast.LENGTH_SHORT).show();
+                })
+                .setCancelable(false)
+                .show();
+        } else if (PermissionManager.hasSMSPermission(this)) {
+            Log.d(TAG, "📱 [FIRST_LAUNCH] SMS permission already granted");
+        } else {
+            Log.d(TAG, "📱 [FIRST_LAUNCH] Already asked for SMS permission before");
         }
     }
 
@@ -4656,6 +4751,8 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 Log.w(TAG, "❌ Notification permission denied by user");
                 Toast.makeText(this, getString(R.string.notification_permission_denied_wont_receive), Toast.LENGTH_LONG).show();
             }
+            // After notification permission is handled, check SMS permission
+            checkSMSPermissionOnFirstLaunch();
         } else if (requestCode == PermissionManager.SMS_PERMISSION_REQUEST_CODE) {
             boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
             Log.d(TAG, "📱 [PERMISSION_RESULT] SMS permission result: " + granted);
@@ -5172,6 +5269,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             EmergencyQueueManager.getInstance(this).assignRescuer(requestId, rescuerId);
             Log.d(TAG, "🔍 [ASSIGN_BY_ID] assignRescuer called successfully");
             
+            // Clear notifications for other rescuers so SOS is removed from their view
+            clearNotificationsForOtherRescuers(requestId);
+            
             // Show popup confirmation to rescuer
             showRescuerAssignmentPopup(emergency.seniorName, emergency.locationAddress, rescuerId, requestId);
             
@@ -5223,6 +5323,9 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                     // Assign rescuer to emergency (this will send notification)
                     EmergencyQueueManager.getInstance(Rescuer_Dashboard.this).assignRescuer(requestId, rescuerId);
                     Log.d(TAG, "🔍 [LOAD_FROM_DB] assignRescuer called successfully from database callback");
+                    
+                    // Clear notifications for other rescuers so SOS is removed from their view
+                    clearNotificationsForOtherRescuers(requestId);
                     
                     // Update emergency list to reflect the change
                     updateSOSEmergencyList();
@@ -5652,6 +5755,12 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             emergencySOSListener.remove();
             emergencySOSListener = null;
         }
+        
+        // Shutdown executor service
+        if (executorService != null && !executorService.isShutdown()) {
+            executorService.shutdown();
+            executorService = null;
+        }
     }
     
     private void saveLocationToFirestore(double latitude, double longitude) {
@@ -5675,7 +5784,13 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                         Log.d(TAG, "✅ Rescuer location saved to Firestore: " + latitude + ", " + longitude);
                     })
                     .addOnFailureListener(e -> {
-                        Log.e(TAG, "❌ Error saving rescuer location to Firestore: " + e.getMessage());
+                        // Handle NOT_FOUND gracefully (document deleted during account deletion)
+                        if (e.getMessage() != null && e.getMessage().contains("NOT_FOUND")) {
+                            Log.w(TAG, "⚠️ Rescuer document not found (likely deleted) - stopping location updates");
+                            stopLocationUpdates();
+                        } else {
+                            Log.e(TAG, "❌ Error saving rescuer location to Firestore: " + e.getMessage());
+                        }
                     });
         }
     }

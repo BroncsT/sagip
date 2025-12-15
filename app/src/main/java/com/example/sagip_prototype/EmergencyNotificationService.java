@@ -40,6 +40,7 @@ public class EmergencyNotificationService extends Service {
     private String userType;
     private double currentLat = 0.0;
     private double currentLong = 0.0;
+    private long listenerStartTime = 0;
     
     @Override
     public void onCreate() {
@@ -178,6 +179,12 @@ public class EmergencyNotificationService extends Service {
             emergencyListener = null;
         }
         
+        // Use logout timestamp to filter out old notifications from previous sessions
+        SharedPreferences prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+        long lastLogoutTime = prefs.getLong("last_logout_time", 0);
+        listenerStartTime = Math.max(System.currentTimeMillis(), lastLogoutTime);
+        Log.d(TAG, "📌 Last logout time: " + lastLogoutTime + ", using filter time: " + listenerStartTime);
+        
         // Listen for new emergency notifications
         emergencyListener = db.collection("Sagip")
                 .document("emergencyNotifications")
@@ -190,9 +197,9 @@ public class EmergencyNotificationService extends Service {
                     }
                     
                     // Check if user is still a rescuer before processing notifications
-                    SharedPreferences prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
-                    String currentUserType = prefs.getString("user_type", null);
-                    boolean isLoggedOut = prefs.getBoolean("user_logged_out", false);
+                    SharedPreferences currentPrefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
+                    String currentUserType = currentPrefs.getString("user_type", null);
+                    boolean isLoggedOut = currentPrefs.getBoolean("user_logged_out", false);
                     
                     if (isLoggedOut || currentUserType == null || !currentUserType.equals("rescuer")) {
                         Log.w(TAG, "⚠️ User is no longer a rescuer or has logged out (userType: " + currentUserType + ", isLoggedOut: " + isLoggedOut + "), stopping EmergencyNotificationService");
@@ -245,10 +252,20 @@ public class EmergencyNotificationService extends Service {
         Double longitude = emergency.getDouble("longitude");
         String helpRequestId = emergency.getString("helpRequestId");
         
+        Long timestamp = emergency.getLong("timestamp");
+        
         Log.d(TAG, "🚨🚨🚨 NEW EMERGENCY RECEIVED IN BACKGROUND 🚨🚨🚨");
         Log.d(TAG, "🚨 Senior: " + seniorName);
         Log.d(TAG, "🚨 Location: " + locationAddress);
         Log.d(TAG, "🚨 Help Request ID: " + helpRequestId);
+        Log.d(TAG, "🚨 Timestamp: " + timestamp + ", listenerStartTime: " + listenerStartTime);
+        
+        // CRITICAL FIX: Skip notifications that were created BEFORE logout
+        // This prevents old notifications from showing on re-login
+        if (timestamp != null && timestamp < listenerStartTime) {
+            Log.d(TAG, "🔇 Emergency timestamp (" + timestamp + ") is BEFORE filter time (" + listenerStartTime + ") - SKIPPING old emergency");
+            return;
+        }
         
         // Check if this rescuer has already responded to this emergency
         String respondedBy = emergency.getString("respondedBy");

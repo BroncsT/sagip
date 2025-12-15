@@ -30,6 +30,7 @@ import android.text.InputType;
 import android.text.TextUtils;
 import android.util.Log;
 import androidx.appcompat.app.AlertDialog;
+import android.app.ProgressDialog;
 
 public class Hospital_Registration extends AppCompatActivity {
 
@@ -42,6 +43,7 @@ public class Hospital_Registration extends AppCompatActivity {
     private String mVerificationId;
     private PhoneAuthProvider.ForceResendingToken mResendToken;
     private PhoneAuthProvider.OnVerificationStateChangedCallbacks mCallbacks;
+    private ProgressDialog progressDialog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -86,7 +88,7 @@ public class Hospital_Registration extends AppCompatActivity {
                 String password = newPassword.getText().toString().trim();
                 String confirmPassword = confirmNewPassword.getText().toString().trim();
                 
-                if (hospitalName.isEmpty() || address.isEmpty() || erBeds.isEmpty() || erDoctors.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
+                if (hospitalName.isEmpty() || address.isEmpty() || erBeds.isEmpty() || erDoctors.isEmpty() || password.isEmpty() || confirmPassword.isEmpty() || phoneNumber.isEmpty()) {
                     Toast.makeText(Hospital_Registration.this, getString(R.string.please_fill_all_required_fields), Toast.LENGTH_SHORT).show();
                     return;
                 }
@@ -109,7 +111,6 @@ public class Hospital_Registration extends AppCompatActivity {
                     Toast.makeText(Hospital_Registration.this, passwordError, Toast.LENGTH_SHORT).show();
                     return;
                 }
-
 
                 FirebaseUser user = auth.getCurrentUser();
                 if (user == null) {
@@ -316,6 +317,7 @@ public class Hospital_Registration extends AppCompatActivity {
         mCallbacks = new PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
             @Override
             public void onVerificationCompleted(@NonNull PhoneAuthCredential credential) {
+                dismissProgressDialog();
                 if (!isFinishing() && !isDestroyed()) {
                     Toast.makeText(Hospital_Registration.this, getString(R.string.verification_automatically_completed), Toast.LENGTH_SHORT).show();
                     linkPhoneWithCurrentUser(credential);
@@ -324,6 +326,7 @@ public class Hospital_Registration extends AppCompatActivity {
 
             @Override
             public void onVerificationFailed(@NonNull FirebaseException e) {
+                dismissProgressDialog();
                 if (!isFinishing() && !isDestroyed()) {
                     Log.e("Hospital_Registration", "Firebase verification failed: " + e.getMessage(), e);
                     String errorMsg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
@@ -346,6 +349,7 @@ public class Hospital_Registration extends AppCompatActivity {
 
             @Override
             public void onCodeSent(@NonNull String verificationId, @NonNull PhoneAuthProvider.ForceResendingToken token) {
+                dismissProgressDialog();
                 mVerificationId = verificationId;
                 mResendToken = token;
 
@@ -355,6 +359,12 @@ public class Hospital_Registration extends AppCompatActivity {
                 }
             }
         };
+    }
+    
+    private void dismissProgressDialog() {
+        if (progressDialog != null && progressDialog.isShowing()) {
+            progressDialog.dismiss();
+        }
     }
     
     // Store pending registration data
@@ -377,18 +387,71 @@ public class Hospital_Registration extends AppCompatActivity {
         pendingUserEmail = userEmail;
         
         // Remove leading 0 if present and format as +63XXXXXXXXXX
-        String formattedNumber = phoneNumber.startsWith("0") ? phoneNumber.substring(1) : phoneNumber;
+        String formattedNumber = phoneNumber.trim();
+        if (formattedNumber.startsWith("0")) {
+            formattedNumber = formattedNumber.substring(1);
+        }
         if (!formattedNumber.startsWith("+")) {
             formattedNumber = "+63" + formattedNumber;
         }
+        
+        Log.d("Hospital_Registration", "Verifying phone number: " + formattedNumber);
+        
+        // Show loading dialog
+        progressDialog = new ProgressDialog(this);
+        progressDialog.setMessage("Sending verification code...");
+        progressDialog.setCancelable(false);
+        progressDialog.show();
 
-        PhoneAuthOptions options =
-                PhoneAuthOptions.newBuilder(auth)
-                        .setPhoneNumber(formattedNumber)
-                        .setTimeout(60L, TimeUnit.SECONDS)
-                        .setActivity(this)
-                        .setCallbacks(mCallbacks)
-                        .build();
+        PhoneAuthOptions options = PhoneAuthOptions.newBuilder(auth)
+                .setPhoneNumber(formattedNumber)
+                .setTimeout(60L, TimeUnit.SECONDS)
+                .setActivity(this)
+                .setCallbacks(new PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+                    @Override
+                    public void onVerificationCompleted(@NonNull PhoneAuthCredential credential) {
+                        Log.d("Hospital_Registration", "onVerificationCompleted called");
+                        dismissProgressDialog();
+                        if (!isFinishing() && !isDestroyed()) {
+                            Toast.makeText(Hospital_Registration.this, getString(R.string.verification_automatically_completed), Toast.LENGTH_SHORT).show();
+                            linkPhoneWithCurrentUser(credential);
+                        }
+                    }
+
+                    @Override
+                    public void onVerificationFailed(@NonNull FirebaseException e) {
+                        Log.e("Hospital_Registration", "onVerificationFailed: " + e.getMessage(), e);
+                        dismissProgressDialog();
+                        if (!isFinishing() && !isDestroyed()) {
+                            String errorMsg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+                            
+                            if (errorMsg.contains("first factor") || 
+                                errorMsg.contains("sms based mfa") ||
+                                errorMsg.contains("multi-factor") ||
+                                errorMsg.contains("second factor")) {
+                                Log.d("Hospital_Registration", "MFA conflict - saving data without phone linking");
+                                Toast.makeText(Hospital_Registration.this, getString(R.string.phone_auth_no_mfa_needed), Toast.LENGTH_SHORT).show();
+                                saveUserData(pendingHospitalName, pendingAddress, pendingPhoneNumber, pendingErBeds, pendingErDoctors, pendingUid, pendingUserEmail);
+                            } else {
+                                Toast.makeText(Hospital_Registration.this, "Verification failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void onCodeSent(@NonNull String verificationId, @NonNull PhoneAuthProvider.ForceResendingToken token) {
+                        Log.d("Hospital_Registration", "onCodeSent called - verificationId: " + verificationId);
+                        dismissProgressDialog();
+                        mVerificationId = verificationId;
+                        mResendToken = token;
+
+                        if (!isFinishing() && !isDestroyed()) {
+                            Toast.makeText(Hospital_Registration.this, getString(R.string.verification_code_sent), Toast.LENGTH_SHORT).show();
+                            showVerificationCodeInputDialog();
+                        }
+                    }
+                })
+                .build();
         PhoneAuthProvider.verifyPhoneNumber(options);
     }
     

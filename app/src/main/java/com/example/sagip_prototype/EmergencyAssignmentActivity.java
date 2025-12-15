@@ -57,7 +57,7 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
     private TextView tvSeniorName, tvSeniorPhone, tvLocation;
     private TextView tvEstimatedArrival, tvDistance, tvStatus;
     private TextView tvHospitalName, tvHospitalAddress, tvHospitalDistance;
-    private Button btnCallSenior, btnNavigateToSenior, btnUpdateLocation, btnMarkDone, btnNavigateHospital;
+    private Button btnCallSenior, btnNavigateToSenior, btnMarkDone, btnNavigateHospital;
     private GoogleMap mMap;
     
     // Data
@@ -69,6 +69,9 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
     private String emergencyId;
     private String emergencyType;
     private String emergencySeverity;
+    
+    // Flag to track if assignment was completed (to prevent onDestroy from overwriting status)
+    private boolean assignmentCompleted = false;
     
     // AI System
     private EmergencyRoomAI emergencyRoomAI;
@@ -226,7 +229,6 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         
         btnCallSenior = findViewById(R.id.btn_call_senior);
         btnNavigateToSenior = findViewById(R.id.btn_navigate_to_senior);
-        btnUpdateLocation = findViewById(R.id.btn_update_location);
         btnMarkDone = findViewById(R.id.btn_mark_arrived);
         btnNavigateHospital = findViewById(R.id.btn_navigate_hospital);
         
@@ -256,7 +258,6 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
     private void setupButtonListeners() {
         btnCallSenior.setOnClickListener(v -> callSenior());
         btnNavigateToSenior.setOnClickListener(v -> openNavigation());
-        btnUpdateLocation.setOnClickListener(v -> updateLocation());
         btnMarkDone.setOnClickListener(v -> markDone());
         
         // Test functionality removed to prevent confusion
@@ -503,16 +504,6 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                     .title(hospitalName)
                     .snippet("AI Selected - Confidence: " + String.format("%.0f%%", aiConfidenceScore * 100)));
             Log.d(TAG, "✅ Hospital marker added to map");
-        }
-        
-        // Show alternatives in a toast (could be enhanced with a dialog)
-        if (alternativeHospitals != null && !alternativeHospitals.isEmpty()) {
-            StringBuilder altText = new StringBuilder("Alternatives: ");
-            for (int i = 0; i < Math.min(2, alternativeHospitals.size()); i++) {
-                if (i > 0) altText.append(", ");
-                altText.append(alternativeHospitals.get(i).name);
-            }
-            Toast.makeText(this, altText.toString(), Toast.LENGTH_LONG).show();
         }
     }
     
@@ -1363,6 +1354,9 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         Log.d(TAG, "🔍 markDone() called - UPDATED VERSION");
         Log.d(TAG, "🔍 emergencyId in markDone: " + emergencyId);
         
+        // Mark assignment as completed to prevent onDestroy from overwriting status
+        assignmentCompleted = true;
+        
         // Update status to done
         tvStatus.setText("✅ DONE");
         btnMarkDone.setEnabled(false);
@@ -1420,16 +1414,31 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
             Log.d(TAG, "🔍 updateEmergencyStatus called with status: " + status);
             Log.d(TAG, "🔍 emergencyId value in updateEmergencyStatus: " + emergencyId);
             Log.d(TAG, "Updating emergency status for ID: " + emergencyId);
+            
+            // Update in activeRequests collection
             db.collection("Sagip")
                     .document("emergencyRequests")
                     .collection("activeRequests")
                     .document(emergencyId)
                     .update("status", status, "doneAt", System.currentTimeMillis())
                     .addOnSuccessListener(aVoid -> {
-                        Log.d(TAG, "Emergency status updated to: " + status);
+                        Log.d(TAG, "✅ Emergency status updated in activeRequests to: " + status);
                     })
                     .addOnFailureListener(e -> {
-                        Log.e(TAG, "Error updating emergency status: " + e.getMessage());
+                        Log.e(TAG, "Error updating emergency status in activeRequests: " + e.getMessage());
+                    });
+            
+            // Also update in assignedRequests collection (emergency may be in either collection)
+            db.collection("Sagip")
+                    .document("emergencyRequests")
+                    .collection("assignedRequests")
+                    .document(emergencyId)
+                    .update("status", status, "doneAt", System.currentTimeMillis())
+                    .addOnSuccessListener(aVoid -> {
+                        Log.d(TAG, "✅ Emergency status updated in assignedRequests to: " + status);
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "Error updating emergency status in assignedRequests: " + e.getMessage());
                     });
         }
     }
@@ -1521,8 +1530,13 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
     protected void onDestroy() {
         super.onDestroy();
         Log.d(TAG, "🚨🚨🚨 EmergencyAssignmentActivity DESTROYED 🚨🚨🚨");
-        // Update status to in-progress when leaving
-        updateEmergencyStatus("in_progress");
+        // Only update status to in-progress if assignment was NOT completed
+        // This prevents overwriting the 'done' status when activity is destroyed after completion
+        if (!assignmentCompleted) {
+            updateEmergencyStatus("in_progress");
+        } else {
+            Log.d(TAG, "✅ Assignment was completed, not overwriting 'done' status");
+        }
     }
     
     @Override

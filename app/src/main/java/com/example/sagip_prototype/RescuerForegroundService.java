@@ -32,14 +32,43 @@ public class RescuerForegroundService extends Service {
         super.onCreate();
         Log.d(TAG, "🚨 RescuerForegroundService created");
         
-        createNotificationChannel();
-        
-        // CRITICAL: Start foreground IMMEDIATELY in onCreate() to prevent crash
+        // CRITICAL: Call startForeground() as ABSOLUTE FIRST THING
         try {
-            startForeground(FOREGROUND_NOTIFICATION_ID, createForegroundNotification());
-            Log.d(TAG, "✅ RescuerForegroundService started in foreground mode");
+            createNotificationChannel();
         } catch (Exception e) {
-            Log.e(TAG, "❌ Failed to start foreground service: " + e.getMessage(), e);
+            Log.e(TAG, "❌ Failed to create notification channel: " + e.getMessage());
+        }
+        
+        // Build minimal notification with guaranteed system resources
+        Notification notification;
+        try {
+            notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+                    .setContentTitle("SAGIP Rescuer Service Active")
+                    .setContentText("Monitoring for emergency alerts")
+                    .setSmallIcon(android.R.drawable.ic_dialog_info)
+                    .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .setOngoing(true)
+                    .build();
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Failed to build notification: " + e.getMessage());
+            notification = new Notification.Builder(this, CHANNEL_ID)
+                    .setContentTitle("SAGIP Active")
+                    .setSmallIcon(android.R.drawable.ic_dialog_info)
+                    .build();
+        }
+        
+        // MUST call startForeground - this is the critical line
+        startForeground(FOREGROUND_NOTIFICATION_ID, notification);
+        Log.d(TAG, "✅ RescuerForegroundService started in foreground mode");
+        
+        // Update with full notification (non-critical)
+        try {
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) {
+                nm.notify(FOREGROUND_NOTIFICATION_ID, createForegroundNotification());
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "⚠️ Failed to update notification (non-critical): " + e.getMessage());
         }
     }
     
@@ -52,6 +81,7 @@ public class RescuerForegroundService extends Service {
         boolean isLoggedOut = prefs.getBoolean("user_logged_out", false);
         if (isLoggedOut) {
             Log.w(TAG, "⚠️ User has logged out, stopping RescuerForegroundService");
+            stopForeground(true);
             stopSelf();
             return START_NOT_STICKY;
         }
@@ -62,6 +92,7 @@ public class RescuerForegroundService extends Service {
         
         if (!"rescuer".equals(userType)) {
             Log.d(TAG, "User is not a rescuer, stopping service");
+            stopForeground(true);
             stopSelf();
             return START_NOT_STICKY;
         }

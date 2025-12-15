@@ -10,6 +10,9 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.IBinder;
+import android.media.AudioAttributes;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.util.Log;
 import androidx.core.app.NotificationCompat;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -164,19 +167,37 @@ public class HospitalStatusReminderService extends Service {
     private void checkStatusUpdateTime() {
         if (!isMonitoring || currentUserId == null) return;
         
-        long currentTime = System.currentTimeMillis();
-        long timeSinceLastUpdate = currentTime - lastStatusUpdateTime;
-        
-        Log.d(TAG, "Checking status update time - Time since last update: " + (timeSinceLastUpdate / 60000) + " minutes");
-        
-        // Check if it's time to update status (10 minutes)
-        if (timeSinceLastUpdate >= STATUS_UPDATE_INTERVAL_MS) {
-            Log.d(TAG, "Time to update status! Sending reminder notification");
-            sendStatusUpdateReminder();
-            
-            // Reset the timer to prevent spam
-            lastStatusUpdateTime = currentTime;
-        }
+        // Always fetch the latest update time from Firestore to stay in sync
+        // This is critical when app is closed - we need accurate data
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        db.collection("Sagip")
+            .document("users")
+            .collection("hospital")
+            .document(currentUserId)
+            .get()
+            .addOnSuccessListener(documentSnapshot -> {
+                if (documentSnapshot.exists()) {
+                    com.google.firebase.Timestamp lastUpdated = documentSnapshot.getTimestamp("lastUpdated");
+                    if (lastUpdated != null) {
+                        lastStatusUpdateTime = lastUpdated.toDate().getTime();
+                        hospitalName = documentSnapshot.getString("hospitalName");
+                    }
+                    
+                    long currentTime = System.currentTimeMillis();
+                    long timeSinceLastUpdate = currentTime - lastStatusUpdateTime;
+                    
+                    Log.d(TAG, "Checking status update time - Time since last update: " + (timeSinceLastUpdate / 60000) + " minutes");
+                    
+                    // Check if it's time to update status (10 minutes)
+                    if (timeSinceLastUpdate >= STATUS_UPDATE_INTERVAL_MS) {
+                        Log.d(TAG, "Time to update status! Sending reminder notification");
+                        sendStatusUpdateReminder();
+                    }
+                }
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "Error checking status update time: " + e.getMessage());
+            });
     }
     
     private void sendStatusUpdateReminder() {
@@ -197,6 +218,12 @@ public class HospitalStatusReminderService extends Service {
         
         String hospitalDisplayName = hospitalName != null ? hospitalName : "Hospital";
         
+        // Get alarm sound for the notification
+        Uri alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+        if (alarmSound == null) {
+            alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+        }
+        
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.notification_status_update_required))
             .setContentText(String.format(getString(R.string.notification_status_update_text), hospitalDisplayName))
@@ -204,9 +231,9 @@ public class HospitalStatusReminderService extends Service {
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setSound(alarmSound)
             .setVibrate(new long[]{0, 500, 200, 500})
-            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setOngoing(false)
             .build();
         
@@ -234,6 +261,17 @@ public class HospitalStatusReminderService extends Service {
             channel.setDescription("Reminders to update hospital status");
             channel.enableVibration(true);
             channel.setVibrationPattern(new long[]{0, 500, 200, 500});
+            
+            // Set alarm sound for the notification channel
+            Uri alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+            if (alarmSound == null) {
+                alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            }
+            AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .build();
+            channel.setSound(alarmSound, audioAttributes);
             
             NotificationManager notificationManager = getSystemService(NotificationManager.class);
             notificationManager.createNotificationChannel(channel);

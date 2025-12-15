@@ -603,7 +603,7 @@
     <string name="feedback_priority_medium">Medium</string>
     <string name="feedback_priority_high">High</string>
     <string name="feedback_priority_critical">Critical</string>
-    <string name="feedback_attachment">Attachment (Optional)</string>
+    <string name="feedback_attachment">Attachment</string>
     <string name="feedback_attachment_hint">Add screenshot or file</string>
     <string name="feedback_add_attachment">Add Attachment</string>
     <string name="feedback_remove_attachment">Remove Attachment</string>
@@ -1222,6 +1222,7 @@
     <string name="available_doctors_cannot_exceed_total_format">Available doctors (%1$d) cannot exceed registered total doctors (%2$d)</string>
     <string name="please_enter_otp">Please enter OTP</string>
     <string name="sending_otp">Sending OTP...</string>
+    <string name="required_field">Required</string>
     <string name="resending_otp">Resending OTP...</string>
     <string name="verification_failed_format">Verification failed: %1$s</string>
     <string name="new_otp_sent_successfully">New OTP sent successfully</string>
@@ -1265,16 +1266,24 @@
     <string name="front_id_photo_uploaded">Front ID photo uploaded successfully</string>
     <string name="back_id_photo_uploaded">Back ID photo uploaded successfully</string>
     <string name="image_upload_failed_format">Image Upload Failed: %1$s</string>
-    <string name="barangay_emergency_action_call">📞 CALL SENIOR</string>
-    <string name="barangay_emergency_action_navigate">🗺️ NAVIGATE</string>
-    <string name="barangay_emergency_action_view">👁️ VIEW DETAILS</string>
+    <string name="barangay_emergency_action_call">Call Senior</string>
+    <string name="barangay_emergency_action_navigate">Navigate to Location</string>
+    <string name="barangay_emergency_action_view">View Details</string>
     
     <!-- Senior SOS Details Activity -->
-    <string name="sos_emergency_details_title">🚨 SOS Emergency Details</string>
+    <string name="sos_emergency_details_title">SOS Emergency</string>
     <string name="emergency_sos">EMERGENCY SOS</string>
-    <string name="senior_information_title">👤 Senior Information</string>
-    <string name="location_information_title">📍 Location Information</string>
-    <string name="request_information_title">📋 Request Information</string>
-    <string name="coordinates_label">📌 Coordinates:</string>
-    <string name="request_id_label">🆔 Request ID:</string>
+    <string name="senior_information_title">Senior Information</string>
+    <string name="location_information_title">Location Details</string>
+    <string name="request_information_title">Request Information</string>
+    <string name="coordinates_label">Coordinates:</string>
+    <string name="request_id_label">Request ID:</string>
+    
+    <!-- Emergency Time Strings -->
+    <string name="requested_just_now">Requested just now</string>
+    <string name="requested_1_min_ago">Requested 1 min ago</string>
+    <string name="requested_mins_ago">Requested %1$d mins ago</string>
+    <string name="requested_1_hour_ago">Requested 1 hour ago</string>
+    <string name="requested_hours_ago">Requested %1$d hours ago</string>
+    <string name="emergency_request_active">Emergency request active</string>
 </resources>

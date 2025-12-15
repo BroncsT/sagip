@@ -25,6 +25,7 @@ public class FCMNotificationService extends FirebaseMessagingService {
     private static final String TAG = "FCMNotificationService";
     private static final String CHANNEL_ID = "fcm_hospital_updates";
     private static final int NOTIFICATION_ID = 3001;
+    private static final String HOSPITAL_EMERGENCY_CHANNEL_ID = "hospital_emergency_channel";
     
     @Override
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
@@ -114,6 +115,32 @@ public class FCMNotificationService extends FirebaseMessagingService {
                     phoneNumber
                 );
             }
+        } else if ("EMERGENCY_INCOMING".equals(type)) {
+            // This is intended for hospital users
+            SharedPreferences sharedPreferences = getSharedPreferences("SagipAppPrefs", MODE_PRIVATE);
+            String userType = sharedPreferences.getString("userType", null);
+            if (!"hospital".equals(userType)) {
+                Log.d(TAG, "🚫 Skipping incoming emergency notification - user is not a hospital (userType: " + userType + ")");
+                return;
+            }
+
+            String title = data.get("title");
+            String body = data.get("body");
+            String hospitalName = data.get("hospital_name") != null ? data.get("hospital_name") : data.get("hospitalName");
+            String seniorName = data.get("senior_name") != null ? data.get("senior_name") : data.get("seniorName");
+            String rescuerName = data.get("rescuer_name") != null ? data.get("rescuer_name") : data.get("rescuerName");
+            String emergencyId = data.get("emergency_id") != null ? data.get("emergency_id") : data.get("emergencyId");
+            String emergencyType = data.get("emergency_type") != null ? data.get("emergency_type") : data.get("emergencyType");
+
+            showHospitalIncomingEmergencyNotification(
+                    title != null ? title : "🚨 Emergency Patient Incoming",
+                    body != null ? body : "An emergency patient is incoming",
+                    hospitalName,
+                    seniorName,
+                    rescuerName,
+                    emergencyId,
+                    emergencyType
+            );
         } else if ("emergency_sos".equals(type)) {
             // Handle emergency SOS notifications for rescuers only
             SharedPreferences sharedPreferences = getSharedPreferences("SagipAppPrefs", MODE_PRIVATE);
@@ -361,6 +388,54 @@ public class FCMNotificationService extends FirebaseMessagingService {
         
         Log.d(TAG, "Emergency notification shown for: " + seniorName);
     }
+
+    private void showHospitalIncomingEmergencyNotification(String title, String body,
+                                                           String hospitalName, String seniorName,
+                                                           String rescuerName, String emergencyId,
+                                                           String emergencyType) {
+        Log.d(TAG, "🚨 Showing hospital incoming emergency notification");
+        createHospitalEmergencyNotificationChannel();
+
+        Intent intent = new Intent(this, Hospital_Dashboard.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        intent.putExtra("notification_type", "EMERGENCY_INCOMING");
+        if (hospitalName != null) intent.putExtra("hospital_name", hospitalName);
+        if (seniorName != null) intent.putExtra("senior_name", seniorName);
+        if (rescuerName != null) intent.putExtra("rescuer_name", rescuerName);
+        if (emergencyId != null) intent.putExtra("emergency_id", emergencyId);
+        if (emergencyType != null) intent.putExtra("emergency_type", emergencyType);
+
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this,
+                (int) System.currentTimeMillis(),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        Notification notification = new NotificationCompat.Builder(this, HOSPITAL_EMERGENCY_CHANNEL_ID)
+                .setSmallIcon(R.drawable.baseline_notifications_active_24)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+                .setVibrate(new long[]{0, 1000, 500, 1000, 500, 1000})
+                .setLights(0xFFFF0000, 1000, 1000)
+                .setSound(getCustomAlarmSound())
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setFullScreenIntent(pendingIntent, true)
+                .build();
+
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (notificationManager != null) {
+            notificationManager.notify(7777, notification);
+            Log.d(TAG, "✅ Hospital incoming emergency notification shown");
+        } else {
+            Log.e(TAG, "❌ NotificationManager is null, cannot show hospital incoming emergency notification");
+        }
+    }
     
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -376,6 +451,33 @@ public class FCMNotificationService extends FirebaseMessagingService {
             
             NotificationManager notificationManager = getSystemService(NotificationManager.class);
             notificationManager.createNotificationChannel(channel);
+        }
+    }
+
+    private void createHospitalEmergencyNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    HOSPITAL_EMERGENCY_CHANNEL_ID,
+                    "🚨 Hospital Emergency Incoming",
+                    NotificationManager.IMPORTANCE_MAX
+            );
+            channel.setDescription("Critical incoming emergency patient notifications for hospitals");
+            channel.enableVibration(true);
+            channel.setShowBadge(true);
+            channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+            channel.enableLights(true);
+            channel.setLightColor(0xFFFF0000);
+            channel.setBypassDnd(true);
+            channel.setSound(getCustomAlarmSound(), new android.media.AudioAttributes.Builder()
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                    .build());
+
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            if (notificationManager != null) {
+                notificationManager.createNotificationChannel(channel);
+                Log.d(TAG, "✅ Hospital emergency notification channel created");
+            }
         }
     }
     

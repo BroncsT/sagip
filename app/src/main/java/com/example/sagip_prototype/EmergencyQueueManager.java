@@ -1373,6 +1373,16 @@ public class EmergencyQueueManager {
                                 final double[] minDistance = {Double.MAX_VALUE};
                                 
                                 for (DocumentSnapshot doc : querySnapshot) {
+                                    // Skip crowded/overcrowded hospitals
+                                    String erStatus = doc.getString("erStatus");
+                                    if (erStatus != null) {
+                                        String statusLower = erStatus.toLowerCase();
+                                        if (statusLower.equals("crowded") || statusLower.equals("overcrowded") || statusLower.equals("full")) {
+                                            Log.d(TAG, "⏭️ Skipping hospital " + doc.getString("name") + " - ER status: " + erStatus);
+                                            continue;
+                                        }
+                                    }
+                                    
                                     GeoPoint hospitalLocation = doc.getGeoPoint("location");
                                     if (hospitalLocation != null) {
                                         double distance = calculateDistance(
@@ -1530,13 +1540,12 @@ public class EmergencyQueueManager {
                     Log.w(TAG, "⚠️ [SMS_SERVICE] SMS permission not granted - cannot send emergency SMS notifications");
                     Log.w(TAG, "⚠️ [SMS_SERVICE] Please grant SMS permission in app settings");
                     
-                    // Try to request permission if we have an activity context
-                    if (context instanceof Activity) {
-                        Log.d(TAG, "📱 [SMS_SERVICE] Requesting SMS permission...");
-                        PermissionManager.requestSMSPermission((Activity) context);
-                    } else {
-                        Log.w(TAG, "⚠️ [SMS_SERVICE] Cannot request permission - context is not an Activity");
-                    }
+                    // NOTE: Do NOT request SMS permission here during "Respond Now" flow
+                    // This causes conflict with pending location permission requests
+                    // and triggers "Can request only one set of permissions at a time" error
+                    // which falsely denies location permission and shows toast to user
+                    // SMS permission should be requested separately (e.g., in app settings or on first launch)
+                    Log.d(TAG, "📱 [SMS_SERVICE] Skipping SMS permission request to avoid permission conflict");
                 }
             }
         });

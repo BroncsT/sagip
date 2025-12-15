@@ -150,22 +150,30 @@ public class HospitalLIst {
             return "unknown";
         }
 
-        // Calculate capacity percentage
-        double capacityPercentage = ((double) (totalBeds - availableBeds) / totalBeds) * 100;
-        
-        // Calculate beds per doctor ratio
-        double bedsPerDoctor = (double) totalBeds / doctorsAvailable;
-        
-        // Automatic status logic based on multiple factors
-        if (capacityPercentage >= 90 || availableBeds == 0) {
-            return "crowded"; // At or near capacity
-        } else if (capacityPercentage >= 70 || bedsPerDoctor > 8 || doctorsAvailable < 2) {
-            return "busy"; // High capacity or insufficient staff
-        } else if (capacityPercentage >= 50 || bedsPerDoctor > 6) {
-            return "busy"; // Moderate capacity
+        // Calculate capacity percentage (occupied beds / total beds)
+        int occupiedBeds = totalBeds - availableBeds;
+        double capacityPercentage = ((double) occupiedBeds / totalBeds) * 100;
+
+        // Calculate workload per available doctor (occupied beds per doctor)
+        double occupiedBedsPerDoctor = (double) occupiedBeds / doctorsAvailable;
+
+        String result;
+        if (availableBeds == 0) {
+            result = "crowded";
+        } else if (capacityPercentage >= 90 || occupiedBedsPerDoctor >= 8) {
+            result = "crowded";
+        } else if (capacityPercentage >= 70 || occupiedBedsPerDoctor >= 5) {
+            result = "busy";
         } else {
-            return "available"; // Good capacity and staff ratio
+            result = "available";
         }
+
+        // Staffing safeguard: 1 available doctor should not show as AVAILABLE
+        if (doctorsAvailable == 1 && "available".equalsIgnoreCase(result)) {
+            result = "busy";
+        }
+
+        return result;
     }
     
     // Getter and setter methods for senior information

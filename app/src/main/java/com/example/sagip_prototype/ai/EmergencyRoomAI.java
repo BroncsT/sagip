@@ -162,6 +162,15 @@ public class EmergencyRoomAI {
                   
                   // Only process if we have required fields
                   if (hospital.name != null) {
+                      // Skip crowded/overcrowded/full hospitals
+                      if (hospital.operationalStatus != null) {
+                          String statusLower = hospital.operationalStatus.toLowerCase();
+                          if (statusLower.equals("crowded") || statusLower.equals("overcrowded") || statusLower.equals("full")) {
+                              System.out.println("⏭️ AI: Skipping hospital " + hospital.name + " - ER status: " + hospital.operationalStatus);
+                              continue;
+                          }
+                      }
+                      
                       if (hospital.location != null) {
                           // Check if within radius
                           double distance = calculateDistance(
@@ -214,19 +223,19 @@ public class EmergencyRoomAI {
         // Create a map of hospital scores
         Map<String, Double> combinedScores = new HashMap<>();
         
-        // Add TOPSIS scores (40% weight)
+        // Add TOPSIS scores (100% weight) - Using only TOPSIS algorithm
         for (TOPSISAlgorithm.HospitalScore score : topsisResult.hospitalScores) {
             String hospitalId = score.hospital.hospitalId;
             double topsisScore = score.score;
-            combinedScores.put(hospitalId, topsisScore * 0.4);
+            combinedScores.put(hospitalId, topsisScore * 1.0);
         }
         
-        // Add ML scores (60% weight)
+        // Add ML scores (0% weight) - Disabled
         for (MLRecommendationSystem.HospitalMLScore score : mlResult.hospitalScores) {
             String hospitalId = score.hospital.hospitalId;
             double mlScore = score.score;
             double currentScore = combinedScores.getOrDefault(hospitalId, 0.0);
-            combinedScores.put(hospitalId, currentScore + (mlScore * 0.6));
+            combinedScores.put(hospitalId, currentScore + (mlScore * 0.0));
         }
         
         // Find hospital with highest combined score

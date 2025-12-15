@@ -106,6 +106,9 @@ public class Hospital_Dashboard extends AppCompatActivity {
     // Global timer service
     // GlobalTimerService removed - using simple timer with SharedPreferences
 
+    // MediaPlayer for reminder alert sound
+    private MediaPlayer reminderMediaPlayer;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -177,6 +180,8 @@ public class Hospital_Dashboard extends AppCompatActivity {
         Intent intent = getIntent();
         if (intent != null && intent.getBooleanExtra("show_status_update_dialog", false)) {
             Log.d("Hospital_Dashboard", "Opened from status update reminder notification");
+            // Stop any existing alert sound first (from notification)
+            stopReminderAlertSound();
             // Show the status update dialog immediately
             showStatusUpdateRequiredDialog(Long.MAX_VALUE);
             // Clear the extra to prevent showing again
@@ -394,7 +399,7 @@ public class Hospital_Dashboard extends AppCompatActivity {
                         }
                     } else {
                         Log.w("Hospital_Dashboard", "=== DOCUMENT NOT FOUND ===");
-                        Log.w("Hospital_Dashboard", "User document does not exist, redirecting to registration");
+                        Log.w("Hospital_Dashboard", "User document not found, redirecting to registration");
                         // User document doesn't exist, redirect to registration
                         Intent intent = new Intent(Hospital_Dashboard.this, Hospital_Registration.class);
                         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -579,9 +584,15 @@ public class Hospital_Dashboard extends AppCompatActivity {
                     // Location saved successfully
                 })
                 .addOnFailureListener(e -> {
-                    Toast.makeText(Hospital_Dashboard.this,
-                            getString(R.string.error_starting_location_updates),
-                            Toast.LENGTH_SHORT).show();
+                    // Handle NOT_FOUND gracefully (document deleted during account deletion)
+                    if (e.getMessage() != null && e.getMessage().contains("NOT_FOUND")) {
+                        Log.w("Hospital_Dashboard", " Hospital document not found (likely deleted) - stopping location updates");
+                        stopLocationUpdates();
+                    } else {
+                        Toast.makeText(Hospital_Dashboard.this,
+                                getString(R.string.error_starting_location_updates),
+                                Toast.LENGTH_SHORT).show();
+                    }
                 });
     }
 
@@ -988,6 +999,9 @@ public class Hospital_Dashboard extends AppCompatActivity {
         isDialogShowing = true;
         Log.d("Hospital_Dashboard", "Showing status update required dialog");
         
+        // Play alert sound for the reminder
+        playReminderAlertSound();
+        
         String message;
         if (timeSinceLastUpdate == Long.MAX_VALUE) {
             message = getString(R.string.status_update_required_immediate);
@@ -1004,17 +1018,23 @@ public class Hospital_Dashboard extends AppCompatActivity {
                 .setTitle(getString(R.string.status_update_required_title))
                 .setMessage(message)
                 .setPositiveButton(getString(R.string.update_now), (dialog, which) -> {
+                    // Stop the alert sound
+                    stopReminderAlertSound();
                     // Navigate to status update screen with result handling
                     isDialogShowing = false;
                     Intent intent = new Intent(Hospital_Dashboard.this, Hospital_Status_Edit.class);
                     startActivityForResult(intent, 1001); // Request code for status update
                 })
                 .setNegativeButton(getString(R.string.remind_later), (dialog, which) -> {
+                    // Stop the alert sound
+                    stopReminderAlertSound();
                     // Schedule a reminder for later
                     scheduleStatusUpdateReminder();
                     isDialogShowing = false;
                 })
                 .setOnDismissListener(dialog -> {
+                    // Stop the alert sound when dialog is dismissed
+                    stopReminderAlertSound();
                     isDialogShowing = false;
                     Log.d("Hospital_Dashboard", "Status update dialog dismissed");
                 })
@@ -1029,6 +1049,56 @@ public class Hospital_Dashboard extends AppCompatActivity {
         // You can implement a notification system here
         // For now, just show a toast
         Toast.makeText(this, getString(R.string.status_update_reminder_scheduled), Toast.LENGTH_LONG).show();
+    }
+    
+    /**
+     * Plays an alert sound for the 10-minute status update reminder
+     */
+    private void playReminderAlertSound() {
+        try {
+            // Stop any existing alert sound first
+            stopReminderAlertSound();
+            
+            // Use alarm sound for more attention-grabbing alert
+            Uri alertSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+            if (alertSound == null) {
+                // Fallback to notification sound if alarm sound is not available
+                alertSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            }
+            
+            if (alertSound != null) {
+                reminderMediaPlayer = MediaPlayer.create(this, alertSound);
+                if (reminderMediaPlayer != null) {
+                    reminderMediaPlayer.setLooping(true); // Loop the sound until stopped
+                    reminderMediaPlayer.start();
+                    Log.d("Hospital_Dashboard", "Playing reminder alert sound (looping)");
+                } else {
+                    Log.w("Hospital_Dashboard", "Failed to create MediaPlayer for reminder alert sound");
+                }
+            } else {
+                Log.w("Hospital_Dashboard", "No default alert sound available");
+            }
+        } catch (Exception e) {
+            Log.e("Hospital_Dashboard", "Error playing reminder alert sound", e);
+        }
+    }
+    
+    /**
+     * Stops the reminder alert sound
+     */
+    private void stopReminderAlertSound() {
+        try {
+            if (reminderMediaPlayer != null) {
+                if (reminderMediaPlayer.isPlaying()) {
+                    reminderMediaPlayer.stop();
+                }
+                reminderMediaPlayer.release();
+                reminderMediaPlayer = null;
+                Log.d("Hospital_Dashboard", "Reminder alert sound stopped");
+            }
+        } catch (Exception e) {
+            Log.e("Hospital_Dashboard", "Error stopping reminder alert sound", e);
+        }
     }
     
     /**

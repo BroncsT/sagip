@@ -271,30 +271,31 @@ public class Hospital_Status_Edit extends AppCompatActivity {
             return "unknown";
         }
         
-        // Calculate capacity percentage based on database totals
-        double capacityPercentage = ((double) (databaseTotalBeds - availableBeds) / databaseTotalBeds) * 100;
-        
-        // Calculate beds per doctor ratio based on database totals
-        double bedsPerDoctor = (double) databaseTotalBeds / databaseTotalDoctors;
-        
-        // Calculate available beds per available doctor ratio
-        double availableBedsPerDoctor = (double) availableBeds / availableDoctors;
-        
-        Log.d("Hospital_Status_Edit", "Calculated - capacityPercentage: " + capacityPercentage + 
-              "%, bedsPerDoctor: " + bedsPerDoctor + ", availableBedsPerDoctor: " + availableBedsPerDoctor);
-        
-        // Automatic status logic based on database totals and current availability
+        // Calculate capacity percentage (occupied beds / total beds)
+        int occupiedBeds = databaseTotalBeds - availableBeds;
+        double capacityPercentage = ((double) occupiedBeds / databaseTotalBeds) * 100;
+
+        // Calculate workload per available doctor (occupied beds per doctor)
+        double occupiedBedsPerDoctor = (double) occupiedBeds / availableDoctors;
+
+        Log.d("Hospital_Status_Edit", "Calculated - capacityPercentage: " + capacityPercentage +
+                "%, occupiedBeds: " + occupiedBeds + ", occupiedBedsPerDoctor: " + occupiedBedsPerDoctor);
+
+        // Automatic status logic based on occupancy and workload
         String result;
         if (availableBeds == 0) {
             result = "crowded"; // No available beds
-        } else if (capacityPercentage >= 90 || availableBedsPerDoctor > 8 || availableDoctors < 2) {
-            result = "crowded"; // At or near capacity, or insufficient staff
-        } else if (capacityPercentage >= 70 || availableBedsPerDoctor > 6 || availableDoctors < 3) {
-            result = "busy"; // High capacity or insufficient staff
-        } else if (capacityPercentage >= 50 || availableBedsPerDoctor > 4) {
-            result = "busy"; // Moderate capacity
+        } else if (capacityPercentage >= 90 || occupiedBedsPerDoctor >= 8) {
+            result = "crowded"; // Near capacity or very high workload
+        } else if (capacityPercentage >= 70 || occupiedBedsPerDoctor >= 5) {
+            result = "busy"; // High capacity or high workload
         } else {
-            result = "available"; // Good capacity and staff ratio
+            result = "available"; // Good capacity and manageable workload
+        }
+
+        // Staffing safeguard: 1 available doctor should not show as AVAILABLE
+        if (availableDoctors == 1 && "available".equalsIgnoreCase(result)) {
+            result = "busy";
         }
         
         Log.d("Hospital_Status_Edit", "Final result: " + result);

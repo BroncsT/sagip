@@ -14,6 +14,8 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
@@ -31,6 +33,7 @@ public class Hospital_List extends AppCompatActivity implements HospitalAdapter.
     private TextView noHospitalsText;
     
     private FirebaseFirestore db;
+    private FirebaseAuth mAuth;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,6 +43,7 @@ public class Hospital_List extends AppCompatActivity implements HospitalAdapter.
 
         // Initialize Firebase
         db = FirebaseFirestore.getInstance();
+        mAuth = FirebaseAuth.getInstance();
         
         // Initialize views
         initializeViews();
@@ -76,99 +80,67 @@ public class Hospital_List extends AppCompatActivity implements HospitalAdapter.
 
     private void loadHospitals() {
         Log.d(TAG, "Loading hospitals from Firestore");
-        
+
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) {
+            Log.w(TAG, "No authenticated user; cannot load notifications");
+            showBlankPage();
+            return;
+        }
+
+        String userId = currentUser.getUid();
+
         db.collection("Sagip")
                 .document("users")
                 .collection("hospital")
+                .document(userId)
+                .collection("notifications")
+                .whereEqualTo("type", "EMERGENCY_INCOMING")
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
-                    Log.d(TAG, "Successfully loaded hospitals, count: " + queryDocumentSnapshots.size());
-                    
-                    List<Hospital> hospitals = new ArrayList<>();
-                    List<Hospital> emergencyHospitals = new ArrayList<>();                  
+                    Log.d(TAG, "Successfully loaded notifications, count: " + queryDocumentSnapshots.size());
+
+                    List<Hospital> emergencyHospitals = new ArrayList<>();
                     for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
-                        Hospital hospital = createHospitalFromDocument(document);
-                        hospitals.add(hospital);
-                        
-                        // Only add hospitals with incoming emergencies
-                        if (hospital.getHasIncomingEmergency() != null && hospital.getHasIncomingEmergency()) {
-                            emergencyHospitals.add(hospital);
-                        }
+                        Hospital hospital = createHospitalFromNotificationDocument(document);
+                        emergencyHospitals.add(hospital);
                     }
-                    
-                    Log.d(TAG, "Hospitals with incoming emergencies: " + emergencyHospitals.size());
-                    
+
                     if (emergencyHospitals.isEmpty()) {
-                        // Show blank page - no emergency cases
-                        showBlankPage();
+                        showNoHospitalsMessage();
                     } else {
-                        // Show only hospitals with incoming emergencies
                         displayHospitals(emergencyHospitals);
                     }
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error loading hospitals: " + e.getMessage(), e);
+                    Log.e(TAG, "Error loading notifications: " + e.getMessage(), e);
                     showNoHospitalsMessage();
                     Toast.makeText(this, getString(R.string.failed_to_load_hospitals), Toast.LENGTH_SHORT).show();
                 });
     }
 
-    private Hospital createHospitalFromDocument(QueryDocumentSnapshot document) {
+    private Hospital createHospitalFromNotificationDocument(QueryDocumentSnapshot document) {
         Hospital hospital = new Hospital();
         hospital.setDocumentId(document.getId());
-        hospital.setHospitalName((String) document.get("hospitalName"));
-        hospital.setContactNumber((String) document.get("contactNumber"));
-        hospital.setEmail((String) document.get("email"));
-        hospital.setAddress((String) document.get("address"));
-        hospital.setStatus((String) document.get("status"));
-        hospital.setUserType((String) document.get("userType"));
-        hospital.setProfileImageUrl((String) document.get("profileImageUrl"));
-        hospital.setEmergencyContact((String) document.get("emergencyContact"));
-        hospital.setSpecialization((String) document.get("specialization"));
-        
-        // Handle bed capacity
-        Object bedCapacityObj = document.get("bedCapacity");
-        if (bedCapacityObj instanceof Number) {
-            hospital.setBedCapacity(((Number) bedCapacityObj).intValue());
+
+        hospital.setSeniorName(document.getString("seniorName"));
+        hospital.setSeniorPhone(document.getString("seniorPhone"));
+        hospital.setSeniorAddress(document.getString("seniorAddress"));
+        hospital.setRescuerName(document.getString("rescuerName"));
+        hospital.setRescuerPhone(document.getString("rescuerPhone"));
+        hospital.setEmergencyId(document.getString("emergencyId"));
+
+        Object timestampObj = document.get("timestamp");
+        if (timestampObj instanceof Number) {
+            hospital.setEmergencyTimestamp(((Number) timestampObj).longValue());
         }
-        
-        Object availableBedsObj = document.get("availableBeds");
-        if (availableBedsObj instanceof Number) {
-            hospital.setAvailableBeds(((Number) availableBedsObj).intValue());
-        }
-        
-        // Handle emergency ready status
-        Object emergencyReadyObj = document.get("isEmergencyReady");
-        if (emergencyReadyObj instanceof Boolean) {
-            hospital.setEmergencyReady((Boolean) emergencyReadyObj);
-        }
-        
-        // Set senior information for emergency cases
-        hospital.setSeniorName((String) document.get("seniorName"));
-        hospital.setSeniorPhone((String) document.get("seniorPhone"));
-        hospital.setSeniorAddress((String) document.get("seniorAddress"));
-        hospital.setRescuerName((String) document.get("rescuerName"));
-        hospital.setRescuerPhone((String) document.get("rescuerPhone"));
-        hospital.setEmergencyId((String) document.get("emergencyId"));
-        
-        // Handle emergency timestamp
-        Object emergencyTimestampObj = document.get("emergencyTimestamp");
-        if (emergencyTimestampObj instanceof Number) {
-            hospital.setEmergencyTimestamp(((Number) emergencyTimestampObj).longValue());
-        }
-        
-        // Handle estimated arrival minutes
+
         Object estimatedArrivalObj = document.get("estimatedArrivalMinutes");
         if (estimatedArrivalObj instanceof Number) {
             hospital.setEstimatedArrivalMinutes(((Number) estimatedArrivalObj).doubleValue());
         }
-        
-        // Handle has incoming emergency flag
-        Object hasIncomingEmergencyObj = document.get("hasIncomingEmergency");
-        if (hasIncomingEmergencyObj instanceof Boolean) {
-            hospital.setHasIncomingEmergency((Boolean) hasIncomingEmergencyObj);
-        }
-        
+
+        hospital.setHasIncomingEmergency(true);
         return hospital;
     }
 

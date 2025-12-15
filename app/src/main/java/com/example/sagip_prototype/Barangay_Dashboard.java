@@ -632,8 +632,12 @@ public class Barangay_Dashboard extends AppCompatActivity {
                     // Location saved successfully
                 })
                 .addOnFailureListener(e -> {
-                    // Handle failure silently for location updates
-                    // Don't show toast for every location update failure
+                    // Handle NOT_FOUND gracefully (document deleted during account deletion)
+                    if (e.getMessage() != null && e.getMessage().contains("NOT_FOUND")) {
+                        Log.w("Barangay_Dashboard", " Barangay document not found (likely deleted) - stopping location updates");
+                        stopLocationUpdates();
+                    }
+                    // Otherwise handle failure silently for location updates
                 });
     }
 

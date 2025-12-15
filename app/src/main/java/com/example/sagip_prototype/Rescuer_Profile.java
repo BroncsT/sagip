@@ -218,7 +218,7 @@ public class Rescuer_Profile extends BaseRescuerActivity {
         editor.remove("is_logged_in");
         editor.remove("user_phone");
         editor.remove("user_email");
-        editor.apply();
+        editor.commit(); // Use commit() for synchronous clearing before redirect
     }
 
     private void setupBottomNavigation() {
@@ -753,18 +753,17 @@ public class Rescuer_Profile extends BaseRescuerActivity {
 
     private void deleteFirebaseAuthAccount() {
         Log.d(TAG, "🗑️ Deleting Firebase Auth account");
-        
-        // Stop all background services first
-        BackgroundServiceManager.stopAllBackgroundServices(this);
-        
-        // Clear stored credentials
-        clearStoredCredentials();
-        
+
         // Delete the user from Firebase Auth
         if (mAuth.getCurrentUser() != null) {
             mAuth.getCurrentUser().delete()
                     .addOnSuccessListener(aVoid -> {
                         Log.d(TAG, "✅ Firebase Auth account deleted successfully");
+                        
+                        // Stop services and clear credentials after successful deletion
+                        BackgroundServiceManager.stopAllBackgroundServices(this);
+                        clearStoredCredentials();
+                        
                         Toast.makeText(this, getString(R.string.delete_account_success), Toast.LENGTH_LONG).show();
                         
                         // Redirect to login page
@@ -775,11 +774,34 @@ public class Rescuer_Profile extends BaseRescuerActivity {
                     })
                     .addOnFailureListener(e -> {
                         Log.e(TAG, "❌ Failed to delete Firebase Auth account: " + e.getMessage());
-                        Toast.makeText(this, getString(R.string.delete_account_failed) + ": " + e.getMessage(), Toast.LENGTH_LONG).show();
+                        
+                        // Firestore data is already deleted, so cleanup and redirect anyway
+                        BackgroundServiceManager.stopAllBackgroundServices(this);
+                        clearStoredCredentials();
+                        mAuth.signOut();
+                        
+                        Toast.makeText(this, getString(R.string.delete_account_success), Toast.LENGTH_LONG).show();
+                        
+                        // Redirect to login page
+                        Intent intent = new Intent(Rescuer_Profile.this, MainActivity.class);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        startActivity(intent);
+                        finish();
                     });
         } else {
-            Log.e(TAG, "❌ No current user in Firebase Auth");
-            Toast.makeText(this, getString(R.string.delete_account_failed), Toast.LENGTH_SHORT).show();
+            Log.e(TAG, "❌ No current user in Firebase Auth - cleaning up and redirecting");
+            
+            // Firestore data is already deleted, so cleanup and redirect
+            BackgroundServiceManager.stopAllBackgroundServices(this);
+            clearStoredCredentials();
+            
+            Toast.makeText(this, getString(R.string.delete_account_success), Toast.LENGTH_LONG).show();
+            
+            // Redirect to login page
+            Intent intent = new Intent(Rescuer_Profile.this, MainActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+            finish();
         }
     }
     

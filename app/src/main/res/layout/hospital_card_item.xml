@@ -52,7 +52,8 @@
                 android:textStyle="bold"
                 android:fontFamily="sans-serif-medium"
                 android:maxLines="1"
-                android:ellipsize="end" />
+                android:ellipsize="end"
+                app:autoSizeTextType="none" />
 
             <!-- Address -->
             <TextView
@@ -65,7 +66,8 @@
                 android:fontFamily="sans-serif"
                 android:layout_marginTop="@dimen/spacing_tiny"
                 android:maxLines="2"
-                android:ellipsize="end" />
+                android:ellipsize="end"
+                app:autoSizeTextType="none" />
 
             <!-- Contact -->
             <TextView
@@ -76,7 +78,8 @@
                 android:textColor="@color/gray"
                 android:textSize="@dimen/text_size_medium"
                 android:fontFamily="sans-serif"
-                android:layout_marginTop="@dimen/spacing_tiny" />
+                android:layout_marginTop="@dimen/spacing_tiny"
+                app:autoSizeTextType="none" />
 
             <!-- Email -->
             <TextView
@@ -87,7 +90,8 @@
                 android:textColor="@color/gray"
                 android:textSize="@dimen/text_size_medium"
                 android:fontFamily="sans-serif"
-                android:layout_marginTop="@dimen/spacing_tiny" />
+                android:layout_marginTop="@dimen/spacing_tiny"
+                app:autoSizeTextType="none" />
 
             <!-- Specialization -->
             <TextView
@@ -99,7 +103,8 @@
                 android:textSize="@dimen/text_size_small"
                 android:fontFamily="sans-serif"
                 android:layout_marginTop="@dimen/spacing_small"
-                android:visibility="gone" />
+                android:visibility="gone"
+                app:autoSizeTextType="none" />
 
         </LinearLayout>
 
@@ -119,7 +124,8 @@
                 android:textColor="@color/success_green"
                 android:textSize="@dimen/text_size_medium"
                 android:textStyle="bold"
-                android:fontFamily="sans-serif-medium" />
+                android:fontFamily="sans-serif-medium"
+                app:autoSizeTextType="none" />
 
             <!-- Bed Capacity -->
             <TextView
@@ -130,7 +136,8 @@
                 android:textColor="@color/gray"
                 android:textSize="@dimen/text_size_small"
                 android:fontFamily="sans-serif"
-                android:layout_marginTop="@dimen/spacing_small" />
+                android:layout_marginTop="@dimen/spacing_small"
+                app:autoSizeTextType="none" />
 
         </LinearLayout>
     </LinearLayout>

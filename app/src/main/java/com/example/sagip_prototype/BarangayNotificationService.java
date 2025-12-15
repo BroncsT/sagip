@@ -25,7 +25,7 @@ import java.util.Map;
 
 public class BarangayNotificationService {
     private static final String TAG = "BarangayNotificationService";
-    private static final String CHANNEL_ID = "barangay_emergency_channel";
+    private static final String CHANNEL_ID = "barangay_emergency_channel_v2";
     private static final int NOTIFICATION_ID = 2000;
     
     private static BarangayNotificationService instance;

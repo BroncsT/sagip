@@ -33,6 +33,7 @@ import android.util.Log;
 import android.app.ProgressDialog;
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException;
 import com.google.firebase.FirebaseTooManyRequestsException;
+import com.google.android.material.textfield.TextInputLayout;
 
 public class Rescuer_Registration extends BaseRescuerActivity {
     
@@ -85,14 +86,53 @@ public class Rescuer_Registration extends BaseRescuerActivity {
             String number = contactNumber.getText().toString().trim();
             String password = newPassword.getText().toString().trim();
             String confirmPassword = confirmNewPassword.getText().toString().trim();
-            
-            if (groupname.isEmpty() || headquarters.isEmpty() || contact.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
+
+            TextInputLayout groupNameLayout = (TextInputLayout) rescueGroupName.getParent().getParent();
+            TextInputLayout headquartersLayout = (TextInputLayout) headquartersAddress.getParent().getParent();
+            TextInputLayout contactPersonLayout = (TextInputLayout) primaryContactPerson.getParent().getParent();
+            TextInputLayout contactNumberLayout = (TextInputLayout) contactNumber.getParent().getParent();
+            TextInputLayout newPasswordLayout = (TextInputLayout) newPassword.getParent().getParent();
+            TextInputLayout confirmPasswordLayout = (TextInputLayout) confirmNewPassword.getParent().getParent();
+
+            groupNameLayout.setError(null);
+            headquartersLayout.setError(null);
+            contactPersonLayout.setError(null);
+            contactNumberLayout.setError(null);
+            newPasswordLayout.setError(null);
+            confirmPasswordLayout.setError(null);
+
+            boolean hasError = false;
+            if (groupname.isEmpty()) {
+                groupNameLayout.setError(getString(R.string.required_field));
+                hasError = true;
+            }
+            if (headquarters.isEmpty()) {
+                headquartersLayout.setError(getString(R.string.required_field));
+                hasError = true;
+            }
+            if (contact.isEmpty()) {
+                contactPersonLayout.setError(getString(R.string.required_field));
+                hasError = true;
+            }
+            if (number.isEmpty()) {
+                contactNumberLayout.setError(getString(R.string.required_field));
+                hasError = true;
+            }
+            if (password.isEmpty()) {
+                newPasswordLayout.setError(getString(R.string.required_field));
+                hasError = true;
+            }
+            if (confirmPassword.isEmpty()) {
+                confirmPasswordLayout.setError(getString(R.string.required_field));
+                hasError = true;
+            }
+            if (hasError) {
                 Toast.makeText(Rescuer_Registration.this, getString(R.string.fill_all_required_fields), Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // Only validate phone number if it's provided
-            if (!number.isEmpty() && !isValidPhoneNumber(number)) {
+            if (!isValidPhoneNumber(number)) {
+                contactNumberLayout.setError(getString(R.string.valid_mobile_error));
                 Toast.makeText(Rescuer_Registration.this, getString(R.string.valid_mobile_error), Toast.LENGTH_SHORT).show();
                 return;
             }
@@ -117,13 +157,8 @@ public class Rescuer_Registration extends BaseRescuerActivity {
                     @Override
                     public void onComplete(@NonNull Task<Void> task) {
                         if (task.isSuccessful()) {
-                            // Password updated successfully, now proceed with phone verification if number provided
-                            if (!number.isEmpty()) {
-                                verifyPhoneNumber(number);
-                            } else {
-                                // Skip phone verification and save data directly
-                                saveUserDataToFirestore();
-                            }
+                            // Password updated successfully, proceed with phone verification
+                            verifyPhoneNumber(number);
                         } else {
                             Toast.makeText(Rescuer_Registration.this, String.format(getString(R.string.failed_to_update_password_format), task.getException().getMessage()), Toast.LENGTH_SHORT).show();
                         }

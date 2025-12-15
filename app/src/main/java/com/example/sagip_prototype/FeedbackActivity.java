@@ -17,7 +17,6 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -44,6 +43,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -56,6 +56,7 @@ public class FeedbackActivity extends AppCompatActivity {
     private static final int MAX_MESSAGE_LENGTH = 1000;
     private static final int MIN_MESSAGE_LENGTH = 10;
     private static final int MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    private static final int MAX_DAILY_REPORTS = 3;
 
     private FirebaseAuth mAuth;
     private FirebaseFirestore db;
@@ -65,16 +66,13 @@ public class FeedbackActivity extends AppCompatActivity {
     // UI Components
     private Spinner feedbackTypeSpinner;
     private EditText messageEditText;
-    private CheckBox includeContactCheckBox;
-    private EditText contactEmailEditText;
-    private EditText contactPhoneEditText;
     private View attachmentImageView;
     private ImageView attachmentImage;
     private Button addAttachmentButton;
     private Button removeAttachmentButton;
     private Button submitButton;
     private ProgressBar progressBar;
-    private LinearLayout contactInfoLayout;
+    private AlertDialog loadingDialog;
 
     // Data
     private String selectedFeedbackType;
@@ -83,6 +81,7 @@ public class FeedbackActivity extends AppCompatActivity {
     private String userId;
     private String userName;
     private String userEmail;
+    private String userPhone;
 
     // Activity result launchers
     private ActivityResultLauncher<Intent> galleryLauncher;
@@ -113,23 +112,18 @@ public class FeedbackActivity extends AppCompatActivity {
     private void initializeViews() {
         feedbackTypeSpinner = findViewById(R.id.feedbackTypeSpinner);
         messageEditText = findViewById(R.id.messageEditText);
-        includeContactCheckBox = findViewById(R.id.includeContactCheckBox);
-        contactEmailEditText = findViewById(R.id.contactEmailEditText);
-        contactPhoneEditText = findViewById(R.id.contactPhoneEditText);
         attachmentImageView = findViewById(R.id.attachmentImageView);
         addAttachmentButton = findViewById(R.id.addAttachmentButton);
         removeAttachmentButton = findViewById(R.id.removeAttachmentButton);
         submitButton = findViewById(R.id.submitButton);
         progressBar = findViewById(R.id.progressBar);
-        contactInfoLayout = findViewById(R.id.contactInfoLayout);
 
         // Get the actual ImageView inside the MaterialCardView
         if (attachmentImageView != null) {
             attachmentImage = (ImageView) ((ViewGroup) attachmentImageView).getChildAt(0);
         }
 
-        // Initially hide contact info and attachment
-        contactInfoLayout.setVisibility(View.GONE);
+        // Initially hide attachment
         attachmentImageView.setVisibility(View.GONE);
         removeAttachmentButton.setVisibility(View.GONE);
     }
@@ -185,6 +179,7 @@ public class FeedbackActivity extends AppCompatActivity {
             userType = sharedPreferences.getString("userType", "unknown");
             userName = sharedPreferences.getString("userName", "Unknown User");
             userEmail = currentUser.getEmail();
+            userPhone = sharedPreferences.getString("userPhone", "");
         }
     }
 
@@ -201,18 +196,22 @@ public class FeedbackActivity extends AppCompatActivity {
             }
         });
 
-        includeContactCheckBox.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            contactInfoLayout.setVisibility(isChecked ? View.VISIBLE : View.GONE);
-        });
-
         addAttachmentButton.setOnClickListener(v -> checkPermissionsAndShowDialog());
         removeAttachmentButton.setOnClickListener(v -> removeAttachment());
         submitButton.setOnClickListener(v -> validateAndSubmitFeedback());
     }
 
     private void checkPermissionsAndShowDialog() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-            permissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE);
+        // For Android 13+ (API 33+), use READ_MEDIA_IMAGES instead of READ_EXTERNAL_STORAGE
+        String permission;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            permission = Manifest.permission.READ_MEDIA_IMAGES;
+        } else {
+            permission = Manifest.permission.READ_EXTERNAL_STORAGE;
+        }
+        
+        if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
+            permissionLauncher.launch(permission);
         } else {
             showImageSourceDialog();
         }
@@ -252,11 +251,8 @@ public class FeedbackActivity extends AppCompatActivity {
 
     private void validateAndSubmitFeedback() {
         String message = messageEditText.getText().toString().trim();
-        String contactEmail = contactEmailEditText.getText().toString().trim();
-        String contactPhone = contactPhoneEditText.getText().toString().trim();
 
         // Validation
-
         if (message.length() < MIN_MESSAGE_LENGTH) {
             messageEditText.setError(getString(R.string.feedback_min_length));
             return;
@@ -267,32 +263,89 @@ public class FeedbackActivity extends AppCompatActivity {
             return;
         }
 
-        if (includeContactCheckBox.isChecked()) {
-            if (contactEmail.isEmpty() && contactPhone.isEmpty()) {
-                Toast.makeText(this, getString(R.string.feedback_include_contact), Toast.LENGTH_SHORT).show();
-                return;
-            }
-            
-            // Validate phone number if provided
-            if (!contactPhone.isEmpty() && !isValidPhoneNumber(contactPhone)) {
-                contactPhoneEditText.setError(getString(R.string.valid_mobile_error));
-                return;
-            }
+        // Require attachment
+        if (attachmentUri == null) {
+            Toast.makeText(this, "Please add an attachment image", Toast.LENGTH_SHORT).show();
+            return;
         }
 
-        submitFeedback(message, contactEmail, contactPhone);
+        // Check daily report limit before submitting
+        checkDailyReportLimitAndSubmit(message);
     }
 
-    private void submitFeedback(String message, String contactEmail, String contactPhone) {
+    private void checkDailyReportLimitAndSubmit(String message) {
+        if (userId == null) {
+            Toast.makeText(this, "User not authenticated", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         setLoading(true);
 
-        // Create feedback data
+        // Get start and end of today
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+        Date startOfDay = calendar.getTime();
+
+        calendar.add(Calendar.DAY_OF_MONTH, 1);
+        Date endOfDay = calendar.getTime();
+
+        // Query today's reports for this user - only filter by userId first
+        // Then filter by date client-side to avoid composite index requirement
+        db.collection("feedback")
+                .whereEqualTo("userId", userId)
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    // Count only today's reports client-side
+                    int todayReportCount = 0;
+                    for (com.google.firebase.firestore.DocumentSnapshot doc : queryDocumentSnapshots) {
+                        Object timestampObj = doc.get("timestamp");
+                        if (timestampObj != null) {
+                            Date docDate = null;
+                            if (timestampObj instanceof com.google.firebase.Timestamp) {
+                                docDate = ((com.google.firebase.Timestamp) timestampObj).toDate();
+                            } else if (timestampObj instanceof Date) {
+                                docDate = (Date) timestampObj;
+                            }
+                            if (docDate != null && !docDate.before(startOfDay) && docDate.before(endOfDay)) {
+                                todayReportCount++;
+                            }
+                        }
+                    }
+                    Log.d(TAG, "Today's feedback count for user: " + todayReportCount);
+                    if (todayReportCount >= MAX_DAILY_REPORTS) {
+                        setLoading(false);
+                        showDailyLimitReachedDialog();
+                    } else {
+                        // Proceed with submission
+                        submitFeedbackAfterCheck(message);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    setLoading(false);
+                    Log.e(TAG, "Error checking daily report limit", e);
+                    Toast.makeText(this, "Failed to verify report limit. Please try again.", Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    private void showDailyLimitReachedDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Daily Limit Reached")
+                .setMessage("You have reached the maximum of " + MAX_DAILY_REPORTS + " reports per day. Please try again tomorrow.")
+                .setPositiveButton(getString(R.string.ok), (dialog, which) -> dialog.dismiss())
+                .setCancelable(true)
+                .show();
+    }
+
+    private void submitFeedbackAfterCheck(String message) {
+        // Create feedback data with user contact info automatically included
         Map<String, Object> feedbackData = new HashMap<>();
         feedbackData.put("feedbackType", selectedFeedbackType);
         feedbackData.put("message", message);
-        feedbackData.put("includeContact", includeContactCheckBox.isChecked());
-        feedbackData.put("contactEmail", contactEmail);
-        feedbackData.put("contactPhone", contactPhone);
+        feedbackData.put("contactEmail", userEmail != null ? userEmail : "");
+        feedbackData.put("contactPhone", userPhone != null ? userPhone : "");
         feedbackData.put("status", getString(R.string.feedback_status_pending));
         feedbackData.put("timestamp", new Date());
         feedbackData.put("userType", userType);
@@ -307,6 +360,7 @@ public class FeedbackActivity extends AppCompatActivity {
             submitFeedbackToFirestore(feedbackData, null);
         }
     }
+
 
     private void uploadAttachmentAndSubmitFeedback(Map<String, Object> feedbackData) {
         String attachmentFileName = "feedback_" + UUID.randomUUID().toString() + ".jpg";
@@ -360,9 +414,30 @@ public class FeedbackActivity extends AppCompatActivity {
     }
 
     private void setLoading(boolean loading) {
-        progressBar.setVisibility(loading ? View.VISIBLE : View.GONE);
+        if (loading) {
+            // Show loading dialog
+            if (loadingDialog == null) {
+                View dialogView = getLayoutInflater().inflate(R.layout.dialog_loading, null);
+                TextView loadingText = dialogView.findViewById(R.id.loadingText);
+                if (loadingText != null) {
+                    loadingText.setText("Sending feedback...");
+                }
+                loadingDialog = new AlertDialog.Builder(this)
+                        .setView(dialogView)
+                        .setCancelable(false)
+                        .create();
+                if (loadingDialog.getWindow() != null) {
+                    loadingDialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+                }
+            }
+            loadingDialog.show();
+        } else {
+            // Dismiss loading dialog
+            if (loadingDialog != null && loadingDialog.isShowing()) {
+                loadingDialog.dismiss();
+            }
+        }
         submitButton.setEnabled(!loading);
-        submitButton.setText(loading ? getString(R.string.feedback_submitting) : getString(R.string.feedback_submit));
     }
 
     private void showSuccessDialog() {
@@ -380,9 +455,6 @@ public class FeedbackActivity extends AppCompatActivity {
     private void clearForm() {
         messageEditText.setText("");
         feedbackTypeSpinner.setSelection(0);
-        includeContactCheckBox.setChecked(false);
-        contactEmailEditText.setText("");
-        contactPhoneEditText.setText("");
         removeAttachment();
     }
 
@@ -399,7 +471,4 @@ public class FeedbackActivity extends AppCompatActivity {
         }
     }
 
-    private boolean isValidPhoneNumber(String number) {
-        return !number.isEmpty() && number.matches("09\\d{9}");
-    }
 }

@@ -66,7 +66,7 @@ public class Senior_Registration extends AppCompatActivity {
         "Santa Trinidad",
         "Santo Cristo",
         "Santo Domingo",
-        "Santo Rosario (Poblacion)",
+        "Santo Rosario",
         "Sapalibutad",
         "Sapangbato",
         "Tabun",

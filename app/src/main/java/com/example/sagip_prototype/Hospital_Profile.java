@@ -194,7 +194,7 @@ public class Hospital_Profile extends BaseProfileActivity {
         editor.remove(KEY_USER_TYPE);
         editor.remove(KEY_IS_LOGGED_IN);
         editor.remove(KEY_USER_EMAIL);
-        editor.apply();
+        editor.commit(); // Use commit() for synchronous clearing before redirect
     }
     
     /**
@@ -633,17 +633,16 @@ public class Hospital_Profile extends BaseProfileActivity {
     private void deleteFirebaseAuthAccount() {
         Log.d("Hospital_Profile", "🗑️ Deleting Firebase Auth account");
         
-        // Stop all background services first
-        BackgroundServiceManager.stopAllBackgroundServices(this);
-        
-        // Clear stored credentials
-        clearStoredCredentials();
-        
-        // Delete the user from Firebase Auth
+        // Delete Firebase Auth FIRST (credentials cleared in callbacks to avoid race conditions)
         if (mAuth.getCurrentUser() != null) {
             mAuth.getCurrentUser().delete()
                     .addOnSuccessListener(aVoid -> {
                         Log.d("Hospital_Profile", "✅ Firebase Auth account deleted successfully");
+                        
+                        // Stop services and clear credentials after successful deletion
+                        BackgroundServiceManager.stopAllBackgroundServices(this);
+                        clearStoredCredentials();
+                        
                         Toast.makeText(this, getString(R.string.delete_account_success), Toast.LENGTH_LONG).show();
                         
                         // Redirect to login page
@@ -654,11 +653,34 @@ public class Hospital_Profile extends BaseProfileActivity {
                     })
                     .addOnFailureListener(e -> {
                         Log.e("Hospital_Profile", "❌ Failed to delete Firebase Auth account: " + e.getMessage());
-                        Toast.makeText(this, getString(R.string.delete_account_failed) + ": " + e.getMessage(), Toast.LENGTH_LONG).show();
+                        
+                        // Firestore data is already deleted, so cleanup and redirect anyway
+                        BackgroundServiceManager.stopAllBackgroundServices(this);
+                        clearStoredCredentials();
+                        mAuth.signOut();
+                        
+                        Toast.makeText(this, getString(R.string.delete_account_success), Toast.LENGTH_LONG).show();
+                        
+                        // Redirect to login page
+                        Intent intent = new Intent(Hospital_Profile.this, MainActivity.class);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        startActivity(intent);
+                        finish();
                     });
         } else {
-            Log.e("Hospital_Profile", "❌ No current user in Firebase Auth");
-            Toast.makeText(this, getString(R.string.delete_account_failed), Toast.LENGTH_SHORT).show();
+            Log.e("Hospital_Profile", "❌ No current user in Firebase Auth - cleaning up and redirecting");
+            
+            // Firestore data is already deleted, so cleanup and redirect
+            BackgroundServiceManager.stopAllBackgroundServices(this);
+            clearStoredCredentials();
+            
+            Toast.makeText(this, getString(R.string.delete_account_success), Toast.LENGTH_LONG).show();
+            
+            // Redirect to login page
+            Intent intent = new Intent(Hospital_Profile.this, MainActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+            finish();
         }
     }
 }
