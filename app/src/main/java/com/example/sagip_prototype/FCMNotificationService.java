@@ -47,21 +47,23 @@ public class FCMNotificationService extends FirebaseMessagingService {
         
         // Handle data payload (this is what we use for custom notifications)
         Map<String, String> data = remoteMessage.getData();
+        boolean dataHandled = false;
         if (data != null && !data.isEmpty()) {
             Log.d(TAG, "📊 Message data payload: " + data);
             handleDataMessage(data);
+            dataHandled = true;
         }
         
         // Handle notification payload (system-generated notifications)
+        // Skip if data payload was already handled to prevent duplicate notifications
         RemoteMessage.Notification notification = remoteMessage.getNotification();
         if (notification != null) {
-            Log.d(TAG, "📱 Message notification payload: " + notification.getTitle());
-            handleNotificationMessage(notification);
-        }
-        
-        // If both data and notification are present, prioritize data payload
-        if (data != null && !data.isEmpty() && notification != null) {
-            Log.d(TAG, "⚠️ Both data and notification payload present - using data payload");
+            if (dataHandled) {
+                Log.d(TAG, "📱 Skipping notification payload - data payload already handled (prevents duplicate)");
+            } else {
+                Log.d(TAG, "📱 Message notification payload: " + notification.getTitle());
+                handleNotificationMessage(notification);
+            }
         }
     }
     
@@ -177,6 +179,8 @@ public class FCMNotificationService extends FirebaseMessagingService {
             }
         } else if ("RESCUER_RESPONSE".equals(type)) {
             // Handle rescuer response notifications for seniors
+            // NOTE: SeniorNotificationService (Firestore listener) already handles this notification
+            // Skip showing FCM notification to prevent duplicate notifications
             SharedPreferences sharedPreferences = getSharedPreferences("SagipAppPrefs", MODE_PRIVATE);
             String userType = sharedPreferences.getString("userType", null);
             
@@ -185,20 +189,11 @@ public class FCMNotificationService extends FirebaseMessagingService {
                 return;
             }
             
-            String title = data.get("title");
-            String message = data.get("message");
             String rescuerName = data.get("rescuerName");
-            String rescuerPhone = data.get("rescuerPhone");
-            String rescuerTeam = data.get("rescuerTeam");
-            String requestId = data.get("requestId");
-            
-            Log.d(TAG, "🚑 Rescuer response notification received for senior - Rescuer: " + rescuerName);
-            
-            showRescuerResponseNotification(
-                title != null ? title : "🚑 Help is on the way!",
-                message != null ? message : rescuerName + " is responding to your emergency",
-                rescuerName, rescuerPhone, rescuerTeam, requestId
-            );
+            Log.d(TAG, "🚑 Rescuer response FCM received for senior - Rescuer: " + rescuerName);
+            Log.d(TAG, "📱 Skipping FCM notification display - SeniorNotificationService (Firestore listener) handles this to prevent duplicate");
+            // SeniorNotificationService listens to Firestore and will show the notification
+            // No need to show notification here as it would cause duplicates
         } else if ("EMERGENCY_ALERT".equals(type)) {
             // Handle emergency alert notifications for barangay users
             SharedPreferences sharedPreferences = getSharedPreferences("SagipAppPrefs", MODE_PRIVATE);
@@ -276,14 +271,11 @@ public class FCMNotificationService extends FirebaseMessagingService {
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
         
-        // Get status emoji
-        String statusEmoji = getStatusEmoji(hospitalStatus);
-        
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle(getString(R.string.notification_hospital_status_updated))
-                .setContentText(String.format(getString(R.string.notification_hospital_status_text), hospitalName, statusEmoji, hospitalStatus.toUpperCase()))
+                .setContentText(hospitalName + " is now " + hospitalStatus.toUpperCase())
                 .setStyle(new NotificationCompat.BigTextStyle()
-                        .bigText(String.format(getString(R.string.notification_hospital_status_text), hospitalName, statusEmoji, hospitalStatus.toUpperCase()) + 
+                        .bigText(hospitalName + " has updated their status to " + hospitalStatus.toUpperCase() + 
                                 "\n\n📊 Available Beds: " + availableBeds + 
                                 "\n👨‍⚕️ Available Doctors: " + availableDoctors +
                                 "\n\nThis information will help with emergency response planning."))
@@ -456,6 +448,25 @@ public class FCMNotificationService extends FirebaseMessagingService {
 
     private void createHospitalEmergencyNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            if (notificationManager == null) {
+                Log.e(TAG, "❌ NotificationManager is null, cannot create channel");
+                return;
+            }
+            
+            // Check if channel exists and needs to be recreated with sound
+            // (Android doesn't allow modifying channel settings after creation)
+            NotificationChannel existingChannel = notificationManager.getNotificationChannel(HOSPITAL_EMERGENCY_CHANNEL_ID);
+            if (existingChannel != null) {
+                if (existingChannel.getSound() == null) {
+                    Log.d(TAG, "🔄 Existing hospital emergency channel has no sound, deleting and recreating");
+                    notificationManager.deleteNotificationChannel(HOSPITAL_EMERGENCY_CHANNEL_ID);
+                } else {
+                    Log.d(TAG, "✅ Hospital emergency notification channel already exists with sound");
+                    return;
+                }
+            }
+            
             NotificationChannel channel = new NotificationChannel(
                     HOSPITAL_EMERGENCY_CHANNEL_ID,
                     "🚨 Hospital Emergency Incoming",
@@ -473,11 +484,8 @@ public class FCMNotificationService extends FirebaseMessagingService {
                     .setUsage(android.media.AudioAttributes.USAGE_ALARM)
                     .build());
 
-            NotificationManager notificationManager = getSystemService(NotificationManager.class);
-            if (notificationManager != null) {
-                notificationManager.createNotificationChannel(channel);
-                Log.d(TAG, "✅ Hospital emergency notification channel created");
-            }
+            notificationManager.createNotificationChannel(channel);
+            Log.d(TAG, "✅ Hospital emergency notification channel created with sound enabled");
         }
     }
     

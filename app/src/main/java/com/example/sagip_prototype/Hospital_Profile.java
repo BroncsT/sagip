@@ -189,12 +189,25 @@ public class Hospital_Profile extends BaseProfileActivity {
 
     // Helper method to clear stored credentials
     private void clearStoredCredentials() {
+        // Clear SagipAppPrefs
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.remove(KEY_USER_ID);
         editor.remove(KEY_USER_TYPE);
         editor.remove(KEY_IS_LOGGED_IN);
         editor.remove(KEY_USER_EMAIL);
+        editor.putBoolean("user_logged_out", true); // Set logout flag to prevent session restore
         editor.commit(); // Use commit() for synchronous clearing before redirect
+        
+        // Also clear user_prefs which services check for logout state
+        SharedPreferences userPrefs = getSharedPreferences("user_prefs", MODE_PRIVATE);
+        SharedPreferences.Editor userEditor = userPrefs.edit();
+        userEditor.putBoolean("user_logged_out", true);
+        userEditor.remove("user_id");
+        userEditor.remove("user_type");
+        userEditor.remove("user_phone");
+        userEditor.commit();
+        
+        Log.d("Hospital_Profile", "✅ All stored credentials cleared and logout flags set");
     }
     
     /**
@@ -310,17 +323,87 @@ public class Hospital_Profile extends BaseProfileActivity {
         Toast.makeText(this, getString(R.string.delete_account_progress), Toast.LENGTH_SHORT).show();
         Log.d("Hospital_Profile", "🗑️ Starting account deletion process for hospital: " + uid);
 
+        // Stop hospital foreground service first
+        HospitalForegroundService.stopService(this);
+        Log.d("Hospital_Profile", "🛑 Stopped hospital foreground service");
+
         // Step 1: Archive user data first (backup)
         archiveUserData(uid, userType, () -> {
-            // Step 2: DELETE USER DOCUMENT FIRST - Most critical step
-            deleteUserDocument(uid, userType, () -> {
-                // Step 3: Delete user notifications
-                deleteUserNotifications(uid, userType, () -> {
-                    // Step 4: Delete user images from Storage
-                    deleteUserImages(uid);
+            // Step 2: Delete user notifications FIRST (subcollections must be deleted before document)
+            deleteUserNotifications(uid, userType, () -> {
+                // Step 3: Delete emergency incoming notifications (hospital-specific)
+                deleteHospitalEmergencyNotifications(uid, () -> {
+                    // Step 4: Clear hospital timer state from SharedPreferences
+                    clearHospitalTimerState();
+                    // Step 5: DELETE USER DOCUMENT (after subcollections are deleted)
+                    deleteUserDocument(uid, userType, () -> {
+                        // Step 6: Delete user images from Storage
+                        deleteUserImages(uid);
+                    });
                 });
             });
         });
+    }
+
+    private void deleteHospitalEmergencyNotifications(String uid, Runnable onComplete) {
+        Log.d("Hospital_Profile", "🗑️ Deleting emergency notifications for hospital: " + uid);
+        
+        // Delete all emergency incoming notifications for this hospital
+        // These are stored in the notifications subcollection with type "EMERGENCY_INCOMING"
+        db.collection("Sagip")
+                .document("users")
+                .collection("hospital")
+                .document(uid)
+                .collection("notifications")
+                .whereEqualTo("type", "EMERGENCY_INCOMING")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    if (querySnapshot.isEmpty()) {
+                        Log.d("Hospital_Profile", "✅ No emergency notifications to delete");
+                        onComplete.run();
+                        return;
+                    }
+                    
+                    int totalNotifications = querySnapshot.size();
+                    final int[] deletedCount = {0};
+                    
+                    for (com.google.firebase.firestore.QueryDocumentSnapshot doc : querySnapshot) {
+                        doc.getReference().delete()
+                                .addOnSuccessListener(aVoid -> {
+                                    deletedCount[0]++;
+                                    if (deletedCount[0] == totalNotifications) {
+                                        Log.d("Hospital_Profile", "✅ Deleted " + totalNotifications + " emergency notifications");
+                                        onComplete.run();
+                                    }
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e("Hospital_Profile", "⚠️ Failed to delete emergency notification: " + e.getMessage());
+                                    deletedCount[0]++;
+                                    if (deletedCount[0] == totalNotifications) {
+                                        onComplete.run();
+                                    }
+                                });
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("Hospital_Profile", "⚠️ Failed to fetch emergency notifications: " + e.getMessage());
+                    // Continue even if emergency notification deletion fails
+                    onComplete.run();
+                });
+    }
+
+    private void clearHospitalTimerState() {
+        Log.d("Hospital_Profile", "🗑️ Clearing hospital timer state from SharedPreferences");
+        
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        // Clear timer-related keys
+        editor.remove("timer_start_time");
+        editor.remove("timer_duration");
+        // Clear any cached hospital data
+        editor.remove("cachedHospitalName");
+        editor.apply();
+        
+        Log.d("Hospital_Profile", "✅ Hospital timer state cleared");
     }
 
     private void deleteUserDocument(String uid, String userType, Runnable onComplete) {

@@ -89,6 +89,7 @@ public class MainActivity extends AppCompatActivity {
     private PhoneAuthProvider.ForceResendingToken mfaResendToken;
     private MultiFactorResolver multiFactorResolver;
     private MultiFactorSession cachedMfaSession;
+    private String mfaEnrollmentPhoneNumber; // Track phone number being enrolled for MFA
 
     // UI Components for Phone Login
     private View phoneLoginLayout;
@@ -724,13 +725,45 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupEmailLogin() {
-        View passwordToggle = findViewById(R.id.passwordToggle);
+        android.widget.ImageView passwordToggle = findViewById(R.id.passwordToggle);
         if (passwordToggle != null) {
             passwordToggle.setOnClickListener(v -> {
-                if (passwordInput.getInputType() == (android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD)) {
+                boolean isPasswordVisible = passwordInput.getInputType() == (android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+                
+                // Create rotation animation
+                android.view.animation.RotateAnimation rotateAnimation = new android.view.animation.RotateAnimation(
+                        0f, 180f,
+                        android.view.animation.Animation.RELATIVE_TO_SELF, 0.5f,
+                        android.view.animation.Animation.RELATIVE_TO_SELF, 0.5f
+                );
+                rotateAnimation.setDuration(200);
+                rotateAnimation.setFillAfter(false);
+                
+                // Create fade animation
+                android.view.animation.AlphaAnimation fadeOut = new android.view.animation.AlphaAnimation(1f, 0.5f);
+                fadeOut.setDuration(100);
+                android.view.animation.AlphaAnimation fadeIn = new android.view.animation.AlphaAnimation(0.5f, 1f);
+                fadeIn.setDuration(100);
+                fadeIn.setStartOffset(100);
+                
+                // Combine animations
+                android.view.animation.AnimationSet animationSet = new android.view.animation.AnimationSet(true);
+                animationSet.addAnimation(rotateAnimation);
+                animationSet.addAnimation(fadeOut);
+                animationSet.addAnimation(fadeIn);
+                animationSet.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
+                
+                // Start animation
+                passwordToggle.startAnimation(animationSet);
+                
+                if (isPasswordVisible) {
+                    // Show password
                     passwordInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
+                    passwordToggle.setImageResource(R.drawable.ic_visibility);
                 } else {
+                    // Hide password
                     passwordInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+                    passwordToggle.setImageResource(R.drawable.ic_visibility_off);
                 }
                 passwordInput.setSelection(passwordInput.getText().length());
             });
@@ -1224,6 +1257,39 @@ public class MainActivity extends AppCompatActivity {
         showProgressBar(true);
         Log.d(TAG, "Starting MFA enrollment for phone: " + phoneNumber);
         
+        // Store the phone number being enrolled
+        mfaEnrollmentPhoneNumber = phoneNumber;
+        
+        // First, check if this phone number is already used for senior registration
+        db.collection("Sagip")
+            .document("users")
+            .collection("seniors")
+            .whereEqualTo("mobileNumber", phoneNumber)
+            .get()
+            .addOnSuccessListener(querySnapshot -> {
+                if (!querySnapshot.isEmpty()) {
+                    // Phone number is already registered as a senior
+                    showProgressBar(false);
+                    Log.w(TAG, "MFA phone number already used for senior registration");
+                    Toast.makeText(MainActivity.this,
+                        getString(R.string.phone_already_registered_senior),
+                        Toast.LENGTH_LONG).show();
+                    // Let user try a different phone number
+                    showMfaEnrollmentDialog(user);
+                } else {
+                    // Phone number not used by seniors, proceed with MFA enrollment
+                    proceedWithMfaEnrollment(user, phoneNumber);
+                }
+            })
+            .addOnFailureListener(e -> {
+                // On error, still allow enrollment (fail open for better UX)
+                Log.e(TAG, "Error checking senior phone numbers", e);
+                proceedWithMfaEnrollment(user, phoneNumber);
+            });
+    }
+    
+    // Proceed with MFA enrollment after validation
+    private void proceedWithMfaEnrollment(FirebaseUser user, String phoneNumber) {
         // Use pre-fetched session if available, otherwise fetch now
         if (cachedMfaSession != null) {
             Log.d(TAG, "Using pre-fetched MFA session");
@@ -1358,6 +1424,23 @@ public class MainActivity extends AppCompatActivity {
                     showProgressBar(false);
                     if (task.isSuccessful()) {
                         Log.d(TAG, "MFA enrollment successful");
+                        
+                        // Store MFA phone number in Firestore for cross-validation with senior registration
+                        if (mfaEnrollmentPhoneNumber != null && !mfaEnrollmentPhoneNumber.isEmpty()) {
+                            Map<String, Object> mfaData = new HashMap<>();
+                            mfaData.put("phoneNumber", mfaEnrollmentPhoneNumber);
+                            mfaData.put("userId", user.getUid());
+                            mfaData.put("enrolledAt", com.google.firebase.Timestamp.now());
+                            
+                            db.collection("Sagip")
+                                .document("mfa_phones")
+                                .collection("enrolled")
+                                .document(user.getUid())
+                                .set(mfaData)
+                                .addOnSuccessListener(aVoid -> Log.d(TAG, "MFA phone number stored in Firestore"))
+                                .addOnFailureListener(e -> Log.e(TAG, "Failed to store MFA phone number", e));
+                        }
+                        
                         Toast.makeText(MainActivity.this, 
                             getString(R.string.mfa_enrollment_success), 
                             Toast.LENGTH_SHORT).show();
@@ -1773,6 +1856,20 @@ public class MainActivity extends AppCompatActivity {
             default:
                 dashboardIntent = new Intent(MainActivity.this, Senior_Dashboard.class);
                 break;
+        }
+
+        // CRITICAL FIX: Forward notification extras from original intent to dashboard
+        // This ensures notification clicks work even when app is launched fresh
+        Intent originalIntent = getIntent();
+        if (originalIntent != null && originalIntent.getExtras() != null) {
+            String notificationType = originalIntent.getStringExtra("notification_type");
+            if (notificationType == null) {
+                notificationType = originalIntent.getStringExtra("type");
+            }
+            if (notificationType != null) {
+                Log.d(TAG, "📱 Forwarding notification extras to dashboard - type: " + notificationType);
+                dashboardIntent.putExtras(originalIntent.getExtras());
+            }
         }
 
         startActivity(dashboardIntent);

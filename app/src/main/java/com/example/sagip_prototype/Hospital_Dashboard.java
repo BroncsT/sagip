@@ -2,6 +2,7 @@ package com.example.sagip_prototype;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -35,6 +36,7 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.GeoPoint;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.Timestamp;
+import com.google.firebase.messaging.FirebaseMessaging;
 
 import java.io.IOException;
 import java.util.Calendar;
@@ -98,6 +100,7 @@ public class Hospital_Dashboard extends AppCompatActivity {
     private boolean isNavigatingBetweenPages = false; // Flag to prevent timer restarts during navigation
     private long lastRealTimeUpdate = 0; // Throttle real-time listener calls
     private boolean isTimerUpdating = false; // Flag to prevent multiple timer updates
+    private boolean skipStatusCheckAfterUpdate = false; // Flag to skip status check after successful update
     
     // Simple timer persistence using SharedPreferences
     private static final String TIMER_START_TIME_KEY = "timer_start_time";
@@ -106,13 +109,58 @@ public class Hospital_Dashboard extends AppCompatActivity {
     // Global timer service
     // GlobalTimerService removed - using simple timer with SharedPreferences
 
-    // MediaPlayer for reminder alert sound
-    private MediaPlayer reminderMediaPlayer;
+    // MediaPlayer for reminder alert sound - STATIC to ensure we can stop it even after activity recreation
+    private static MediaPlayer reminderMediaPlayer;
+
+    // Emergency alert sound (Ringtone) for incoming emergency notifications
+    private android.media.Ringtone emergencyAlertRingtone;
+
+    // Notification ID for hospital emergency (same as FCMNotificationService)
+    private static final int HOSPITAL_EMERGENCY_NOTIFICATION_ID = 7777;
+
+    // Track when hospital logged in to filter old notifications
+    private long hospitalLoginTime = 0;
+
+    // Track if listener is already active (static to prevent multiple listeners)
+    private static boolean isEmergencyListenerActive = false;
+    
+    // CRITICAL: Static flag to indicate if dashboard is active
+    // This is used by HospitalNotificationManager to defer to dashboard for in-app alerts
+    public static volatile boolean isDashboardActive = false;
+    
+    // NOTE: Notification deduplication is now handled by HospitalNotificationManager.isNotificationHandled()
+    // and HospitalNotificationManager.markNotificationAsHandled() for shared tracking across components
+    
+    // Flag to prevent showing multiple emergency dialogs
+    private boolean isEmergencyDialogShowing = false;
+    
+    // Reference to emergency alert dialog to prevent window leak
+    private androidx.appcompat.app.AlertDialog emergencyAlertDialog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
+        
+        // CRITICAL: Set dashboard active flag EARLY in onCreate
+        isDashboardActive = true;
+        Log.d("Hospital_Dashboard", "📱 [ON_CREATE] Dashboard active flag set to TRUE");
+        
+        // STOP ALL EMERGENCY SOUNDS IMMEDIATELY when opened from notification
+        Intent intent = getIntent();
+        if (intent != null) {
+            String notificationType = intent.getStringExtra("notification_type");
+            if (notificationType == null) {
+                notificationType = intent.getStringExtra("type");
+            }
+            if ("EMERGENCY_INCOMING".equals(notificationType)) {
+                Log.d("Hospital_Dashboard", "🔇🔇🔇 [ON_CREATE] NOTIFICATION CLICKED - STOPPING ALL SOUNDS NOW! 🔇🔇🔇");
+                stopEmergencyAlertSound();
+                cancelEmergencyNotification();
+                // Also cancel from HospitalNotificationManager
+                HospitalNotificationManager.cancelEmergencyNotification(this);
+            }
+        }
         
         // Apply saved language preference
         String savedLanguage = LanguageSelectionActivity.getSavedLanguage(this);
@@ -122,13 +170,31 @@ public class Hospital_Dashboard extends AppCompatActivity {
 
         // Initialize SharedPreferences
         sharedPreferences = getSharedPreferences(PREF_NAME, MODE_PRIVATE);
+        
+        // Set login time to filter old notifications
+        hospitalLoginTime = System.currentTimeMillis();
+        Log.d("Hospital_Dashboard", "📌 Hospital login time set: " + hospitalLoginTime);
 
         // Initialize Firebase components
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
         
+        // CRITICAL: Request notification permission for Android 13+ (API 33+)
+        // Without this permission, notifications will not be shown
+        requestNotificationPermission();
+        
         // Start listening for emergency notifications
         startEmergencyNotificationListener();
+
+        // Start hospital foreground service for background notifications
+        HospitalForegroundService.startService(this);
+        
+        // CRITICAL: Create notification channel early to ensure FCM notifications work when app is closed
+        // This must be done before any FCM messages arrive
+        createHospitalEmergencyNotificationChannel();
+        
+        // Initialize FCM token for push notifications
+        initializeHospitalFCMToken();
 
         tvCurrentLocation = findViewById(R.id.tvCurrentLocation);
         tvHospitalName = findViewById(R.id.hospitalStaffName);
@@ -137,10 +203,8 @@ public class Hospital_Dashboard extends AppCompatActivity {
         tvErStatus = findViewById(R.id.tvErStatus);
         btnEditStatus = findViewById(R.id.btnEditStatus);
         
-        
-        // Initialize status update UI
-        tvLastUpdated = findViewById(R.id.tvLastUpdated);
         tvCountdownTimer = findViewById(R.id.tvCountdownTimer);
+        tvLastUpdated = findViewById(R.id.tvLastUpdated);
 
 
         // Initialize location services
@@ -170,14 +234,33 @@ public class Hospital_Dashboard extends AppCompatActivity {
         Log.d("Hospital_Dashboard", "Current time: " + new java.util.Date());
         Log.d("Hospital_Dashboard", "Is timer running: " + isTimerRunning);
         
+        // CRITICAL: Mark dashboard as active so HospitalNotificationManager defers to dashboard
+        isDashboardActive = true;
+        Log.d("Hospital_Dashboard", "📱 Dashboard is now ACTIVE - HospitalNotificationManager will defer to dashboard for alerts");
+        
         // Load cached hospital name immediately when returning to dashboard
         loadCachedHospitalName();
         
         // Clear navigation flag
         isNavigatingBetweenPages = false;
         
-        // Check if this activity was opened from a status update reminder notification
+        // Check if opened from notification and stop sounds immediately
         Intent intent = getIntent();
+        if (intent != null) {
+            String notificationType = intent.getStringExtra("notification_type");
+            if (notificationType == null) {
+                notificationType = intent.getStringExtra("type");
+            }
+            if ("EMERGENCY_INCOMING".equals(notificationType)) {
+                // STOP ALL EMERGENCY SOUNDS IMMEDIATELY when opened from notification
+                stopEmergencyAlertSound();
+                cancelEmergencyNotification();
+                HospitalNotificationManager.cancelEmergencyNotification(this);
+                Log.d("Hospital_Dashboard", "🔇 [ON_RESUME] All emergency sounds stopped on resume from notification");
+            }
+        }
+        
+        // Check if this activity was opened from a status update reminder notification
         if (intent != null && intent.getBooleanExtra("show_status_update_dialog", false)) {
             Log.d("Hospital_Dashboard", "Opened from status update reminder notification");
             // Stop any existing alert sound first (from notification)
@@ -188,13 +271,17 @@ public class Hospital_Dashboard extends AppCompatActivity {
             intent.removeExtra("show_status_update_dialog");
         }
         
+        // Check if this activity was opened from an emergency incoming notification
+        handleNotificationIntent(intent);
+        
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
             startLocationUpdates();
         }
         
         // Only restore timer state if not already running to avoid unnecessary refreshes
-        if (!isTimerRunning) {
+        // Also skip if we just returned from a successful status update to avoid race condition
+        if (!isTimerRunning && !skipStatusCheckAfterUpdate) {
             Log.d("Hospital_Dashboard", "=== ATTEMPTING TIMER RESTORATION ===");
             boolean timerRestored = restoreTimerState();
             
@@ -205,6 +292,8 @@ public class Hospital_Dashboard extends AppCompatActivity {
             } else if (timerRestored) {
                 Log.d("Hospital_Dashboard", "✅ Timer restored successfully from SharedPreferences");
             }
+        } else if (skipStatusCheckAfterUpdate) {
+            Log.d("Hospital_Dashboard", "Skipping timer restoration - just returned from status update, waiting for forceUpdateStatus()");
         } else {
             Log.d("Hospital_Dashboard", "Timer already running, skipping restoration to avoid refresh");
         }
@@ -230,7 +319,10 @@ public class Hospital_Dashboard extends AppCompatActivity {
         Log.d("Hospital_Dashboard", "=== onPause() called ===");
         Log.d("Hospital_Dashboard", "Current time: " + new java.util.Date());
         Log.d("Hospital_Dashboard", "Is timer running: " + isTimerRunning);
-        // GlobalTimerService removed
+        
+        // CRITICAL: Mark dashboard as inactive so HospitalNotificationManager handles notifications
+        isDashboardActive = false;
+        Log.d("Hospital_Dashboard", "📱 Dashboard is now INACTIVE - HospitalNotificationManager will handle notifications");
         
         // Set flag to prevent timer restarts during navigation
         isNavigatingBetweenPages = true;
@@ -270,6 +362,102 @@ public class Hospital_Dashboard extends AppCompatActivity {
         Log.d("Hospital_Dashboard", "Global timer service continues running independently");
     }
     
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        Log.d("Hospital_Dashboard", "=== onNewIntent() called ===");
+        setIntent(intent);
+        
+        // STOP ALL EMERGENCY SOUNDS IMMEDIATELY when notification is clicked
+        stopEmergencyAlertSound();
+        cancelEmergencyNotification();
+        HospitalNotificationManager.cancelEmergencyNotification(this);
+        Log.d("Hospital_Dashboard", "🔇 [ON_NEW_INTENT] All emergency sounds stopped immediately");
+        
+        // Handle notification click when activity is already running
+        handleNotificationIntent(intent);
+    }
+    
+    /**
+     * Handle intent from notification click to show emergency information
+     */
+    private void handleNotificationIntent(Intent intent) {
+        if (intent == null) return;
+        
+        // Check both "notification_type" (from app-handled FCM) and "type" (from system-handled FCM when app is killed)
+        String notificationType = intent.getStringExtra("notification_type");
+        if (notificationType == null) {
+            notificationType = intent.getStringExtra("type");
+        }
+        Log.d("Hospital_Dashboard", "📱 Handling notification intent - type: " + notificationType);
+        
+        if ("EMERGENCY_INCOMING".equals(notificationType)) {
+            Log.d("Hospital_Dashboard", "🚨 Processing EMERGENCY_INCOMING notification click");
+            
+            // Stop the emergency alert sound immediately when notification is clicked
+            stopEmergencyAlertSound();
+            
+            // Extract emergency details from intent
+            String emergencyId = intent.getStringExtra("emergency_id");
+            String notificationId = intent.getStringExtra("notification_id");  // Firestore document ID
+            String seniorName = intent.getStringExtra("senior_name");
+            String seniorPhone = intent.getStringExtra("senior_phone");
+            String rescuerName = intent.getStringExtra("rescuer_name");
+            String rescuerPhone = intent.getStringExtra("rescuer_phone");
+            String hospitalName = intent.getStringExtra("hospital_name");
+            String emergencyType = intent.getStringExtra("emergency_type");
+            
+            Log.d("Hospital_Dashboard", "   📋 Emergency ID: " + emergencyId);
+            Log.d("Hospital_Dashboard", "   📝 Notification ID: " + notificationId);
+            Log.d("Hospital_Dashboard", "   👴 Senior: " + seniorName + " (" + seniorPhone + ")");
+            Log.d("Hospital_Dashboard", "   👨‍⚕️ Rescuer: " + rescuerName + " (" + rescuerPhone + ")");
+            Log.d("Hospital_Dashboard", "   🏥 Hospital: " + hospitalName);
+            
+            // Show the emergency alert dialog with the information from notification
+            final String title = "🚨 Emergency Patient Incoming";
+            String msg = "Emergency patient is being transported to your facility.";
+            if (emergencyType != null) {
+                msg = "Emergency Type: " + emergencyType + "\n" + msg;
+            }
+            final String message = msg;
+            
+            // Use final variables for lambda
+            final String fSeniorName = seniorName;
+            final String fSeniorPhone = seniorPhone;
+            final String fRescuerName = rescuerName;
+            final String fRescuerPhone = rescuerPhone;
+            final String fEmergencyId = emergencyId;
+            final String fNotificationId = notificationId;
+            
+            // Show alert dialog with delay to ensure UI is ready (like Rescuer pattern)
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                // Double-check activity is still valid before showing dialog
+                if (!isFinishing() && !isDestroyed()) {
+                    showEmergencyAlertDialogFromNotificationClick(title, message, fSeniorName, fSeniorPhone, 
+                                                                 fRescuerName, fRescuerPhone, fEmergencyId, fNotificationId);
+                } else {
+                    Log.w("Hospital_Dashboard", "⚠️ Activity no longer valid, cannot show emergency dialog");
+                }
+            }, 500); // 500ms delay to ensure UI is ready
+            
+            // Clear the intent extras to prevent showing again on rotation/resume
+            // Clear both app-handled keys and system-handled FCM keys
+            intent.removeExtra("notification_type");
+            intent.removeExtra("type");
+            intent.removeExtra("emergency_id");
+            intent.removeExtra("senior_name");
+            intent.removeExtra("senior_phone");
+            intent.removeExtra("rescuer_name");
+            intent.removeExtra("rescuer_phone");
+            intent.removeExtra("hospital_name");
+            intent.removeExtra("hospital_id");
+            intent.removeExtra("emergency_type");
+            intent.removeExtra("notification_id");
+            
+            // Cancel the notification from notification bar since user clicked on it
+            cancelEmergencyNotification();
+        }
+    }
     
     @Override
     public void onUserLeaveHint() {
@@ -311,6 +499,8 @@ public class Hospital_Dashboard extends AppCompatActivity {
             Log.d("Hospital_Dashboard", "Returned from status update screen");
             if (resultCode == RESULT_OK) {
                 Log.d("Hospital_Dashboard", "Status update was successful, refreshing dashboard");
+                // Set flag to skip status check since we just updated
+                skipStatusCheckAfterUpdate = true;
                 // Status was updated successfully, refresh the dashboard data
                 refreshTimerAfterStatusUpdate();
                 
@@ -468,6 +658,17 @@ public class Hospital_Dashboard extends AppCompatActivity {
                         Toast.LENGTH_LONG).show();
                 tvCurrentLocation.setText(getString(R.string.location_permission_denied));
             }
+        } else if (requestCode == NOTIFICATION_PERMISSION_REQUEST_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Log.d("Hospital_Dashboard", "✅ Notification permission GRANTED by user");
+                // Re-initialize FCM token now that we have permission
+                initializeHospitalFCMToken();
+            } else {
+                Log.w("Hospital_Dashboard", "❌ Notification permission DENIED by user - notifications will not work!");
+                Toast.makeText(this, 
+                        "Notification permission denied. You will not receive emergency alerts!", 
+                        Toast.LENGTH_LONG).show();
+            }
         }
     }
 
@@ -498,6 +699,27 @@ public class Hospital_Dashboard extends AppCompatActivity {
     private void startLocationUpdates() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
+            
+            // Get last known location immediately to show something right away
+            fusedLocationClient.getLastLocation()
+                    .addOnSuccessListener(this, location -> {
+                        if (location != null) {
+                            currentLat = location.getLatitude();
+                            currentLong = location.getLongitude();
+                            updateLocationDisplay(currentLat, currentLong);
+                            saveLocationToFirestore(currentLat, currentLong);
+                            Log.d("Hospital_Dashboard", "Got last known location: " + currentLat + ", " + currentLong);
+                        } else {
+                            Log.d("Hospital_Dashboard", "Last known location is null, waiting for location updates");
+                            tvCurrentLocation.setText(getString(R.string.fetching_location));
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e("Hospital_Dashboard", "Failed to get last known location: " + e.getMessage());
+                        tvCurrentLocation.setText(getString(R.string.fetching_location));
+                    });
+            
+            // Also request location updates for continuous updates
             fusedLocationClient.requestLocationUpdates(locationRequest,
                     locationCallback,
                     Looper.getMainLooper());
@@ -854,12 +1076,18 @@ public class Hospital_Dashboard extends AppCompatActivity {
                         
                         // Check if status update is required and update countdown timer
                         checkStatusUpdateRequirement(documentSnapshot);
+                        
+                        // Reset the skip flag after successful force update
+                        skipStatusCheckAfterUpdate = false;
+                        Log.d("Hospital_Dashboard", "Reset skipStatusCheckAfterUpdate flag after force update");
                     } else {
                         Log.w("Hospital_Dashboard", "Force update failed - document does not exist");
+                        skipStatusCheckAfterUpdate = false;
                     }
                 })
                 .addOnFailureListener(e -> {
                     Log.e("Hospital_Dashboard", "Force update failed: " + e.getMessage(), e);
+                    skipStatusCheckAfterUpdate = false;
                 });
     }
 
@@ -944,9 +1172,14 @@ public class Hospital_Dashboard extends AppCompatActivity {
                 Log.d("Hospital_Dashboard", "Is timer currently running: " + isTimerRunning);
                 
                 if (timeSinceLastUpdate >= STATUS_UPDATE_INTERVAL_MS) {
-                    // Status update is required
-                    Log.d("Hospital_Dashboard", "Status update is OVERDUE - showing dialog");
-                    showStatusUpdateRequiredDialog(timeSinceLastUpdate);
+                    // Status update is required - but skip if we just updated
+                    if (skipStatusCheckAfterUpdate) {
+                        Log.d("Hospital_Dashboard", "Status update appears overdue but skipping dialog - just returned from successful update");
+                        skipStatusCheckAfterUpdate = false;
+                    } else {
+                        Log.d("Hospital_Dashboard", "Status update is OVERDUE - showing dialog");
+                        showStatusUpdateRequiredDialog(timeSinceLastUpdate);
+                    }
                 } else {
                     // Calculate time remaining until next update is required
                     long timeRemaining = STATUS_UPDATE_INTERVAL_MS - timeSinceLastUpdate;
@@ -1592,6 +1825,20 @@ public class Hospital_Dashboard extends AppCompatActivity {
         super.onDestroy();
         Log.d("Hospital_Dashboard", "=== onDestroy() called ===");
         
+        // CRITICAL: Dismiss emergency alert dialog to prevent window leak
+        if (emergencyAlertDialog != null && emergencyAlertDialog.isShowing()) {
+            emergencyAlertDialog.dismiss();
+            emergencyAlertDialog = null;
+            isEmergencyDialogShowing = false;
+            Log.d("Hospital_Dashboard", "🔕 Emergency dialog dismissed in onDestroy to prevent window leak");
+        }
+        
+        // CRITICAL: Stop reminder alert sound to prevent it from playing indefinitely
+        stopReminderAlertSound();
+        
+        // Stop emergency alert sound if playing
+        stopEmergencyAlertSound();
+        
         // Cancel countdown timer to prevent memory leaks
         if (statusCountdownTimer != null) {
             statusCountdownTimer.cancel();
@@ -1626,6 +1873,12 @@ public class Hospital_Dashboard extends AppCompatActivity {
     private void startEmergencyNotificationListener() {
         Log.d("Hospital_Dashboard", "🚨 Starting emergency notification listener...");
         
+        // CRITICAL FIX: Prevent multiple listeners from being started across activity instances
+        if (isEmergencyListenerActive) {
+            Log.d("Hospital_Dashboard", "⚠️ Emergency listener already active, skipping duplicate listener");
+            return;
+        }
+        
         // Get current user
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser == null) {
@@ -1633,6 +1886,7 @@ public class Hospital_Dashboard extends AppCompatActivity {
             return;
         }
         
+        isEmergencyListenerActive = true;
         String userId = currentUser.getUid();
         Log.d("Hospital_Dashboard", "👤 Listening for emergency notifications for user: " + userId);
         
@@ -1690,6 +1944,19 @@ public class Hospital_Dashboard extends AppCompatActivity {
             Log.d("Hospital_Dashboard", "   👴 Senior: " + seniorName + " (" + seniorPhone + ")");
             Log.d("Hospital_Dashboard", "   👨‍⚕️ Rescuer: " + rescuerName + " (" + rescuerPhone + ")");
             Log.d("Hospital_Dashboard", "   ⏱️ ETA: " + (estimatedArrivalMinutes != null ? estimatedArrivalMinutes + " minutes" : "Unknown"));
+            Log.d("Hospital_Dashboard", "   ⏰ Timestamp: " + timestamp + ", hospitalLoginTime: " + hospitalLoginTime);
+            
+            // CRITICAL FIX: Skip notifications that were created BEFORE the hospital logged in
+            // This prevents old notifications from triggering alerts on login
+            if (timestamp == null || timestamp < hospitalLoginTime) {
+                Log.d("Hospital_Dashboard", "🔇 Notification timestamp (" + timestamp + ") is BEFORE login time (" + hospitalLoginTime + ") - SKIPPING old notification");
+                
+                // Mark old notification as inactive to prevent it from appearing again
+                document.getReference().update("isActive", false, "skippedAsOld", true)
+                    .addOnSuccessListener(aVoid -> Log.d("Hospital_Dashboard", "✅ Marked old notification as inactive: " + notificationId))
+                    .addOnFailureListener(e -> Log.w("Hospital_Dashboard", "⚠️ Failed to mark old notification as inactive: " + e.getMessage()));
+                return;
+            }
             
             // Show emergency alert dialog
             showEmergencyAlertDialog(title, message, seniorName, seniorPhone, rescuerName, rescuerPhone, 
@@ -1701,17 +1968,78 @@ public class Hospital_Dashboard extends AppCompatActivity {
     }
     
     /**
-     * Show emergency alert dialog to hospital staff
+     * Show emergency alert dialog when user explicitly clicks on notification
+     * This bypasses deduplication since user explicitly requested to see the info
      */
-    private void showEmergencyAlertDialog(String title, String message, String seniorName, String seniorPhone,
-                                        String rescuerName, String rescuerPhone, Double estimatedArrivalMinutes,
-                                        String emergencyId, String notificationId) {
+    private void showEmergencyAlertDialogFromNotificationClick(String title, String message, String seniorName, 
+                                                               String seniorPhone, String rescuerName, 
+                                                               String rescuerPhone, String emergencyId, 
+                                                               String notificationId) {
+        Log.d("Hospital_Dashboard", "🔔 Showing dialog from NOTIFICATION CLICK (bypassing deduplication)");
+        Log.d("Hospital_Dashboard", "   📝 Notification ID for marking as read: " + notificationId);
+        
+        // Only check activity state - don't check deduplication for explicit user clicks
+        if (isFinishing() || isDestroyed()) {
+            Log.d("Hospital_Dashboard", "⚠️ Activity is finishing/destroyed, cannot show dialog");
+            return;
+        }
+        
+        // Dismiss any existing dialog first
+        if (emergencyAlertDialog != null && emergencyAlertDialog.isShowing()) {
+            Log.d("Hospital_Dashboard", "🔄 Dismissing existing dialog to show fresh one from notification click");
+            emergencyAlertDialog.dismiss();
+        }
+        
+        // Reset flag and show the dialog with notificationId for proper acknowledgment
+        isEmergencyDialogShowing = false;
+        showEmergencyAlertDialogInternal(title, message, seniorName, seniorPhone, rescuerName, rescuerPhone, 
+                                        null, emergencyId, notificationId);
+    }
+    
+    /**
+     * Show emergency alert dialog to hospital staff (from Firestore listener)
+     */
+    private void showEmergencyAlertDialog(String title, String message, String seniorName, String seniorPhone, String rescuerName, String rescuerPhone, Double estimatedArrivalMinutes, String emergencyId, String notificationId) {
+        
+        // CRITICAL FIX #1: Use shared HospitalNotificationManager for deduplication across all components
+        // This ensures Hospital_Dashboard and HospitalNotificationManager don't both process the same notification
+        if (HospitalNotificationManager.isNotificationHandled(notificationId)) {
+            Log.d("Hospital_Dashboard", "⚠️ Notification " + notificationId + " already handled by another component, skipping");
+            return;
+        }
+        
+        // CRITICAL FIX #2: Mark as handled IMMEDIATELY using shared tracking to prevent race conditions
+        if (notificationId != null && !HospitalNotificationManager.markNotificationAsHandled(notificationId)) {
+            Log.d("Hospital_Dashboard", "⚠️ Notification " + notificationId + " was just handled by another thread, skipping");
+            return;
+        }
+        
+        // CRITICAL FIX #3: Check if activity is finishing or destroyed to prevent window leak
+        if (isFinishing() || isDestroyed()) {
+            Log.d("Hospital_Dashboard", "⚠️ Activity is finishing/destroyed, skipping dialog (notification already marked as handled)");
+            return;
+        }
+        
+        // CRITICAL FIX #4: Check if an emergency dialog is already showing
+        if (isEmergencyDialogShowing) {
+            Log.d("Hospital_Dashboard", "⚠️ Emergency dialog already showing, skipping duplicate");
+            return;
+        }
+        
+        showEmergencyAlertDialogInternal(title, message, seniorName, seniorPhone, rescuerName, rescuerPhone, 
+                                        estimatedArrivalMinutes, emergencyId, notificationId);
+    }
+    
+    /**
+     * Internal method to actually show the emergency alert dialog
+     */
+    private void showEmergencyAlertDialogInternal(String title, String message, String seniorName, String seniorPhone, String rescuerName, String rescuerPhone, Double estimatedArrivalMinutes, String emergencyId, String notificationId) {
+        
+        isEmergencyDialogShowing = true;
         
         // Create a detailed alert message
         StringBuilder alertMessage = new StringBuilder();
-        alertMessage.append("🚨 EMERGENCY PATIENT INCOMING\n\n");
         alertMessage.append("👴 Senior: ").append(seniorName != null ? seniorName : "Unknown").append("\n");
-        alertMessage.append("📞 Senior Phone: ").append(seniorPhone != null ? seniorPhone : "Not available").append("\n");
         alertMessage.append("👨‍⚕️ Rescuer: ").append(rescuerName != null ? rescuerName : "Unknown").append("\n");
         alertMessage.append("📞 Rescuer Phone: ").append(rescuerPhone != null ? rescuerPhone : "Not available").append("\n");
         if (estimatedArrivalMinutes != null) {
@@ -1719,18 +2047,43 @@ public class Hospital_Dashboard extends AppCompatActivity {
         }
         alertMessage.append("\n").append(message != null ? message : "Emergency patient being transported to your facility");
         
-        // Create and show alert dialog
-        new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle(title != null ? title : "🚨 Emergency Alert")
+        // Create and show alert dialog (store reference to dismiss in onDestroy)
+        emergencyAlertDialog = new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(title != null ? title : "🚨 Emergency Patient Incoming")
                 .setMessage(alertMessage.toString())
                 .setPositiveButton("✅ Acknowledged", (dialog, which) -> {
-                    // Mark notification as read
-                    markNotificationAsRead(notificationId);
+                    // Stop emergency alert sound and cancel notification IMMEDIATELY
+                    stopEmergencyAlertSound();
+                    cancelEmergencyNotification();
+                    // Reset dialog flag
+                    isEmergencyDialogShowing = false;
                     Log.d("Hospital_Dashboard", "✅ Emergency alert acknowledged by hospital staff");
+                    
+                    // Handle acknowledgment - use notificationId if available, otherwise find by emergencyId
+                    if (notificationId != null && !notificationId.isEmpty()) {
+                        markNotificationAsRead(notificationId);
+                    } else {
+                        // No notificationId - find notification by emergencyId and mark as read
+                        Log.d("Hospital_Dashboard", "📝 No notificationId, finding notification by emergencyId: " + emergencyId);
+                        findAndMarkNotificationAsRead(emergencyId);
+                    }
                 })
                 .setNegativeButton("📞 Call Rescuer", (dialog, which) -> {
-                    // Mark notification as read
-                    markNotificationAsRead(notificationId);
+                    // Stop emergency alert sound and cancel notification IMMEDIATELY
+                    stopEmergencyAlertSound();
+                    cancelEmergencyNotification();
+                    // Reset dialog flag
+                    isEmergencyDialogShowing = false;
+                    
+                    // Handle acknowledgment - use notificationId if available, otherwise find by emergencyId
+                    if (notificationId != null && !notificationId.isEmpty()) {
+                        markNotificationAsRead(notificationId);
+                    } else {
+                        // No notificationId - find notification by emergencyId and mark as read
+                        Log.d("Hospital_Dashboard", "📝 No notificationId, finding notification by emergencyId: " + emergencyId);
+                        findAndMarkNotificationAsRead(emergencyId);
+                    }
+                    
                     // Call rescuer
                     if (rescuerPhone != null && !rescuerPhone.isEmpty()) {
                         callRescuer(rescuerPhone);
@@ -1738,7 +2091,18 @@ public class Hospital_Dashboard extends AppCompatActivity {
                     Log.d("Hospital_Dashboard", "📞 Hospital staff calling rescuer: " + rescuerPhone);
                 })
                 .setCancelable(false)
-                .show();
+                .create();
+        
+        // Set dismiss listener to reset flag and stop sound if dialog is dismissed by any means
+        emergencyAlertDialog.setOnDismissListener(dialog -> {
+            stopEmergencyAlertSound();
+            cancelEmergencyNotification();
+            isEmergencyDialogShowing = false;
+            emergencyAlertDialog = null;
+            Log.d("Hospital_Dashboard", "🔕 Emergency dialog dismissed");
+        });
+        
+        emergencyAlertDialog.show();
                 
         // Play emergency sound
         playEmergencyAlertSound();
@@ -1748,6 +2112,12 @@ public class Hospital_Dashboard extends AppCompatActivity {
      * Mark notification as read and update hospital list with senior information
      */
     private void markNotificationAsRead(String notificationId) {
+        // Skip if notificationId is null (e.g., when opened from system notification click)
+        if (notificationId == null || notificationId.isEmpty()) {
+            Log.d("Hospital_Dashboard", "⚠️ Skipping markNotificationAsRead - notificationId is null or empty");
+            return;
+        }
+        
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser == null) return;
         
@@ -1792,7 +2162,7 @@ public class Hospital_Dashboard extends AppCompatActivity {
     }
     
     /**
-     * Internal method to mark notification as read
+     * Internal method to mark notification as read and navigate to Hospital_List
      */
     private void markNotificationAsReadInternal(String notificationId) {
         FirebaseUser currentUser = mAuth.getCurrentUser();
@@ -1805,12 +2175,73 @@ public class Hospital_Dashboard extends AppCompatActivity {
                 .document(userId)
                 .collection("notifications")
                 .document(notificationId)
-                .update("isRead", true, "isActive", false)
+                .update("isRead", true)
                 .addOnSuccessListener(aVoid -> {
                     Log.d("Hospital_Dashboard", "✅ Notification marked as read: " + notificationId);
+                    
+                    // Navigate to Hospital_List AFTER marking as read
+                    Log.d("Hospital_Dashboard", "🔄 Navigating to Hospital_List to show incoming patient");
+                    Intent intent = new Intent(Hospital_Dashboard.this, Hospital_List.class);
+                    startActivity(intent);
                 })
                 .addOnFailureListener(e -> {
                     Log.e("Hospital_Dashboard", "❌ Failed to mark notification as read", e);
+                    // Still navigate even if marking failed
+                    Intent intent = new Intent(Hospital_Dashboard.this, Hospital_List.class);
+                    startActivity(intent);
+                });
+    }
+    
+    /**
+     * Find notification by emergencyId and mark it as read
+     * Used when notificationId is not available (e.g., from Firestore listener)
+     */
+    private void findAndMarkNotificationAsRead(String emergencyId) {
+        if (emergencyId == null || emergencyId.isEmpty()) {
+            Log.w("Hospital_Dashboard", "⚠️ Cannot find notification - emergencyId is null or empty");
+            return;
+        }
+        
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) {
+            Log.w("Hospital_Dashboard", "⚠️ Cannot find notification - no authenticated user");
+            return;
+        }
+        
+        String odUserId = currentUser.getUid();
+        
+        Log.d("Hospital_Dashboard", "🔍 Searching for notification with emergencyId: " + emergencyId);
+        
+        db.collection("Sagip")
+                .document("users")
+                .collection("hospital")
+                .document(odUserId)
+                .collection("notifications")
+                .whereEqualTo("emergencyId", emergencyId)
+                .whereEqualTo("type", "EMERGENCY_INCOMING")
+                .limit(1)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    if (!querySnapshot.isEmpty()) {
+                        // Found the notification, mark it as read
+                        String foundNotificationId = querySnapshot.getDocuments().get(0).getId();
+                        Log.d("Hospital_Dashboard", "✅ Found notification by emergencyId: " + foundNotificationId);
+                        
+                        // Mark as read and navigate
+                        markNotificationAsRead(foundNotificationId);
+                    } else {
+                        Log.w("Hospital_Dashboard", "⚠️ No notification found for emergencyId: " + emergencyId);
+                        // Still navigate to Hospital_List even if notification not found
+                        Toast.makeText(this, "Emergency acknowledged", Toast.LENGTH_SHORT).show();
+                        Intent intent = new Intent(Hospital_Dashboard.this, Hospital_List.class);
+                        startActivity(intent);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("Hospital_Dashboard", "❌ Failed to find notification by emergencyId", e);
+                    // Still navigate to Hospital_List even if query failed
+                    Intent intent = new Intent(Hospital_Dashboard.this, Hospital_List.class);
+                    startActivity(intent);
                 });
     }
     
@@ -1847,14 +2278,12 @@ public class Hospital_Dashboard extends AppCompatActivity {
                 .document(userId)
                 .update(seniorInfo)
                 .addOnSuccessListener(aVoid -> {
-                    Log.d("Hospital_Dashboard", "✅ Hospital list updated with senior information");
+                    Log.d("Hospital_Dashboard", "✅ Hospital document updated with senior information");
                     Log.d("Hospital_Dashboard", "👴 Senior: " + seniorName + " (" + seniorPhone + ")");
                     Log.d("Hospital_Dashboard", "👨‍⚕️ Rescuer: " + rescuerName + " (" + rescuerPhone + ")");
                     Log.d("Hospital_Dashboard", "⏱️ ETA: " + (estimatedArrivalMinutes != null ? estimatedArrivalMinutes + " minutes" : "Unknown"));
                     
-                    
-                    // Show success message
-                    Toast.makeText(this, getString(R.string.senior_info_added_to_hospital, seniorName), Toast.LENGTH_LONG).show();
+                    // Note: Navigation is handled by markNotificationAsReadInternal after marking isRead=true
                 })
                 .addOnFailureListener(e -> {
                     Log.e("Hospital_Dashboard", "❌ Failed to update hospital list with senior info", e);
@@ -1872,27 +2301,261 @@ public class Hospital_Dashboard extends AppCompatActivity {
             startActivity(callIntent);
         } catch (Exception e) {
             Log.e("Hospital_Dashboard", "❌ Error calling rescuer", e);
-            Toast.makeText(this, getString(R.string.unable_to_make_call), Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Unable to make call", Toast.LENGTH_SHORT).show();
+        }
+    }
+    
+    // MediaPlayer for emergency alert sound
+    private MediaPlayer emergencyMediaPlayer;
+    
+    /**
+     * Play emergency alert sound using MediaPlayer with custom alarm sound
+     */
+    private void playEmergencyAlertSound() {
+        try {
+            // Stop any currently playing sound first
+            stopEmergencyAlertSound();
+            
+            Log.d("Hospital_Dashboard", "🔊 Attempting to play emergency alert sound...");
+            
+            // Use MediaPlayer with custom emergency alarm sound for reliable playback
+            Uri customAlarmUri = Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.emergency_alarm);
+            Log.d("Hospital_Dashboard", "🔊 Custom alarm URI: " + customAlarmUri.toString());
+            
+            emergencyMediaPlayer = new MediaPlayer();
+            emergencyMediaPlayer.setDataSource(this, customAlarmUri);
+            
+            // Set audio attributes for alarm stream - ensures sound plays even in silent mode
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                android.media.AudioAttributes audioAttributes = new android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build();
+                emergencyMediaPlayer.setAudioAttributes(audioAttributes);
+            } else {
+                emergencyMediaPlayer.setAudioStreamType(android.media.AudioManager.STREAM_ALARM);
+            }
+            
+            emergencyMediaPlayer.setLooping(true); // Loop until acknowledged
+            emergencyMediaPlayer.setOnPreparedListener(mp -> {
+                mp.start();
+                Log.d("Hospital_Dashboard", "🔊 Emergency alert sound STARTED (looping)");
+            });
+            emergencyMediaPlayer.setOnErrorListener((mp, what, extra) -> {
+                Log.e("Hospital_Dashboard", "❌ MediaPlayer error: what=" + what + ", extra=" + extra);
+                // Fallback to system alarm sound via Ringtone
+                playFallbackAlarmSound();
+                return true;
+            });
+            emergencyMediaPlayer.prepareAsync();
+            
+        } catch (Exception e) {
+            Log.e("Hospital_Dashboard", "❌ Error playing emergency sound: " + e.getMessage(), e);
+            // Fallback to system alarm sound
+            playFallbackAlarmSound();
         }
     }
     
     /**
-     * Play emergency alert sound
+     * Fallback method to play system alarm sound if custom sound fails
      */
-    private void playEmergencyAlertSound() {
+    private void playFallbackAlarmSound() {
         try {
-            // Play emergency sound
-            android.media.RingtoneManager ringtoneManager = new android.media.RingtoneManager(this);
-            android.net.Uri emergencySound = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM);
-            
-            if (emergencySound != null) {
-                android.media.Ringtone ringtone = ringtoneManager.getRingtone(this, emergencySound);
-                if (ringtone != null) {
-                    ringtone.play();
+            Log.d("Hospital_Dashboard", "🔊 Attempting fallback alarm sound...");
+            Uri alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+            if (alarmSound == null) {
+                alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            }
+            if (alarmSound != null) {
+                emergencyAlertRingtone = RingtoneManager.getRingtone(this, alarmSound);
+                if (emergencyAlertRingtone != null) {
+                    // Set stream type to alarm for Ringtone on API 28+
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                        emergencyAlertRingtone.setAudioAttributes(new android.media.AudioAttributes.Builder()
+                                .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                .build());
+                    }
+                    emergencyAlertRingtone.play();
+                    Log.d("Hospital_Dashboard", "🔊 Fallback alarm sound started");
                 }
             }
         } catch (Exception e) {
-            Log.e("Hospital_Dashboard", "❌ Error playing emergency sound", e);
+            Log.e("Hospital_Dashboard", "❌ Error playing fallback alarm sound: " + e.getMessage(), e);
         }
+    }
+    
+    /**
+     * Stop emergency alert sound
+     */
+    private void stopEmergencyAlertSound() {
+        try {
+            // Stop MediaPlayer if playing
+            if (emergencyMediaPlayer != null) {
+                if (emergencyMediaPlayer.isPlaying()) {
+                    emergencyMediaPlayer.stop();
+                }
+                emergencyMediaPlayer.release();
+                emergencyMediaPlayer = null;
+                Log.d("Hospital_Dashboard", "🔇 Emergency MediaPlayer stopped");
+            }
+            
+            // Also stop Ringtone if playing (fallback)
+            if (emergencyAlertRingtone != null && emergencyAlertRingtone.isPlaying()) {
+                emergencyAlertRingtone.stop();
+                Log.d("Hospital_Dashboard", "🔇 Emergency Ringtone stopped");
+            }
+            emergencyAlertRingtone = null;
+        } catch (Exception e) {
+            Log.e("Hospital_Dashboard", "❌ Error stopping emergency sound", e);
+        }
+    }
+    
+    /**
+     * Cancel emergency notification from notification bar
+     */
+    private void cancelEmergencyNotification() {
+        try {
+            android.app.NotificationManager notificationManager = 
+                (android.app.NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (notificationManager != null) {
+                notificationManager.cancel(HOSPITAL_EMERGENCY_NOTIFICATION_ID);
+                Log.d("Hospital_Dashboard", "🔕 Emergency notification cancelled");
+            }
+        } catch (Exception e) {
+            Log.e("Hospital_Dashboard", "❌ Error cancelling notification", e);
+        }
+    }
+    
+    /**
+     * Creates the hospital emergency notification channel with sound enabled
+     * CRITICAL: This must be called early to ensure FCM notifications work when app is closed
+     * The channel must exist before any FCM messages arrive, otherwise notifications may be silent
+     */
+    private void createHospitalEmergencyNotificationChannel() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            android.app.NotificationManager notificationManager = 
+                (android.app.NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (notificationManager == null) {
+                Log.e("Hospital_Dashboard", "❌ NotificationManager is null, cannot create channel");
+                return;
+            }
+            
+            String channelId = "hospital_emergency_channel";
+            
+            // Check if channel exists and needs to be recreated with sound
+            // (Android doesn't allow modifying channel settings after creation)
+            android.app.NotificationChannel existingChannel = notificationManager.getNotificationChannel(channelId);
+            if (existingChannel != null) {
+                if (existingChannel.getSound() == null) {
+                    Log.d("Hospital_Dashboard", "🔄 Existing channel has no sound, deleting and recreating");
+                    notificationManager.deleteNotificationChannel(channelId);
+                } else {
+                    Log.d("Hospital_Dashboard", "✅ Hospital emergency notification channel already exists with sound");
+                    return;
+                }
+            }
+            
+            android.app.NotificationChannel channel = new android.app.NotificationChannel(
+                channelId,
+                "Hospital Emergency Notifications",
+                android.app.NotificationManager.IMPORTANCE_MAX
+            );
+            channel.setDescription("Critical notifications for incoming emergency patients");
+            channel.enableVibration(true);
+            channel.setShowBadge(true);
+            channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
+            channel.enableLights(true);
+            channel.setLightColor(0xFFFF0000);
+            channel.setBypassDnd(true);
+            
+            // Enable sound on channel - this is critical for notifications when app is closed
+            android.net.Uri alarmSound;
+            try {
+                alarmSound = android.net.Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.emergency_alarm);
+            } catch (Exception e) {
+                alarmSound = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM);
+            }
+            channel.setSound(alarmSound, new android.media.AudioAttributes.Builder()
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                    .build());
+            
+            notificationManager.createNotificationChannel(channel);
+            Log.d("Hospital_Dashboard", "✅ Hospital emergency notification channel created with sound enabled");
+        }
+    }
+    
+    /**
+     * Request notification permission for Android 13+ (API 33+)
+     * This is CRITICAL - without this permission, notifications will not be shown
+     */
+    private void requestNotificationPermission() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(this, 
+                    android.Manifest.permission.POST_NOTIFICATIONS) != 
+                    android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                Log.d("Hospital_Dashboard", "🔔 Requesting notification permission for Android 13+");
+                androidx.core.app.ActivityCompat.requestPermissions(this,
+                        new String[]{android.Manifest.permission.POST_NOTIFICATIONS},
+                        NOTIFICATION_PERMISSION_REQUEST_CODE);
+            } else {
+                Log.d("Hospital_Dashboard", "✅ Notification permission already granted");
+            }
+        } else {
+            Log.d("Hospital_Dashboard", "✅ Notification permission not required (Android < 13)");
+        }
+    }
+    
+    private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 1001;
+    
+    /**
+     * Initialize FCM token for hospital push notifications
+     * This is CRITICAL for receiving notifications when app is closed
+     * Uses same pattern as Rescuer_Dashboard
+     */
+    private void initializeHospitalFCMToken() {
+        String currentUserId = sharedPreferences.getString(KEY_USER_ID, null);
+        String currentUserType = sharedPreferences.getString(KEY_USER_TYPE, null);
+        
+        if (currentUserId != null && currentUserType != null && "hospital".equals(currentUserType)) {
+            Log.d("Hospital_Dashboard", "🔑 Initializing FCM token for hospital: " + currentUserId);
+            getAndStoreFCMToken(currentUserId, currentUserType);
+        } else {
+            Log.w("Hospital_Dashboard", "❌ Cannot initialize FCM token - user not logged in or not hospital");
+        }
+    }
+    
+    /**
+     * Gets and stores FCM token for real-time notifications
+     * Uses same pattern as Rescuer_Dashboard
+     */
+    private void getAndStoreFCMToken(String currentUserId, String currentUserType) {
+        Log.d("Hospital_Dashboard", "Getting FCM token for hospital: " + currentUserId);
+        
+        FirebaseMessaging.getInstance().getToken()
+                .addOnCompleteListener(task -> {
+                    if (!task.isSuccessful()) {
+                        Log.w("Hospital_Dashboard", "❌ Fetching FCM registration token failed", task.getException());
+                        return;
+                    }
+                    
+                    // Get new FCM registration token
+                    String token = task.getResult();
+                    if (token != null && !token.isEmpty()) {
+                        Log.d("Hospital_Dashboard", "✅ FCM Registration Token: " + token.substring(0, Math.min(20, token.length())) + "...");
+                        
+                        // Store token in database using same utility as rescuer
+                        FCMNotificationSender.updateUserFCMToken(currentUserId, currentUserType, token);
+                        
+                        // Also save to SharedPreferences for local access
+                        sharedPreferences.edit()
+                                .putString("fcmToken", token)
+                                .putLong("fcmTokenUpdatedAt", System.currentTimeMillis())
+                                .apply();
+                    } else {
+                        Log.w("Hospital_Dashboard", "⚠️ FCM token is null or empty");
+                    }
+                });
     }
 }

@@ -20,6 +20,8 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 public class Hospital_List extends AppCompatActivity implements HospitalAdapter.OnHospitalClickListener {
@@ -56,6 +58,14 @@ public class Hospital_List extends AppCompatActivity implements HospitalAdapter.
         
         // Setup bottom navigation
         setupBottomNavigation();
+    }
+    
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Refresh the list when returning to this screen to reflect completed rescues
+        Log.d(TAG, "onResume - refreshing incoming patient list");
+        loadHospitals();
     }
 
     private void initializeViews() {
@@ -96,12 +106,27 @@ public class Hospital_List extends AppCompatActivity implements HospitalAdapter.
                 .document(userId)
                 .collection("notifications")
                 .whereEqualTo("type", "EMERGENCY_INCOMING")
+                .whereEqualTo("isRead", true)
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     Log.d(TAG, "Successfully loaded notifications, count: " + queryDocumentSnapshots.size());
 
                     List<Hospital> emergencyHospitals = new ArrayList<>();
                     for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
+                        // Filter out completed rescues - check status field
+                        String status = document.getString("status");
+                        Boolean isActive = document.getBoolean("isActive");
+                        
+                        // Skip notifications that are completed or inactive
+                        if ("completed".equals(status)) {
+                            Log.d(TAG, "Skipping completed notification: " + document.getId());
+                            continue;
+                        }
+                        if (isActive != null && !isActive) {
+                            Log.d(TAG, "Skipping inactive notification: " + document.getId());
+                            continue;
+                        }
+                        
                         Hospital hospital = createHospitalFromNotificationDocument(document);
                         emergencyHospitals.add(hospital);
                     }
@@ -147,6 +172,18 @@ public class Hospital_List extends AppCompatActivity implements HospitalAdapter.
     private void displayHospitals(List<Hospital> hospitals) {
         Log.d(TAG, "Displaying " + hospitals.size() + " hospitals");
         
+        // Sort by timestamp (newest first = first in queue)
+        Collections.sort(hospitals, (h1, h2) -> {
+            Long t1 = h1.getEmergencyTimestamp();
+            Long t2 = h2.getEmergencyTimestamp();
+            if (t1 == null && t2 == null) return 0;
+            if (t1 == null) return 1;
+            if (t2 == null) return -1;
+            return t2.compareTo(t1); // Descending order (newest first)
+        });
+        
+        Log.d(TAG, "Sorted hospitals by timestamp (newest first for queue numbering)");
+        
         // Hide no hospitals message
         noHospitalsLayout.setVisibility(View.GONE);
         hospitalsRecyclerView.setVisibility(View.VISIBLE);
@@ -156,12 +193,11 @@ public class Hospital_List extends AppCompatActivity implements HospitalAdapter.
     }
 
     private void showNoHospitalsMessage() {
-        Log.d(TAG, "No hospitals found, showing message");
+        Log.d(TAG, "No hospitals found, showing blank page");
         
-        // Show no hospitals message
+        // Hide everything - completely blank page (no message)
         hospitalsRecyclerView.setVisibility(View.GONE);
-        noHospitalsLayout.setVisibility(View.VISIBLE);
-        noHospitalsText.setText(getString(R.string.no_hospitals_found));
+        noHospitalsLayout.setVisibility(View.GONE);
     }
     
     private void showBlankPage() {
@@ -176,13 +212,24 @@ public class Hospital_List extends AppCompatActivity implements HospitalAdapter.
     public void onHospitalClick(Hospital hospital) {
         Log.d(TAG, "Hospital clicked: " + hospital.getHospitalName());
         
-        // Show hospital details in a toast for now
-        // In a real app, you might navigate to a hospital detail page
-        String message = getString(R.string.hospital_details_format, 
-                        hospital.getHospitalName() != null ? hospital.getHospitalName() : getString(R.string.unknown_hospital),
-                        hospital.getStatusDisplay(),
-                        hospital.getBedStatus());
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+        // Navigate to HospitalEmergencyDetailActivity with senior and rescuer info
+        Intent intent = new Intent(this, HospitalEmergencyDetailActivity.class);
+        
+        // Pass senior information
+        intent.putExtra("senior_name", hospital.getSeniorName());
+        intent.putExtra("senior_phone", hospital.getSeniorPhone());
+        intent.putExtra("senior_address", hospital.getSeniorAddress());
+        
+        // Pass rescuer information
+        intent.putExtra("rescuer_name", hospital.getRescuerName());
+        intent.putExtra("rescuer_phone", hospital.getRescuerPhone());
+        
+        // Pass ETA if available
+        if (hospital.getEstimatedArrivalMinutes() != null) {
+            intent.putExtra("estimated_arrival_minutes", hospital.getEstimatedArrivalMinutes());
+        }
+        
+        startActivity(intent);
     }
 
     private void setupBottomNavigation() {

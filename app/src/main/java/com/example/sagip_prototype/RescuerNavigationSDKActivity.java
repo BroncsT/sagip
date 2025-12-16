@@ -94,7 +94,7 @@ public class RescuerNavigationSDKActivity extends BaseRescuerActivity implements
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 startNavigation();
             } else {
-                Toast.makeText(this, "Location permission required for navigation", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.location_permission_required_nav), Toast.LENGTH_SHORT).show();
                 finish();
             }
         }
@@ -133,7 +133,7 @@ public class RescuerNavigationSDKActivity extends BaseRescuerActivity implements
                                 try {
                                     // The Navigation SDK will handle the navigation automatically
                                     // when the f   ragment is properly configured
-                                    Toast.makeText(this, "Navigation SDK loaded - ready to navigate to " + destinationName, Toast.LENGTH_SHORT).show();
+                                    Toast.makeText(this, String.format(getString(R.string.nav_sdk_loaded), destinationName), Toast.LENGTH_SHORT).show();
                                     
                                     // Log the waypoints for debugging
                                     Log.d(TAG, "Origin: " + location.getLatitude() + ", " + location.getLongitude());
@@ -141,16 +141,16 @@ public class RescuerNavigationSDKActivity extends BaseRescuerActivity implements
                                     
                                 } catch (Exception e) {
                                     Log.e(TAG, "Error with Navigation SDK: " + e.getMessage());
-                                    Toast.makeText(this, "Navigation SDK ready - " + destinationName, Toast.LENGTH_SHORT).show();
+                                    Toast.makeText(this, String.format(getString(R.string.nav_sdk_ready), destinationName), Toast.LENGTH_SHORT).show();
                                 }
                             }
                         } else {
-                            Toast.makeText(this, "Could not get current location", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(this, getString(R.string.could_not_get_location), Toast.LENGTH_SHORT).show();
                         }
                     })
                     .addOnFailureListener(e -> {
                         Log.e(TAG, "Error getting location", e);
-                        Toast.makeText(this, "Error getting location: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, String.format(getString(R.string.error_getting_location), e.getMessage()), Toast.LENGTH_SHORT).show();
                     });
         }
     }

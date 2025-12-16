@@ -300,9 +300,14 @@ exports.sendHospitalUpdateNotification = functions.firestore
             
             const statusEmoji = getStatusEmoji(hospitalStatus);
             
-            // Use DATA-ONLY message (no notification payload) to ensure onMessageReceived is called
-            // even when the app is closed or in background
+            // Use BOTH notification and data payloads for guaranteed delivery
+            // Notification payload ensures delivery even when app is force-closed
+            // Data payload provides context when app handles the notification
             const message = {
+                notification: {
+                    title: '🏥 Hospital Status Updated',
+                    body: `${hospitalName} is now ${statusEmoji} ${hospitalStatus.toUpperCase()}`
+                },
                 data: {
                     type: 'hospital_status_update',
                     title: '🏥 Hospital Status Updated',
@@ -314,7 +319,14 @@ exports.sendHospitalUpdateNotification = functions.firestore
                     timestamp: notificationData.timestamp.toString()
                 },
                 android: {
-                    priority: 'high'
+                    priority: 'high',
+                    notification: {
+                        channelId: 'fcm_hospital_updates',
+                        priority: 'high',
+                        defaultSound: true,
+                        defaultVibrateTimings: true,
+                        visibility: 'public'
+                    }
                 },
                 tokens: tokens
             };
@@ -408,24 +420,30 @@ exports.sendHospitalIncomingEmergencyNotification = functions.firestore
             },
             data: {
                 type: 'EMERGENCY_INCOMING',
+                notification_type: 'EMERGENCY_INCOMING',
                 title: '🚨 Emergency Patient Incoming',
                 body: `${seniorName} (${emergencyType}) incoming to ${hospitalName}${etaPart}`,
                 hospital_id: hospitalId,
                 hospital_name: hospitalName,
                 senior_name: seniorName,
+                senior_phone: notificationData.seniorPhone || '',
                 rescuer_name: rescuerName,
+                rescuer_phone: notificationData.rescuerPhone || '',
                 emergency_id: emergencyId,
                 emergency_type: emergencyType,
-                timestamp: notificationData.timestamp ? notificationData.timestamp.toString() : Date.now().toString()
+                timestamp: notificationData.timestamp ? notificationData.timestamp.toString() : Date.now().toString(),
+                click_action: 'HOSPITAL_EMERGENCY_CLICK'
             },
             android: {
                 priority: 'high',
+                ttl: 86400000,
                 notification: {
                     channelId: 'hospital_emergency_channel',
                     priority: 'max',
-                    defaultSound: true,
+                    sound: 'emergency_alarm',
                     defaultVibrateTimings: true,
-                    visibility: 'public'
+                    visibility: 'public',
+                    notificationCount: 1
                 }
             },
             token: fcmToken
@@ -489,9 +507,13 @@ exports.sendEmergencyNotification = functions.firestore
             
             const emergencyEmoji = getEmergencyEmoji(emergencyType);
             
-            // Use DATA-ONLY message (no notification payload) to ensure onMessageReceived is called
-            // even when the app is closed or in background
+            // Use BOTH notification and data payloads for guaranteed delivery
+            // Notification payload ensures delivery even when app is force-closed
             const message = {
+                notification: {
+                    title: '🚨 EMERGENCY HELP REQUEST',
+                    body: `${seniorName} needs ${emergencyEmoji} ${emergencyType}`
+                },
                 data: {
                     type: 'emergency_help_request',
                     title: '🚨 EMERGENCY HELP REQUEST',
@@ -503,7 +525,14 @@ exports.sendEmergencyNotification = functions.firestore
                     timestamp: notificationData.timestamp.toString()
                 },
                 android: {
-                    priority: 'high'
+                    priority: 'high',
+                    notification: {
+                        channelId: 'fcm_hospital_updates',
+                        priority: 'max',
+                        defaultSound: true,
+                        defaultVibrateTimings: true,
+                        visibility: 'public'
+                    }
                 },
                 tokens: tokens
             };

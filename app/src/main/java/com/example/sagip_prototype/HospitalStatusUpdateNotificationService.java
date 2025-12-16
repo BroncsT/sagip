@@ -121,9 +121,9 @@ public class HospitalStatusUpdateNotificationService {
         // Create notification
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
                 .setContentTitle("🏥 Hospital Status Updated")
-                .setContentText(hospitalName + " is now " + statusEmoji + " " + hospitalStatus.toUpperCase())
+                .setContentText(hospitalName + " is now " + hospitalStatus.toUpperCase())
                 .setStyle(new NotificationCompat.BigTextStyle()
-                        .bigText(hospitalName + " has updated their status to " + statusEmoji + " " + hospitalStatus.toUpperCase() + 
+                        .bigText(hospitalName + " has updated their status to " + hospitalStatus.toUpperCase() + 
                                 "\n\n📊 Available Beds: " + availableBeds + 
                                 "\n👨‍⚕️ Available Doctors: " + availableDoctors +
                                 "\n\nThis information will help with emergency response planning."))

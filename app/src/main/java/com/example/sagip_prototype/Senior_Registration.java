@@ -159,59 +159,79 @@ public class Senior_Registration extends AppCompatActivity {
                 String uid = user.getUid();
                 String userEmail = user.getEmail(); // Get the email used for login
 
-                // ✅ Check if mobile number already exists
+                // ✅ First check if mobile number is used for 2FA/MFA
                 db.collection("Sagip")
-                        .document("users")
-                        .collection(userType)
-                        .whereEqualTo("mobileNumber", mobileNumber)
+                        .document("mfa_phones")
+                        .collection("enrolled")
+                        .whereEqualTo("phoneNumber", mobileNumber)
                         .get()
-                        .addOnSuccessListener(queryDocumentSnapshots -> {
-                            if (!queryDocumentSnapshots.isEmpty()) {
-                                // Mobile number already exists
+                        .addOnSuccessListener(mfaSnapshots -> {
+                            if (!mfaSnapshots.isEmpty()) {
+                                // Phone number is already used for 2FA
                                 Toast.makeText(Senior_Registration.this,
-                                        "This mobile number is already registered.",
-                                        Toast.LENGTH_SHORT).show();
+                                        getString(R.string.phone_already_used_for_2fa),
+                                        Toast.LENGTH_LONG).show();
                             } else {
-                                // Proceed with registration
-                                Map<String, Object> usrData = new HashMap<>();
-                                usrData.put("firstName", firstName);
-                                usrData.put("middleName", middleName);
-                                usrData.put("lastName", lastName);
-                                usrData.put("birthday", birthday);
-                                usrData.put("barangay", selectedBarangay);
-                                usrData.put("mobileNumber", mobileNumber);
-                                if (userEmail != null && !userEmail.isEmpty()) {
-                                    usrData.put("email", userEmail);
-                                }
-                                usrData.put("status", "pending");
-                                usrData.put("user-type", userType);
-
+                                // ✅ Check if mobile number already exists in seniors
                                 db.collection("Sagip")
                                         .document("users")
                                         .collection(userType)
-                                        .document(uid)
-                                        .set(usrData)
-                                        .addOnCompleteListener(new OnCompleteListener<Void>() {
-                                            @Override
-                                            public void onComplete(@NonNull Task<Void> task) {
-                                                if (task.isSuccessful()) {
-                                                    Intent intent = new Intent(Senior_Registration.this,
-                                                            Verification_Page.class);
-                                                    Toast.makeText(Senior_Registration.this, getString(R.string.verification_process), Toast.LENGTH_SHORT).show();
-                                                    startActivity(intent);
-                                                    finish();
-                                                } else {
-                                                    Toast.makeText(Senior_Registration.this,
-                                                            "Failed to save data: " + task.getException().getMessage(),
-                                                            Toast.LENGTH_SHORT).show();
+                                        .whereEqualTo("mobileNumber", mobileNumber)
+                                        .get()
+                                        .addOnSuccessListener(queryDocumentSnapshots -> {
+                                            if (!queryDocumentSnapshots.isEmpty()) {
+                                                // Mobile number already exists
+                                                Toast.makeText(Senior_Registration.this,
+                                                        "This mobile number is already registered.",
+                                                        Toast.LENGTH_SHORT).show();
+                                            } else {
+                                                // Proceed with registration
+                                                Map<String, Object> usrData = new HashMap<>();
+                                                usrData.put("firstName", firstName);
+                                                usrData.put("middleName", middleName);
+                                                usrData.put("lastName", lastName);
+                                                usrData.put("birthday", birthday);
+                                                usrData.put("barangay", selectedBarangay);
+                                                usrData.put("mobileNumber", mobileNumber);
+                                                if (userEmail != null && !userEmail.isEmpty()) {
+                                                    usrData.put("email", userEmail);
                                                 }
+                                                usrData.put("status", "pending");
+                                                usrData.put("user-type", userType);
+
+                                                db.collection("Sagip")
+                                                        .document("users")
+                                                        .collection(userType)
+                                                        .document(uid)
+                                                        .set(usrData)
+                                                        .addOnCompleteListener(new OnCompleteListener<Void>() {
+                                                            @Override
+                                                            public void onComplete(@NonNull Task<Void> task) {
+                                                                if (task.isSuccessful()) {
+                                                                    Intent intent = new Intent(Senior_Registration.this,
+                                                                            Verification_Page.class);
+                                                                    Toast.makeText(Senior_Registration.this, getString(R.string.verification_process), Toast.LENGTH_SHORT).show();
+                                                                    startActivity(intent);
+                                                                    finish();
+                                                                } else {
+                                                                    Toast.makeText(Senior_Registration.this,
+                                                                            "Failed to save data: " + task.getException().getMessage(),
+                                                                            Toast.LENGTH_SHORT).show();
+                                                                }
+                                                            }
+                                                        });
                                             }
+                                        })
+                                        .addOnFailureListener(e -> {
+                                            Toast.makeText(Senior_Registration.this,
+                                                    "Error checking mobile number: " + e.getMessage(),
+                                                    Toast.LENGTH_SHORT).show();
                                         });
                             }
                         })
                         .addOnFailureListener(e -> {
                             Toast.makeText(Senior_Registration.this,
-                                    "Error checking mobile number: " + e.getMessage(),
+                                    "Error checking phone number: " + e.getMessage(),
                                     Toast.LENGTH_SHORT).show();
                         });
             }

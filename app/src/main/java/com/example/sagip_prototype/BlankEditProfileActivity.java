@@ -345,7 +345,7 @@ public class BlankEditProfileActivity extends AppCompatActivity {
 
         // Validate phone number format if provided
         if (!phone.isEmpty() && !isValidPhoneNumber(phone)) {
-            Toast.makeText(this, "Please enter a valid phone number (09XXXXXXXXX)", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.please_enter_valid_phone), Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -403,7 +403,7 @@ public class BlankEditProfileActivity extends AppCompatActivity {
         String formattedNumber = phoneNumber.startsWith("0") ? phoneNumber.substring(1) : phoneNumber;
         String fullPhoneNumber = "+63" + formattedNumber;
         
-        Toast.makeText(this, "Sending OTP to " + fullPhoneNumber + "...", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, String.format(getString(R.string.sending_otp_to), fullPhoneNumber), Toast.LENGTH_SHORT).show();
         
         PhoneAuthOptions options = PhoneAuthOptions.newBuilder(mAuth)
                 .setPhoneNumber(fullPhoneNumber)
@@ -487,8 +487,8 @@ public class BlankEditProfileActivity extends AppCompatActivity {
                         // Try to update phone number directly
                         updatePhoneNumberInAuth(pendingPhone);
                     } else {
-                        Toast.makeText(this, "Failed to verify phone number: " + 
-                                (exception != null ? exception.getMessage() : "Unknown error"), 
+                        Toast.makeText(this, String.format(getString(R.string.failed_to_verify_phone), 
+                                (exception != null ? exception.getMessage() : "Unknown error")), 
                                 Toast.LENGTH_LONG).show();
                     }
                 }
@@ -790,7 +790,7 @@ public class BlankEditProfileActivity extends AppCompatActivity {
                             updateFirestoreEmailOnly(uid, address, contactPerson, email, phone, userType);
                         });
                 } else {
-                    Toast.makeText(this, "Failed to update email: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, String.format(getString(R.string.failed_to_update_email), e.getMessage()), Toast.LENGTH_LONG).show();
                 }
             });
     }
@@ -877,7 +877,7 @@ public class BlankEditProfileActivity extends AppCompatActivity {
             })
             .addOnFailureListener(e -> {
                 Log.e(TAG, "Failed to update Firestore: " + e.getMessage());
-                Toast.makeText(this, "Failed to save data: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(this, String.format(getString(R.string.failed_to_save_data), e.getMessage()), Toast.LENGTH_LONG).show();
             });
     }
     
@@ -931,7 +931,7 @@ public class BlankEditProfileActivity extends AppCompatActivity {
                 originalPhone = phone;
                 
                 String successMessage = buildUpdateMessage(updatedFields);
-                Toast.makeText(this, successMessage + " (Phone verified and updated in Authentication)", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, String.format(getString(R.string.phone_verified_updated), successMessage), Toast.LENGTH_LONG).show();
                 finish();
             })
             .addOnFailureListener(e -> {
@@ -969,7 +969,7 @@ public class BlankEditProfileActivity extends AppCompatActivity {
                 originalPhone = phone;
                 
                 String successMessage = buildUpdateMessage(updatedFields);
-                Toast.makeText(this, successMessage + " (Phone verified and updated in Authentication)", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, String.format(getString(R.string.phone_verified_updated), successMessage), Toast.LENGTH_LONG).show();
                 finish();
             })
             .addOnFailureListener(e -> {
@@ -1011,7 +1011,7 @@ public class BlankEditProfileActivity extends AppCompatActivity {
                 originalPhone = phone;
                 
                 String successMessage = buildUpdateMessage(updatedFields);
-                Toast.makeText(this, successMessage + " (Phone verified and updated in Authentication)", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, String.format(getString(R.string.phone_verified_updated), successMessage), Toast.LENGTH_LONG).show();
                 finish();
             })
             .addOnFailureListener(e -> {

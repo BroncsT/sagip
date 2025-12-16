@@ -398,6 +398,28 @@ public class Rescuer_Registration extends BaseRescuerActivity {
                                     "Registration complete! Redirecting to dashboard...", 
                                     Toast.LENGTH_LONG).show();
                             
+                            // CRITICAL FIX: Save user credentials to SharedPreferences immediately
+                            // This ensures FCM token can be registered and notifications work
+                            android.content.SharedPreferences sharedPreferences = getSharedPreferences("SagipAppPrefs", MODE_PRIVATE);
+                            android.content.SharedPreferences.Editor editor = sharedPreferences.edit();
+                            editor.putBoolean("isLoggedIn", true);
+                            editor.putString("userId", uid);
+                            editor.putString("userType", userType);
+                            editor.apply();
+                            Log.d(TAG, "✅ Saved user credentials to SharedPreferences: userId=" + uid + ", userType=" + userType);
+                            
+                            // CRITICAL FIX: Also save to user_prefs for background services
+                            android.content.SharedPreferences userPrefs = getSharedPreferences("user_prefs", MODE_PRIVATE);
+                            android.content.SharedPreferences.Editor userEditor = userPrefs.edit();
+                            userEditor.putString("user_type", userType);
+                            userEditor.putBoolean("user_logged_out", false);
+                            userEditor.apply();
+                            Log.d(TAG, "✅ Saved user type to user_prefs for background services");
+                            
+                            // CRITICAL FIX: Register FCM token immediately after registration
+                            // This ensures the rescuer can receive SOS notifications right away
+                            registerFCMTokenForNewRescuer(uid);
+                            
                             // Redirect to rescuer dashboard
                             Intent dashboardIntent = new Intent(Rescuer_Registration.this, Rescuer_Dashboard.class);
                             startActivity(dashboardIntent);
@@ -513,6 +535,55 @@ public class Rescuer_Registration extends BaseRescuerActivity {
         }
 
         return null; // Password is valid
+    }
+
+    /**
+     * Registers FCM token immediately after rescuer registration
+     * This ensures the rescuer can receive SOS notifications right away
+     */
+    private void registerFCMTokenForNewRescuer(String rescuerUid) {
+        Log.d(TAG, "🔑 Registering FCM token for new rescuer: " + rescuerUid);
+        
+        com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken()
+                .addOnCompleteListener(task -> {
+                    if (!task.isSuccessful()) {
+                        Log.e(TAG, "❌ Failed to get FCM token for new rescuer", task.getException());
+                        return;
+                    }
+                    
+                    String token = task.getResult();
+                    Log.d(TAG, "✅ FCM token obtained: " + token.substring(0, Math.min(20, token.length())) + "...");
+                    
+                    // Store token in Firestore immediately
+                    java.util.Map<String, Object> tokenData = new java.util.HashMap<>();
+                    tokenData.put("fcmToken", token);
+                    tokenData.put("lastTokenUpdate", System.currentTimeMillis());
+                    tokenData.put("tokenStatus", "active");
+                    
+                    db.collection("Sagip")
+                            .document("users")
+                            .collection("rescuer")
+                            .document(rescuerUid)
+                            .update(tokenData)
+                            .addOnSuccessListener(aVoid -> {
+                                Log.d(TAG, "✅ FCM token saved to Firestore for new rescuer: " + rescuerUid);
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "❌ Failed to save FCM token to Firestore: " + e.getMessage());
+                                // Try using set with merge as fallback
+                                db.collection("Sagip")
+                                        .document("users")
+                                        .collection("rescuer")
+                                        .document(rescuerUid)
+                                        .set(tokenData, SetOptions.merge())
+                                        .addOnSuccessListener(aVoid2 -> {
+                                            Log.d(TAG, "✅ FCM token saved using merge for new rescuer");
+                                        })
+                                        .addOnFailureListener(e2 -> {
+                                            Log.e(TAG, "❌ Failed to save FCM token even with merge: " + e2.getMessage());
+                                        });
+                            });
+                });
     }
 
 }

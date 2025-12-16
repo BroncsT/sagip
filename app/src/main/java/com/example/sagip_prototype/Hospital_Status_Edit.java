@@ -172,13 +172,13 @@ public class Hospital_Status_Edit extends AppCompatActivity {
 
                 // Check for validation errors first
                 if (availableBeds > databaseTotalBeds) {
-                    tvAutoStatus.setText("⚠️ Available beds exceed total (" + databaseTotalBeds + ")");
+                    tvAutoStatus.setText(String.format(getString(R.string.available_beds_exceed_total), databaseTotalBeds));
                     tvAutoStatus.setTextColor(0xFFFF5722);
                     return;
                 }
                 
                 if (availableDoctors > databaseTotalDoctors) {
-                    tvAutoStatus.setText("⚠️ Available doctors exceed total (" + databaseTotalDoctors + ")");
+                    tvAutoStatus.setText(String.format(getString(R.string.available_doctors_exceed_total), databaseTotalDoctors));
                     tvAutoStatus.setTextColor(0xFFFF5722);
                     return;
                 }
@@ -194,19 +194,19 @@ public class Hospital_Status_Edit extends AppCompatActivity {
                     
                     Log.d("Hospital_Status_Edit", "Real-time status calculated: " + status);
                 } else {
-                    tvAutoStatus.setText("⚪ Invalid data - check your inputs");
+                    tvAutoStatus.setText(getString(R.string.invalid_data_check_inputs));
                     tvAutoStatus.setTextColor(0xFF9E9E9E);
                 }
             } else if (availableBedsStr.isEmpty() || doctorsStr.isEmpty()) {
-                tvAutoStatus.setText("⚪ Enter both values");
+                tvAutoStatus.setText(getString(R.string.enter_both_values));
                 tvAutoStatus.setTextColor(0xFF9E9E9E);
             } else if (databaseTotalBeds == 0 || databaseTotalDoctors == 0) {
-                tvAutoStatus.setText("⚪ Loading database totals...");
+                tvAutoStatus.setText(getString(R.string.loading_database_totals));
                 tvAutoStatus.setTextColor(0xFF9E9E9E);
             }
         } catch (NumberFormatException e) {
             Log.e("Hospital_Status_Edit", "Error parsing numbers in real-time update: " + e.getMessage());
-            tvAutoStatus.setText("⚪ Enter valid numbers");
+            tvAutoStatus.setText(getString(R.string.enter_valid_numbers_text));
             tvAutoStatus.setTextColor(0xFF9E9E9E);
         }
     }
@@ -222,13 +222,13 @@ public class Hospital_Status_Edit extends AppCompatActivity {
 
                 // Check for validation errors first
                 if (availableBeds > databaseTotalBeds) {
-                    tvAutoStatus.setText("⚠️ Available beds exceed total (" + databaseTotalBeds + ")");
+                    tvAutoStatus.setText(String.format(getString(R.string.available_beds_exceed_total), databaseTotalBeds));
                     tvAutoStatus.setTextColor(0xFFFF5722);
                     return;
                 }
                 
                 if (availableDoctors > databaseTotalDoctors) {
-                    tvAutoStatus.setText("⚠️ Available doctors exceed total (" + databaseTotalDoctors + ")");
+                    tvAutoStatus.setText(String.format(getString(R.string.available_doctors_exceed_total), databaseTotalDoctors));
                     tvAutoStatus.setTextColor(0xFFFF5722);
                     return;
                 }
@@ -242,20 +242,20 @@ public class Hospital_Status_Edit extends AppCompatActivity {
                     tvAutoStatus.setText(statusText);
                     tvAutoStatus.setTextColor(statusColor);
                 } else {
-                    tvAutoStatus.setText("⚪ Invalid data - check your inputs");
+                    tvAutoStatus.setText(getString(R.string.invalid_data_check_inputs));
                     tvAutoStatus.setTextColor(0xFF9E9E9E);
                 }
             } else if (databaseTotalBeds == 0 || databaseTotalDoctors == 0) {
                 // Show message when database totals are not loaded
-                tvAutoStatus.setText("⚪ Loading database totals...");
+                tvAutoStatus.setText(getString(R.string.loading_database_totals));
                 tvAutoStatus.setTextColor(0xFF9E9E9E);
             } else {
                 // Show placeholder when not all fields are filled
-                tvAutoStatus.setText("⚪ Enter available beds and doctors");
+                tvAutoStatus.setText(getString(R.string.enter_beds_doctors));
                 tvAutoStatus.setTextColor(0xFF9E9E9E);
             }
         } catch (NumberFormatException e) {
-            tvAutoStatus.setText("⚪ Enter valid numbers");
+            tvAutoStatus.setText(getString(R.string.enter_valid_numbers_text));
             tvAutoStatus.setTextColor(0xFF9E9E9E);
         }
     }
@@ -271,6 +271,11 @@ public class Hospital_Status_Edit extends AppCompatActivity {
             return "unknown";
         }
         
+        if (availableBeds > databaseTotalBeds) {
+            Log.w("Hospital_Status_Edit", "Available beds > total beds - returning unknown");
+            return "unknown";
+        }
+        
         // Calculate capacity percentage (occupied beds / total beds)
         int occupiedBeds = databaseTotalBeds - availableBeds;
         double capacityPercentage = ((double) occupiedBeds / databaseTotalBeds) * 100;
@@ -281,21 +286,18 @@ public class Hospital_Status_Edit extends AppCompatActivity {
         Log.d("Hospital_Status_Edit", "Calculated - capacityPercentage: " + capacityPercentage +
                 "%, occupiedBeds: " + occupiedBeds + ", occupiedBedsPerDoctor: " + occupiedBedsPerDoctor);
 
-        // Automatic status logic based on occupancy and workload
+        // Automatic status logic based on capacity and workload (synced with Hospital_Dashboard)
         String result;
         if (availableBeds == 0) {
             result = "crowded"; // No available beds
-        } else if (capacityPercentage >= 90 || occupiedBedsPerDoctor >= 8) {
-            result = "crowded"; // Near capacity or very high workload
-        } else if (capacityPercentage >= 70 || occupiedBedsPerDoctor >= 5) {
+        } else if (capacityPercentage >= 90 || occupiedBedsPerDoctor >= 8 || availableDoctors < 2) {
+            result = "crowded"; // At or near capacity, or insufficient staff
+        } else if (capacityPercentage >= 70 || occupiedBedsPerDoctor >= 6 || availableDoctors < 3) {
             result = "busy"; // High capacity or high workload
+        } else if (capacityPercentage >= 50 || occupiedBedsPerDoctor >= 4) {
+            result = "busy"; // Moderate capacity or moderate workload
         } else {
-            result = "available"; // Good capacity and manageable workload
-        }
-
-        // Staffing safeguard: 1 available doctor should not show as AVAILABLE
-        if (availableDoctors == 1 && "available".equalsIgnoreCase(result)) {
-            result = "busy";
+            result = "available"; // Good capacity and low workload
         }
         
         Log.d("Hospital_Status_Edit", "Final result: " + result);
@@ -361,8 +363,8 @@ public class Hospital_Status_Edit extends AppCompatActivity {
 
     private void loadDatabaseTotals() {
         // Show loading state
-        tvDatabaseTotalBeds.setText("Loading...");
-        tvDatabaseTotalDoctors.setText("Loading...");
+        tvDatabaseTotalBeds.setText(getString(R.string.loading_text_simple));
+        tvDatabaseTotalDoctors.setText(getString(R.string.loading_text_simple));
         
         // Load only the current hospital's data, not all hospitals
         db.collection("Sagip")
@@ -389,7 +391,7 @@ public class Hospital_Status_Edit extends AppCompatActivity {
                             Log.d("Hospital_Status_Edit", "Loaded total beds: " + databaseTotalBeds + " for hospital: " + documentSnapshot.getString("hospitalName"));
                         } else {
                             Log.w("Hospital_Status_Edit", "No beds data found for current hospital");
-                            tvDatabaseTotalBeds.setText("N/A");
+                            tvDatabaseTotalBeds.setText(getString(R.string.na_text));
                         }
                         
                         if (totalDoctors != null) {
@@ -398,20 +400,20 @@ public class Hospital_Status_Edit extends AppCompatActivity {
                             Log.d("Hospital_Status_Edit", "Loaded total doctors: " + databaseTotalDoctors + " for hospital: " + documentSnapshot.getString("hospitalName"));
                         } else {
                             Log.w("Hospital_Status_Edit", "No doctors data found for current hospital");
-                            tvDatabaseTotalDoctors.setText("N/A");
+                            tvDatabaseTotalDoctors.setText(getString(R.string.na_text));
                         }
                         
                         // Update status calculation with new database totals
                         updateAutoStatus();
                     } else {
                         Log.w("Hospital_Status_Edit", "Current hospital document not found");
-                        tvDatabaseTotalBeds.setText("N/A");
-                        tvDatabaseTotalDoctors.setText("N/A");
+                        tvDatabaseTotalBeds.setText(getString(R.string.na_text));
+                        tvDatabaseTotalDoctors.setText(getString(R.string.na_text));
                     }
                 })
                 .addOnFailureListener(e -> {
-                    tvDatabaseTotalBeds.setText("Error");
-                    tvDatabaseTotalDoctors.setText("Error");
+                    tvDatabaseTotalBeds.setText(getString(R.string.error_text));
+                    tvDatabaseTotalDoctors.setText(getString(R.string.error_text));
                     Toast.makeText(this, String.format(getString(R.string.failed_to_load_hospital_data_format), e.getMessage()), Toast.LENGTH_SHORT).show();
                     Log.e("Hospital_Status_Edit", "Failed to load hospital data", e);
                 });

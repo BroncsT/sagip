@@ -57,13 +57,15 @@
     <string name="back_side_id">Likod na Bahagi ng ID</string>
     <string name="upload_from_gallery">I-upload mula sa Gallery</string>
     <string name="capture_with_camera">Kunin gamit ang Camera</string>
-    <string name="tap_to_upload_front">I-tap para i-upload ang harap</string>
-    <string name="tap_to_upload_back">I-tap para i-upload ang likod</string>
+    <string name="tap_to_upload_front">I-tap para buksan ang camera</string>
+    <string name="tap_to_upload_back">I-tap para buksan ang camera</string>
+    <string name="valid_id_instruction">Siguraduhing malinaw na nakikita ng camera ang lahat ng bahagi ng iyong ID.</string>
     <string name="next">Susunod</string>
     <string name="please_select_id_type">Mangyaring pumili ng uri ng ID</string>
     <string name="please_upload_front">Mangyaring i-upload ang harap na bahagi ng iyong ID</string>
     <string name="please_upload_back">Mangyaring i-upload ang likod na bahagi ng iyong ID</string>
-    
+    <string name="delete_contact_title">Tanggalin ang Kontakto</string>
+    <string name="delete_contact_message">Sigurado ka bang gusto mong tanggalin si %s?</string>
     <!-- Camera Capture -->
     <string name="position_front_id">Iposisyon ang HARAP ng iyong ID sa loob ng frame</string>
     <string name="position_back_id">Iposisyon ang LIKOD ng iyong ID sa loob ng frame</string>
@@ -80,42 +82,42 @@
     <string name="selfie_verification">Pag-verify ng Selfie</string>
     <string name="automatic_selfie_verification">Automatic na Pag-verify ng Selfie</string>
     <string name="step_2_of_3">Hakbang 2 ng 3: Automatic na Pag-verify ng Selfie</string>
-    <string name="step_2_complete">Hakbang 2 ng 3: Pag-verify ng Selfie ✓</string>
-    <string name="position_face_circle">⭕ Iposisyon ang iyong mukha sa bilog</string>
-    <string name="look_directly_camera">😊 Tingnan nang diretso ang camera</string>
-    <string name="ensure_good_lighting">💡 Siguraduhing may magandang ilaw</string>
-    <string name="keep_face_centered">👤 Panatilihing nasa gitna ang mukha</string>
-    <string name="photo_taken_automatically">⏱️ Kukuhanin nang automatic ang larawan</string>
+    <string name="step_2_complete">Hakbang 2 ng 3: Pag-verify ng Selfie </string>
+    <string name="position_face_circle"> Iposisyon ang iyong mukha sa bilog</string>
+    <string name="look_directly_camera">Tingnan nang diretso ang camera</string>
+    <string name="ensure_good_lighting">Siguraduhing may magandang ilaw</string>
+    <string name="keep_face_centered">Panatilihing nasa gitna ang mukha</string>
+    <string name="photo_taken_automatically">Kukuhanin nang automatic ang larawan</string>
     <string name="tap_start_capture">I-tap ang \'Simulan ang Automatic Capture\' para magsimula</string>
-    <string name="detecting_face">🔍 Nakikita ang mukha...</string>
-    <string name="face_detected">🔍 Nakita ang mukha!</string>
-    <string name="no_face_detected">🔍 Walang nakikitang mukha</string>
+    <string name="detecting_face">Nakikita ang mukha...</string>
+    <string name="face_detected">Nakita ang mukha!</string>
+    <string name="no_face_detected">Walang nakikitang mukha</string>
     <string name="please_position_face">Mangyaring iposisyon ang iyong mukha sa camera view</string>
-    <string name="move_face_circle">⭕ Ilipat ang iyong mukha sa bilog</string>
-    <string name="move_closer_camera">📏 Lumapit sa camera</string>
-    <string name="improve_lighting">💡 Pagandahin ang ilaw</string>
-    <string name="perfect_taking_photo">✅ Perpekto! Kukuhanin ang larawan sa %1$d segundo...</string>
-    <string name="capturing_photo_now">📸 Kinukuha ang larawan ngayon...</string>
-    <string name="uploading_selfie">📤 Ina-upload ang iyong selfie...</string>
+    <string name="move_face_circle">Ilipat ang iyong mukha sa bilog</string>
+    <string name="move_closer_camera">Lumapit sa camera</string>
+    <string name="improve_lighting">Pagandahin ang ilaw</string>
+    <string name="perfect_taking_photo">Perpekto! Kukuhanin ang larawan sa %1$d segundo...</string>
+    <string name="capturing_photo_now">Kinukuha ang larawan ngayon...</string>
+    <string name="uploading_selfie">Ina-upload ang iyong selfie...</string>
     <string name="please_wait_moment">Mangyaring maghintay sandali.</string>
-    <string name="selfie_captured_uploaded">✅ Matagumpay na nakuha at na-upload ang selfie!</string>
-    <string name="upload_failed_try_again">❌ Hindi na-upload. Mangyaring subukan muli.</string>
+    <string name="selfie_captured_uploaded">Matagumpay na nakuha at na-upload ang selfie!</string>
+    <string name="upload_failed_try_again">Hindi na-upload. Mangyaring subukan muli.</string>
     <string name="selfie_upload_failed">Hindi na-upload ang Selfie</string>
-    <string name="perfect_selfie_captured">✅ Perpekto! Nakuha nang automatic ang iyong selfie.</string>
+    <string name="perfect_selfie_captured">Perpekto! Nakuha nang automatic ang iyong selfie.</string>
     <string name="review_guidelines_verify">Mangyaring tingnan ang mga gabay sa ibaba at i-tap ang \'I-verify ang Selfie\' para magpatuloy.</string>
-    <string name="retake_selfie">📷 Kunin ulit ang Selfie</string>
+    <string name="retake_selfie">Kunin ulit ang Selfie</string>
     <string name="verify_selfie">I-verify ang Selfie</string>
     <string name="please_take_selfie">Mangyaring kumuha muna ng selfie photo</string>
-    <string name="submitting_verification">📤 Ina-submit ang verification...</string>
+    <string name="submitting_verification">Ina-submit ang verification...</string>
     <string name="please_wait_process">Mangyaring maghintay habang pinoproseso namin ang iyong impormasyon.</string>
-    <string name="verification_submitted">✅ Matagumpay na na-submit ang verification!</string>
+    <string name="verification_submitted">Matagumpay na na-submit ang verification!</string>
     <string name="account_pending_approval">Ang iyong account ay nasa pending approval na.</string>
     <string name="redirected_login">Mare-redirect ka sa login page.</string>
-    <string name="verification_submitted_success">✅ Matagumpay na na-submit ang verification! Ang iyong account ay nasa pending approval.</string>
-    <string name="submission_failed">❌ Hindi na-submit. Mangyaring subukan muli.</string>
+    <string name="verification_submitted_success">Matagumpay na na-submit ang verification! Ang iyong account ay nasa pending approval.</string>
+    <string name="submission_failed">Hindi na-submit. Mangyaring subukan muli.</string>
     <string name="check_internet_try_again">Tingnan ang iyong internet connection at subukan muli.</string>
     <string name="failed_submit_verification">Hindi na-submit ang verification</string>
-    <string name="camera_permission_denied">❌ Tinanggihan ang camera permission.</string>
+    <string name="camera_permission_denied">Tinanggihan ang camera permission.</string>
     <string name="grant_permission_settings">Mangyaring bigyan ng permission sa Settings o subukan muli.</string>
     <string name="camera_permission_required_verification">Kailangan ang camera permission para sa automatic na pag-verify ng mukha</string>
     <string name="user_not_authenticated">Hindi naka-authenticate ang user</string>
@@ -132,6 +134,9 @@
     <string name="no">Hindi</string>
     <string name="loading">Naglo-load...</string>
     <string name="please_wait">Mangyaring maghintay...</string>
+    <string name="restoring_session">Ibinabalik ang iyong session...</string>
+    <string name="session_restore_failed">Nag-expire ang session. Mangyaring mag-login muli.</string>
+    <string name="session_restored">Matagumpay na naibalik ang session</string>
     
     <!-- Image Source Dialog -->
     <string name="select_image_source">Pumili ng Pinagmulan ng Larawan</string>
@@ -173,10 +178,14 @@
     
     <!-- Registration -->
     <string name="back_arrow">Bumalik</string>
-    <string name="checkmark">✓</string>
-    <string name="account_information">Impormasyon ng Account</string>
+    <string name="checkmark"></string>
+    <string name="account_information">Impormasyon ng Account ng Senior</string>
     <string name="mobile_info">Impormasyon ng Mobile</string>
-    <string name="instruction_text">Mangyaring punuin ang impormasyon sa ibaba</string>
+    <string name="instruction_text">Mangyaring punuin ang impormasyon sa ibaba para makapagsimula.</string>
+    <string name="verify_instruction">I-verify ang iyong pagkakakilanlan sa pamamagitan ng pagkumpleto ng ID at Selfie Verification.</string>
+    <string name="ID_verify_instruction">Piliin ang government-issued valid ID na gagamitin mo para sa verification na ito.</string>
+    <string name="selfie_verify_instruction">Iposisyon ang iyong mukha sa frame.</string>
+    <string name="location_text">Mga Detalye ng Lokasyon</string>
     <string name="barangay_name">Pangalan ng Barangay</string>
     <string name="email_hint">Ilagay ang iyong email address</string>
     <string name="terms_conditions">Sumasang-ayon ako sa mga Terms at Conditions</string>
@@ -244,7 +253,7 @@
     <string name="section_contact_details">Mga Detalye ng Contact</string>
     <string name="hint_headquarters_address">Ilagay ang address ng headquarters</string>
     <string name="hint_primary_contact_person">Ilagay ang primary contact person</string>
-    <string name="hint_contact_number">Ilagay ang contact number (opsyonal)</string>
+    <string name="hint_contact_number">Ilagay ang contact number</string>
     <string name="checkbox_terms_conditions">Sumasang-ayon ako sa mga Terms at Conditions</string>
     <string name="checkbox_privacy_policy">Sumasang-ayon ako sa Privacy Policy</string>
     <string name="button_register_rescue_group">Iparehistro ang Rescue Group</string>
@@ -277,7 +286,13 @@
     <string name="first_name_hint">Ilagay ang first name</string>
     <string name="middle_name_hint">Ilagay ang middle name</string>
     <string name="last_name_hint">Ilagay ang last name</string>
-    <string name="birthday_hint">Ilagay ang birthday</string>
+    <string name="birthday_hint">DD-MM-YY</string>
+    <string name="first_name_label">Unang Pangalan" "<font color="#FF0000">*</font></string>
+    <string name="middle_name_label">Gitnang Pangalan</string>
+    <string name="last_name_label">Apelyido" "<font color="#FF0000">*</font></string>
+    <string name="birthday_label">Petsa ng Kapanganakan" "<font color="#FF0000">*</font></string>
+    <string name="email_address_optional_label">Email Address" "<font color="#6B7280">(Opsyonal)</font></string>
+    <string name="barangay_hint_select">--Piliin ang iyong barangay--</string>
     
     <!-- Menu Items -->
     <string name="hospital_list">Lista ng Hospital</string>
@@ -298,23 +313,23 @@
     <!-- Rescuer Dashboard -->
     <string name="welcome_back">Maligayang pagbabalik!</string>
     <string name="rescuer_name">Pangalan ng Rescuer</string>
-    <string name="location_map">🗺️ Mapa ng Lokasyon</string>
+    <string name="location_map"> Mapa ng Lokasyon</string>
     <string name="show_map">Ipakita ang Mapa</string>
-    <string name="emergency_status">🚨 Status ng Emergency</string>
+    <string name="emergency_status"> Status ng Emergency</string>
     <string name="ready_to_respond">Handa nang tumugon sa mga emergency calls</string>
     <string name="location_tracking_on">• Location tracking: ON</string>
     <string name="emergency_listener_active">• Emergency listener: ACTIVE</string>
     <string name="notifications_enabled">• Notifications: ENABLED</string>
     <string name="status_details">• Location tracking: ON\n• Emergency listener: ACTIVE\n• Notifications: ENABLED</string>
-    <string name="quick_actions">⚡ Mabilis na Aksyon</string>
-    <string name="navigate_to_nearest_hospital">🏥 Mag-navigate sa Pinakamalapit na Hospital</string>
-    <string name="how_it_works">ℹ️ Paano ito gumagana</string>
+    <string name="quick_actions"> Mabilis na Aksyon</string>
+    <string name="navigate_to_nearest_hospital"> Mag-navigate sa Pinakamalapit na Hospital</string>
+    <string name="how_it_works"> Paano ito gumagana</string>
     <string name="rescuer_instructions">1. Panatilihing bukas ang app para makatanggap ng emergency alerts\n2. Kapag may emergency, makakatanggap ka ng notification\n3. Gamitin ang mapa para makita ang emergency location at route\n4. I-tap ang \'RESPOND NOW\' para tanggapin ang emergency\n5. Gamitin ang Google Maps integration para sa turn-by-turn directions</string>
     <string name="user_name_not_available">Hindi Available ang Pangalan ng User</string>
     
     <!-- Rescuer Dashboard Toast Messages -->
     <string name="emergency_notification_cleared">Na-clear ang emergency notification</string>
-    <string name="response_recorded">✅ Na-record ang response - Papunta na ang tulong!</string>
+    <string name="response_recorded"> Na-record ang response - Papunta na ang tulong!</string>
     <string name="error_recording_response">Error sa pag-record ng response</string>
     <string name="emergency_location_not_available">Hindi available ang emergency location</string>
     <string name="destination_location_not_available">Hindi available ang destination location</string>
@@ -322,8 +337,8 @@
     <string name="opening_google_maps_navigation">Binubuksan ang Google Maps navigation papunta sa %1$s</string>
     <string name="opening_browser_navigation">Binubuksan ang navigation sa browser papunta sa %1$s</string>
     <string name="error_opening_navigation">Error sa pagbukas ng navigation</string>
-    <string name="opening_google_maps_to_senior">🚗 Binubuksan ang Google Maps navigation papunta kay %1$s</string>
-    <string name="opening_web_navigation_to_senior">🌐 Binubuksan ang web-based navigation papunta kay %1$s</string>
+    <string name="opening_google_maps_to_senior"> Binubuksan ang Google Maps navigation papunta kay %1$s</string>
+    <string name="opening_web_navigation_to_senior"> Binubuksan ang web-based navigation papunta kay %1$s</string>
     <string name="phone_number_not_available">Hindi available ang phone number</string>
     <string name="current_location_not_available_permissions">Hindi available ang current location. Mangyaring maghintay o tingnan ang permissions.</string>
     <string name="user_profile_not_found_senior">Hindi nahanap ang user profile. Mangyaring mag-login muli.</string>
@@ -333,11 +348,11 @@
     <!-- Hospital Dashboard -->
     <string name="hello">Kamusta, </string>
     <string name="hospital_address">Address ng Hospital</string>
-    <string name="available_status">🟢 AVAILABLE</string>
+    <string name="available_status"> AVAILABLE</string>
     <string name="beds_info">Beds: %1$d/%2$d</string>
     <string name="doctors_info">Doktor: %1$d</string>
     <string name="location_format">Location: %1$s</string>
-    <string name="status_not_available_er">⚪ Hindi available ang status</string>
+    <string name="status_not_available_er"> Hindi available ang status</string>
     
     <!-- Contact List -->
     <string name="contact_name">Pangalan ng Contact</string>
@@ -1058,6 +1073,8 @@
     <string name="mfa_enrollment_success">Naka-enable na ang two-factor authentication!</string>
     <string name="mfa_enrollment_failed">Nabigo ang pag-enable ng two-factor authentication</string>
     <string name="mfa_phone_already_used">Ang numerong ito ay nakarehistro na sa two-factor authentication ng ibang account. Mangyaring gumamit ng ibang numero ng telepono.</string>
+    <string name="phone_already_used_for_2fa">Ang numerong ito ay ginagamit na para sa two-factor authentication. Hindi ito maaaring gamitin para sa senior registration.</string>
+    <string name="phone_already_registered_senior">Ang numerong ito ay nakarehistro na bilang senior citizen account. Hindi ito maaaring gamitin para sa two-factor authentication.</string>
     <string name="mfa_verify_login_title">I-verify ang Iyong Login</string>
     <string name="mfa_verify_login_message">Naipadala na ang verification code sa %1$s. Ilagay ang code para magpatuloy.</string>
     <string name="mfa_signin_failed">Nabigo ang login verification. Subukan ulit.</string>
@@ -1191,9 +1208,204 @@
     <string name="front_id_photo_uploaded">Matagumpay na na-upload ang front ID photo</string>
     <string name="back_id_photo_uploaded">Matagumpay na na-upload ang back ID photo</string>
     <string name="image_upload_failed_format">Nabigo ang Pag-upload ng Image: %1$s</string>
-    <string name="barangay_emergency_action_call">📞 TAWAGAN ANG SENIOR</string>
-    <string name="barangay_emergency_action_navigate">🗺️ MAG-NAVIGATE</string>
-    <string name="barangay_emergency_action_view">👁️ TINGNAN ANG DETALYE</string>
+    <string name="barangay_emergency_action_call"> TAWAGAN ANG SENIOR</string>
+    <string name="barangay_emergency_action_navigate"> MAG-NAVIGATE</string>
+    <string name="barangay_emergency_action_view"> TINGNAN ANG DETALYE</string>
     <string name="required_field">Kailangan</string>
+    
+    <!-- Hospital Emergency Detail Activity -->
+    <string name="emergency_details_title">Mga Detalye ng Emergency</string>
+    <string name="eta_label_full">ETA:</string>
+    <string name="call_rescuer">Tawagan ang Rescuer</string>
+    <string name="call_senior">Tawagan ang Senior</string>
+    <string name="back">Bumalik</string>
+    <string name="phone_not_available">Hindi available ang numero ng telepono</string>
+    <string name="invalid_phone_number">Hindi wastong format ng numero ng telepono</string>
+    
+    <!-- Senior SOS Details Activity -->
+    <string name="sos_emergency_details_title">SOS Emergency</string>
+    <string name="emergency_sos">EMERGENCY SOS</string>
+    <string name="senior_information_title">Impormasyon ng Senior</string>
+    <string name="location_information_title">Mga Detalye ng Lokasyon</string>
+    <string name="request_information_title">Impormasyon ng Request</string>
+    <string name="coordinates_label">Coordinates:</string>
+    <string name="request_id_label">Request ID:</string>
+    
+    <!-- Emergency Time Strings -->
+    <string name="requested_just_now">Hiniling ngayon lang</string>
+    <string name="requested_1_min_ago">Hiniling 1 minuto na ang nakakalipas</string>
+    <string name="requested_mins_ago">Hiniling %1$d minuto na ang nakakalipas</string>
+    <string name="requested_1_hour_ago">Hiniling 1 oras na ang nakakalipas</string>
+    <string name="requested_hours_ago">Hiniling %1$d oras na ang nakakalipas</string>
+    <string name="emergency_request_active">Aktibo ang emergency request</string>
+    
+    <!-- Rescuer Arrival Dialog -->
+    <string name="dialog_rescuer_arrival_title"> Nakarating Ka Na!</string>
+    <string name="dialog_rescuer_arrival_message">Matagumpay kang nakarating sa emergency location. Naabisuhan na ang senior ng iyong pagdating.\n\nMangyaring tumulong sa taong nangangailangan.</string>
+    <string name="button_acknowledged"> Natanggap</string>
+    <string name="toast_arrival_confirmed"> Nakumpirma ang pagdating! Naabisuhan na ang senior.</string>
+    
+    <!-- Rescuer Accepted Dialog -->
+    <string name="dialog_rescuer_accepted_title"> Papunta na ang Tulong!</string>
+    <string name="dialog_rescuer_accepted_message">Tinanggap ni %1$s mula sa %2$s ang iyong emergency request at papunta na para tumulong sa iyo.\n\nMaaari mong tingnan ang detalyadong impormasyon tungkol sa iyong rescuer o direktang tawagan sila.</string>
+    
+    <!-- Email Verification -->
+    <string name="email_verification_check">Na-verify Ko Na</string>
+    <string name="email_verification_resend">I-resend ang Email</string>
+    <string name="email_verified_success">Matagumpay na na-verify ang email!</string>
+    <string name="email_not_verified_yet">Hindi pa na-verify ang email. Mangyaring tingnan ang iyong inbox at i-click ang verification link.</string>
+    <string name="email_verification_sent">Naipadala na ang verification email!</string>
+    <string name="email_verification_send_failed">Nabigo ang pagpapadala ng verification email. Mangyaring subukan muli.</string>
+    <string name="email_verification_required_login">Kailangan ang email verification. Mangyaring i-verify ang iyong email at mag-login muli.</string>
+    <string name="too_many_requests_try_later">Masyadong maraming request. Mangyaring subukan muli mamaya.</string>
+    
+    <!-- Angeles City Barangays -->
+    <string name="select_barangay">Pumili ng Barangay</string>
+    <string name="barangay_agapito_del_rosario">Agapito del Rosario</string>
+    <string name="barangay_amsic">Amsic</string>
+    <string name="barangay_anunas">Anunas</string>
+    <string name="barangay_balibago">Balibago</string>
+    <string name="barangay_capaya">Capaya</string>
+    <string name="barangay_claro_m_recto">Claro M. Recto</string>
+    <string name="barangay_cuayan">Cuayan</string>
+    <string name="barangay_cutcut">Cutcut</string>
+    <string name="barangay_cutud">Cutud</string>
+    <string name="barangay_lourdes_north_west">Lourdes North West</string>
+    <string name="barangay_lourdes_sur">Lourdes Sur</string>
+    <string name="barangay_lourdes_sur_east">Lourdes Sur East</string>
+    <string name="barangay_malabanas">Malabañas</string>
+    <string name="barangay_margot">Margot</string>
+    <string name="barangay_mining">Mining</string>
+    <string name="barangay_ninoy_aquino">Ninoy Aquino (Marisol)</string>
+    <string name="barangay_pampang">Pampang</string>
+    <string name="barangay_pandan">Pandan</string>
+    <string name="barangay_pulung_cacutud">Pulung Cacutud</string>
+    <string name="barangay_pulung_maragul">Pulung Maragul</string>
+    <string name="barangay_pulungbulu">Pulungbulu</string>
+    <string name="barangay_salapungan">Salapungan</string>
+    <string name="barangay_san_jose">San Jose</string>
+    <string name="barangay_san_nicolas">San Nicolas</string>
+    <string name="barangay_santa_teresita">Santa Teresita</string>
+    <string name="barangay_santa_trinidad">Santa Trinidad</string>
+    <string name="barangay_santo_cristo">Santo Cristo</string>
+    <string name="barangay_santo_domingo">Santo Domingo</string>
+    <string name="barangay_santo_rosario">Santo Rosario (Poblacion)</string>
+    <string name="barangay_sapalibutad">Sapalibutad</string>
+    <string name="barangay_sapangbato">Sapangbato</string>
+    <string name="barangay_tabun">Tabun</string>
+    <string name="barangay_virgen_delos_remedios">Virgen Delos Remedios</string>
+    
+    <!-- Hardcoded Strings - MyGoogleMAp -->
+    <string name="error_initializing_location">Error sa pag-initialize ng location services</string>
+    <string name="destination_not_available">Hindi available ang destinasyon</string>
+    <string name="opening_google_maps_nav_to"> Binubuksan ang Google Maps navigation papunta kay %1$s</string>
+    <string name="opening_web_navigation"> Binubuksan ang web-based navigation</string>
+    <string name="navigation_started_follow_route"> Nagsimula ang navigation - Sundan ang asul na linya ng ruta</string>
+    <string name="route_hidden">Nakatago ang ruta</string>
+    <string name="failed_to_get_directions">Hindi nakuha ang mga direksyon</string>
+    <string name="error_getting_directions">Error sa pagkuha ng mga direksyon</string>
+    <string name="no_route_found">Walang nahanap na ruta</string>
+    <string name="error_parsing_route">Error sa pag-parse ng data ng ruta</string>
+    <string name="call_permission_not_granted">Hindi nabigyan ng call permission</string>
+    <string name="calling_closest_rescuer_feature">Ang feature na pagtawag sa pinakamalapit na rescuer ay ipapatupad</string>
+    <string name="test_rescuer_tracking_feature">Test rescuer tracking feature</string>
+    <string name="location_permission_needed">Kailangan ang location permission para sa location services</string>
+    
+    <!-- Hardcoded Strings - BlankEditProfileActivity -->
+    <string name="please_enter_valid_phone">Mangyaring maglagay ng wastong numero ng telepono (09XXXXXXXXX)</string>
+    <string name="sending_otp_to">Ipinapadala ang OTP sa %1$s...</string>
+    <string name="failed_to_verify_phone">Nabigo ang pag-verify ng numero ng telepono: %1$s</string>
+    <string name="failed_to_update_email">Nabigo ang pag-update ng email: %1$s</string>
+    <string name="failed_to_save_data">Nabigo ang pag-save ng data: %1$s</string>
+    <string name="phone_verified_updated">%1$s (Na-verify at na-update ang telepono sa Authentication)</string>
+    
+    <!-- Hardcoded Strings - EmergencyAssignmentActivity -->
+    <string name="invalid_phone_number_format">Hindi wastong numero ng telepono: %1$s</string>
+    <string name="location_updated">Na-update ang lokasyon</string>
+    <string name="status_emergency_completed">Na-update ang status: Nakumpleto ang emergency response</string>
+    <string name="rescue_details_saved">Matagumpay na na-save ang mga detalye ng rescue</string>
+    <string name="error_saving_rescue_details">Error sa pag-save ng mga detalye ng rescue</string>
+    <string name="location_permission_required_tracking">Kailangan ang location permission para sa tumpak na tracking</string>
+    <string name="complete_assignment_before_leaving">Mangyaring kumpletuhin ang emergency assignment bago umalis</string>
+    <string name="error_navigating_dashboard">Error sa pag-navigate sa dashboard</string>
+    <string name="status_responding">🚨 TUMUTUGON</string>
+    <string name="hospital_text">Hospital</string>
+    <string name="address_not_available_text">Hindi available ang address</string>
+    <string name="hospital_info_not_available">Hindi Available ang Impormasyon ng Hospital</string>
+    <string name="please_contact_emergency">Mangyaring makipag-ugnayan sa emergency services</string>
+    <string name="distance_unknown">Distansya: Hindi alam</string>
+    <string name="distance_test_mode">Distansya: Test Mode</string>
+    <string name="distance_calculating">Distansya: Kinakalkula...</string>
+    <string name="eta_calculating">ETA: Kinakalkula...</string>
+    <string name="eta_format">ETA: %1$s (%2$s)</string>
+    <string name="status_done">✅ TAPOS NA</string>
+    <string name="done_text">TAPOS NA</string>
+    
+    <!-- Hardcoded Strings - RescuerNavigationSDKActivity -->
+    <string name="location_permission_required_nav">Kailangan ang location permission para sa navigation</string>
+    <string name="nav_sdk_loaded">Na-load ang Navigation SDK - handa nang mag-navigate papunta sa %1$s</string>
+    <string name="nav_sdk_ready">Handa na ang Navigation SDK - %1$s</string>
+    <string name="could_not_get_location">Hindi makuha ang kasalukuyang lokasyon</string>
+    
+    <!-- Hardcoded Strings - Rescuer_Dashboard -->
+    <string name="opening_maps_nav_to_hospital"> Binubuksan ang Google Maps navigation papunta sa %1$s</string>
+    <string name="opening_web_nav_to_hospital"> Binubuksan ang web-based navigation papunta sa %1$s</string>
+    <string name="enable_sms_later">Maaari mong i-enable ang SMS notifications sa Settings mamaya</string>
+    
+    <!-- Hardcoded Strings - Senior_Details_Activity -->
+    <string name="phone_number_not_available_short">Hindi available ang numero ng telepono</string>
+    <string name="invalid_phone_format">Hindi wastong format ng numero ng telepono</string>
+    <string name="error_making_call">Error sa pagtawag</string>
+    
+    <!-- Hardcoded Strings - FeedbackActivity -->
+    <string name="please_add_attachment">Mangyaring magdagdag ng attachment na larawan</string>
+    <string name="user_not_authenticated_feedback">Hindi naka-authenticate ang user</string>
+    <string name="failed_verify_report_limit">Nabigo ang pag-verify ng report limit. Mangyaring subukan muli.</string>
+    
+    <!-- Hardcoded Strings - Hospital_Status_Edit -->
+    <string name="available_beds_exceed_total">⚠️ Ang available na kama ay lumampas sa kabuuan (%1$d)</string>
+    <string name="available_doctors_exceed_total">⚠️ Ang available na doktor ay lumampas sa kabuuan (%1$d)</string>
+    <string name="enter_both_values">⚪ Ilagay ang parehong halaga</string>
+    <string name="loading_database_totals">⚪ Nilo-load ang mga kabuuan sa database...</string>
+    <string name="enter_valid_numbers_text">⚪ Maglagay ng wastong mga numero</string>
+    <string name="enter_beds_doctors">⚪ Ilagay ang available na kama at doktor</string>
+    <string name="loading_text_simple">Nilo-load...</string>
+    <string name="na_text">N/A</string>
+    <string name="error_text">Error</string>
+    
+    <!-- Hardcoded Strings - Barangay_Dashboard -->
+    <string name="hospitals_found_format">%1$d ang nahanap</string>
+    <string name="error_loading_text">Error sa pag-load</string>
+    
+    <!-- Hardcoded Strings - RescuerDetailsActivity -->
+    <string name="name_format">Pangalan: %1$s</string>
+    <string name="phone_format">Telepono: %1$s</string>
+    <string name="team_format">Team: %1$s</string>
+    <string name="last_updated_format">Huling na-update: %1$s</string>
+    <string name="last_updated_no_data">Huling na-update: %1$s (Walang location data)</string>
+    <string name="no_location_data_available">Walang available na location data</string>
+    <string name="based_on_database">Batay sa mga lokasyon sa database</string>
+    <string name="getting_traffic_data">Kinukuha ang real-time na data ng trapiko...</string>
+    <string name="calculating_text">Kinakalkula...</string>
+    <string name="api_error_format">API Error: %1$s</string>
+    <string name="very_close_realtime">Napakalapit - real-time na data</string>
+    <string name="realtime_traffic_data">Real-time na data ng trapiko</string>
+    <string name="parse_error">Parse Error</string>
+    <string name="estimated_based_distance">Tinatayang batay sa distansya</string>
+    <string name="eta_min_placeholder">-- min</string>
+    <string name="distance_km_placeholder">-- km</string>
+    
+    <!-- Hardcoded Strings - Layout XML files -->
+    <string name="view_profile">Tingnan ang Profile</string>
+    <string name="respond_button"> TUMUGON</string>
+    <string name="navigate_button"> MAG-NAVIGATE</string>
+    <string name="call_button"> TUMAWAG</string>
+    <string name="admin_response"> Tugon ng Admin</string>
+    <string name="sample_name">Maria Santos</string>
+    <string name="sample_distance"> 2.3 km</string>
+    <string name="sample_address">123 Main Street, Barangay San Antonio</string>
+    <string name="sample_phone"> +63-912-345-6789</string>
+    <string name="sample_time"> 5 minuto na ang nakakalipas</string>
+    <string name="specialization_text">Espesyalisasyon</string>
+    <string name="contact_text">Kontak</string>
 </resources>
- 

@@ -119,7 +119,12 @@ public class RescuerNotificationManager {
         Log.d(TAG, "🔔 New rescuer notification received: " + type);
         
         if ("hospital_status_update".equals(type)) {
-            handleHospitalUpdateNotification(context, document);
+            // Skip showing hospital_status_update notifications here
+            // FCMNotificationService already handles these via FCM push to prevent duplicate notifications
+            Log.d(TAG, "📱 Skipping hospital_status_update display - FCMNotificationService handles this to prevent duplicate");
+            // Still mark as read so it doesn't trigger again
+            markNotificationAsRead(document.getId());
+            return;
         } else if ("emergency_help_request".equals(type)) {
             handleEmergencyNotification(context, document);
         }
@@ -202,13 +207,11 @@ public class RescuerNotificationManager {
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
         
-        String statusEmoji = getStatusEmoji(hospitalStatus);
-        
         Notification notification = new NotificationCompat.Builder(context, CHANNEL_ID)
                 .setContentTitle(context.getString(R.string.notification_hospital_status_updated))
-                .setContentText(String.format(context.getString(R.string.notification_hospital_status_text), hospitalName, statusEmoji, hospitalStatus.toUpperCase()))
+                .setContentText(hospitalName + " is now " + hospitalStatus.toUpperCase())
                 .setStyle(new NotificationCompat.BigTextStyle()
-                        .bigText(hospitalName + " has updated their status to " + statusEmoji + " " + hospitalStatus.toUpperCase() + 
+                        .bigText(hospitalName + " has updated their status to " + hospitalStatus.toUpperCase() + 
                                 "\n\n📊 Available Beds: " + availableBeds + 
                                 "\n👨‍⚕️ Available Doctors: " + availableDoctors +
                                 "\n\nThis information will help with emergency response planning."))

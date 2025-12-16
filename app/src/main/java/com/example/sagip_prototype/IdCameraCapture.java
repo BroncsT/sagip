@@ -59,8 +59,6 @@ public class IdCameraCapture extends AppCompatActivity {
     private Button captureButton, retakeButton, confirmButton;
     private ImageView capturedImageView;
     private LinearLayout actionButtonsLayout;
-    private     ImageButton closeButton;
-    private LinearLayout sideTextContainer;
 
     private ImageCapture imageCapture;
     private ExecutorService cameraExecutor;
@@ -108,8 +106,6 @@ public class IdCameraCapture extends AppCompatActivity {
         confirmButton = findViewById(R.id.confirmButton);
         capturedImageView = findViewById(R.id.capturedImageView);
         actionButtonsLayout = findViewById(R.id.actionButtonsLayout);
-        closeButton = findViewById(R.id.closeButton);
-        sideTextContainer = findViewById(R.id.sideTextContainer);
 
         // Set initial UI state
         setupInitialUI();
@@ -118,7 +114,6 @@ public class IdCameraCapture extends AppCompatActivity {
         captureButton.setOnClickListener(v -> captureImage());
         retakeButton.setOnClickListener(v -> retakePhoto());
         confirmButton.setOnClickListener(v -> confirmAndReturn());
-        closeButton.setOnClickListener(v -> finish());
         
         // Allow tap to focus on preview
         previewView.setOnTouchListener((v, event) -> {
@@ -144,8 +139,6 @@ public class IdCameraCapture extends AppCompatActivity {
         // Show camera preview with corner brackets and side text
         previewView.setVisibility(View.VISIBLE);
         frameOverlay.setVisibility(View.VISIBLE);
-        sideTextContainer.setVisibility(View.VISIBLE);
-        closeButton.setVisibility(View.VISIBLE);
         captureButton.setVisibility(View.VISIBLE);
     }
 
@@ -255,24 +248,20 @@ public class IdCameraCapture extends AppCompatActivity {
         // Hide camera preview, overlay, and side text
         previewView.setVisibility(View.GONE);
         frameOverlay.setVisibility(View.GONE);
-        sideTextContainer.setVisibility(View.GONE);
         captureButton.setVisibility(View.GONE);
 
         // Show captured image and action buttons
         capturedImageView.setVisibility(View.VISIBLE);
         capturedImageView.setImageBitmap(capturedBitmap);
         actionButtonsLayout.setVisibility(View.VISIBLE);
-        closeButton.setVisibility(View.VISIBLE);
     }
 
     private void retakePhoto() {
         // Reset UI to camera mode
         previewView.setVisibility(View.VISIBLE);
         frameOverlay.setVisibility(View.VISIBLE);
-        sideTextContainer.setVisibility(View.VISIBLE);
         captureButton.setVisibility(View.VISIBLE);
         captureButton.setEnabled(true);
-        closeButton.setVisibility(View.VISIBLE);
 
         capturedImageView.setVisibility(View.GONE);
         actionButtonsLayout.setVisibility(View.GONE);

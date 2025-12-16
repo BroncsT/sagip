@@ -25,6 +25,7 @@ public class SeniorNotificationService {
     private FirebaseFirestore db;
     private FirebaseAuth mAuth;
     private ListenerRegistration notificationListener;
+    private long listenerStartTime = 0;
     
     public static synchronized SeniorNotificationService getInstance(Context context) {
         if (instance == null) {
@@ -61,6 +62,10 @@ public class SeniorNotificationService {
         
         String userId = currentUser.getUid();
         Log.d(TAG, "🔔 Starting senior notification listener for user: " + userId);
+        
+        // Record start time to filter out old notifications - only show real-time
+        listenerStartTime = System.currentTimeMillis();
+        Log.d(TAG, "?? Listener start time set to: " + listenerStartTime);
         
         // Listen to senior's notifications
         String notificationPath = "Sagip/users/seniors/" + userId + "/notifications";
@@ -129,6 +134,14 @@ public class SeniorNotificationService {
             String requestId = document.getString("requestId");
             Long timestamp = document.getLong("timestamp");
             Boolean isRead = document.getBoolean("isRead");
+            
+            // Skip old notifications - only show real-time notifications
+            if (timestamp != null && timestamp < listenerStartTime) {
+                Log.d(TAG, "?? Skipping old notification (created before listener started): " + document.getId());
+                // Mark as read so it doesn't show up again
+                document.getReference().update("isRead", true);
+                return;
+            }
             
             Log.d(TAG, "📱 Handling notification - Type: " + type + ", Title: " + title + ", isRead: " + isRead);
             Log.d(TAG, "📱 Notification data - Rescuer: " + rescuerName + ", Phone: " + rescuerPhone + ", RequestId: " + requestId);
@@ -262,12 +275,11 @@ public class SeniorNotificationService {
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setAutoCancel(true)
                 .setContentIntent(pendingIntent)
-                .setSound(getCustomAlarmSound())
                 .setVibrate(new long[]{0, 1000, 500, 1000})
                 .setLights(0xFF00FF00, 1000, 1000) // Green light
                 .addAction(android.R.drawable.ic_menu_call, "📞 CALL RESCUER", callPendingIntent)
                 .setOngoing(false)
-                .setDefaults(NotificationCompat.DEFAULT_ALL)
+                .setDefaults(NotificationCompat.DEFAULT_LIGHTS)
                 .setWhen(System.currentTimeMillis());
         
         int notificationId = (requestId != null) ? requestId.hashCode() : (int) System.currentTimeMillis();
@@ -384,7 +396,6 @@ public class SeniorNotificationService {
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setAutoCancel(true)
                 .setContentIntent(pendingIntent)
-                .setSound(getCustomAlarmSound())
                 .setVibrate(new long[]{0, 1000, 500, 1000})
                 .setLights(0xFF00FF00, 1000, 1000) // Green light
                 .addAction(android.R.drawable.ic_menu_call, "📞 CALL RESCUER", callPendingIntent)
@@ -451,12 +462,11 @@ public class SeniorNotificationService {
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setAutoCancel(true)
                 .setContentIntent(pendingIntent)
-                .setSound(getCustomAlarmSound())
                 .setVibrate(new long[]{0, 1000, 500, 1000})
                 .setLights(0xFF00FF00, 1000, 1000) // Green light
                 .addAction(android.R.drawable.ic_menu_call, "📞 CALL RESCUER", callPendingIntent)
                 .setOngoing(false)
-                .setDefaults(NotificationCompat.DEFAULT_ALL)
+                .setDefaults(NotificationCompat.DEFAULT_LIGHTS)
                 .setWhen(System.currentTimeMillis());
         
         int notificationId = (requestId != null) ? requestId.hashCode() : (int) System.currentTimeMillis();
@@ -507,13 +517,8 @@ public class SeniorNotificationService {
             channel.enableVibration(true);
             channel.setVibrationPattern(new long[]{0, 1000, 500, 1000});
             
-            // Set custom alarm sound
-            Uri alarmSound = getCustomAlarmSound();
-            AudioAttributes audioAttributes = new AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build();
-            channel.setSound(alarmSound, audioAttributes);
+            // Disable sound on notification channel
+            channel.setSound(null, null);
             
             channel.enableLights(true);
             channel.setLightColor(0xFF00FF00); // Green light
@@ -620,7 +625,7 @@ public class SeniorNotificationService {
                 .setCategory(NotificationCompat.CATEGORY_MESSAGE)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setAutoCancel(true)
-                .setDefaults(NotificationCompat.DEFAULT_ALL)
+                .setDefaults(NotificationCompat.DEFAULT_LIGHTS)
                 .setWhen(System.currentTimeMillis());
         
         int testNotificationId = (int) System.currentTimeMillis();

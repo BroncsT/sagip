@@ -265,7 +265,7 @@ public class FeedbackActivity extends AppCompatActivity {
 
         // Require attachment
         if (attachmentUri == null) {
-            Toast.makeText(this, "Please add an attachment image", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.please_add_attachment), Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -275,7 +275,7 @@ public class FeedbackActivity extends AppCompatActivity {
 
     private void checkDailyReportLimitAndSubmit(String message) {
         if (userId == null) {
-            Toast.makeText(this, "User not authenticated", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.user_not_authenticated_feedback), Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -326,7 +326,7 @@ public class FeedbackActivity extends AppCompatActivity {
                 .addOnFailureListener(e -> {
                     setLoading(false);
                     Log.e(TAG, "Error checking daily report limit", e);
-                    Toast.makeText(this, "Failed to verify report limit. Please try again.", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, getString(R.string.failed_verify_report_limit), Toast.LENGTH_SHORT).show();
                 });
     }
 

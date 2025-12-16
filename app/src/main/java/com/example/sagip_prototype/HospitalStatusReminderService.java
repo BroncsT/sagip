@@ -27,8 +27,10 @@ import java.util.concurrent.TimeUnit;
 public class HospitalStatusReminderService extends Service {
     private static final String TAG = "HospitalStatusReminderService";
     private static final String CHANNEL_ID = "hospital_status_reminder";
+    private static final String COUNTDOWN_CHANNEL_ID = "hospital_countdown_channel";
     private static final int NOTIFICATION_ID = 3001;
     private static final int SERVICE_ID = 3002;
+    private static final int COUNTDOWN_NOTIFICATION_ID = 3003;
     
     private ScheduledExecutorService executor;
     private boolean isMonitoring = false;
@@ -36,14 +38,16 @@ public class HospitalStatusReminderService extends Service {
     private String hospitalName;
     private long lastStatusUpdateTime = 0;
     private static final long STATUS_UPDATE_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+    private boolean countdownNotificationShown = false;
     
     @Override
     public void onCreate() {
         super.onCreate();
         Log.d(TAG, "HospitalStatusReminderService created");
         
-        // Create notification channel
+        // Create notification channels
         createNotificationChannel();
+        createCountdownNotificationChannel();
         
         // Get user info
         SharedPreferences prefs = getSharedPreferences("user_prefs", Context.MODE_PRIVATE);
@@ -85,6 +89,12 @@ public class HospitalStatusReminderService extends Service {
                 // Update the last status update time
                 lastStatusUpdateTime = intent.getLongExtra("last_update_time", System.currentTimeMillis());
                 Log.d(TAG, "Updated last status update time: " + lastStatusUpdateTime);
+                // Immediately update countdown notification with new time
+                long timeRemaining = STATUS_UPDATE_INTERVAL_MS;
+                updateCountdownNotification(timeRemaining);
+            } else if ("cancel_countdown".equals(action)) {
+                // Cancel countdown notification (e.g., when logging out)
+                cancelCountdownNotification();
             }
         }
         
@@ -124,8 +134,8 @@ public class HospitalStatusReminderService extends Service {
         // Get hospital name and last update time
         getHospitalInfo();
         
-        // Start checking every minute
-        executor.scheduleAtFixedRate(this::checkStatusUpdateTime, 0, 1, TimeUnit.MINUTES);
+        // Start checking every 30 seconds for more accurate countdown
+        executor.scheduleAtFixedRate(this::checkStatusUpdateTime, 0, 30, TimeUnit.SECONDS);
     }
     
     private void stopMonitoring() {
@@ -135,6 +145,9 @@ public class HospitalStatusReminderService extends Service {
         if (executor != null && !executor.isShutdown()) {
             executor.shutdown();
         }
+        
+        // Cancel countdown notification when stopping
+        cancelCountdownNotification();
         
         stopForeground(true);
         stopSelf();
@@ -185,13 +198,19 @@ public class HospitalStatusReminderService extends Service {
                     
                     long currentTime = System.currentTimeMillis();
                     long timeSinceLastUpdate = currentTime - lastStatusUpdateTime;
+                    long timeRemaining = STATUS_UPDATE_INTERVAL_MS - timeSinceLastUpdate;
                     
-                    Log.d(TAG, "Checking status update time - Time since last update: " + (timeSinceLastUpdate / 60000) + " minutes");
+                    Log.d(TAG, "Checking status update time - Time since last update: " + (timeSinceLastUpdate / 60000) + " minutes, Time remaining: " + (timeRemaining / 60000) + " minutes");
                     
                     // Check if it's time to update status (10 minutes)
                     if (timeSinceLastUpdate >= STATUS_UPDATE_INTERVAL_MS) {
                         Log.d(TAG, "Time to update status! Sending reminder notification");
                         sendStatusUpdateReminder();
+                        // Cancel countdown notification when expired
+                        cancelCountdownNotification();
+                    } else {
+                        // Show/update countdown notification while timer is running
+                        updateCountdownNotification(timeRemaining);
                     }
                 }
             })
@@ -275,6 +294,93 @@ public class HospitalStatusReminderService extends Service {
             
             NotificationManager notificationManager = getSystemService(NotificationManager.class);
             notificationManager.createNotificationChannel(channel);
+        }
+    }
+    
+    private void createCountdownNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                COUNTDOWN_CHANNEL_ID,
+                "Status Update Countdown",
+                NotificationManager.IMPORTANCE_LOW
+            );
+            channel.setDescription("Shows time remaining until next status update is required");
+            channel.enableVibration(false);
+            channel.setSound(null, null);
+            channel.setShowBadge(false);
+            
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            notificationManager.createNotificationChannel(channel);
+        }
+    }
+    
+    /**
+     * Update the countdown notification showing time remaining
+     */
+    private void updateCountdownNotification(long timeRemainingMs) {
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        
+        // Calculate minutes and seconds
+        long totalSeconds = timeRemainingMs / 1000;
+        long minutes = totalSeconds / 60;
+        long seconds = totalSeconds % 60;
+        
+        String hospitalDisplayName = hospitalName != null ? hospitalName : "Hospital";
+        String timeText = String.format("%d:%02d", minutes, seconds);
+        
+        // Intent to open Hospital Dashboard
+        Intent intent = new Intent(this, Hospital_Dashboard.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+            this, 
+            COUNTDOWN_NOTIFICATION_ID, 
+            intent, 
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        
+        // Build the countdown notification
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, COUNTDOWN_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("⏱️ Status Update Countdown")
+            .setContentText("Time remaining: " + timeText + " - Tap to update now")
+            .setStyle(new NotificationCompat.BigTextStyle()
+                .bigText(hospitalDisplayName + "\nNext status update required in: " + timeText + "\nTap to update your hospital status now."))
+            .setContentIntent(pendingIntent)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
+        
+        // Change color based on urgency
+        if (minutes <= 2) {
+            // Urgent - red/orange tone
+            builder.setColor(0xFFFF5722);
+            builder.setContentTitle("⚠️ Status Update Soon!");
+        } else if (minutes <= 5) {
+            // Warning - orange tone
+            builder.setColor(0xFFFF9800);
+        } else {
+            // Normal - blue tone
+            builder.setColor(0xFF2196F3);
+        }
+        
+        notificationManager.notify(COUNTDOWN_NOTIFICATION_ID, builder.build());
+        countdownNotificationShown = true;
+        
+        Log.d(TAG, "📱 Countdown notification updated: " + timeText + " remaining");
+    }
+    
+    /**
+     * Cancel the countdown notification
+     */
+    private void cancelCountdownNotification() {
+        if (countdownNotificationShown) {
+            NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            notificationManager.cancel(COUNTDOWN_NOTIFICATION_ID);
+            countdownNotificationShown = false;
+            Log.d(TAG, "📱 Countdown notification cancelled");
         }
     }
     

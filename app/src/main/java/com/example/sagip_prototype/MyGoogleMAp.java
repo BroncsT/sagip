@@ -206,7 +206,7 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
         // Ensure fusedLocationClient is properly initialized
         if (fusedLocationClient == null) {
             Log.e(TAG, "Failed to initialize fusedLocationClient");
-            Toast.makeText(this, "Error initializing location services", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, getString(R.string.error_initializing_location), Toast.LENGTH_LONG).show();
         } else {
             Log.d(TAG, "fusedLocationClient initialized successfully");
         }
@@ -350,7 +350,7 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
         
         if (destinationLocation == null) {
             Log.e(TAG, "Destination location is null");
-            Toast.makeText(this, "Destination not available", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.destination_not_available), Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -379,7 +379,7 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
         
         if (destinationLocation == null) {
             Log.e(TAG, "Destination location is null");
-            Toast.makeText(this, "Destination not available", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.destination_not_available), Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -393,20 +393,20 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
             // Check if Google Maps is installed
             if (navigationIntent.resolveActivity(getPackageManager()) != null) {
                 startActivity(navigationIntent);
-                Toast.makeText(this, "🚗 Opening Google Maps navigation to " + 
-                    (seniorName != null ? seniorName : "emergency location"), Toast.LENGTH_LONG).show();
+                Toast.makeText(this, String.format(getString(R.string.opening_google_maps_nav_to), 
+                    (seniorName != null ? seniorName : "emergency location")), Toast.LENGTH_LONG).show();
             } else {
                 // Fallback to web-based Google Maps
                 String webMapsUri = String.format(Locale.getDefault(), "https://www.google.com/maps/dir/?api=1&destination=%f,%f&travelmode=driving", 
                     destinationLocation.latitude, destinationLocation.longitude);
                 Intent webIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(webMapsUri));
                 startActivity(webIntent);
-                Toast.makeText(this, "🌐 Opening web-based navigation", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, getString(R.string.opening_web_navigation), Toast.LENGTH_LONG).show();
             }
             
         } catch (Exception e) {
             Log.e(TAG, "Error opening external Google Maps navigation", e);
-            Toast.makeText(this, "Error opening navigation", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.error_opening_navigation), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -415,7 +415,7 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
 
         if (destinationLocation == null) {
             Log.e(TAG, "Destination location is null");
-            Toast.makeText(this, "Destination not available", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.destination_not_available), Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -431,7 +431,7 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
         myMap.animateCamera(CameraUpdateFactory.newLatLngZoom(destinationLocation, 18f));
 
         // Show navigation mode message
-        Toast.makeText(this, "🗺️ Navigation started - Follow the blue route line", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, getString(R.string.navigation_started_follow_route), Toast.LENGTH_LONG).show();
 
         // Update button text to indicate navigation mode
         if (btnNavigate != null) {
@@ -458,7 +458,7 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
             tvDistanceTime.setText("");
         }
 
-        Toast.makeText(this, "Navigation stopped", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, getString(R.string.navigation_stopped), Toast.LENGTH_SHORT).show();
     }
 
     private void showRoute() {
@@ -493,7 +493,7 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
             if (btnShowRoute != null) {
                 btnShowRoute.setText("Show Route");
             }
-            Toast.makeText(this, "Route hidden", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.route_hidden), Toast.LENGTH_SHORT).show();
         } else {
             showRoute();
             if (btnShowRoute != null) {
@@ -566,12 +566,12 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
                 } else {
                     runOnUiThread(() -> {
                         Log.e(TAG, "Failed to get directions response");
-                        Toast.makeText(MyGoogleMAp.this, "Failed to get directions", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(MyGoogleMAp.this, getString(R.string.failed_to_get_directions), Toast.LENGTH_SHORT).show();
                     });
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Error in executeDirectionsRequest", e);
-                runOnUiThread(() -> Toast.makeText(MyGoogleMAp.this, "Error getting directions", Toast.LENGTH_SHORT).show());
+                runOnUiThread(() -> Toast.makeText(MyGoogleMAp.this, getString(R.string.error_getting_directions), Toast.LENGTH_SHORT).show());
             }
         });
     }
@@ -742,12 +742,12 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
                 
             } else {
                 Log.e(TAG, "No routes found in directions response");
-                Toast.makeText(this, "No route found", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.no_route_found), Toast.LENGTH_SHORT).show();
             }
             
         } catch (JSONException e) {
             Log.e(TAG, "Error parsing directions response", e);
-            Toast.makeText(this, "Error parsing route data", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.error_parsing_route), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -955,7 +955,7 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
                     
                     if ("resolved".equals(status)) {
                         // Help request resolved, show success message
-                        Toast.makeText(this, "✅ Emergency resolved! Help request closed.", Toast.LENGTH_LONG).show();
+                        Toast.makeText(this, getString(R.string.emergency_resolved_success), Toast.LENGTH_LONG).show();
                         
                         // Stop tracking
                         if (helpRequestListener != null) {
@@ -1220,21 +1220,21 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED) {
                 startActivity(callIntent);
             } else {
-                Toast.makeText(this, "Call permission not granted", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.call_permission_not_granted), Toast.LENGTH_SHORT).show();
             }
         } else {
-            Toast.makeText(this, "No phone number available", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.no_phone_number_available), Toast.LENGTH_SHORT).show();
         }
     }
 
     private void callClosestRescuer() {
         Log.d(TAG, "callClosestRescuer called");
-        Toast.makeText(this, "Calling closest rescuer feature will be implemented", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, getString(R.string.calling_closest_rescuer_feature), Toast.LENGTH_SHORT).show();
     }
 
     private void testRescuerTracking() {
         Log.d(TAG, "testRescuerTracking called");
-        Toast.makeText(this, "Test rescuer tracking feature", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, getString(R.string.test_rescuer_tracking_feature), Toast.LENGTH_SHORT).show();
     }
 
     // =============== NOTIFICATION METHODS ===============
@@ -1276,7 +1276,7 @@ public class MyGoogleMAp extends AppCompatActivity implements OnMapReadyCallback
                     } else if (coarseLocationGranted != null && coarseLocationGranted) {
                         startLocationUpdates();
                     } else {
-                        Toast.makeText(this, "Location permission needed for location services", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, getString(R.string.location_permission_needed), Toast.LENGTH_SHORT).show();
                     }
                 }
         );

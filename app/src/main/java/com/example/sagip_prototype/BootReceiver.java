@@ -113,6 +113,28 @@ public class BootReceiver extends BroadcastReceiver {
                 }
             }
             
+            // Restart services for hospitals
+            if ("hospital".equals(userType)) {
+                Log.d(TAG, "🏥 Restarting hospital services after boot");
+                
+                // On Android 12+, skip foreground service start from boot (background restriction)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    Log.d(TAG, "Android 12+: Skipping HospitalForegroundService from boot, using WorkManager");
+                } else {
+                    try {
+                        Intent hospitalIntent = new Intent(context, HospitalForegroundService.class);
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            context.startForegroundService(hospitalIntent);
+                        } else {
+                            context.startService(hospitalIntent);
+                        }
+                        Log.d(TAG, "✅ HospitalForegroundService restart requested");
+                    } catch (Exception e) {
+                        Log.e(TAG, "❌ Failed to restart HospitalForegroundService: " + e.getMessage());
+                    }
+                }
+            }
+            
             // Restart services for seniors
             if ("seniors".equals(userType) || "senior".equals(userType)) {
                 Log.d(TAG, "👴 Restarting senior services after boot");

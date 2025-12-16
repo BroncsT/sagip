@@ -101,7 +101,7 @@ public class HospitalLIstAdapter extends RecyclerView.Adapter<HospitalLIstAdapte
                 
                 hospitalSpecializationText.setText(seniorInfo);
                 hospitalSpecializationText.setVisibility(View.VISIBLE);
-                hospitalSpecializationText.setTextColor(0xFFFF5722); // Red color for emergency
+                hospitalSpecializationText.setTextColor(0xFF000000); // Black color for emergency
                 hospitalSpecializationText.setTextSize(12);
             } else {
                 // Hide specialization text if no emergency

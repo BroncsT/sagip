@@ -518,11 +518,12 @@ public class EmergencySOSBackgroundService extends Service {
             Log.d(TAG, "📱 [HANDLE_NOTIFICATION] Dashboard active check - isDashboardActive: " + isDashboardActive);
             
             // Process emergency SOS notifications
-            // Note: We rely on the isRead flag to prevent duplicate processing
-            // Old notifications should already be marked as read
+            // NOTE: FCM (Firebase Cloud Messaging) handles showing the notification via FCMNotificationService
+            // This Firestore listener should NOT show notifications to prevent duplicates
+            // We only mark as read here to update the notification state in Firestore
             if ("EMERGENCY_SOS".equals(type) && (isRead == null || !isRead)) {
-                // Only process unread emergency SOS notifications that are NOT assigned
                 Log.d(TAG, "🚨 Received emergency SOS notification: " + seniorName + " (Request ID: " + requestId + ")");
+                Log.d(TAG, "📱 [BACKGROUND] Skipping notification display - FCMNotificationService handles this to prevent duplicate");
                 
                 // CRITICAL FIX: If dashboard is active, defer to dashboard for in-app alert
                 if (isDashboardActive) {
@@ -531,22 +532,13 @@ public class EmergencySOSBackgroundService extends Service {
                     return; // Let dashboard handle it
                 }
                 
-                Log.d(TAG, "📱 [BACKGROUND] Dashboard is INACTIVE - background service will show system notification");
-                
-                // Mark as read FIRST to prevent race condition with dashboard
-                // Use atomic update to ensure only one process marks it as read
+                // Mark as read to update Firestore state (FCM handles showing the notification)
                 document.getReference().update("isRead", true, "processedBy", "backgroundService")
                     .addOnSuccessListener(aVoid -> {
-                        Log.d(TAG, "✅ [BACKGROUND] Marked notification as read and processing");
-                        
-                        // Show high-priority notification with alarm sound
-                        showEmergencySOSNotification(seniorName, seniorPhone, locationAddress, timestamp, requestId, document.getId(), seniorLat, seniorLng);
-                        
-                        // Vibrate device
-                        vibrateDevice();
+                        Log.d(TAG, "✅ [BACKGROUND] Marked notification as read - FCM will show the notification");
                     })
                     .addOnFailureListener(e -> {
-                        Log.w(TAG, "⚠️ [BACKGROUND] Failed to mark as read (might already be processed by dashboard): " + e.getMessage());
+                        Log.w(TAG, "⚠️ [BACKGROUND] Failed to mark as read: " + e.getMessage());
                     });
             } else if ("EMERGENCY_SOS".equals(type) && isRead != null && isRead) {
                 Log.d(TAG, "🔇 Ignoring already read emergency SOS notification: " + seniorName + " (Request ID: " + requestId + ")");

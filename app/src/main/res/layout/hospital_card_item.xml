@@ -23,6 +23,20 @@
         android:padding="@dimen/padding_large"
         android:gravity="center_vertical">
 
+        <!-- Queue Number for incoming patients -->
+        <TextView
+            android:id="@+id/queueNumberText"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:gravity="center"
+            android:text="1"
+            android:textColor="@color/white"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:background="@drawable/circle_number_background"
+            android:visibility="gone"
+            android:layout_marginEnd="12dp" />
+
         <!-- Hospital Icon -->
         <ImageView
             android:id="@+id/hospitalImageView"
@@ -75,18 +89,6 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Contact"
-                android:textColor="@color/gray"
-                android:textSize="@dimen/text_size_medium"
-                android:fontFamily="sans-serif"
-                android:layout_marginTop="@dimen/spacing_tiny"
-                app:autoSizeTextType="none" />
-
-            <!-- Email -->
-            <TextView
-                android:id="@+id/hospitalEmailText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Email"
                 android:textColor="@color/gray"
                 android:textSize="@dimen/text_size_medium"
                 android:fontFamily="sans-serif"

@@ -168,7 +168,7 @@ public class Senior_Details_Activity extends AppCompatActivity {
             if (seniorPhone != null && !seniorPhone.isEmpty()) {
                 makePhoneCall(seniorPhone);
             } else {
-                Toast.makeText(this, "Phone number not available", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.phone_number_not_available_short), Toast.LENGTH_SHORT).show();
             }
         });
         
@@ -180,7 +180,7 @@ public class Senior_Details_Activity extends AppCompatActivity {
         try {
             String callableNumber = PhoneNumberUtils.getCallablePhoneNumber(phoneNumber);
             if (callableNumber == null) {
-                Toast.makeText(this, "Invalid phone number format", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.invalid_phone_format), Toast.LENGTH_SHORT).show();
                 return;
             }
             
@@ -189,7 +189,7 @@ public class Senior_Details_Activity extends AppCompatActivity {
             startActivity(callIntent);
         } catch (Exception e) {
             Log.e(TAG, "Error making phone call: " + e.getMessage());
-            Toast.makeText(this, "Error making phone call", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.error_making_call), Toast.LENGTH_SHORT).show();
         }
     }
 

@@ -50,6 +50,7 @@
         android:required="false" />
 
     <application
+        android:name=".SagipApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -114,6 +115,11 @@
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
+            android:name=".HospitalEmergencyDetailActivity"
+            android:exported="false"
+            android:label="@string/emergency_details_title"
+            android:screenOrientation="portrait" />
+        <activity
             android:name=".Hospital_Profile"
             android:exported="false" />
         <activity
@@ -173,7 +179,12 @@
         <activity
             android:name=".Hospital_Dashboard"
             android:configChanges="locale|orientation|screenSize|keyboardHidden"
-            android:exported="false" />
+            android:exported="true">
+            <intent-filter>
+                <action android:name="HOSPITAL_EMERGENCY_CLICK" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
         <activity
             android:name=".Rescuer_Dashboard"
             android:configChanges="locale|orientation|screenSize|keyboardHidden"
@@ -249,7 +260,16 @@
             android:name=".SeniorForegroundService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="dataSync" />         <!-- Firebase Cloud Messaging Service -->
+            android:foregroundServiceType="dataSync" />
+            
+        <!-- Hospital Foreground Service for reliable incoming emergency patient notifications -->
+        <service
+            android:name=".HospitalForegroundService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+            
+        <!-- Firebase Cloud Messaging Service -->
         <service
             android:name=".FCMNotificationService"
             android:exported="false">

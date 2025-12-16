@@ -191,13 +191,13 @@ public class RescuerDetailsActivity extends AppCompatActivity {
         // Update UI with notification data
         runOnUiThread(() -> {
             if (tvRescuerName != null) {
-                tvRescuerName.setText("Name: " + rescuerName);
+                tvRescuerName.setText(String.format(getString(R.string.name_format), rescuerName));
             }
             if (tvRescuerPhone != null) {
-                tvRescuerPhone.setText("Phone: " + rescuerPhone);
+                tvRescuerPhone.setText(String.format(getString(R.string.phone_format), rescuerPhone));
             }
             if (tvRescuerTeam != null) {
-                tvRescuerTeam.setText("Team: " + (rescuerTeam != null ? rescuerTeam : "Emergency Response Team"));
+                tvRescuerTeam.setText(String.format(getString(R.string.team_format), (rescuerTeam != null ? rescuerTeam : getString(R.string.emergency_response_team))));
             }
             if (tvStatus != null) {
                 tvStatus.setText(emergencyStatus != null ? emergencyStatus : "Assigned");
@@ -206,7 +206,7 @@ public class RescuerDetailsActivity extends AppCompatActivity {
             // Update last updated time
             if (tvLastUpdate != null) {
                 SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss", Locale.getDefault());
-                tvLastUpdate.setText("Last updated: " + sdf.format(new Date()));
+                tvLastUpdate.setText(String.format(getString(R.string.last_updated_format), sdf.format(new Date())));
             }
         });
         
@@ -441,13 +441,13 @@ public class RescuerDetailsActivity extends AppCompatActivity {
             Log.w(TAG, "❌ Missing location data for ETA calculation - Rescuer: " + rescuerLat + ", " + rescuerLong + " Senior: " + seniorLat + ", " + seniorLong);
             runOnUiThread(() -> {
                 if (tvETA != null) {
-                    tvETA.setText("-- min");
+                    tvETA.setText(getString(R.string.eta_min_placeholder));
                     Log.d(TAG, "✅ Set ETA to -- min");
                 } else {
                     Log.e(TAG, "❌ tvETA is null in calculateETAFromDatabase!");
                 }
                 if (tvDistance != null) {
-                    tvDistance.setText("-- km");
+                    tvDistance.setText(getString(R.string.distance_km_placeholder));
                     Log.d(TAG, "✅ Set distance to -- km");
                 } else {
                     Log.e(TAG, "❌ tvDistance is null in calculateETAFromDatabase!");
@@ -459,7 +459,7 @@ public class RescuerDetailsActivity extends AppCompatActivity {
                     Log.e(TAG, "❌ tvLastUpdate is null in calculateETAFromDatabase!");
                 }
                 if (tvETAStatus != null) {
-                    tvETAStatus.setText("No location data available");
+                    tvETAStatus.setText(getString(R.string.no_location_data_available));
                     Log.d(TAG, "✅ Set ETA status text");
                 } else {
                     Log.e(TAG, "❌ tvETAStatus is null in calculateETAFromDatabase!");
@@ -503,7 +503,7 @@ public class RescuerDetailsActivity extends AppCompatActivity {
             }
             
             if (tvETAStatus != null) {
-                tvETAStatus.setText("Based on database locations");
+                tvETAStatus.setText(getString(R.string.based_on_database));
                 Log.d(TAG, "✅ tvETAStatus updated");
             } else {
                 Log.e(TAG, "❌ tvETAStatus is null!");
@@ -517,11 +517,11 @@ public class RescuerDetailsActivity extends AppCompatActivity {
         if (rescuerLat == 0 || rescuerLong == 0 || seniorLat == 0 || seniorLong == 0) {
             Log.w(TAG, "❌ Missing location data for ETA calculation - Rescuer: " + rescuerLat + ", " + rescuerLong + " Senior: " + seniorLat + ", " + seniorLong);
             runOnUiThread(() -> {
-                tvETA.setText("-- min");
-                tvDistance.setText("-- km");
+                tvETA.setText(getString(R.string.eta_min_placeholder));
+                tvDistance.setText(getString(R.string.distance_km_placeholder));
                 tvLastUpdate.setText("Last updated: " + getCurrentTime() + " (No location data)");
                 if (tvETAStatus != null) {
-                    tvETAStatus.setText("No location data available");
+                    tvETAStatus.setText(getString(R.string.no_location_data_available));
                 }
             });
             return;
@@ -529,10 +529,10 @@ public class RescuerDetailsActivity extends AppCompatActivity {
 
         // Show loading state
         runOnUiThread(() -> {
-            tvETA.setText("Calculating...");
-            tvDistance.setText("Calculating...");
+            tvETA.setText(getString(R.string.calculating_text));
+            tvDistance.setText(getString(R.string.calculating_text));
             if (tvETAStatus != null) {
-                tvETAStatus.setText("Getting real-time traffic data...");
+                tvETAStatus.setText(getString(R.string.getting_traffic_data));
             }
         });
 
@@ -601,11 +601,11 @@ public class RescuerDetailsActivity extends AppCompatActivity {
                 String errorMessage = jsonResponse.optString("error_message", "Unknown error");
                 Log.e(TAG, "❌ Google Directions API error: " + status + " - " + errorMessage);
                 runOnUiThread(() -> {
-                    tvETA.setText("Error");
-                    tvDistance.setText("Error");
+                    tvETA.setText(getString(R.string.error_text));
+                    tvDistance.setText(getString(R.string.error_text));
                     tvLastUpdate.setText("Last updated: " + getCurrentTime() + " (API Error)");
                     if (tvETAStatus != null) {
-                        tvETAStatus.setText("API Error: " + status);
+                        tvETAStatus.setText(String.format(getString(R.string.api_error_format), status));
                     }
                 });
                 return;
@@ -648,9 +648,9 @@ public class RescuerDetailsActivity extends AppCompatActivity {
                            tvLastUpdate.setText("Last updated: " + getCurrentTime());
                            if (tvETAStatus != null) {
                                if (finalDistanceKm < 0.01) {
-                                   tvETAStatus.setText("Very close - real-time data");
+                                   tvETAStatus.setText(getString(R.string.very_close_realtime));
                                } else {
-                                   tvETAStatus.setText("Real-time traffic data");
+                                   tvETAStatus.setText(getString(R.string.realtime_traffic_data));
                                }
                            }
                            
@@ -670,7 +670,7 @@ public class RescuerDetailsActivity extends AppCompatActivity {
                 tvDistance.setText("Error");
                 tvLastUpdate.setText("Last updated: " + getCurrentTime() + " (Parse Error)");
                 if (tvETAStatus != null) {
-                    tvETAStatus.setText("Parse Error");
+                    tvETAStatus.setText(getString(R.string.parse_error));
                 }
             });
         }
@@ -725,7 +725,7 @@ public class RescuerDetailsActivity extends AppCompatActivity {
             tvDistance.setText(String.format("%.2f km", finalDistance));
             tvLastUpdate.setText("Last updated: " + getCurrentTime() + " (Estimated)");
             if (tvETAStatus != null) {
-                tvETAStatus.setText("Estimated based on distance");
+                tvETAStatus.setText(getString(R.string.estimated_based_distance));
             }
         });
         

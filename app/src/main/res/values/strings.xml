@@ -259,7 +259,7 @@
     <string name="section_contact_details">Contact Details</string>
     <string name="hint_headquarters_address">Enter headquarters address</string>
     <string name="hint_primary_contact_person">Enter primary contact person</string>
-    <string name="hint_contact_number">Enter contact number (optional)</string>
+    <string name="hint_contact_number">Enter contact number</string>
     <string name="checkbox_terms_conditions">I agree to the Terms and Conditions</string>
     <string name="checkbox_privacy_policy">I agree to the Privacy Policy</string>
     <string name="button_register_rescue_group">Register Rescue Group</string>
@@ -306,8 +306,8 @@
     <string name="update_dialog_button">Update</string>
     <string name="cancel_dialog_button">Cancel</string>
     <string name="fill_all_fields_error">Fill all fields</string>
-    <string name="delete_contact_title">Tanggalin ang Kontakto</string>
-    <string name="delete_contact_message">Sigurado ka bang gusto mong tanggalin si %s?</string>
+    <string name="delete_contact_title">delete the contact</string>
+    <string name="delete_contact_message">Are you sure you want to delete %s? %s?</string>
     <string name="contact_name_label">Contact Name</string>
     <string name="relationship_label">Relationship</string>
     <string name="emergencynote">Tap the button to alert</string>
@@ -334,7 +334,7 @@
     <string name="hospital_dashboard">Dashboard</string>
     <string name="hospital_profile">Profile</string>
     <string name="senior_location">Emergency Contacts</string>
-    <string name="senior_home">Home</string>
+    <string name="senior_home">Dashboard</string>
     <string name="senior_profile">Profile</string>
 
     <!-- Rescuer Navigation Menu Items -->
@@ -1132,6 +1132,8 @@
     <string name="mfa_enrollment_success">Two-factor authentication enabled!</string>
     <string name="mfa_enrollment_failed">Failed to enable two-factor authentication</string>
     <string name="mfa_phone_already_used">This phone number is already registered for two-factor authentication on another account. Please use a different phone number.</string>
+    <string name="phone_already_used_for_2fa">This phone number is already used for two-factor authentication. It cannot be used for senior registration.</string>
+    <string name="phone_already_registered_senior">This phone number is already registered as a senior citizen account. It cannot be used for two-factor authentication.</string>
     <string name="mfa_verify_login_title">Verify Your Login</string>
     <string name="mfa_verify_login_message">A verification code has been sent to %1$s. Please enter the code to continue.</string>
     <string name="mfa_signin_failed">Login verification failed. Please try again.</string>
@@ -1270,6 +1272,15 @@
     <string name="barangay_emergency_action_navigate">Navigate to Location</string>
     <string name="barangay_emergency_action_view">View Details</string>
     
+    <!-- Hospital Emergency Detail Activity -->
+    <string name="emergency_details_title">Emergency Details</string>
+    <string name="eta_label_full">ETA:</string>
+    <string name="call_rescuer">Call Rescuer</string>
+    <string name="call_senior">Call Senior</string>
+    <string name="back">Back</string>
+    <string name="phone_not_available">Phone number not available</string>
+    <string name="invalid_phone_number">Invalid phone number format</string>
+    
     <!-- Senior SOS Details Activity -->
     <string name="sos_emergency_details_title">SOS Emergency</string>
     <string name="emergency_sos">EMERGENCY SOS</string>
@@ -1286,4 +1297,120 @@
     <string name="requested_1_hour_ago">Requested 1 hour ago</string>
     <string name="requested_hours_ago">Requested %1$d hours ago</string>
     <string name="emergency_request_active">Emergency request active</string>
+    
+    <!-- Hardcoded Strings - MyGoogleMAp -->
+    <string name="error_initializing_location">Error initializing location services</string>
+    <string name="destination_not_available">Destination not available</string>
+    <string name="opening_google_maps_nav_to">🚗 Opening Google Maps navigation to %1$s</string>
+    <string name="opening_web_navigation">🌐 Opening web-based navigation</string>
+    <string name="navigation_started_follow_route">🗺️ Navigation started - Follow the blue route line</string>
+    <string name="route_hidden">Route hidden</string>
+    <string name="failed_to_get_directions">Failed to get directions</string>
+    <string name="error_getting_directions">Error getting directions</string>
+    <string name="no_route_found">No route found</string>
+    <string name="error_parsing_route">Error parsing route data</string>
+    <string name="emergency_resolved_success">✅ Emergency resolved! Help request closed.</string>
+    <string name="call_permission_not_granted">Call permission not granted</string>
+    <string name="calling_closest_rescuer_feature">Calling closest rescuer feature will be implemented</string>
+    <string name="test_rescuer_tracking_feature">Test rescuer tracking feature</string>
+    <string name="location_permission_needed">Location permission needed for location services</string>
+    
+    <!-- Hardcoded Strings - BlankEditProfileActivity -->
+    <string name="please_enter_valid_phone">Please enter a valid phone number (09XXXXXXXXX)</string>
+    <string name="sending_otp_to">Sending OTP to %1$s...</string>
+    <string name="failed_to_verify_phone">Failed to verify phone number: %1$s</string>
+    <string name="failed_to_update_email">Failed to update email: %1$s</string>
+    <string name="failed_to_save_data">Failed to save data: %1$s</string>
+    <string name="phone_verified_updated">%1$s (Phone verified and updated in Authentication)</string>
+    
+    <!-- Hardcoded Strings - EmergencyAssignmentActivity -->
+    <string name="invalid_phone_number_format">Invalid phone number: %1$s</string>
+    <string name="location_updated">Location updated</string>
+    <string name="status_emergency_completed">Status updated: Emergency response completed</string>
+    <string name="rescue_details_saved">Rescue details saved successfully</string>
+    <string name="error_saving_rescue_details">Error saving rescue details</string>
+    <string name="location_permission_required_tracking">Location permission required for accurate tracking</string>
+    <string name="complete_assignment_before_leaving">Please complete the emergency assignment before leaving</string>
+    <string name="error_navigating_dashboard">Error navigating to dashboard</string>
+    <string name="status_responding">🚨 RESPONDING</string>
+    <string name="hospital_text">Hospital</string>
+    <string name="address_not_available_text">Address not available</string>
+    <string name="hospital_info_not_available">Hospital Information Not Available</string>
+    <string name="please_contact_emergency">Please contact emergency services</string>
+    <string name="distance_unknown">Distance: Unknown</string>
+    <string name="distance_test_mode">Distance: Test Mode</string>
+    <string name="distance_calculating">Distance: Calculating...</string>
+    <string name="eta_calculating">ETA: Calculating...</string>
+    <string name="eta_format">ETA: %1$s (%2$s)</string>
+    <string name="status_done">✅ DONE</string>
+    <string name="done_text">DONE</string>
+    
+    <!-- Hardcoded Strings - RescuerNavigationSDKActivity -->
+    <string name="location_permission_required_nav">Location permission required for navigation</string>
+    <string name="nav_sdk_loaded">Navigation SDK loaded - ready to navigate to %1$s</string>
+    <string name="nav_sdk_ready">Navigation SDK ready - %1$s</string>
+    <string name="could_not_get_location">Could not get current location</string>
+    <string name="error_getting_location">Error getting location: %1$s</string>
+    
+    <!-- Hardcoded Strings - Rescuer_Dashboard -->
+    <string name="opening_maps_nav_to_hospital">🚗 Opening Google Maps navigation to %1$s</string>
+    <string name="opening_web_nav_to_hospital">🌐 Opening web-based navigation to %1$s</string>
+    <string name="enable_sms_later">You can enable SMS notifications later in Settings</string>
+    
+    <!-- Hardcoded Strings - Senior_Details_Activity -->
+    <string name="phone_number_not_available_short">Phone number not available</string>
+    <string name="invalid_phone_format">Invalid phone number format</string>
+    <string name="error_making_call">Error making phone call</string>
+    
+    <!-- Hardcoded Strings - FeedbackActivity -->
+    <string name="please_add_attachment">Please add an attachment image</string>
+    <string name="user_not_authenticated_feedback">User not authenticated</string>
+    <string name="failed_verify_report_limit">Failed to verify report limit. Please try again.</string>
+    
+    <!-- Hardcoded Strings - Hospital_Status_Edit -->
+    <string name="available_beds_exceed_total">⚠️ Available beds exceed total (%1$d)</string>
+    <string name="available_doctors_exceed_total">⚠️ Available doctors exceed total (%1$d)</string>
+    <string name="enter_both_values">⚪ Enter both values</string>
+    <string name="loading_database_totals">⚪ Loading database totals...</string>
+    <string name="enter_valid_numbers_text">⚪ Enter valid numbers</string>
+    <string name="enter_beds_doctors">⚪ Enter available beds and doctors</string>
+    <string name="loading_text_simple">Loading...</string>
+    <string name="na_text">N/A</string>
+    <string name="error_text">Error</string>
+    
+    <!-- Hardcoded Strings - Barangay_Dashboard -->
+    <string name="hospitals_found_format">%1$d found</string>
+    <string name="error_loading_text">Error loading</string>
+    
+    <!-- Hardcoded Strings - RescuerDetailsActivity -->
+    <string name="name_format">Name: %1$s</string>
+    <string name="phone_format">Phone: %1$s</string>
+    <string name="team_format">Team: %1$s</string>
+    <string name="last_updated_format">Last updated: %1$s</string>
+    <string name="last_updated_no_data">Last updated: %1$s (No location data)</string>
+    <string name="no_location_data_available">No location data available</string>
+    <string name="based_on_database">Based on database locations</string>
+    <string name="getting_traffic_data">Getting real-time traffic data...</string>
+    <string name="calculating_text">Calculating...</string>
+    <string name="api_error_format">API Error: %1$s</string>
+    <string name="very_close_realtime">Very close - real-time data</string>
+    <string name="realtime_traffic_data">Real-time traffic data</string>
+    <string name="parse_error">Parse Error</string>
+    <string name="estimated_based_distance">Estimated based on distance</string>
+    <string name="eta_min_placeholder">-- min</string>
+    <string name="distance_km_placeholder">-- km</string>
+    
+    <!-- Hardcoded Strings - Layout XML files -->
+    <string name="view_profile">View Profile</string>
+    <string name="respond_button">🚑 RESPOND</string>
+    <string name="navigate_button">🗺️ NAVIGATE</string>
+    <string name="call_button">📞 CALL</string>
+    <string name="admin_response">✓ Admin Response</string>
+    <string name="sample_name">Maria Santos</string>
+    <string name="sample_distance">📍 2.3 km</string>
+    <string name="sample_address">123 Main Street, Barangay San Antonio</string>
+    <string name="sample_phone">📞 +63-912-345-6789</string>
+    <string name="sample_time">⏰ 5 min ago</string>
+    <string name="specialization_text">Specialization</string>
+    <string name="contact_text">Contact</string>
 </resources>

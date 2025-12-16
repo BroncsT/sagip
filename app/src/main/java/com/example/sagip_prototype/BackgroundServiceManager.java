@@ -71,6 +71,10 @@ public class BackgroundServiceManager {
             Intent seniorForegroundIntent = new Intent(context, SeniorForegroundService.class);
             context.stopService(seniorForegroundIntent);
             
+            // CRITICAL FIX: Stop HospitalForegroundService
+            Intent hospitalForegroundIntent = new Intent(context, HospitalForegroundService.class);
+            context.stopService(hospitalForegroundIntent);
+            
             // Stop EmergencySOSBackgroundService
             Intent emergencySOSIntent = new Intent(context, EmergencySOSBackgroundService.class);
             context.stopService(emergencySOSIntent);
@@ -146,13 +150,30 @@ public class BackgroundServiceManager {
      * Starts services specific to hospitals
      */
     private static void startHospitalServices(Context context) {
-        Log.d(TAG, "Starting hospital-specific services");
+        Log.d(TAG, "🏥 Starting hospital-specific services");
+        
+        // CRITICAL: Start dedicated hospital foreground service for reliable incoming emergency notifications
+        // This ensures hospitals receive alerts about incoming patients even when app is closed
+        startService(context, HospitalForegroundService.class);
         
         // Start hospital status reminder service
         startService(context, HospitalStatusReminderService.class);
         
-        // Start background notification service
+        // Start background notification service as backup
         startService(context, BackgroundNotificationService.class);
+        
+        // Start WorkManager for notification monitoring
+        NotificationWorkManager.startNotificationMonitoring(context);
+        Log.d(TAG, "✅ WorkManager notification monitoring started for hospital");
+        
+        // Schedule periodic service restart alarm (bypasses Doze mode)
+        ServiceRestartAlarmReceiver.scheduleAlarm(context);
+        Log.d(TAG, "✅ Service restart alarm scheduled for hospital");
+        
+        // Check and request battery optimization whitelist
+        BatteryOptimizationHelper.logBatteryOptimizationStatus(context);
+        
+        Log.d(TAG, "✅ Hospital services started - includes foreground service, WorkManager, and alarm for reliability");
     }
     
     /**

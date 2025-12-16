@@ -324,14 +324,14 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             
             if (navigationIntent.resolveActivity(getPackageManager()) != null) {
                 startActivity(navigationIntent);
-                Toast.makeText(this, "🚗 Opening Google Maps navigation to " + hospitalName, Toast.LENGTH_LONG).show();
+                Toast.makeText(this, String.format(getString(R.string.opening_maps_nav_to_hospital), hospitalName), Toast.LENGTH_LONG).show();
             } else {
                 // Fallback to web-based Google Maps
                 String webMapsUri = String.format(Locale.getDefault(), "https://www.google.com/maps/dir/?api=1&destination=%f,%f&travelmode=driving", 
                     destination.latitude, destination.longitude);
                 Intent webIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(webMapsUri));
                 startActivity(webIntent);
-                Toast.makeText(this, "🌐 Opening web-based navigation to " + hospitalName, Toast.LENGTH_LONG).show();
+                Toast.makeText(this, String.format(getString(R.string.opening_web_nav_to_hospital), hospitalName), Toast.LENGTH_LONG).show();
             }
             
         } catch (Exception e) {
@@ -2859,7 +2859,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             } catch (Exception e) {
                 Log.e(TAG, "❌ Error showing rescuer responded popup: " + e.getMessage());
                 // Fallback to toast if dialog fails
-                Toast.makeText(this, "Another rescuer has already responded to this emergency", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, getString(R.string.another_rescuer_responded), Toast.LENGTH_LONG).show();
             }
         });
     }
@@ -3043,8 +3043,16 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
             
             // CRITICAL FIX: Skip notifications that were created BEFORE the listener started
             // This prevents old notifications from triggering alerts on login
-            if (timestamp != null && timestamp < lastLoginTime) {
+            if (timestamp == null || timestamp < lastLoginTime) {
                 Log.d(TAG, "🔇 [DASHBOARD] Notification timestamp (" + timestamp + ") is BEFORE listener start time (" + lastLoginTime + ") - SKIPPING old notification");
+                
+                // IMPORTANT: Mark old notifications as read to prevent them from appearing again
+                // This ensures they won't trigger alerts on subsequent logins or listener restarts
+                if (isRead == null || !isRead) {
+                    document.getReference().update("isRead", true, "skippedAsOld", true)
+                        .addOnSuccessListener(aVoid -> Log.d(TAG, "✅ [DASHBOARD] Marked old notification as read: " + document.getId()))
+                        .addOnFailureListener(e -> Log.w(TAG, "⚠️ [DASHBOARD] Failed to mark old notification as read: " + e.getMessage()));
+                }
                 return;
             }
             
@@ -3865,7 +3873,7 @@ public class Rescuer_Dashboard extends AppCompatActivity implements OnMapReadyCa
                 })
                 .setNegativeButton("Not Now", (dialog, which) -> {
                     Log.d(TAG, "📱 [FIRST_LAUNCH] User declined SMS permission");
-                    Toast.makeText(this, "You can enable SMS notifications later in Settings", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, getString(R.string.enable_sms_later), Toast.LENGTH_SHORT).show();
                 })
                 .setCancelable(false)
                 .show();

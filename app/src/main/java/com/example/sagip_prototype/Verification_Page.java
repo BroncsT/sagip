@@ -8,6 +8,7 @@ import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
+import android.app.AlertDialog;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
@@ -19,7 +20,6 @@ import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -35,6 +35,8 @@ import com.google.firebase.storage.UploadTask;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.io.File;
+import androidx.core.content.FileProvider;
 
 public class Verification_Page extends AppCompatActivity {
 
@@ -44,6 +46,8 @@ public class Verification_Page extends AppCompatActivity {
     private static final int GALLERY_REQUEST_CODE_BACK = 1002;
     private static final int CAMERA_REQUEST_CODE_BACK = 1003;
     private static final int ID_CAMERA_CAPTURE_REQUEST = 2000;
+    
+    private Uri currentPhotoUri;
 
     Button uploadIdPhotoButton, captureIdPhotoButton, nextButton;
     ImageView frontIdPhotoImageView, backIdPhotoImageView;
@@ -98,11 +102,7 @@ public class Verification_Page extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 pendingIsFront = true;
-                if (ContextCompat.checkSelfPermission(Verification_Page.this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-                    ActivityCompat.requestPermissions(Verification_Page.this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_CODE);
-                    return;
-                }
-                openCamera(true);
+                showImageSourceDialog(true);
             }
         });
 
@@ -111,11 +111,7 @@ public class Verification_Page extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 pendingIsFront = false;
-                if (ContextCompat.checkSelfPermission(Verification_Page.this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-                    ActivityCompat.requestPermissions(Verification_Page.this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_CODE);
-                    return;
-                }
-                openCamera(false);
+                showImageSourceDialog(false);
             }
         });
 
@@ -153,20 +149,50 @@ public class Verification_Page extends AppCompatActivity {
         });
     }
 
-    // Removed image source dialog and gallery path per requirements
+    private void showImageSourceDialog(boolean isFront) {
+        String[] options = {getString(R.string.camera), getString(R.string.gallery)};
+        
+        new AlertDialog.Builder(this)
+                .setTitle(getString(R.string.select_image_source))
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        // Take photo with camera
+                        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_CODE);
+                            return;
+                        }
+                        openCamera(isFront);
+                    } else {
+                        // Choose from gallery
+                        openGallery(isFront);
+                    }
+                })
+                .show();
+    }
 
     private void openCamera(boolean isFront) {
         try {
-            Intent intent = new Intent(this, IdCameraCapture.class);
-            intent.putExtra("isFrontSide", isFront);
-            intent.putExtra("idType", selectedIdType);
-            startActivityForResult(intent, ID_CAMERA_CAPTURE_REQUEST);
+            Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
+                // Create a file to save the image
+                File photoFile = new File(getExternalCacheDir(), "id_photo_" + System.currentTimeMillis() + ".jpg");
+                currentPhotoUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", photoFile);
+                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, currentPhotoUri);
+                
+                int requestCode = isFront ? CAMERA_REQUEST_CODE_FRONT : CAMERA_REQUEST_CODE_BACK;
+                startActivityForResult(takePictureIntent, requestCode);
+            }
         } catch (Exception e) {
             Toast.makeText(this, getString(R.string.error_opening_camera) + ": " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 
-    // Removed gallery open method
+    private void openGallery(boolean isFront) {
+        Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        intent.setType("image/*");
+        int requestCode = isFront ? GALLERY_REQUEST_CODE_FRONT : GALLERY_REQUEST_CODE_BACK;
+        startActivityForResult(intent, requestCode);
+    }
 
     private void loadExistingPhotos() {
         // Load front photo
@@ -178,7 +204,7 @@ public class Verification_Page extends AppCompatActivity {
                 Glide.with(Verification_Page.this)
                         .load(uri)
                         .diskCacheStrategy(DiskCacheStrategy.ALL)
-                        .transform(new com.bumptech.glide.load.resource.bitmap.CenterCrop())
+                        .centerCrop()
                         .into(frontIdPhotoImageView);
                 frontImageUrl = uri.toString();
                 frontIdPlaceholderText.setVisibility(View.GONE);
@@ -201,7 +227,7 @@ public class Verification_Page extends AppCompatActivity {
                 Glide.with(Verification_Page.this)
                         .load(uri)
                         .diskCacheStrategy(DiskCacheStrategy.ALL)
-                        .transform(new com.bumptech.glide.load.resource.bitmap.CenterCrop())
+                        .centerCrop()
                         .into(backIdPhotoImageView);
                 backImageUrl = uri.toString();
                 backIdPlaceholderText.setVisibility(View.GONE);
@@ -254,13 +280,25 @@ public class Verification_Page extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         
-        if (resultCode == RESULT_OK && data != null) {
-            if (requestCode == ID_CAMERA_CAPTURE_REQUEST) {
+        if (resultCode == RESULT_OK) {
+            if (requestCode == CAMERA_REQUEST_CODE_FRONT || requestCode == CAMERA_REQUEST_CODE_BACK) {
+                // Camera result
+                boolean isFront = (requestCode == CAMERA_REQUEST_CODE_FRONT);
+                if (currentPhotoUri != null) {
+                    uploadImage(currentPhotoUri, isFront);
+                }
+            } else if (requestCode == GALLERY_REQUEST_CODE_FRONT || requestCode == GALLERY_REQUEST_CODE_BACK) {
+                // Gallery result
+                boolean isFront = (requestCode == GALLERY_REQUEST_CODE_FRONT);
+                if (data != null && data.getData() != null) {
+                    Uri selectedImageUri = data.getData();
+                    uploadImage(selectedImageUri, isFront);
+                }
+            } else if (requestCode == ID_CAMERA_CAPTURE_REQUEST && data != null) {
                 String imageUrl = data.getStringExtra("imageUrl");
                 boolean isFront = data.getBooleanExtra("isFrontSide", true);
                 
                 if (imageUrl != null) {
-                    // Use the captured image directly
                     handleDirectImageCapture(imageUrl, isFront);
                 }
             }
@@ -275,7 +313,7 @@ public class Verification_Page extends AppCompatActivity {
             Glide.with(this)
                     .load(imageUrl)
                     .diskCacheStrategy(DiskCacheStrategy.ALL)
-                    .transform(new com.bumptech.glide.load.resource.bitmap.CenterCrop())
+                    .centerCrop()
                     .into(frontIdPhotoImageView);
             frontIdPlaceholderText.setVisibility(View.GONE);
             isFrontImageSelected = true;
@@ -286,7 +324,7 @@ public class Verification_Page extends AppCompatActivity {
             Glide.with(this)
                     .load(imageUrl)
                     .diskCacheStrategy(DiskCacheStrategy.ALL)
-                    .transform(new com.bumptech.glide.load.resource.bitmap.CenterCrop())
+                    .centerCrop()
                     .into(backIdPhotoImageView);
             backIdPlaceholderText.setVisibility(View.GONE);
             isBackImageSelected = true;
@@ -329,7 +367,7 @@ public class Verification_Page extends AppCompatActivity {
                             Glide.with(Verification_Page.this)
                                     .load(uri)
                                     .diskCacheStrategy(DiskCacheStrategy.ALL)
-                                    .transform(new com.bumptech.glide.load.resource.bitmap.CenterCrop())
+                                    .centerCrop()
                                     .into(frontIdPhotoImageView);
                             frontImageUrl = uri.toString();
                             frontIdPlaceholderText.setVisibility(View.GONE);
@@ -340,7 +378,7 @@ public class Verification_Page extends AppCompatActivity {
                             Glide.with(Verification_Page.this)
                                     .load(uri)
                                     .diskCacheStrategy(DiskCacheStrategy.ALL)
-                                    .transform(new com.bumptech.glide.load.resource.bitmap.CenterCrop())
+                                    .centerCrop()
                                     .into(backIdPhotoImageView);
                             backImageUrl = uri.toString();
                             backIdPlaceholderText.setVisibility(View.GONE);
@@ -387,7 +425,7 @@ public class Verification_Page extends AppCompatActivity {
                             Glide.with(Verification_Page.this)
                                     .load(uri)
                                     .diskCacheStrategy(DiskCacheStrategy.ALL)
-                                    .transform(new com.bumptech.glide.load.resource.bitmap.CenterCrop())
+                                    .centerCrop()
                                     .into(frontIdPhotoImageView);
                             frontImageUrl = uri.toString();
                             frontIdPlaceholderText.setVisibility(View.GONE);
@@ -398,7 +436,7 @@ public class Verification_Page extends AppCompatActivity {
                             Glide.with(Verification_Page.this)
                                     .load(uri)
                                     .diskCacheStrategy(DiskCacheStrategy.ALL)
-                                    .transform(new com.bumptech.glide.load.resource.bitmap.CenterCrop())
+                                    .centerCrop()
                                     .into(backIdPhotoImageView);
                             backImageUrl = uri.toString();
                             backIdPlaceholderText.setVisibility(View.GONE);

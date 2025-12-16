@@ -249,7 +249,7 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                 .format(new Date(assignmentTime));
         Log.d(TAG, "Assignment Time: " + timeStr);
         
-        tvStatus.setText("🚨 RESPONDING");
+        tvStatus.setText(getString(R.string.status_responding));
         
         // Setup button listeners
         setupButtonListeners();
@@ -487,12 +487,8 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
             Log.d(TAG, "✅ Hospital address set: " + hospitalAddress);
         }
         
-        // Display distance with AI scores
-        String distanceText = String.format("%.2f km away\nTOPSIS: %.0f%% | ML: %.0f%% | Final: %.0f%%",
-            hospital.distanceFromSenior,
-            hospital.topsisScore * 100,
-            hospital.mlScore * 100,
-            hospital.finalScore * 100);
+        // Display distance
+        String distanceText = String.format("%.2f km away", hospital.distanceFromSenior);
         tvHospitalDistance.setText(distanceText);
         Log.d(TAG, "✅ Hospital distance set: " + distanceText);
         
@@ -801,13 +797,13 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         if (hospitalName != null) {
             tvHospitalName.setText(hospitalName);
         } else {
-            tvHospitalName.setText("Hospital");
+            tvHospitalName.setText(getString(R.string.hospital_text));
         }
         
         if (hospitalAddress != null) {
             tvHospitalAddress.setText(hospitalAddress);
         } else {
-            tvHospitalAddress.setText("Address not available");
+            tvHospitalAddress.setText(getString(R.string.address_not_available_text));
         }
         
         // Display distance and ER status
@@ -858,9 +854,9 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
     }
     
     private void setDefaultHospitalInfo() {
-        tvHospitalName.setText("Hospital Information Not Available");
-        tvHospitalAddress.setText("Please contact emergency services");
-        tvHospitalDistance.setText("Distance: Unknown");
+        tvHospitalName.setText(getString(R.string.hospital_info_not_available));
+        tvHospitalAddress.setText(getString(R.string.please_contact_emergency));
+        tvHospitalDistance.setText(getString(R.string.distance_unknown));
         btnNavigateHospital.setEnabled(false);
         Log.w(TAG, "⚠️ Using default hospital info - navigation disabled");
     }
@@ -884,7 +880,7 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         // Update UI
         tvHospitalName.setText(hospitalName);
         tvHospitalAddress.setText(hospitalAddress);
-        tvHospitalDistance.setText("Distance: Test Mode");
+        tvHospitalDistance.setText(getString(R.string.distance_test_mode));
         
         // Enable button
         btnNavigateHospital.setEnabled(true);
@@ -1246,8 +1242,8 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
     
     private void calculateDistanceAndArrival() {
         if (seniorLat == 0.0 || seniorLng == 0.0 || rescuerLat == 0.0 || rescuerLng == 0.0) {
-            tvDistance.setText("Distance: Calculating...");
-            tvEstimatedArrival.setText("ETA: Calculating...");
+            tvDistance.setText(getString(R.string.distance_calculating));
+            tvEstimatedArrival.setText(getString(R.string.eta_calculating));
             return;
         }
 
@@ -1322,7 +1318,7 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
             } else {
                 // Phone number is invalid or incomplete
                 Log.w(TAG, "📱 Invalid phone number: " + seniorPhone);
-                Toast.makeText(this, "Invalid phone number: " + seniorPhone, Toast.LENGTH_LONG).show();
+                Toast.makeText(this, String.format(getString(R.string.invalid_phone_number_format), seniorPhone), Toast.LENGTH_LONG).show();
             }
         } else {
             Toast.makeText(this, getString(R.string.senior_phone_not_available), Toast.LENGTH_SHORT).show();
@@ -1347,7 +1343,7 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
     
     private void updateLocation() {
         getCurrentLocationAndCalculateArrival();
-        Toast.makeText(this, "Location updated", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, getString(R.string.location_updated), Toast.LENGTH_SHORT).show();
     }
     
     private void markDone() {
@@ -1358,9 +1354,9 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         assignmentCompleted = true;
         
         // Update status to done
-        tvStatus.setText("✅ DONE");
+        tvStatus.setText(getString(R.string.status_done));
         btnMarkDone.setEnabled(false);
-        btnMarkDone.setText("DONE");
+        btnMarkDone.setText(getString(R.string.done_text));
         
         // Clear rescuer's assignment status - they can now receive new alerts
         clearRescuerAssignmentStatus();
@@ -1371,7 +1367,10 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
         // Save SOS details to completedRescue collection
         saveRescueCompletedDetails();
         
-        Toast.makeText(this, "Status updated: Emergency response completed", Toast.LENGTH_LONG).show();
+        // Deactivate hospital notification to remove senior from incoming patient list
+        deactivateHospitalNotification();
+        
+        Toast.makeText(this, getString(R.string.status_emergency_completed), Toast.LENGTH_LONG).show();
         
         // Navigate to rescuer dashboard after completion
         navigateToRescuerDashboard();
@@ -1405,6 +1404,120 @@ public class EmergencyAssignmentActivity extends AppCompatActivity implements On
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "❌ Failed to clear assignment status: " + e.getMessage());
+                });
+    }
+    
+    /**
+     * Deactivate hospital notification to remove senior from incoming patient list
+     * This is called when the rescuer completes the assignment
+     */
+    private void deactivateHospitalNotification() {
+        if (emergencyId == null || emergencyId.isEmpty()) {
+            Log.w(TAG, "⚠️ Cannot deactivate hospital notification - emergency ID is null");
+            return;
+        }
+        
+        Log.d(TAG, "🏥 Deactivating hospital notification for emergency: " + emergencyId);
+        Log.d(TAG, "🏥 Hospital: " + hospitalName);
+        
+        // Try to find the hospital by name first
+        if (hospitalName != null && !hospitalName.isEmpty()) {
+            db.collection("Sagip")
+                    .document("users")
+                    .collection("hospital")
+                    .whereEqualTo("hospitalName", hospitalName)
+                    .get()
+                    .addOnSuccessListener(querySnapshot -> {
+                        if (!querySnapshot.isEmpty()) {
+                            String hospitalId = querySnapshot.getDocuments().get(0).getId();
+                            Log.d(TAG, "🏥 Found hospital ID: " + hospitalId);
+                            deactivateNotificationInHospital(hospitalId);
+                        } else {
+                            Log.w(TAG, "⚠️ Hospital not found by name: " + hospitalName + ", trying fallback search");
+                            deactivateNotificationFallback();
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "❌ Error finding hospital: " + e.getMessage() + ", trying fallback");
+                        deactivateNotificationFallback();
+                    });
+        } else {
+            Log.w(TAG, "⚠️ Hospital name is null, using fallback search");
+            deactivateNotificationFallback();
+        }
+    }
+    
+    /**
+     * Deactivate notification in a specific hospital
+     */
+    private void deactivateNotificationInHospital(String hospitalId) {
+        db.collection("Sagip")
+                .document("users")
+                .collection("hospital")
+                .document(hospitalId)
+                .collection("notifications")
+                .whereEqualTo("emergencyId", emergencyId)
+                .whereEqualTo("type", "EMERGENCY_INCOMING")
+                .get()
+                .addOnSuccessListener(notificationSnapshot -> {
+                    if (!notificationSnapshot.isEmpty()) {
+                        Log.d(TAG, "🏥 Found " + notificationSnapshot.size() + " notification(s) to deactivate");
+                        for (com.google.firebase.firestore.DocumentSnapshot notificationDoc : notificationSnapshot.getDocuments()) {
+                            markNotificationAsCompleted(notificationDoc);
+                        }
+                    } else {
+                        Log.w(TAG, "⚠️ No notification found in hospital " + hospitalId + " for emergency: " + emergencyId);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Error finding hospital notification: " + e.getMessage());
+                });
+    }
+    
+    /**
+     * Fallback: Search all hospitals for the notification by emergencyId
+     */
+    private void deactivateNotificationFallback() {
+        Log.d(TAG, "🔍 Fallback: Searching all hospitals for emergency: " + emergencyId);
+        
+        db.collection("Sagip")
+                .document("users")
+                .collection("hospital")
+                .get()
+                .addOnSuccessListener(hospitalsSnapshot -> {
+                    if (hospitalsSnapshot.isEmpty()) {
+                        Log.w(TAG, "⚠️ No hospitals found in database");
+                        return;
+                    }
+                    
+                    Log.d(TAG, "🔍 Searching " + hospitalsSnapshot.size() + " hospitals for notification");
+                    for (com.google.firebase.firestore.DocumentSnapshot hospitalDoc : hospitalsSnapshot.getDocuments()) {
+                        String hospitalId = hospitalDoc.getId();
+                        deactivateNotificationInHospital(hospitalId);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Failed to search hospitals: " + e.getMessage());
+                });
+    }
+    
+    /**
+     * Mark a notification document as completed
+     */
+    private void markNotificationAsCompleted(com.google.firebase.firestore.DocumentSnapshot notificationDoc) {
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("isActive", false);
+        updates.put("isRead", false);
+        updates.put("status", "completed");
+        updates.put("completedAt", System.currentTimeMillis());
+        
+        notificationDoc.getReference().update(updates)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "✅ Hospital notification deactivated successfully: " + notificationDoc.getId());
+                    Log.d(TAG, "✅ Senior " + seniorName + " removed from incoming patient list");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Failed to deactivate hospital notification: " + e.getMessage());
                 });
     }
     

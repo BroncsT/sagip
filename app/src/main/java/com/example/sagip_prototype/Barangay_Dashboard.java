@@ -717,7 +717,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
             brgyName.setText(cachedName);
             Log.d("Barangay_Dashboard", "Loaded cached barangay name: " + cachedName);
         } else {
-            brgyName.setText("Loading...");
+            brgyName.setText(getString(R.string.loading_text_simple));
             Log.d("Barangay_Dashboard", "No cached barangay name found, showing loading...");
         }
     }
@@ -838,10 +838,10 @@ public class Barangay_Dashboard extends AppCompatActivity {
                     
                     if (hospitalList.isEmpty()) {
                         Log.d("Barangay_Dashboard", "No hospitals found in Sagip/users/hospital collection");
-                        hospitalsCount.setText("No hospitals found");
+                        hospitalsCount.setText(getString(R.string.no_hospitals_found));
                     } else {
                         Log.d("Barangay_Dashboard", "Found " + hospitalList.size() + " hospitals in the app");
-                        hospitalsCount.setText(hospitalList.size() + " found");
+                        hospitalsCount.setText(String.format(getString(R.string.hospitals_found_format), hospitalList.size()));
                     }
                     
                     // Update RecyclerView
@@ -855,7 +855,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
                 })
                 .addOnFailureListener(e -> {
                     Log.e("Barangay_Dashboard", "Error loading hospitals from Sagip/users/hospital: " + e.getMessage(), e);
-                    hospitalsCount.setText("Error loading");
+                    hospitalsCount.setText(getString(R.string.error_loading_text));
                     dataLoadingInProgress = false;
                     Log.d("Barangay_Dashboard", "Data loading failed, resetting flags");
                 });
@@ -1146,6 +1146,14 @@ public class Barangay_Dashboard extends AppCompatActivity {
                 Log.d("Barangay_Dashboard", " Senior coordinates - Lat: " + seniorLatitude + ", Long: " + seniorLongitude);
                 Log.d("Barangay_Dashboard", " Current location: " + currentLocation);
                 
+                // Stop any playing sound from background service when notification is clicked
+                try {
+                    BarangayForegroundService.stopEmergencySound();
+                    Log.d("Barangay_Dashboard", "Background service sound stopped on notification click");
+                } catch (Exception e) {
+                    Log.e("Barangay_Dashboard", "Error stopping service sound: " + e.getMessage());
+                }
+                
                 // Show emergency alert dialog
                 showEmergencyAlert(seniorName, seniorPhone, locationAddress, barangay, requestId, emergencyType, seniorLatitude, seniorLongitude, currentLocation);
                 
@@ -1203,6 +1211,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
         
         // Call Senior button
         builder.setPositiveButton(getString(R.string.barangay_emergency_action_call), (dialog, which) -> {
+            stopEmergencyAlerts();
             if (seniorPhone != null && !seniorPhone.isEmpty()) {
                 try {
                     Intent callIntent = new Intent(Intent.ACTION_DIAL);
@@ -1220,6 +1229,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
         
         // View Details button - opens SeniorSOSDetailsActivity with navigation
         builder.setNegativeButton(getString(R.string.barangay_emergency_action_view), (dialog, which) -> {
+            stopEmergencyAlerts();
             // Open Senior SOS Details Activity with all emergency information
             Intent detailsIntent = new Intent(this, SeniorSOSDetailsActivity.class);
             detailsIntent.putExtra(SeniorSOSDetailsActivity.EXTRA_SENIOR_NAME, seniorName);
@@ -1382,6 +1392,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
         builder.setCancelable(false);
 
         builder.setPositiveButton(getString(R.string.barangay_emergency_action_call), (d, w) -> {
+            stopEmergencyAlerts();
             if (seniorPhone != null && !seniorPhone.isEmpty()) {
                 startActivity(new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + seniorPhone)));
             }
@@ -1390,6 +1401,7 @@ public class Barangay_Dashboard extends AppCompatActivity {
         final Double lat = seniorLatitude, lng = seniorLongitude;
         final String loc = currentLocation;
         builder.setNegativeButton(getString(R.string.barangay_emergency_action_view), (d, w) -> {
+            stopEmergencyAlerts();
             Intent i = new Intent(this, SeniorSOSDetailsActivity.class);
             i.putExtra(SeniorSOSDetailsActivity.EXTRA_SENIOR_NAME, seniorName);
             i.putExtra(SeniorSOSDetailsActivity.EXTRA_SENIOR_PHONE, seniorPhone);
@@ -1405,7 +1417,10 @@ public class Barangay_Dashboard extends AppCompatActivity {
         });
 
         AlertDialog dialog = builder.create();
-        dialog.setOnDismissListener(di -> currentEmergencyDialog = null);
+        dialog.setOnDismissListener(di -> {
+            stopEmergencyAlerts();
+            currentEmergencyDialog = null;
+        });
         dialog.show();
         currentEmergencyDialog = dialog;
         
@@ -1428,6 +1443,37 @@ public class Barangay_Dashboard extends AppCompatActivity {
                 }
             }
         } catch (Exception e) { Log.e("Barangay_Dashboard", "Vibrate error: " + e.getMessage()); }
+    }
+    
+    /**
+     * Stop emergency sound and vibration alerts
+     */
+    private void stopEmergencyAlerts() {
+        // Stop dashboard sound with immediate mute
+        if (emergencyMediaPlayer != null) {
+            try {
+                emergencyMediaPlayer.setVolume(0.0f, 0.0f);
+                if (emergencyMediaPlayer.isPlaying()) {
+                    emergencyMediaPlayer.stop();
+                }
+                emergencyMediaPlayer.reset();
+                emergencyMediaPlayer.release();
+            } catch (Exception e) {
+                Log.e("Barangay_Dashboard", "Error stopping sound: " + e.getMessage());
+            }
+            emergencyMediaPlayer = null;
+        }
+        // Stop background service sound
+        try {
+            BarangayForegroundService.stopEmergencySound();
+        } catch (Exception e) {
+            Log.e("Barangay_Dashboard", "Error stopping service sound: " + e.getMessage());
+        }
+        // Stop vibration
+        if (vibrator != null) {
+            vibrator.cancel();
+        }
+        Log.d("Barangay_Dashboard", "Emergency alerts stopped");
     }
     
     /**

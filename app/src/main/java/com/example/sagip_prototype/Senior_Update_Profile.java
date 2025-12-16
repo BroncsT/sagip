@@ -136,10 +136,6 @@ public class Senior_Update_Profile extends AppCompatActivity {
         String mobileNum = mobileNumberInput.getText().toString().trim();
         String email = emailInput.getText().toString().trim();
 
-        if (mobileNum.isEmpty() || selectedBarangay.isEmpty() || selectedBarangay.equals("BARANGAY")) {
-            Toast.makeText(this, getString(R.string.error_fill_all_fields_select_barangay), Toast.LENGTH_SHORT).show();
-            return;
-        }
 
         // Check if mobile number has changed
         boolean mobileNumberChanged = !mobileNum.equals(originalMobileNumber);
