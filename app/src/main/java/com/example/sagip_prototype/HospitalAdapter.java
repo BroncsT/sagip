@@ -120,7 +120,7 @@ public class HospitalAdapter extends RecyclerView.Adapter<HospitalAdapter.Hospit
                 hospitalAddressText.setVisibility(View.VISIBLE);
                 hospitalContactText.setVisibility(View.VISIBLE);
                 hospitalStatusText.setVisibility(View.VISIBLE);
-                hospitalBedsText.setVisibility(View.VISIBLE);
+                hospitalBedsText.setVisibility(View.GONE);
                 
                 // Set hospital name
                 hospitalNameText.setText(hospital.getHospitalName() != null ? hospital.getHospitalName() : itemView.getContext().getString(R.string.unknown_hospital));
@@ -142,8 +142,9 @@ public class HospitalAdapter extends RecyclerView.Adapter<HospitalAdapter.Hospit
                     hospitalStatusText.setTextColor(itemView.getContext().getResources().getColor(R.color.gray));
                 }
 
-                // Set bed capacity
-                hospitalBedsText.setText(hospital.getBedStatus());
+                // Set bed capacity (hidden)
+                // hospitalBedsText.setText(hospital.getBedStatus());
+                hospitalBedsText.setVisibility(View.GONE);
 
                 // Set specialization
                 if (hospital.getSpecialization() != null && !hospital.getSpecialization().isEmpty()) {

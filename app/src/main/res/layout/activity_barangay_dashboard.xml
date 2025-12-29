@@ -117,7 +117,7 @@
     <androidx.cardview.widget.CardView
         android:id="@+id/seniorCountCard"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
         android:layout_marginTop="10dp"
         android:layout_marginEnd="5dp"
         app:cardCornerRadius="6dp"
@@ -125,11 +125,12 @@
         app:cardBackgroundColor="@color/offwhite"
         app:layout_constraintStart_toStartOf="@id/guidelineVertical1v2"
         app:layout_constraintEnd_toEndOf="@id/guidelineVertical3v2"
-        app:layout_constraintTop_toBottomOf="@id/locationCard">
+        app:layout_constraintTop_toBottomOf="@id/locationCard"
+        app:layout_constraintBottom_toBottomOf="@id/hospitalsCard">
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:gravity="center_horizontal"
             android:orientation="vertical"
             android:padding="10dp">
@@ -150,6 +151,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/total_registered_seniors"
+                    android:textAlignment="center"
                     android:textColor="@color/black"
                     android:textSize="13sp" />
 
@@ -204,7 +206,9 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:maxLines="1"
                     android:text="@string/nearby_hospitals_facilities"
+                    android:textAlignment="center"
                     android:textColor="@color/black"
                     android:textSize="13sp" />
 

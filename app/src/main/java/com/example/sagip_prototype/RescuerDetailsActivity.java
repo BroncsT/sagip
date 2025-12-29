@@ -60,7 +60,7 @@ public class RescuerDetailsActivity extends AppCompatActivity {
     // UI Elements
     private TextView tvRescuerName, tvRescuerTeam, tvRescuerPhone;
     private TextView tvETA, tvDistance, tvLastUpdate, tvStatus, tvETAStatus;
-    private Button btnCallRescuer;
+    private Button btnCallRescuer, btnTextRescuer;
     private ProgressBar loadingIndicator;
     
 
@@ -249,10 +249,12 @@ public class RescuerDetailsActivity extends AppCompatActivity {
         tvStatus = findViewById(R.id.tvStatus);
         tvETAStatus = findViewById(R.id.tvETAStatus);
         btnCallRescuer = findViewById(R.id.btnCallRescuer);
+        btnTextRescuer = findViewById(R.id.btnTextRescuer);
         loadingIndicator = findViewById(R.id.loadingIndicator);
 
         // Set up click listeners
         btnCallRescuer.setOnClickListener(v -> callRescuer());
+        btnTextRescuer.setOnClickListener(v -> textRescuer());
         
         // Set up window insets handling for titlehead
         setupWindowInsets();
@@ -833,6 +835,16 @@ public class RescuerDetailsActivity extends AppCompatActivity {
             } else {
                 ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CALL_PHONE}, 1);
             }
+        } else {
+            Toast.makeText(this, getString(R.string.rescuer_phone_not_available), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void textRescuer() {
+        if (rescuerPhone != null && !rescuerPhone.equals("Not available")) {
+            Intent smsIntent = new Intent(Intent.ACTION_SENDTO);
+            smsIntent.setData(Uri.parse("smsto:" + rescuerPhone));
+            startActivity(smsIntent);
         } else {
             Toast.makeText(this, getString(R.string.rescuer_phone_not_available), Toast.LENGTH_SHORT).show();
         }

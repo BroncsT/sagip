@@ -139,6 +139,7 @@
                 android:textSize="@dimen/text_size_small"
                 android:fontFamily="sans-serif"
                 android:layout_marginTop="@dimen/spacing_small"
+                android:visibility="gone"
                 app:autoSizeTextType="none" />
 
         </LinearLayout>
