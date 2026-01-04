@@ -970,7 +970,7 @@
     <string name="pending_status">⏳ Pending</string>
     <string name="rescuer_coming_message">Your rescuer is on the way to help you!</string>
     <string name="view_details_button">📋 VIEW DETAILS</string>
-    <string name="call_rescuer_button">📞 CALL RESCUER</string>
+    <string name="call_rescuer_button"> CALL RESCUER</string>
 
     <!-- Hospital List Hardcoded Strings -->
     <string name="no_hospitals_found">No hospitals found</string>
@@ -1019,7 +1019,7 @@
     <string name="test_eta_button">Test ETA</string>
     <string name="check_db_button">Check DB</string>
     <string name="force_eta_button">Force ETA</string>
-    <string name="call_rescuer_button_text">📞 Call Rescuer</string>
+    <string name="call_rescuer_button_text"> Call Rescuer</string>
     <string name="refresh_eta_button">🔄 Refresh ETA</string>
 
     <!-- Hospital Dashboard Hardcoded Strings -->

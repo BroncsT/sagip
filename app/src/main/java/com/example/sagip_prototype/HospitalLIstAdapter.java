@@ -85,7 +85,7 @@ public class HospitalLIstAdapter extends RecyclerView.Adapter<HospitalLIstAdapte
             hospitalStatusText.setTextColor(hospital.getStatusColor());
 
             // Set bed capacity
-            String bedInfo = hospital.getAvailableBeds() + "/" + hospital.getTotalBeds() + " beds";
+            String bedInfo = hospital.getAvailableBeds() + " beds";
             hospitalBedsText.setText(bedInfo);
 
             // Set specialization or senior information

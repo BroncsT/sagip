@@ -37,7 +37,7 @@ public class HospitalAdapter extends RecyclerView.Adapter<HospitalAdapter.Hospit
     @Override
     public void onBindViewHolder(@NonNull HospitalViewHolder holder, int position) {
         Hospital hospital = hospitals.get(position);
-        holder.bind(hospital, listener, position + 1); // Pass position + 1 for 1-based numbering
+        holder.bind(hospital, listener);
     }
 
     @Override
@@ -55,10 +55,10 @@ public class HospitalAdapter extends RecyclerView.Adapter<HospitalAdapter.Hospit
         private TextView hospitalNameText;
         private TextView hospitalAddressText;
         private TextView hospitalContactText;
+        private TextView hospitalEmailText;
         private TextView hospitalStatusText;
         private TextView hospitalBedsText;
         private TextView hospitalSpecializationText;
-        private TextView queueNumberText;
 
         public HospitalViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -69,67 +69,61 @@ public class HospitalAdapter extends RecyclerView.Adapter<HospitalAdapter.Hospit
             hospitalStatusText = itemView.findViewById(R.id.hospitalStatusText);
             hospitalBedsText = itemView.findViewById(R.id.hospitalBedsText);
             hospitalSpecializationText = itemView.findViewById(R.id.hospitalSpecializationText);
-            queueNumberText = itemView.findViewById(R.id.queueNumberText);
         }
 
-        public void bind(Hospital hospital, OnHospitalClickListener listener, int queueNumber) {
+        public void bind(Hospital hospital, OnHospitalClickListener listener) {
             // Check if there's an incoming emergency
             if (hospital.getHasIncomingEmergency() != null && hospital.getHasIncomingEmergency()) {
                 // EMERGENCY MODE: Show only senior information (no hospital name)
-                
-                // Hide queue number for incoming patients
-                if (queueNumberText != null) {
-                    queueNumberText.setVisibility(View.GONE);
-                }
-                
+
                 // Hide all hospital details including hospital name
                 hospitalNameText.setVisibility(View.GONE);
                 hospitalAddressText.setVisibility(View.GONE);
                 hospitalContactText.setVisibility(View.GONE);
+                hospitalEmailText.setVisibility(View.GONE);
                 hospitalStatusText.setVisibility(View.GONE);
                 hospitalBedsText.setVisibility(View.GONE);
-                
+
                 // Show senior information for incoming emergency
                 String seniorInfo = itemView.getContext().getString(R.string.incoming_emergency) + "\n";
-                seniorInfo += itemView.getContext().getString(R.string.senior_emoji) + " " + itemView.getContext().getString(R.string.senior_label_colon) + " " + 
-                             (hospital.getSeniorName() != null ? hospital.getSeniorName() : itemView.getContext().getString(R.string.unknown)) + "\n";
-                seniorInfo += itemView.getContext().getString(R.string.phone_emoji) + " " + itemView.getContext().getString(R.string.senior_phone_label) + " " + 
-                             (hospital.getSeniorPhone() != null ? hospital.getSeniorPhone() : itemView.getContext().getString(R.string.not_available_short)) + "\n";
-                seniorInfo += itemView.getContext().getString(R.string.rescuer_emoji) + " " + itemView.getContext().getString(R.string.rescuer_label_colon) + " " + 
-                             (hospital.getRescuerName() != null ? hospital.getRescuerName() : itemView.getContext().getString(R.string.unknown)) + "\n";
+                seniorInfo += itemView.getContext().getString(R.string.senior_emoji) + " " + itemView.getContext().getString(R.string.senior_label_colon) + " " +
+                        (hospital.getSeniorName() != null ? hospital.getSeniorName() : itemView.getContext().getString(R.string.unknown)) + "\n";
+                seniorInfo += itemView.getContext().getString(R.string.phone_emoji) + " " + itemView.getContext().getString(R.string.senior_phone_label) + " " +
+                        (hospital.getSeniorPhone() != null ? hospital.getSeniorPhone() : itemView.getContext().getString(R.string.not_available_short)) + "\n";
+                seniorInfo += itemView.getContext().getString(R.string.rescuer_emoji) + " " + itemView.getContext().getString(R.string.rescuer_label_colon) + " " +
+                        (hospital.getRescuerName() != null ? hospital.getRescuerName() : itemView.getContext().getString(R.string.unknown)) + "\n";
                 if (hospital.getEstimatedArrivalMinutes() != null) {
-                    seniorInfo += itemView.getContext().getString(R.string.eta_emoji) + " " + itemView.getContext().getString(R.string.eta_label) + " " + 
-                                 String.format("%.1f", hospital.getEstimatedArrivalMinutes()) + " " + itemView.getContext().getString(R.string.minutes_abbreviation);
+                    seniorInfo += itemView.getContext().getString(R.string.eta_emoji) + " " + itemView.getContext().getString(R.string.eta_label) + " " +
+                            String.format("%.1f", hospital.getEstimatedArrivalMinutes()) + " " + itemView.getContext().getString(R.string.minutes_abbreviation);
                 }
-                
+
                 hospitalSpecializationText.setText(seniorInfo);
                 hospitalSpecializationText.setVisibility(View.VISIBLE);
-                hospitalSpecializationText.setTextColor(itemView.getContext().getResources().getColor(R.color.black));
+                hospitalSpecializationText.setTextColor(itemView.getContext().getResources().getColor(R.color.emergency_red));
                 hospitalSpecializationText.setTextSize(12);
-                
+
             } else {
                 // NORMAL MODE: Show all hospital details
-                
-                // Hide queue number for normal mode
-                if (queueNumberText != null) {
-                    queueNumberText.setVisibility(View.GONE);
-                }
-                
+
                 // Show all hospital details including hospital name
                 hospitalNameText.setVisibility(View.VISIBLE);
                 hospitalAddressText.setVisibility(View.VISIBLE);
                 hospitalContactText.setVisibility(View.VISIBLE);
+                hospitalEmailText.setVisibility(View.VISIBLE);
                 hospitalStatusText.setVisibility(View.VISIBLE);
-                hospitalBedsText.setVisibility(View.GONE);
-                
+                hospitalBedsText.setVisibility(View.VISIBLE);
+
                 // Set hospital name
                 hospitalNameText.setText(hospital.getHospitalName() != null ? hospital.getHospitalName() : itemView.getContext().getString(R.string.unknown_hospital));
-                
+
                 // Set address
                 hospitalAddressText.setText(hospital.getAddress() != null ? hospital.getAddress() : itemView.getContext().getString(R.string.address_not_available));
 
                 // Set contact number
                 hospitalContactText.setText(hospital.getContactNumber() != null ? hospital.getContactNumber() : itemView.getContext().getString(R.string.contact_not_available));
+
+                // Set email
+                hospitalEmailText.setText(hospital.getEmail() != null ? hospital.getEmail() : itemView.getContext().getString(R.string.email_not_available));
 
                 // Set status with color coding
                 String status = hospital.getStatusDisplay();
@@ -142,9 +136,8 @@ public class HospitalAdapter extends RecyclerView.Adapter<HospitalAdapter.Hospit
                     hospitalStatusText.setTextColor(itemView.getContext().getResources().getColor(R.color.gray));
                 }
 
-                // Set bed capacity (hidden)
-                // hospitalBedsText.setText(hospital.getBedStatus());
-                hospitalBedsText.setVisibility(View.GONE);
+                // Set bed capacity
+                hospitalBedsText.setText(hospital.getBedStatus());
 
                 // Set specialization
                 if (hospital.getSpecialization() != null && !hospital.getSpecialization().isEmpty()) {
